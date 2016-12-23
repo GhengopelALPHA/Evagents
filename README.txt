@@ -40,7 +40,27 @@ When finished, build the solution in either Debug or Release configuration, depe
 ========================================================================================================================
 
 COMMON USAGE:
-See README.txt in the download for details
+(for compiled builds and .exe users)
+
+To run Evagents you will need:
++ Microsoft Windows
+
+Open the Evagents.exe by double-clicking, as usual.
+
+Once running, hit 'm' to activate "fast mode" (and not draw). Speed can also be controlled with + and -. Use mouse to 
+pan (left-click and drag) and zoom (middle-click and drag). Agents can be selected and deselected by clicking on them.
+Press 'f' to follow selected. 'o' to auto-select the oldest agent, 'g' the best generation, and 'h' for healthiest.
+'wasd' controls the selected agent, '/' heals it, '|' (shift+'\') reproduces it, 'delete' kills it, 'spacebar' gives input
+
+Agents will flash events with colors and sizes depending on what's happening to them. Here is a quick key:
+Green event: Agent reproduced asexually. There should now be some babies around that look and behave like the parent
+Grey: Agent was just born into the world.
+Dark Blue: Agent sexually reproduced with another nearby agent, also flashing blue. The children nearby are a crossover
+Purple: The agent just experienced a mutation event unrelated to reproduction mutations, and may behave differently
+Light-Blue: Agent just collided and took damage while bouncing away from the other agent. Size proportional to damage
+Yellow: Agent used its jaws to bite another agent. Size proportional to damage dealt
+Orange: Agent used its spike to stab another agent. Size proportional to damage dealt
+Red: Agent used either its spike or jaws to kill another agent.
 
 ========================================================================================================================
 
