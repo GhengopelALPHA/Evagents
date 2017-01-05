@@ -120,12 +120,16 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="2"
+				Optimization="3"
+				InlineFunctionExpansion="0"
 				EnableIntrinsicFunctions="true"
-				RuntimeLibrary="2"
+				FavorSizeOrSpeed="1"
+				EnableFiberSafeOptimizations="true"
+				PreprocessorDefinitions="WIN32;_WINDOWS;NDEBUG;"
+				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
-				DebugInformationFormat="3"
+				DebugInformationFormat="0"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -138,7 +142,14 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				GenerateDebugInformation="true"
+				LinkLibraryDependencies="false"
+				AdditionalDependencies="$(NOINHERIT) kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib opengl32.lib glut32.lib glu32.lib LIBCMT.lib"
+				Version="0.0"
+				LinkIncremental="0"
+				IgnoreAllDefaultLibraries="false"
+				IgnoreDefaultLibraryNames="msvcprt;MSVCP90;MSVCRT.lib"
+				GenerateDebugInformation="false"
+				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
 				TargetMachine="1"
