@@ -2,7 +2,7 @@
 using namespace std;
 
 
-DRAWSBox::DRAWSBox(int numboxes)
+DRAWSBox::DRAWSBox(int maxid)
 {
 
 	w.resize(CONNS,0);
@@ -11,21 +11,21 @@ DRAWSBox::DRAWSBox(int numboxes)
 
 	//constructor
 	for (int i=0;i<CONNS;i++) {
-		w[i]= randf(-10,10);
-		if(randf(0,1)<conf::BRAIN_DEADCONNS) w[i]=0; //we might want to simulate brain development over time, so set some conns to zero weight
+		if(randf(0,1)<conf::BRAIN_DEADCONNS) w[i]=0; //we want to simulate brain development over time, so set some conns to zero weight
+		else w[i]= randn(0,2);
 		
-		id[i]= randi(0,numboxes);
-		if (randf(0,1)<conf::BRAIN_DIRECTINPUT) id[i]= randi(0,Input::INPUT_SIZE); //connect a portion of the brain directly to input.
-		
+		if (randf(0,1)<conf::BRAIN_DIRECTINPUTS) id[i]= randi(0,Input::INPUT_SIZE); //connect a portion of the brain directly to input.
+		else id[i]= randi(0,maxid);
+
 		type[i]= 0;
 		if(randf(0,1)<conf::BRAIN_CHANGECONNS) type[i] = 1; //some conns can be change sensitive synapses
-		if(randf(0,1)<conf::BRAIN_MEMCONN) type[i] = 2; //some conns can be memory synapses
+		if(randf(0,1)<conf::BRAIN_MEMCONNS) type[i] = 2; //some conns can be memory synapses
 	}
 
 	seed= 0;
 	kp= randf(0.01,1);
 	gw= randf(-2,2);
-	bias= randf(-1,1);
+	bias= randf(-10,10);
 
 	out= 0;
 	oldout= 0;
@@ -37,12 +37,9 @@ DRAWSBrain::DRAWSBrain(int numboxes)
 	//constructor
 	// do not OMP!!!
 	for (int i=0;i<numboxes;i++) {
-		DRAWSBox a = DRAWSBox(numboxes); //make a random box and copy it over
+		DRAWSBox a = DRAWSBox(i+1); //make a random box and copy it over
 		boxes.push_back(a);
-		}
-
-	//do other initializations
-	init();
+	}
 }
 
 DRAWSBrain::DRAWSBrain(const DRAWSBrain& other)
@@ -57,12 +54,6 @@ DRAWSBrain& DRAWSBrain::operator=(const DRAWSBrain& other)
 	return *this;
 }
 
-
-void DRAWSBrain::init()
-{
-
-}
-
 void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 {
 	//do a single tick of the brain
@@ -71,8 +62,8 @@ void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 		
 		if (j<Input::INPUT_SIZE) { //take first few boxes and set their out to in[]. (no need to do these separately, since thay are first)
 			abox->out= in[j];
-		} else { //then do a dynamics tick and set all targets
-			float acc=abox->bias;
+		} else { //then do a dynamics tick
+			float acc= abox->bias; //start with bias of box
 
 			for (int k=0;k<CONNS;k++) {
 				int idx=abox->id[k];
@@ -100,7 +91,8 @@ void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 			//put through sigmoid
 			acc= 1.0/(1.0+exp(-acc));
 			
-			abox->target= cap(acc);
+			//apply as target
+			abox->target= acc;
 		}
 	}
 	
@@ -111,7 +103,7 @@ void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 		//back up current out for each box
 		abox->oldout = abox->out;
 
-		//make all boxes go a bit toward target
+		//make all boxes go a bit toward target, with dampening applied
 		if (j>=Input::INPUT_SIZE) abox->out+= (abox->target-abox->out)*abox->kp;
 	}
 
@@ -123,12 +115,11 @@ void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 	}
 }
 
-float DRAWSBrain::getActivity()
+float DRAWSBrain::getActivity() const
 {
 	float sum= 0;
-	for (int j=0; j<(int)boxes.size(); j++){
-		DRAWSBox* abox= &boxes[j];
-		sum+= fabs(abox->out - abox->oldout);
+	for (int j=Input::INPUT_SIZE; j<(int)boxes.size(); j++){
+		sum+= fabs(boxes[j].out - boxes[j].oldout);
 	}
 	return sum/boxes.size();
 }
@@ -136,9 +127,9 @@ float DRAWSBrain::getActivity()
 void DRAWSBrain::initMutate(float MR, float MR2)
 {
 	//for mutations which may occur at conception
-	for (int j=0; j<(int)boxes.size(); j++){
+	for (int j=Input::INPUT_SIZE; j<(int)boxes.size(); j++){
 		DRAWSBox* abox= &boxes[j];
-		if (randf(0,1)<MR/50) {
+		if (randf(0,1)<MR/30) {
 			//randomize synapse type
 			int rc= randi(0, CONNS);
 			abox->type[rc] = randi(0,2);
@@ -146,7 +137,42 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			abox->seed= 0;
 		}
 
-		if (randf(0,1)<MR/40) {
+		if (randf(0,1)<MR/25) {
+			//branch box (sets a conn to reference a box which refers the same as another conn's box's references)
+			//eg: [j]
+			//    / \+create this conn
+			//  [b1][bt]
+			//    \ /
+			//    [b2]
+			//pick random conns
+			int c1= randi(0,CONNS); //j's conn to b1
+			int b1= abox->id[c1];
+			int c2= randi(0,CONNS); //b1's conn to b2
+			int b2= boxes[b1].id[c2];
+
+			int bt= -1;
+			//scan boxes...
+			for (int b=0; b<(int)boxes.size(); b++){
+				if(b==j || b==b1 || b==b2) continue;
+				
+				for (int k=0;k<CONNS;k++) {
+					if(boxes[b].id[k]==b2){
+						bt= b2;
+						break;
+						break;
+					}
+				}
+			}
+			if(bt>=0){
+				int ct= c1;
+				while(ct==c1) ct= randi(0, CONNS);
+				abox->id[ct]= bt;
+//				a2.mutations.push_back("box branched\n");
+				abox->seed= 0;
+			}
+		}
+
+		if (randf(0,1)<MR/10) {
 			//copy box
 			int k= randi(0,boxes.size());
 			if(k!=j) {
@@ -161,7 +187,7 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			}
 		}
 
-		if (randf(0,1)<MR/20) {
+		if (randf(0,1)<MR/5) {
 			//randomize connection
 			int rc= randi(0, CONNS);
 			int ri= randi(0,boxes.size());
@@ -170,7 +196,7 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			abox->seed= 0;
 		}
 
-		if (randf(0,1)<MR/10) {
+		if (randf(0,1)<MR/4) {
 			//swap two input sources
 			int rc1= randi(0, CONNS);
 			int rc2= randi(0, CONNS);
@@ -178,6 +204,15 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			abox->id[rc1]= abox->id[rc2];
 			abox->id[rc2]= temp;
 //			 a2.mutations.push_back("inputs swapped\n");
+			abox->seed= 0;
+		}
+
+		if (randf(0,1)<MR/3) {
+			//mirror an input weight
+			int rc1= randi(0, CONNS);
+			int rc2= randi(0, CONNS);
+			abox->w[rc1]= -abox->w[rc2];
+//			 a2.mutations.push_back("input mirrored\n");
 			abox->seed= 0;
 		}
 
@@ -199,7 +234,7 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			if (abox->kp>1) abox->kp=1;
 		}
 
-		if (randf(0,1)<MR) {
+		if (randf(0,1)<MR*2) {
 			//jiggle weight
 			int rc= randi(0, CONNS);
 			abox->w[rc]+= randn(0, MR2*5);
@@ -210,7 +245,7 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 {
 	//for mutations which may occur while the bot is live
-	int j= randi(0,boxes.size());
+	int j= randi(Input::INPUT_SIZE,boxes.size());
 	DRAWSBox* abox= &boxes[j];
 
 	if (randf(0,1)<MR) {
@@ -218,10 +253,13 @@ void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 		int rc= randi(0, CONNS);
 		int b= -1;
 		while (b<=-1){
-			b-= 1;
 			int rb= randi(0,boxes.size());
-			if (abs(boxes[rb].oldout-abox->out)<=0.01) b= rb;
+			if (abs(boxes[rb].oldout-abox->out)<=0.01) {
+				b= rb;
+				break;
+			}
 			if (b<=-100) break;
+			b-= 1;
 		}
 		if (b>=0){
 			abox->id[rc]= b;
@@ -229,14 +267,14 @@ void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 		}
 	}
 
-	if (randf(0,1)<MR) {
+	if (randf(0,1)<MR && conf::LEARNRATE>0) {
 		//stimulate box weight
 		float stim= out[Output::STIMULANT];
 		if(stim>0.5){
 			for (int k=0;k<CONNS;k++) {
-				//modify weights based on matching old output and new input, if stimulant is active
-				float val= boxes[abox->id[k]].out;
-				abox->w[k]+= conf::LEARNRATE*stim*(abox->oldout-(1-val));
+				//modify weights based on matching old output and old input, if stimulant is active
+				float oldin= boxes[abox->id[k]].oldout;
+				abox->w[k]+= conf::LEARNRATE*stim*(abox->oldout-(1-oldin));
 			}
 		}
 //		abox->seed= 0;
@@ -266,7 +304,7 @@ DRAWSBrain DRAWSBrain::crossover(const DRAWSBrain& other)
 	DRAWSBrain newbrain(*this);
 	
 	#pragma omp parallel for
-	for (int i=0; i<(int)newbrain.boxes.size(); i++){
+	for (int i=Input::INPUT_SIZE; i<(int)newbrain.boxes.size(); i++){
 		if(i>=other.boxes.size()) continue; //hack: skip all the other brain's boxes if newbrain is smaller
 		//this brings me to an important question regarding brain mutations. How should we manage mis-matching brains?
 		//should we add new boxes from the larger, or forget them? If we add them, should they be added to the front? to the back?
@@ -302,5 +340,72 @@ DRAWSBrain DRAWSBrain::crossover(const DRAWSBrain& other)
 		}
 	}
 	return newbrain;
+}
+
+std::vector<int> DRAWSBrain::traceBack(int outback)
+{
+	std::vector<int> inputs; //list of boxes which effect our Output of Interest
+	std::vector<int> todos; //list of boxes still need to check
+	std::vector<int> diddos; //list of boxes done. Continually sorted
+
+	//if bad data, break
+	if(outback<0 || outback>=Output::OUTPUT_SIZE) {
+		printf("bad trace value passed\n");
+		return inputs;
+	}
+
+	int nowtrace= boxes.size()-1-outback;
+	int tries= 0;
+	//give us a natural stopping point with # tries
+	while(tries<100) {
+		tries++;
+
+		//for every connection of the current tracing box,
+		for (int k=0;k<CONNS;k++) {
+			//make sure we didn't already check it earlier
+			if (std::binary_search (diddos.begin(), diddos.end(), boxes[nowtrace].id[k])) continue;
+			
+			//check if the connection is strong enough to count
+			if(fabs(boxes[nowtrace].w[k])>tries*conf::BRAIN_TRACESTRENGTH) {//'tries' comes in to enforce getting the intended overall trace strength
+				
+				//next, see if it references an input.
+				if(boxes[nowtrace].id[k]<Input::INPUT_SIZE) {
+					//if it does, need to make sure we didn't already find this one, and therefore skip list-making
+					for (int i=0; i<inputs.size(); i++) {
+						if(inputs[i]==boxes[nowtrace].id[k]) {
+							break;
+							continue;
+						}
+					}
+
+					//if we didn't continue, we didn't find our input listed. Add it!
+					inputs.push_back(boxes[nowtrace].id[k]);
+
+					//check if we have put every input on the input list, end early (or right on time!)
+					if(inputs.size()==Input::INPUT_SIZE) {
+						break;
+						break;
+					}
+				}
+
+				//if we did not reference an input, add it to the to-do list
+				else todos.push_back(boxes[nowtrace].id[k]);
+				//regardless, we checked the box and can skip it later.
+				diddos.push_back(boxes[nowtrace].id[k]);
+				std::sort (diddos.begin(), diddos.end()); //sort our list so we can use binary_search above
+			}
+		}
+
+		//after checking our current connections, we must check if we have anything on the to-do list
+		if(todos.size()!=0) {
+			//pick the next box to check, and remove from to-do
+			nowtrace= todos[todos.size()-1];
+			todos.pop_back();
+		} else break;
+	}
+
+	if(todos.size()>0) printf("we had %d nodes left to try before giving up\n", todos.size());
+
+	return inputs;
 }
 

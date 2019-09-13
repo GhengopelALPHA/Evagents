@@ -1,10 +1,8 @@
 #ifndef READWRITE_H
 #define READWRITE_H
 
-#include "Agent.h"
 #include "World.h"
 #include <stdio.h>
-#include "settings.h"
 
 class ReadWrite
 {

@@ -1,0 +1,482 @@
+September 2019
+Evagents v0.04:
+
+Known bugs:
+* when loading a saved world, achievements such as "first population" are re-triggered if they happened before save
+  * Unsure how to handle. I guess saving achievements should become a thing? I'm hesitant.
+
+World & Simulation:
++ The Great Terrain Diversifiation, Step 1: LAND layer is now known as "ELEVATION" and has had multiple changes:
+  + Introduced Beaches: Value of 0.5, spawns where land contacts water (not every cell). Perfect for amphibians. Visually yellow
+  + Introduced Mountains: old land val,=1, unchanged otherwise. World is seeded with # of regions= CONTINENTS, visually white
+  + Introduced Hills & Highlands: =0.9, 0.8, & 0.7: unchanged land tiles, but with lung requirements respective to their values
+  + Introduced Plains: value 0.6: unchanged land tiles also, but notibly generates as a large portion of the land area
+  * Water is unchanged, still represented by a value of 0. Values 0.1 thru 0.4 unused at this time (will consider deep-sea later)
+  ~ Intensified health penalty for having wrong lungs
+  ~ New setting allows disabling of all land spawns of new agents (see note below in the New Configurable Settings section)
+  ~ Water smell has been changed enough so that only water cells (<0.5) are counted
+  * This is only step 1, and more features are planned!
++ Introduced Drought and Overgrowth Events: if enabled in settings.cfg or the GUI, every epoch, a new variable is randomized
+  This variable effects plant growth, both the spread rate and the growth rate from hazard/waste
+  + New Event messages display if the value goes too far from 1.0, called a Drought if <0.85, and Overgrowth if >1.15
+  + Limits placed on this value, gets reset near 1.0 if it goes beyond. Settings.cfg-able (see below)
++ Introduced Live Mutation chance doubling or trippling Events: if enabled in settings.cfg or the GUI, every epoch, there is a 
+  8.333_% chance that mutations will occur 2* as often, and 8.333_% chance it will occur 3*
+  + New Event messages for these pre-determined multiplier values (*2 and *3). Any custom values will get generic message
+  + Limits to this value are [0,MUTEVENT_MAX], a settings.cfg-able value.
+    *Note: this setting is unique: positive values enable all levels of multiplication below the input number, =1 effectively
+     disables the mechanic, but 0 and negative values introduce the possibility of epochs with NO live mutation with 50/50 chance 
+     or less, depending on larger negative values which decrease the chance of the normal mutation rate event even further.
++ The Init of the World now behaves differently to induce species spawn:
+  + Spawns 100 at init, a mix of frugivores and herbivores only
+  ~ Carnivores will not be spawned in first epoch (=0)
+  ~ "Population Bust!" messages now will not display during the first epoch
++ New Configurable Settings:
+  + DISABLE_LAND_SPAWN: will prevent any agents from spawning on land tiles while true. Default true, GUI controler
+    * Built-in logic in case world is generated with high ratio of land:water, which will re-enable if it's too high
+  + REP_PER_BABY: intake per numbabies that an agent must fill before reproduction occurs. Default 4.
+  + NOTENOUGHFREQ: frequency with which agents are added while population below ENOUGHBOTS. Default 75. lower values more frequent
+    ~ reduced default ENOUGHBOTS value to 400 from 500
+  + LIVE_MUTATE_CHANCE: chance per tick that any given agent will undergo a live mutation event. Default 0.0001
+  + MIN_INTAKE_HEALTH_RATIO: This will be the minimum metabolism ratio of intake sent to health. 0= old behavior with no restrictions,
+    1= no babies ever, 100% intake always put into health. Default 0.5
+  + DROUGHTS: t/f flag for if droughts/overgrowth is enabled. Default true. Can be toggled by GUI and is saved per world
+  + DROUGHT_MAX: float value which is the upper limit of the DROUGHTMULT variable. default 1.3
+  + DROUGHT_MIN: float value which is the lower limit of the DROUGHTMULT variable. default 0.7
+  + MUTEVENTS: t/f flag for if mutation event epochs are enabled. Default true. Can be toggled by GUI and is saved per world
+  + MUTEVENT_MAX: integer multiplier which also controls the behavior of the event (see above). default 3
+  + HAZARDPOWER: power factor of hazard to be applied to cell value. Occurs before HAZARDDMAGE, default 0.5 (square root's)
+  + GRAB_PRESSURE: multiplier for Grab feature's force between agents
+  ~ Renamed REACTPOWER to BUMP_PRESSURE. Backwards-compatible with old configs
+  ~ Renamed HEALTHLOSS_BADAIR config to more accurate HEALTHLOSS_BADTERRAIN. Backwards-compatible with old configs
+  - Removed REPRATE from config and settings. No use for it from old saves, cannot be converted
++ Improved confirmation of new config settings!
+  + The output window will now tell you when ANY variable is changing, and which ones!
+  + Enhanced the feedback of "old config file found" messages
+    * Let me know if anything funny happens in the output window when loading configs
++ Added new achievements: "First to Generation 1000!" and "User, Take the Wheel!"
++ Added notifications for Aquatic, Amphibian and Terrestrial agent count blooms but only if at least one other type has a popuation>30
+~ Removed all references to MAXPLANT, MAXFRUIT, MAXMEAT, and MAXHAZARD. All cell values now between 0 and 1
+  ~ This includes removing an accidental meat reduction in the meat spawn code
+  ~ All Cells are now assumed to have values between 0 and 1. This will have far-reaching impacts including doubling available food
+  ~ To compensate regarding agent cell interaction, all intake rates have been adjusted including hazard damage and waste deposit
+  ~ Drawing code had to be altered to keep visual colors the same (neon green food was not pretty)
+~ Plant food now has a new feature: Tenacity - Plant food intake is multiplied by cell content (min: 1/4), returning less intake to agents
+  as it gets low. Does not prevent its value from reaching zero however
+~ Further decoupled plant and fruit food:
+  ~ Changed plant seeding to be set off from a plant cell instead of fruit. (may reverse later, idk)
+  ~ Fruit decays regardless of plant level, but double if less than FRUITREQUIRE plant (0.1 by default). Max decay rate the same
+  * With the plant tenacity change, plant quantity may only ocasionally be taken below this value
+~ Temperature Discomfort is now agent variable, and is calculated and reset only intermittently, to simulate slow heat transfer
+  (really it's just to reduce processing time)
+~ Loosened the strict stomach values of new herbivores, carnivores, and frugivores for initial and user-requested spawns
+~ Adjusted the stomach logic of random spawns, they should now be more dedicated to one or two food types
+~ Removed exponential decay of meat. Decays linearly now.
+  * should this be a settings.cfg?
+~ Changed carcass lifetimes to 3000 ticks
+~ Fixed a major bug where settings which have a GUI button and were loaded from either settings.cfg or save files would not update 
+~ Fixed a bug where plant cells would not decay at all if they were exactly FOODMAX
+~ Under-the-hood changes to improve readability and functionality of code
+
+
+Agents & Brains:
++ Genetic Red, Green, and Blue agent colors. Agents also have a genetic trait "Chamovid" which is the ratio of gene colors to output colors
+  + New spawned agents chamovid in range [0, 0.5], meaning eventually bots can evolve the ability to fully change their own color
+  + Gene colors are simple randf(0,1) and are fully shown to other agents if chamovid= 0
+  * Chamovid= 0 is more common than values between (0,0.5) for spawned agents: officially = cap(randf(-0.25,0.5))
+  * I don't remember where the name "chamovid" came from, but it's too cool to change
++ Re-wrote live mutation. Live mutations now can effect various other traits (not just the brain):
+  + Metabolism (same chance, smaller size than normal mutations)
+  + Stomach values (less likely & smaller)
+  + New type of (rare) mutation: Mutation throw - throws the mutation rates absolute-normally, scaled off METAMUTRATEs
+  + Clock frequencies (same chance, smaller size)
+  + Temperature (higher chance, smaller size)
+  * As noted above, these events can increase in chance with Increased Mutation Events
++ Sexual reproduction (originally based on just an output) now also has a physical trait: "sexprojectbias". bias+output>0.5
+  allows sexual repruduction. in range [-1,1]. inheritable and mutable, is saved and loaded
+  * 'Males' are now labeled when these added values > 1.0. It is in range [-1,2]. 'Females' when > 0.5
+  * Reminder: 'Males' can only be targets of 'Females' who are ready to sexually reproduce. 'Females' can reproduce w/ each other
++ New Brain 'layering' system. After implementing a debugging tool for tracing brain outputs, it was discovered the brains are still
+  overnetworked, even fresh spawns. Init agents outputs are either connected to all inputs (either directly or indirectly) or between 0-5.
+  + Brain boxes now initially can connect ONLY to boxes before it or itself
+  * This does not apply to mutations!
+  ~ Init Dead Conns rate increased slightly
++ New Brain Mutation: Mirror Input Weight - Connection changes its weight to the nagative of another conn (or even itself)
+  * This should greatly improve the validity and occurence of Comparison Nodes, which for some applications are invaluable
++ Tiny agents (radius<=5) get major feature penalties:
+  - Half of NUMEYES eyes
+  - No second ear
+  - No Clock 2 or 3
+  - Unable to raise spike
+  * note that all these "removed" features are not removed from brain, only processing is disabled, so the inputs are 0 const.
+  ~ To indicate this, Tiny Agents' borders are drawn as white
++ Radius has other new effects on features:
+  + Large agents take reduced damage from spike attacks. Tiny, small, & mean radius agents barely effected, r=20 take half damage, and
+    agents who manage to get up to 30 units radius will take almost no damage even from max possible spike damage
+  + Small agents move slower and large agents move faster. Base agent speed has been reduced so large agents aren't too fast
+    * this change effects wheel output, so small agents will have a much harder time breaking from grabs
++ Jumping agents get to breathe a min value of 0.5, allowing amphibians and some terrestrials to survive in water as long as they keep
+  resurfacing! Otherwise, jumping behaves as normal and is actually bad for aquatics if used too often
++ Started laying groundwork for "Encumbered" system: agents with -rep counter or mis-matching terrain mobility types
+  receive flat reduced movement speed (-70%)
+  * For terrain mis-matching, a difference of 0.57 for terrain type translates to encumberment triggered. This means amphibians get a
+    another buff and can't get encumbered by either land or water.
+~ Note that what constitutes an amphibian has changed: 0-0.25 is aquatic, 0.25-0.5 is amphibian, and 0.5-1 is terrestrial
+~ Re-wrote reproduction trigger code significantly:
+  + The reset value of Rep Counter now determined by NumBabies * REP_PER_BABY (settings config) * sqrt(radius/MEANRADIUS), (minimum of 15
+    for now, REP_PER_BABY= 4). Species which have more or larger babies must collect more food (or have higher metabolism), but those with
+    just a couple children and average radius are rewarded
+  - Only the mother's REPCOUNTER is reset when reproducing; the father is able to continue reproducing (scandalous!)
+  ~ Sex-Projecting agents >0.9 cannot be mothers. These changes together may make resolution of sexes more advantageous
+    * upon second thought I don't like this change and it may be reverted. Fathers can't be mothers for physical reasons!
+  ~ Mutation of the Numbabies agent variable now has a minimum std of 0.1, should be more common for variation
+~ Scaled up the chances of the less likely brain mutations
+~ changed init Brain Conn Weight values from randf(-10,10) to randn(0, 2). Gausian dist. around 0, std deviation 2
+~ changed init Brain Box Bias values from randf(-1,1) to randf(-10,10). Bias still applied before all conns and sigmoid.
+~ Re-wrote food intake code significantly to simplify processing and fix issues:
+  ~ STOMACH_EFF was being directly applied twice against an agent even if they were perfectly adapted to one food type
+  ~ STOMACH_EFF itself has been decreased from 0.3 to 0.25. This means if 2 stomach values are 100%, each intake is *0.25 (*0.5 overall)
+  ~ Speed multiplier for food intake now more unforgiving for fast movers and turners (pow^3). Must be moving slow to eat!
+  ~ Fixed odd code which made the amount of food in cell, if low, alter how quickly the agents ate it. Now more constant intake expected
+    (except with plant food which has retained this in the form of the Tenacity feature)
+~ Aging changes:
+  ~ <TENDERAGE agents now take 25%+ damage from colisions instead of 50%+ (still 100& at TENDERAGE and above)
+  ~ Age counter now counts up every 1/10th day and depends on the Settings variable FRAMES_PER_DAY
+  ~ All displays regarding age now display it as 1/10ths. These changes mean age now counts # days agent has been alive
+  * this also means TENDERAGE currently kicks in at visualized age 1.0, instead of 10. May update variable type later
+~ Speaking of aging, the age counter itself if now based on the length of day (specifically, it counts up every 1/10th day)
+~ Adjusted Waste rate and deposition mechanic. Before, a fine saw-tooth function was the result, which would push bots toward lower rates
+  (aka agents with the "runs") because of a small advantage. Now should be more constant w/ no optimum
+~ Disabled OVERHEAL_REPFILL by default, can still be re-enabled by settings.cfg
+~ Increased collision damage and decreased safe overlap distance
+~ Boost speed multiplier now *3. Healthloss mult is still *4, both can still be re-settings.cfg-ed
+~ Decreased birth mutation rates for temperature preference, lungs, and stomach for balancing
+~ Reduced live mutation rate of metabolism to compensate for event frequency
+~ Increased mutation rates of multiple types of brain box mutations
+~ Adjusted healthloss from uncomfortable temperature
+~ The randomly gen-ed Eye FOV has been reduced from randf(0.3,2) to randf(0.01, 1.5)
+~ Eye FOV mutations now no longer clamped at 0. Instead, absolute value of randn is taken, making every eye continue to be useful
+
+
+Graphics & Control:
+~ Map Layer now displays colors and representations of ALL LAYERS SIMULTANEOUSLY!!!
+  + Terrain alone is now dark grey for land, blue for water
+  + Plant layer colors is added and will "green-ify" land, brighten water with "algae"
+  + Hazard also discolors the terrain and is made darker for water (scummier) and more purple for land
+  + Meat appears as small "chunks" which are sized and shaded based on quantity
+  + Light is applied to every cell!
+  * Note: Fruit are not currently represented. I want to have little pixels with random positions for berries,
+    but I need them to not change position every tick, so a pseudo-random system needs to be developed
++ New Mouseover Context Popup: on all layer displays except "Map" and "off", a context popup will display for the world cell under
+  the cursor.
+  + This will show the name of the layer, the x and y coords of the cell, and its value, as well as any special details
+  + The display of this popup intelligently turns off if not over a cell, freezes if scrolling, and updates live while paused
+  * This is a GREAT debug tool! Visualizing the exact contents of a cell has long been a needed feature!
++ The Historical Graph now shows the proportion of population which is aquatic, amphibious, or terrestrial
+  * Indicated by shaded regions under the Total Alive curve.
++ When "m" is pressed to speed up the sim, all current notifications are dismissed, opening up room for new ones during Fast Mode
+  * The same does not happen when resuming from Fast Mode, allowing you to read all events which happened while unrendered
++ Added some new notification colors
++ Inputs on the selected agent brain display now have colored R,G,B's for each of the eyes
++ Pressing "end" key while in DEBUG mode will now generate a verbose agent report and pause the simualtion
++ Added new DEBUG feature: Rotate Stomach of Selected Agent. Will force the selected agent's stomach values to shuffle. ~ key
++ When agent visualization is changed, a notification is now displayed telling the user what is being visualized
+~ GUI now has a "World Options" rollout, which starts minimized and reveals the following when opened:
+  ~ Load, Save, and New World buttons are now here
+  ~ Closed world is now "Disable Spawns" in GUI and has been relocated here
+  + Disable Land Spawns: see "World & Simulation" for details
+  + Moon Light: works as before but now with a GUI control
+  + Global Droughts: toggles the global drought/overgrowth system
+  + Mutation Events: toggles the increased mutation event system
+~ Adjusted many visuals and reformatted code to allow VERY easy access to change colors when desired (hardcoded only)
+  ~ moonlight brightness on light layer is darker
+  ~ Temperature discomfort now is light blue for perfectly comfortable and a slightly deeper blue right above 0 to orange @1
+  ~ left and right wheels are now colored magenta and neon, respectively. The brain output indicator texts are likewise colored
+  ~ many other minor changes
+~ Historical Graph now centered in its horizontal space and the text alignment changes to avoid the world space
+~ World init will now be auto-zoomed as if 'q' was pressed (this change was long overdue)
+~ When view mode is set to Health, giving and receiving outlines are enlarged
+~ The old rendered stats & indicators are now DEBUG features
+~ Multiple key bindings now need DEBUG mode to use: kill selected, heal selected, reproduce selected, mutate selected
+~ Divided "Layer::" from display code, creating "Display::" enum: now there's no ugly code! (That is a big fat lie)
+~ Fixed a bug where give/receive health was drawn based on the "Giving" output instead of the amount of health traded
+~ Fixed a bug with the selected agent display ghost being also set to a large radius when zoomed out
+
+
+Reports & Saves:
+!!!OLD SAVES: Rated as "NOT COMPATIBLE" due to REPRATE, MAX[cells], stomach & intake changes, encumbered system, chromavid & color genes,
+  and new sexual projection bias features
+  + Added a small compatability feature where cell contents are doubled from saves (due to MAX[cells] variables elimination)
+  * All other compatability features removed for previous save handling (there wasn't that many)
+  * currently the sim does not save configs per world, however that is on the todo list.
++ Saves now include the saved brain input, output and connection number, as well as the world width, height, and cell size
+  * This is used for comparison of the version of the file when loading only and nothing is loaded yet. Hopefully soon
++ added count of Live Mutations to report
++ added the global Drought Multiplier and Mutation Multiplier current setting to report.txt
++ added random agent children count stat to report.txt
++ Added a new reporting feature: brain box back-trace. The system looks at the output and traces ALL connections it has, looking for 
+  what inputs contribute at least a weight value of 0.25 (not overall, 0.25 intermediate nodes are cumulative)
+  * Currently configured only for tracing back the wheel outputs. Use the 'e' key to print out results to output window
+- removed random agent color value reporting
+- All references to the old save file extention ".SCB" removed. Autosave file now correctly named
+- Removed loading of DEBUG flags of the world, which was not even saved
+~ The Load and Save prompts now automatically handle file extentions. Please only type the file name to in all saveing/loading dialogues
+~ Changed all references to "dfood" to more accurate "dhealth". old saves still interpreted correctly
+~ Fixed a bug with loading where a new random plant and fruit population would be generated beforehand (oops)
+
+
+! Note About Evolution Goals:
+ This version has seen many changes to features reducing the mutation rates and chances, leading to less short term variety.
+This is intentional. The current expectation is to get agents to form within current primary Niches (Frugivore, Herbivore, 
+Carnivore / Aquatic, Amphibian, Terrestrial / Cold-loving, Temperate, Heat-loving) and stay there, and highlight that minor
+changes over time still result in variety. Also, since Carnivores take so long to develop (if at all), we wanted to put
+all the other features in the Niche-variety category on the same timescale.
+ As a result, you can expect a much longer time between significant changes, but we hope that it makes the sim no less
+interesting!
+
+
+
+
+
+October 2018
+Evagents v0.03:
+
+Agents & Brains:
++ New Output: Grab Angle! Now agents can specify an angle for their grab function. Since the range of angles is 2PI, and all 
+  outputs are [0,1], the output is stretched such that 0 and 1 represent the same angle of 0 relative to the agent's front
+  ~ Grab now pulls other agents towards the angle it's set at rather than just towards each other
++ New Output: Waste Deposit Rate! Agents can control themselves (partially) and change their rate of waste deposit.
+  Agents with low deposition rate (max of ~50 ticks) will deposit large amounts, high rates (min of 1/tick) will deposit low amounts
+  High tick rates produce waste everywhere. If agents can avoid Hazard, low deposit rates are hyper-efficient
++ Introduced Exhaustion: Output boxes values are summed, added to last tick's exhaustion value, and reduced by a constant
+  + Exhaustion then reduces the rate of Output -> physical interactions, so voice, wheel speed, jump, boost, etc get reduced
+    when exhaustion is high, as well as Agent intake, so health recovery becomes difficult
+  + BASEEXHAUSTION setting, default -5, meaning agents have 5 free constant-full outputs. Configurable in settings.cfg
+  * Exhaustion value is preserved with world saving/loading
++ TENDERAGE babies take reduced damage from collision events starting with a 50% reduction at age 0
+  * TENDERAGE now controls 3 features: reduced meat on death, reduced waste deposition while alive, and collision injury reduction.
++ Added a "Branch Box" mutation: a box gets one of its conns set to a box which refers to a box that another conn's box refers to...
+  It's better to show a diagram:
+ [b]
+ / \+create this conn
+[][]
+ \/
+ []
+~ Fixed grab persisting after grabbed agent death (all cases)
+~ (Mostly) fixed how Clock3 input would rapidly jiggle at the slightest change in the output value
+~ Optimized the brain mutation and reproduction code (was processing the input boxes... oops)
+~ Fixed giving: Selfish agents will never display give, and a minor bug with target agent overhealing was fixed
+~ Dead agents go silent much faster (from 10% reduction per tick to 80%)
+~ Changed default HEALTHLOSS_WHEELS to 0, trying out Exhaustion mechanic
+- removed MINMOMHEALTH health/repcounter priority adjuster, too many agents getting arteficially stuck at 0.25 health
+
+World & Simulation:
++ New Configurable Settings:
+  + EXHAUSTION_MULT: multiplier for
+  + BASEEXHAUSTION: units of exhaustion which all agents are given every tick. Strongly recommend this be negative or zero
+  ~ Changed: OVERHEAL_REPFILL is now a float value, and directly effects the rate of rep-fill from overhealth, default 50%
+  ~ Changed: SPIKEMULT -> DAMAGE_FULLSPIKE: is now the exact damage an agent's spike does at full speed and full extension
+  ~ Changed: HEALTHLOSS_JAWSNAP -> DAMAGE_JAWSNAP: moved, but same mechanic. Backwards-compatible (loads old variable name)
+  ~ Changed: HEALTHLOSS_BUMP -> DAMAGE_COLLIDE: moved, but same mechanic. Also backwards-compatible
++ Days counting: current Day of Epoch is now reported on the window title, the output window, and in the reports
+  Days match the light cycle and start on 1, based on modcounter
++ Added Global Event Notifications: Short-term Population booms and busts, booms of specific stomach type, and population crashes
+  are detected and reported (in sim only)
++ Added Global Achievements: First stable population, first population > 500, first generation > 500, etc. Can you get them all?
++ Added Agent Event Notifications: Selected Agent Decay (deleted) and Selected Agent Reproduced (both modes)
++ New Help text-on-demand: press 'h' to display hints specifically for how to use the program
+  ~Changed or removed many of the hints for simulation control at world start during epoch 0
+~ changed default FRUITREQUIRE value to 0.1, down from 0.5, to isolate fruit and plant sources and promote specitation
+  *Has worked spectacularly, now a frequent observation to have 2 species in same physical space!
+~ changed some default global settings: Epochs last 200000 frames, Days last 4000 frames, there will be 200 reports per epoch
+  this means the in-game graph shows one Epochs-worth of data, containing 50 "days", but same number of ticks as before
+~ Changed INITFOODDENSITY and INITFRUITDENSITY to instead be in units of Cells. Now accurately tells the ratio of plant and fruit
+  that is intended to be on the map
+  *Additionally simplified and corrected related features to speed up generation process with certain settings (such as food
+   density set to 1, will actually populate a world full of food, instead of an endless spawn loop)
+~ Changed carcass lifetimes to 2000 ticks
+~ Changed "Freshkill not true" meat value to 50%, up from 25%. More meat for kills/deaths in general
+~ Increased Freshkill timer greatly, 50 ticks instead of 10
+~ Further adjusted the OCEANPERCENT and terrain generation algorithm to align better, +/- about 15% in mid-ranges, more accurate
+  close to 0.0 and 1.0 settings
+~ Changed Autoselect mechanics slightly so that if no agent stands above the baseline the simulation returns to "None" 
+- slightly restructured the use of ReadWrite in GLView by no longer creating multiple instances of the helper class, just one
+
+Graphics & Control:
++ "Page Up" and "Page Down" keys now function to select, when an agent is selected, another agent with a species ID within 
+  MAXDEVIATION of the current selection, prefering exactly +/- 1 difference in species ID. No preference for location/relation
+  Best used with the "Crossable" agent color scheme to quickly see species spread
++ New Input/Output box labels:
+  *Health sensor - letter "H" of a color indirectly indicating health (like the health display mode)
+  *Blood Sensor - red letter "B"
+  *Player Input - white "+"
+  *Jump Output - yellow "J"
+  *Boost Output - grey "B"
+  *Grab Angle - blue "<"
+  *Fruit, Hazard, Meat, Water, and Agent Smells - yellow, purple, red, blue, and white "S"s
++ Added a way to dismiss event messages via right-click menu option.
++ Events now have color indicating the source/type of alert:
+  *White	-selected agent
+ action
+  *Red		-global bad statistic
+  *Green	-global good
+ statistic
+  *Blue 	-
+selected agent reproduction
+  *Yellow	-hints
+  *Cyan		-
+simulation notification
+
+  *Purple	-selected agent mutation
+  *Brown	-selected agent removal
+  *Neon 	-
+selected agent reproduction
+  *Mint		-simulation start/restart
++ At furthest zoom, all agents are forced to display, and their radii are normalized to more easily see global populations
+  especially useful if the populations happen to be tiny creatures
++ New program icon! (I may be way more pleased about this than I should be...)
++ Added/changed Selected Agent HUD, huge refactoring to allow instant reorganization and addition
+  ~ Now more organized (slightly) and understandable
+  + Volume value (loud/quiet)
+  + Waste deposition rate (incontinent/prudent)
+  + Exhaustion bar graph
+  ~ Grab strength value if grabbing
+  ~ Stomach graph again has text of agent classification over it
+~ All agent selection keyboard shortcuts have changed: are now the number keys, eg [1]= oldest, [2]= Best Gen, etc, [0] for random
+~ Health agent color scheme now displays dead agents as red (instead of black), sharp outline
+~ Doubled size of eyesight profile display
+~ Changed Tone output from colored box to colored "T" based on the same tone scheme
+~ Changed Temp Sensor input from colored box to colored "T" based on the Temp Discomfort
+~ Changed collision indicator so it doesn't spawn itself if another indicator (like reproduction or stabbed) is being dislayed
+
+Reporting and Saving:
++ Number of, and best generation of Amphibians is now reported 
++ Current day is reported to assist with the larger Epoch datasets
++ Autosaves now run on days (every 5) instead of Epochs, which are now too long (see above, World & Simulation section)
+* OLD SAVES: Rated as "Compatible, but with severe changes in behavior"
+
+
+
+
+
+January 2017
+Evagents v0.01:
+Agents:
++ Agents are now more persistent after death
+  *Agents are deleted ~1500 frames after their death. In the meantime, their brains and outputs are frozen, their wheels slowly come to a 
+   halt, and they loose collision, spiking, etc, and cell interaction ceases. They stop vocalizing, sexual projecting, and auto-selection
+  *These agents can still be seen, smelled, blood-sensed (max value!), heard (for a short time), selected, and healed back to life
+  *Provide a "homing beacon" of sorts to carnivores. After being killed, agent carcases should alert other agents to the location of meat
++ Generosity changed; now allows for parasites to develop:
+  *Nearly every agent will share health (dissables at only exactly 0 output ["Selfish"]).
+  *Between 0 and 0.5, health is shared at a rate of FOODTRANSFER*2*(output): nothing near 0, 50% at 0.25, and 100% at 0.5,
+   but the agents must be touching ["Autocentric"].
+  *Beyond 0.5 and to 1, FOOD_SHARING_RANGE is used instead, and health is again shared at a rate ranging from 50% to 100% between 0.5 and 1
+   ["Generous"]. If the bots happen to be touching while give is >0.5, 100% of FOODTRANSFER is given instead (as if maxxed autocentric)
+  *Why? This will allow parasitism, as a species with 0 give and that can latch onto another, non-zero give species, will find life easier.
+   When other bots touch, they will be more cooperative, possibly leading to more impressive colonies.
+   Non-trading species are still possible, but this unlocks new possibilies
++ Eye and Ear copy mutations possible, very low chance, even lower chance that all traits are coppied. Ear direction copy not allowed
++ Young agents take minimum of half-damage from hazard until TENDERAGE is reached, to improve chances of mutations in established species
+  *TENDERAGE now controls two features: babies give reduced meat deposition on death and reduced hazard deposition while alive.
++ Hazard/waste drop rate of agents now multiplied by health: Healthy bots leave lots of waste b/c they've eaten, unhealthy ones haven't
++ New agent trait: strength. Wheels now don't get immediately set to their output value, but rather pass through the strength "delay", 
+  similar to brain's kp
+
+- Removed MAXMETABOLISM because now metabolism is in range [0,1] and works differently (see below in the changes, "=", section).
+- Metabolism no longer effects bot movement speed
+- AGING healthloss set to zero. Feature of MAXAGE has not removed, can be re-enabled in settings.cfg. Live mutations more dangerous
+- Agent Smell no longer takes distance into account. Simply counts the number of agents within DIST
+- Removed references to old brains. We are running DRAWSBrain (renamed MLPBrain) exclusively, and we'll make changes to that as needed
+
+~ Grabbing force effect refactored: reduced jitter when struggling, now has angle limitation to init grab (90 degrees in front)
+~ Bite now has an output minimum threshold (the addition of CONN throw made it too easy to trigger)
+~ Max value of numbabies used for random agents moved from 4 to 6
+~ Increased mutation rates, decreased change in mutation sizes. Live mutations reworked, emit purple event, now main cause of aging issues
+~ Increased parent health penalty for large radius assexual reproduction
+~ Metabolism changed: now effects ratio of intake put to health vs repcounter. 0.5 is even split, but now agents can prioritize
+  *This effect won't matter if health is less than MINMOMHEALTH (priority health)
+~ Agent speed reliance on radius refactored to take into account larger MEANRADIUS's, also make bigger bots slower and smaller bots faster 
+  than how they were before (small bots were terribly slow before adjustment)
+~ Clock 3 minimum frequency changed to 5
+
+Sim:
++ New configurable Settings:
+  *BRAINSIZE now available!!! PLEASE NOTE you cannot use old saves with this version IF you change the config value to something smaller.
+   Going forward this will not be an issue because this constant is now saved with worldsaves.
+  *MEANRADIUS, where random agents are spawned with a radius between 0.2*this and 2.2*this, currently = 10.0
+  *REPRATE, the count of food intake it takes to allow reproduction, = 20.0
+  *OVERHEAL_REPFILL, true/false flag for health overflow to be redirected to repcounter. True conserves matter, false balances efficient 
+   metabolism so as to not favor very low values (if overflow->repcounter enabled, metabolism that prefers health filling has large reward)
+  *MOONLIT, t/f flag for whether or not agents can see other agents at night, instead of total blindness. Slower processing if turned on
+  *MUTCHANCE, is exactly the value agents use for MUTRATE1, the chance of mutations. Init bots have +/- METAMUTRATE1*3 (+/- 0.003)
+  *MUTSIZE, is exactly the value agents use for MUTRATE2, the size of mutations. Init bots have +/- METAMUTRATE2*15 (+/- 0.0003)
+  *Made settings.cfg more truthful in general and perfomed some style and organization updates. Old configs are compatable, but if a version
+   mismatch is detected, it will warn the user and if allowed to continue, overwrite the old .cfg. Additionally, the right-click context menu
+   has "Rewrite Config" and "Reload Config" options.
++ Refactored Instant Hazards: no longer forget the old (approximate) value of waste present before they occured, and replace that value
+  after the event expires.
++ Added Relative selection type: when another agent is selected, switching to this mode will automatically select other agents with similar
+  species ID, ages, and/or gencounts when the selected agent dies. Selecting other agents does not disable this mode
++ Added manual liveMutate key for selected agent: '~' will initiate a mutation event on selected agent
+
+- FRUITREQUIRE disassociated from fruit spawning check. Any non-zero plant cell can spawn fruit, but it will decay unless FRUITREQUIRE is met
+
+= Sexual Projection now required on the mother to be true in order to initiate sexual reproduction. Replaces random chance and removes rape
+  (well, unwanted pregnancies, anyway. Gee, I think I may be designing a better world than God...)
+= Sunlight now only gives 0.25 base value to eyesight in daytime instead of 0.5. New MOONLIT flag doesn't disable light collection at night
+= Almost all food settings adjusted to accomodate fruit, plant, and metabolism changes
+= Refactored and globalized stats; now the world actively keeps track of population counts and best gens instead of on-demand, which happens
+  more often. Should speed up program
+
+Graphics and Reporting:
++ New Event system!
+  *World and Sim events are recorded, and displayed as text for a short time, with fancy fade in/fade out action!
+  *The length of time they are displayed is real time, not sim time (skipdraw and fast mode do not count against the expiration counter)
+  *Events include: Selected agent dieing, stabbing, mutating, and other indicator-activating events, Autosave events, World resets, and more
+  *Only max of 10 are displayed at a time, but any overflow will not be skipped. Rather, if lots of event messages, they will slowly cycle
+  *Added Tips: short messages telling the user info about how to use and read the sim, some display frequently at simulation start.
++ New selected agent Profiles:
+  *The old brain display and inputs & outputs display made into "profiles". Now brain visual can be toggled on, only I/O, or off
+  *Eyesight profile: Shows colored disks of what the eyes of the agent sees, where horizontal position represents angle, size represents fov.
+  The visual representation of the eyes themselves also change color to that which it sees in this mode
+  *Sound profile: Ears get different colors, and a graph showing hearing ranges (both broad and best) of each ear, the output of the agent
+  (double-thick line colored according to tone), and ALL nearby audio sources, not just the ones the agent can actually hear. Vertical height
+  represents volume adjusted for distance and selected's hearing mod, green lines represent wheel-sounds (all lie on 0.25 tone)
++ Repcounter is now graphically visualized next to health in the world
++ New indicator tags:
+  *Ears. Shows the volume value the ears of every agent are detecting. Aren't rendered if no sound is heard.
+  *Metabolism: yellow if high metabolism, purple if low
++ At close zoom, a grid appears to help orient the user, especially if following an agent. Added GUI option to always show grid
++ Temp layer is back! But for now is only a visual thing (should probably try to not force the program to generate a new 2d array of zeros..)
++ Pressing 'r' while on the main window will select a random alive agent. 'R' (Shift+'r') will select a random agent regardless of state
++ Report.txt additions: random agent's metabolism, random agent's red color, another random agent's green, and another's blue
++ More verbose debug code; beware of the output window!
+
+= removed stimulant report on selected agent display, changed to strength: 0-0.3 is "Weak!", 0.3-0.7 is "Not Weak", 0.7+ is "Strong!"
+= Visual for light changed to indicate when MOONLIT is on, has a grey background instead of navy blue
+= Selected agent visualization changes:
+  +New health, repcounter, and stomach efficiency graphs on selected agent display
+  -Removed old text stomach report, colored bars now indicate the stomach efficiencies
+  -Removed repcounter text report next to all agents
+  =Replaced health text report with colored species id (same as the visualization mode)
+   Also changed the scale of the color for the metabolism on the repcounter text to fit new range
+  =Spikes, wheels are always rendered on the selected agent display
+  =FIXED spike reporting damage value when agent is driving wrong way, thus incapable of spiking. Still reported as spiked
+  *Brought back selected agent being outlined in a double-wide drawn circle, originally seen in Social Bots, a legacy program
+= Amphibious agents are now distinguished by pink-ish hue on indicator
+= Land/water and metabolism agent colorization schemes available for selection
+= Report now formatted to better work with Excel right away rather than require data processing
+
+Fixes:
+= Internal: some heavy optimization passes, especially in drawing code
+= Internal: Introduced a form of tree processing to agent-agent interaction code. Now each agent checks to see if it's "near" another,
+  and only if so is it processed. Conditions for being "near" depend on ranges of Give, Grab, Spike, and Bite, all which are processed mod%2
+  Huge improvements to large-population processing
+= Internal: made tag rendering code addition-friendly, allowing new indicator tags to be created easily
+= FIXED: brain boxes global weight mutations still had a >0 limit set, but a range including negatives, forcing mutated boxes to output 0.5
+  this bug caused: *RGB colors similar for sepparate species, *brains seem to decay over time, and other unnoticed output issues
+= FIXED: Having a NUMEYES different than 4 would not actually input the extra (or fewer) eyes into the brain. It is officially difficult to 
+  add custom per-bot numeyes, so every bot must have the same number of eyes now.
+= FIXED: jaws would not cause damage to agents when visually they should have been due to proximity and alignment
+= FIXED: bug where changing FRAMES_PER_EPOCH and REPORTS_PER_EPOCH would have unexpected results (Reports per Epoch messed up)

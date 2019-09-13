@@ -21,6 +21,7 @@
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
 			CharacterSet="2"
+			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -51,6 +52,7 @@
 				OpenMP="true"
 				ProgramDataBaseFileName="$(IntDir)\scriptbots.pdb"
 				WarningLevel="1"
+				Detect64BitPortabilityProblems="false"
 				DebugInformationFormat="3"
 			/>
 			<Tool
@@ -273,6 +275,14 @@
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
+			<File
+				RelativePath=".\Evagents.ico"
+				>
+			</File>
+			<File
+				RelativePath=".\resource.rc"
+				>
+			</File>
 		</Filter>
 	</Files>
 	<Globals>

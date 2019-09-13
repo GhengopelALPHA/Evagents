@@ -6,7 +6,7 @@ class View
 {
 public:
     virtual void drawAgent(const Agent &a, float x, float y, bool ghost = 0) = 0;
-    virtual void drawCell(int x, int y, float quantity) = 0;
+    virtual void drawCell(int x, int y, const float values[Layer::LAYERS]) = 0;
     virtual void drawData() = 0;
 	virtual void drawStatic() = 0;
 

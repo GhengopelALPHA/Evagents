@@ -37,7 +37,7 @@ using namespace std;
 
 ReadWrite::ReadWrite()
 {
-	ourfile= "WORLD.SCB";
+	ourfile= "WORLD.SAV";
 }
 
 void ReadWrite::loadSettings(const char *filename)
@@ -75,17 +75,18 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "posx= %f\nposy= %f\n", a->pos.x, a->pos.y);
 	fprintf(file, "angle= %f\n", a->angle);
 	fprintf(file, "health= %f\n", a->health);
-//	fprintf(file, "red= %f\ngre= %f\nblu= %f\n", a->red, a->gre, a->blu);
-//	fprintf(file, "w1= %f\nw2= %f\n", w1, w2);
-//	fprintf(file, "boost= %i\n", (int) a->boost);
+	fprintf(file, "gene_red= %f\ngene_gre= %f\ngene_blu= %f\n", a->gene_red, a->gene_gre, a->gene_blu);
+	fprintf(file, "chamovid= %f\n", a->chamovid);
+	fprintf(file, "sexprojectbias= %f\n", a->sexprojectbias);
 	fprintf(file, "herb= %f\n", a->stomach[Stomach::PLANT]);
 	fprintf(file, "carn= %f\n", a->stomach[Stomach::MEAT]);
 	fprintf(file, "frug= %f\n", a->stomach[Stomach::FRUIT]);
+	fprintf(file, "exhaustion= %f\n", a->exhaustion);
 	fprintf(file, "species= %i\n", a->species);
 	fprintf(file, "radius= %f\n", a->radius);
 	fprintf(file, "spike= %f\n", a->spikeLength);
-	fprintf(file, "jump= %f\n", a->jump); //version 6 addition
-	fprintf(file, "dfood= %f\n", a->dfood);
+	fprintf(file, "jump= %f\n", a->jump);
+	fprintf(file, "dhealth= %f\n", a->dhealth);
 	fprintf(file, "age= %i\n", a->age);
 	fprintf(file, "gen= %i\n", a->gencount);
 	fprintf(file, "hybrid= %i\n", (int) a->hybrid);
@@ -162,19 +163,26 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 	//open save file, write over any previous
 	FILE* fs = fopen(address, "w");
 	
-	//start with saving world vars and food layer
+	//start with saving world settings to compare with current
 	fprintf(fs,"<world>\n");
 	fprintf(fs,"V= %.2f\n",conf::VERSION);
-	fprintf(fs,"BRAINSIZE= %i\n", world->BRAINSIZE); //Make sure saved brains are compatable, saving
-/*	fprintf(fs,"inputs= %i\n", Input::INPUT_SIZE);
-	fprintf(fs,"outputs= %i\n", Output::OUTPUT_SIZE);
-	fprintf(fs,"connections= %i\n", CONNS);
-	fprintf(fs,"width= %i\n", conf::WIDTH);
-	fprintf(fs,"height= %i\n", conf::HEIGHT);
-	fprintf(fs,"cellsize= %i\n", conf::CZ);*/
+	fprintf(fs,"BRAINSIZE= %i\n", world->BRAINSIZE);
+	fprintf(fs,"INPUTS= %i\n", Input::INPUT_SIZE);
+	fprintf(fs,"OUTPUTS= %i\n", Output::OUTPUT_SIZE);
+	fprintf(fs,"CONNECTIONS= %i\n", CONNS);
+	fprintf(fs,"WIDTH= %i\n", conf::WIDTH);
+	fprintf(fs,"HEIGHT= %i\n", conf::HEIGHT);
+	fprintf(fs,"CELLSIZE= %i\n", conf::CZ); //these saved values up till now are mostly for version control for now
+	//save settings which have GUI controls
+	fprintf(fs,"MOONLIT= %i\n", world->MOONLIT);
+	fprintf(fs,"DROUGHTS= %i\n", world->DROUGHTS);
+	fprintf(fs,"DROUGHTMULT= %f\n", world->DROUGHTMULT);
+	fprintf(fs,"MUTEVENTS= %i\n", world->MUTEVENTS);
+	fprintf(fs,"MUTEVENTMULT= %i\n", world->MUTEVENTMULT);
+	fprintf(fs,"CLOSED= %i\n", world->isClosed());
+	//if creating more GUI settings to save, please be sure to add them to two sections in GLView. Search ".cfg/.sav"
 	fprintf(fs,"epoch= %i\n", world->current_epoch);
 	fprintf(fs,"mod= %i\n", world->modcounter);
-	fprintf(fs,"closed= %i\n", world->isClosed());
 	fprintf(fs,"xpos= %f\n", xpos);
 	fprintf(fs,"ypos= %f\n", ypos); //GLView xtranslate and ytranslate
 	for(int cx=0;cx<world->CW;cx++){ //start with the layers
@@ -183,7 +191,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 			float meat= world->cells[Layer::MEATS][cx][cy];
 			float hazard= world->cells[Layer::HAZARDS][cx][cy];
 			float fruit= world->cells[Layer::FRUITS][cx][cy];
-			int land= world->cells[Layer::LAND][cx][cy];
+			float land= world->cells[Layer::ELEVATION][cx][cy];
 			fprintf(fs, "<c>\n"); //signals the writting of a cell
 			fprintf(fs, "cx= %i\n", cx);
 			fprintf(fs, "cy= %i\n", cy);
@@ -191,7 +199,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 			if (meat>0) fprintf(fs, "meat= %f\n", meat);
 			if (hazard>0) fprintf(fs, "hazard= %f\n", hazard);
 			if (fruit>0) fprintf(fs, "fruit= %f\n", fruit);
-			if (land>0) fprintf(fs, "land= %i\n", land);
+			if (land>0) fprintf(fs, "land= %f\n", land);
 			fprintf(fs,"</c>\n");
 		}
 	}
@@ -242,19 +250,18 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 				if(world->isDebug())printf("Our report.txt starts at epoch %i. ", epoch);
 				if (epoch==maxepoch || epoch==maxepoch+1){
 					append= true;
-					printf("Old report.txt exists. Continuing it.\n");
 				} else printf("Old report.txt found. Replacing it.\n");
 			}
 			rewind(fr);
 		}
 		//otherwise, we overwrite!
 	} else {
-		printf("No old report.txt found. Continuing\n");
+		if(world->isDebug()) printf("No old report.txt found. Continuing\n");
 	}
 	
 	ft = append ? fopen(address, "a") : fopen(address, "w");
 	if(fr){
-		printf("Copying report.txt to save file\n"); //report status
+		if(world->isDebug()) printf("Copying report.txt to save file\n");
 		while(!feof(fr)){
 			fgets(line, sizeof(line), fr);
 			fprintf(ft, line);
@@ -278,13 +285,14 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 	int cyl= 0;
 	int mode= -1;//loading mode: -1= off, 0= world, 1= cell, 2= agent, 3= box, 4= connection, 5= eyes, 6= ears
 
-	Agent xa(world->BRAINSIZE, world->MEANRADIUS, world->REPRATE, world->MUTCHANCE, world->MUTSIZE); //mock agent. gets moved and deleted after loading
-	bool t1= false, t2= false;
+	Agent xa(world->BRAINSIZE, world->MEANRADIUS, world->REP_PER_BABY, world->MUTCHANCE, world->MUTSIZE); //mock agent. gets moved and deleted after loading
+	bool t1= false, t2= false; //triggers for keeping track of where exactly we are
 
 	int eyenum= -1; //counters
 	int earnum= -1;
 	int boxnum= -1;
 	int connnum= -1;
+	int cellmult= 1; //version 0.04 upgrade tool
 	int i; //integer buffer
 	float f; //float buffer
 
@@ -294,7 +302,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 	FILE *fl;
 	fl= fopen(address, "r");
 	if(fl){
-		printf("file exists! loading.\n");
+		printf("file '%s' exists! loading.\n", address);
 		while(!feof(fl)){
 			fgets(line, sizeof(line), fl);
 			pos= strtok(line,"\n");
@@ -314,12 +322,68 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 				if(strcmp(var, "V=")==0){
 					//version number
 					sscanf(dataval, "%f", &f);
-					if(f!=conf::VERSION) printf("ALERT: version number different! Issues may occur!\n");
+					if(f!=conf::VERSION) {
+						printf("ALERT: Version Number different! Issues may occur!\n");
+						if(f<=0.03) {
+							printf("ALERT: version number < 0.04 detected! Multiplying all cell values by 2!\n");
+							cellmult= 2;
+						}
+					}
 				}else if(strcmp(var, "BRAINSIZE=")==0){
-					//brainsize count, make our brains compatable
 					sscanf(dataval, "%i", &i);
 					world->BRAINSIZE= i;
-					printf("Our save's BRAINSIZE is %i, we forced the world to match this value for this run\n", i);
+				}else if(strcmp(var, "INPUTS=")==0){
+					sscanf(dataval, "%i", &i);
+					if(i!=Input::INPUT_SIZE) {
+						printf("ALERT: Brain Input size different! Issues may occur!\n");
+					}
+				}else if(strcmp(var, "OUTPUTS=")==0){
+					sscanf(dataval, "%i", &i);
+					if(i!=Output::OUTPUT_SIZE) {
+						printf("ALERT: Brain Output size different! Issues may occur!\n");
+					}
+				}else if(strcmp(var, "CONNECTIONS=")==0){
+					sscanf(dataval, "%i", &i);
+					if(i!=CONNS) {
+						printf("ALERT: Brain CONNS per brain box different! Issues may occur!\n");
+					}
+				}else if(strcmp(var, "WIDTH=")==0){
+					//this WILL be loaded soon
+					sscanf(dataval, "%i", &i);
+					if(i!=conf::WIDTH) {
+						printf("ALERT: World Width different! Issues may occur!\n");
+					}
+				}else if(strcmp(var, "HEIGHT=")==0){
+					//this WILL be loaded soon
+					sscanf(dataval, "%i", &i);
+					if(i!=conf::HEIGHT) {
+						printf("ALERT: World Height different! Issues may occur!\n");
+					}
+				}else if(strcmp(var, "CELLSIZE=")==0){
+					//this may be loaded soon
+					sscanf(dataval, "%i", &i);
+					if(i!=conf::CZ) {
+						printf("ALERT: Cell Size different! Issues may occur!\n");
+					}
+				}else if(strcmp(var, "MOONLIT=")==0){
+					sscanf(dataval, "%i", &i);
+					if(i==1) world->MOONLIT= true;
+					else world->MOONLIT= false;
+				}else if(strcmp(var, "DROUGHTS=")==0){
+					sscanf(dataval, "%i", &i);
+					if(i>=1) world->DROUGHTS= true;
+					else world->DROUGHTS= false;
+				}else if(strcmp(var, "DROUGHTMULT=")==0){
+					sscanf(dataval, "%f", &f);
+					world->DROUGHTMULT= f;
+					if(i>9000) world->DROUGHTMULT= randf(0,2);
+				}else if(strcmp(var, "MUTEVENTS=")==0){
+					sscanf(dataval, "%i", &i);
+					if(i>=1) world->MUTEVENTS= true;
+					else world->MUTEVENTS= false;
+				}else if(strcmp(var, "MUTEVENTMULT=")==0){
+					sscanf(dataval, "%i", &i);
+					world->MUTEVENTMULT= i;
 //				}else if(strcmp(var, "connections=")==0){
 					//conns count; NOT CURRENTLY USED
 //				}else if(strcmp(var, "width=")==0){
@@ -342,11 +406,16 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					//mod count
 					sscanf(dataval, "%i", &i);
 					world->modcounter= i;
-				}else if(strcmp(var, "closed=")==0){
+				}else if(strcmp(var, "CLOSED=")==0){
 					//closed state
 					sscanf(dataval, "%i", &i);
 					if (i==1) world->setClosed(true);
 					else world->setClosed(false);
+//				}else if(strcmp(var, "PAUSED=")==0){
+//					//Paused state (always saves as false)
+//					sscanf(dataval, "%i", &i);
+//					if (i==1) ;
+//					else ;
 				}else if(strcmp(var, "xpos=")==0){
 					//veiw screen location x
 					sscanf(dataval, "%f", &f);
@@ -356,7 +425,6 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					sscanf(dataval, "%f", &f);
 					ytranslate= f;
 				}else if(strcmp(var, "<c>")==0){
-					//version 5 (9/2012) has changed cell loading to follow the same pattern as that of agents
 					//cells tag activates cell reading mode
 					mode= 1;
 				}else if(strcmp(var, "<a>")==0){
@@ -377,19 +445,19 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					cyl= i;
 				}else if(strcmp(var, "food=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::PLANTS][cxl][cyl]= f;
+					world->cells[Layer::PLANTS][cxl][cyl]= f*cellmult; //version 0.04 upgrade tool
 				}else if(strcmp(var, "meat=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::MEATS][cxl][cyl]= f;
+					world->cells[Layer::MEATS][cxl][cyl]= f*cellmult; //version 0.04 upgrade tool
 				}else if(strcmp(var, "hazard=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::HAZARDS][cxl][cyl]= f;
+					world->cells[Layer::HAZARDS][cxl][cyl]= f*cellmult; //version 0.04 upgrade tool
 				}else if(strcmp(var, "fruit=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::FRUITS][cxl][cyl]= f;
+					world->cells[Layer::FRUITS][cxl][cyl]= f*cellmult; //version 0.04 upgrade tool
 				}else if(strcmp(var, "land=")==0){
-					sscanf(dataval, "%i", &i);
-					world->cells[Layer::LAND][cxl][cyl]= i;
+					sscanf(dataval, "%f", &f);
+					world->cells[Layer::ELEVATION][cxl][cyl]= f;
 				}			
 			}else if(mode==2){ //mode @ 2 = agent
 				if(strcmp(var, "</a>")==0){
@@ -415,6 +483,21 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 				}else if(strcmp(var, "health=")==0){
 					sscanf(dataval, "%f", &f);
 					xa.health= f;
+				}else if(strcmp(var, "gene_red=")==0){
+					sscanf(dataval, "%f", &f);
+					xa.gene_red= f;
+				}else if(strcmp(var, "gene_gre=")==0){
+					sscanf(dataval, "%f", &f);
+					xa.gene_gre= f;
+				}else if(strcmp(var, "gene_blu=")==0){
+					sscanf(dataval, "%f", &f);
+					xa.gene_blu= f;
+				}else if(strcmp(var, "chamovid=")==0){
+					sscanf(dataval, "%f", &f);
+					xa.chamovid= f;
+				}else if(strcmp(var, "sexprojectbias=")==0){
+					sscanf(dataval, "%f", &f);
+					xa.sexprojectbias= f;
 				}else if(strcmp(var, "herb=")==0){
 					sscanf(dataval, "%f", &f);
 					xa.stomach[Stomach::PLANT]= f;
@@ -424,6 +507,9 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 				}else if(strcmp(var, "frug=")==0){
 					sscanf(dataval, "%f", &f);
 					xa.stomach[Stomach::FRUIT]= f;
+				}else if(strcmp(var, "exhaustion=")==0){
+					sscanf(dataval, "%f", &f);
+					xa.exhaustion= f;
 				}else if(strcmp(var, "species=")==0){
 					sscanf(dataval, "%i", &i);
 					xa.species= i;
@@ -436,9 +522,9 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 				}else if(strcmp(var, "jump=")==0){
 					sscanf(dataval, "%f", &f);
 					xa.jump= f;
-				}else if(strcmp(var, "dfood=")==0){
+				}else if(strcmp(var, "dfood=")==0 || strcmp(var, "dhealth=")==0){
 					sscanf(dataval, "%f", &f);
-					xa.dfood= f;
+					xa.dhealth= f;
 				}else if(strcmp(var, "age=")==0){
 					sscanf(dataval, "%i", &i);
 					xa.age= i;
@@ -588,8 +674,13 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 
 		world->setInputs();
 		world->brainsTick();
+		world->processOutputs(true);
+		world->processOutputs(true);
+		world->processOutputs(true);
+		world->processOutputs(true);
+		world->processOutputs(true);
 
 	} else { //DOH! the file doesn't exist!
-		printf("ERROR: Save file specified (%s) doesn't exist!\n", filename);
+		printf("ERROR: Save file specified, '%s' doesn't exist!\n", address);
 	}
 }

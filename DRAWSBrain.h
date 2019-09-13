@@ -4,13 +4,14 @@
 #include "settings.h"
 #include "helpers.h"
 
+#include <algorithm>
 #include <vector>
 #include <stdio.h>
 
 class DRAWSBox {
 public:
 
-    DRAWSBox(int numboxes);
+    DRAWSBox(int maxid);
 
     std::vector<float> w; //weight of each connecting box
     std::vector<int> id; //id in boxes[] of the connecting box
@@ -41,10 +42,12 @@ public:
     virtual DRAWSBrain& operator=(const DRAWSBrain& other);
 
     void tick(std::vector<float>& in, std::vector<float>& out);
-	float getActivity();
+	float getActivity() const;
     void initMutate(float MR, float MR2);
 	void liveMutate(float MR, float MR2, std::vector<float>& out);
     DRAWSBrain crossover( const DRAWSBrain &other );
+	std::vector<int> traceBack(int outback);
+
 private:
     void init();
 };

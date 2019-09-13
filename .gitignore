@@ -6,7 +6,9 @@ Release/
 build/
 saves/
 saved_agents/
-*.SCB
+OUTDATED/
+RELEASES/
+*.SAV
 *.sav
 *.ncb
 *.sln
@@ -16,3 +18,4 @@ saved_agents/
 *.vcproj
 settings.cfg
 report.txt
+*.xlsm
