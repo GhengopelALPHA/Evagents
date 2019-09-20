@@ -642,24 +642,54 @@ void GLView::gluiCreateMenu()
 	Menu->set_main_gfx_window(win1);
 }
 
+
+//====================================== READ WRITE ===========================================//
 void GLView::handleRW(int action) //glui callback for saving/loading worlds
 {
 	live_paused= 1;
 
 	//action= 1: loading, action= 2: saving, action= 3: new (reset) world
 	if (action==1){ //basic load option selected
+		//Step 1 of loading: check if user really wants to reset world
+		if(world->getEpoch()>0){
+			//get time since last save
+			int time= glutGet( GLUT_ELAPSED_TIME );
+			char timetype= 'x';
+
+			time-= lastsavedtime;
+			if(time>=0 && time<60000) { timetype= 's'; time/=1000; }
+			else if(time<3600000) { timetype= 'm'; time/=60000; }
+			else if(time<86400000) { timetype= 'h'; time/=3600000; }
+			else { timetype= 'd'; time/=86400000; }
+
+			sprintf(buf,"Last saved %d %s ago", time, timetype);
+			printf("%s", buf);
+
+			Alert = GLUI_Master.create_glui("Alert",0,50,50);
+			Alert->show();
+			new GLUI_StaticText(Alert,"Are you sure? This will");
+			new GLUI_StaticText(Alert,"erase the current world.");
+			new GLUI_StaticText(Alert,buf); 
+			new GLUI_Button(Alert,"Okay",0, glui_handleRW);
+			new GLUI_Button(Alert,"Cancel",9, glui_handleCloses);
+
+			Alert->set_main_gfx_window(win1);
+		} else handleRW(0); //no need for alerts if epoch == 0
+
+	} else if (action==0) {
 		Loader = GLUI_Master.create_glui("Load World",0,50,50);
 
-		Filename= new GLUI_EditText(Loader,"Save Name (e.g, 'WORLD'):");
+		Filename= new GLUI_EditText(Loader,"Enter Save Name (e.g, 'WORLD'):");
 		Filename->set_w(300);
 		new GLUI_Button(Loader,"Load",1, glui_handleCloses);
+		new GLUI_Button(Loader,"Cancel",9, glui_handleCloses);
 
 		Loader->set_main_gfx_window(win1);
 
-	} else if (action==2){ //basic save option
+	} else if (action==2) { //basic save option
 		Saver = GLUI_Master.create_glui("Save World",0,50,50);
 
-		Filename= new GLUI_EditText(Saver,"Save Name (e.g, 'WORLD'):");
+		Filename= new GLUI_EditText(Saver,"Type Save Name (e.g, 'WORLD'):");
 		Filename->set_w(300);
 		new GLUI_Button(Saver,"Save",2, glui_handleCloses);
 
@@ -673,13 +703,13 @@ void GLView::handleRW(int action) //glui callback for saving/loading worlds
 		new GLUI_Button(Alert,"Cancel",4, glui_handleCloses);
 
 		Alert->set_main_gfx_window(win1);
-	} else if (action==4){ //save selected agent
+	} else if (action==4) { //save selected agent
 		Saver = GLUI_Master.create_glui("Save Agent",0,50,50);
 
-		Filename= new GLUI_EditText(Saver,"Save Name (e.g, 'AGENT'):");
+		Filename= new GLUI_EditText(Saver,"Enter Save Name (e.g, 'AGENT'):");
 		Filename->set_w(300);
 		new GLUI_Button(Saver,"Save",6, glui_handleCloses);
-	} else if (action==5){ //advanced loader
+	} else if (action==5) { //advanced loader
 		Loader = GLUI_Master.create_glui("Load World",0,50,50);
 		Browser= new GLUI_FileBrowser(Loader,"",false,8, glui_handleCloses);
 	}
@@ -689,22 +719,12 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 {
 	live_paused= 0;
 
-	if (action==1){ //loading
+	if (action==1) { //loading
+		//Step 2: actual loading
 		strcpy(filename,Filename->get_text());
 		strcat(filename, ".SAV");
-		if (debug) printf("File: '\\saves\\%s'\n",filename);
-
-		if (!filename || filename=="" || filename==NULL || filename[0]=='\0'){
-			printf("ERROR: empty filename; returning to program.\n");
-
-			Alert = GLUI_Master.create_glui("Alert",0,50,50);
-			Alert->show();
-			new GLUI_StaticText(Alert,"No file name given.");
-			new GLUI_StaticText(Alert,"Press OK to return to program.");
-			new GLUI_Button(Alert,"Okay",4, glui_handleCloses);
-			new GLUI_Button(Alert,"Okay",4, glui_handleCloses);
-
-		} else {
+		
+		if (checkFile(filename)) {
 			savehelper->loadWorld(world, xtranslate, ytranslate, filename);
 			//.cfg/.sav make sure to put all saved world variables with GUI options here so they update
 			live_worldclosed= (int)world->isClosed();
@@ -715,37 +735,27 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 		}
 		Loader->hide();
 
-	} else if (action==2){ //saving
+	} else if (action==2) { //saving
 		trySaveWorld();
 		Saver->hide();
 
-	} else if (action==3){ //resetting
+	} else if (action==3) { //resetting
 		world->reset();
 		world->spawn();
 		printf("WORLD RESET!\n");
 		Alert->hide();
-	} else if (action==4){ //Alert cancel/continue
+	} else if (action==4) { //Alert cancel/continue
 		Alert->hide();
-	} else if (action==5){ //Alert from above saving
+	} else if (action==5) { //Alert from above saving
 		savehelper->saveWorld(world, xtranslate, ytranslate, filename);
 		world->addEvent("Saved World (overwritten)",5);
 		Alert->hide();
-	} else if (action==6){ //saving agents
+	} else if (action==6) { //saving agents
 		const char *tempname= Filename->get_text();
 		strcpy(filename, tempname);
 		strcat(filename, ".AGT");
 
-		if (debug) printf("File: '\\saved_agents\\%s'",filename);
-		if (!filename || filename=="" || filename==NULL || filename[0]=='\0'){
-			printf("ERROR: empty filename; returning to program.\n");
-
-			Alert = GLUI_Master.create_glui("Alert",0,50,50);
-			Alert->show();
-			new GLUI_StaticText(Alert, "No file name given." );
-			new GLUI_StaticText(Alert, "Returning to main program." );
-			new GLUI_Button(Alert,"Okay");
-
-		} else {
+		if (checkFile(filename)) {
 			//check the filename given to see if it exists yet
 			char address[32];
 			strcpy(address,"saved_agents\\");
@@ -782,56 +792,66 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 //			savehelper->saveAgent(world->agents[sidx], sa);
 //		}
 //		fclose(sa);
-	} else if (action==8){ //advanced loader
+	} else if (action==8) { //advanced loader
 		file_name= "";
 		file_name= Browser->get_file();
 		strcpy(filename,file_name.c_str());
 
-		if (debug) printf("File: '\\saves\\%s'\n",filename);
-		if (!filename || filename=="" || filename==NULL || filename[0]=='\0'){
-			printf("ERROR: empty filename; returning to program.\n");
-
-			Alert = GLUI_Master.create_glui("Alert",0,50,50);
-			Alert->show();
-			new GLUI_StaticText(Alert,"No file name given.");
-			new GLUI_StaticText(Alert,"Returning to main program.");
-			new GLUI_Button(Alert,"Okay",4, glui_handleCloses);
-
-		} else {
+		if (checkFile(filename)) {
 			savehelper->loadWorld(world, xtranslate, ytranslate, filename);
 		}
+		Loader->hide();
+	} else if(action==9) { //loader cancel
 		Loader->hide();
 	}
 }
 
-void GLView::trySaveWorld(bool autosave)
-{
-	const char *tempname;
-	if(autosave) tempname= "AUTOSAVE";
-	else tempname= Filename->get_text();
-	strcpy(filename, tempname);
-	strcat(filename, ".SAV");
 
-	if (debug) printf("File: '\\saves\\%s'\n",filename);
-	if (!filename || filename=="" || filename==NULL || filename[0]=='\0'){
+bool GLView::checkFile(char name[30]){
+
+	if (debug) printf("File: '%s'\n",name);
+	if (!name || name=="" || name==NULL || name[0]=='\0'){
 		printf("ERROR: empty filename; returning to program.\n");
 
 		Alert = GLUI_Master.create_glui("Alert",0,50,50);
 		Alert->show();
 		new GLUI_StaticText(Alert, "No file name given." );
 		new GLUI_StaticText(Alert, "Returning to main program." );
-		new GLUI_Button(Alert,"Okay");
+		new GLUI_Button(Alert,"Okay",4, glui_handleCloses);
+		return false;
 
-	} else {
-		char address[32];
-		strcpy(address,"saves\\");
-		strcat(address,tempname);
+	} else return true;
+}
 
-		if(autosave){ //autosave overwrites
-			savehelper->saveWorld(world, xtranslate, ytranslate, filename);
+/*bool GLView::checkFile(std::string name){
 
-		} else {
+	if (debug) printf("File: '%s'\n",name);
+	if (name.size()==0 || name==NULL || name[0]=='\0'){
+		printf("ERROR: empty filename; returning to program.\n");
+
+		Alert = GLUI_Master.create_glui("Alert",0,50,50);
+		Alert->show();
+		new GLUI_StaticText(Alert, "No file name given." );
+		new GLUI_StaticText(Alert, "Returning to main program." );
+		new GLUI_Button(Alert,"Okay",4, glui_handleCloses);
+		return false;
+
+	} else return true;
+}
+*/
+
+void GLView::trySaveWorld(bool autosave)
+{
+	if(autosave) savehelper->saveWorld(world, xtranslate, ytranslate, "AUTOSAVE");
+	else {
+		strcpy(filename, Filename->get_text());
+
+		if (checkFile(filename)) {
 			//check the filename given to see if it exists yet
+			char address[32];
+			strcpy(address,"saves\\");
+			strcat(address,filename);
+
 			FILE* ck = fopen(address, "r");
 			if(ck){
 				if (debug) printf("WARNING: %s already exists!\n", filename);
@@ -847,6 +867,7 @@ void GLView::trySaveWorld(bool autosave)
 				fclose(ck);
 			} else {
 				savehelper->saveWorld(world, xtranslate, ytranslate, filename);
+				lastsavedtime= glutGet( GLUT_ELAPSED_TIME );
 				world->addEvent("Saved World",5);
 			}
 		}
@@ -1047,7 +1068,7 @@ Color3f GLView::setColorLungs(float lungs)
 {
 	Color3f color;
 	color.red= cap((0.2+lungs)*(0.8-lungs));
-	color.gre= cap((0.05+lungs)*(1.5-lungs)*(2-lungs));
+	color.gre= cap((0.05+lungs)*(1.4-lungs));
 	color.blu= (1-lungs);
 	return color;
 }
@@ -1601,7 +1622,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		}
 
 		float rad= r;
-		if( scalemult <= 0.086 && !ghost) rad= 15;
+		if( scalemult <= 0.1 && !ghost) rad= 15;
 
 		//draw indicator of this agent... used for various events
 		if (agent.indicator>0) {

@@ -210,34 +210,43 @@ enum {
 	FOOD_TYPES
 };};
 
-//defines for genes. every agent can have any number of genes, even 0. When a gene is read, its value averaged with previous of same type
-//each gene adds to the reproduction cost (based on parent)
+//defines for genes. every agent can have any number of genes, even 0 (typically defaults the trait to 1.0)
+//each gene also adds to the reproduction cost
 //GOAL is to make it so that each of these represents a "node" or organ, and maybe allow for node growth (actualy physical body parts)
 namespace Genetypes {
 enum {
-	EMPTYNODE= 0, //UNUSED
-	MAXHEALTH, //UNUSED
-	MAXAGE, //UNUSED
-	MUTCHANCE, //old MUTRATE1
-	MUTRATE, //old MUTRATE2
-	TARGETRADIUS,
-	WHEELSTRENGTH,
-	MAXREPCOUNTER,
-	LUNG,
-	GILL, //UNUSED
-	CHAMOVID,
-	RED,
-	GREEN,
-	BLUE,
-
-
-	ADD_MAXAGE,
+	ADD_NODE= 0, //UNUSED
+	MULT_MAXHEALTH, //UNUSED
+	ADD_MAXAGE, //UNUSED
+	MULT_MUTCHANCE, //old MUTRATE1
+	MULT_MUTRATE, //old MUTRATE2
+	MULT_RADIUS,
+	MULT_RED,
+	MULT_GREEN,
+	MULT_BLUE,
+	MULT_CHAMOVID,
+	MULT_WHEELSTRENGTH,
 	ADD_BABY,
-	ADD_THERMAL,
+	ADD_THERMAL, //UNUSED
+	MULT_THERMAL,
+	MULT_LUNG,
+	MULT_METABOLISM,
+	MULT_STOMACH_H,
+	MULT_STOMACH_F,
+	MULT_STOMACH_M,
+	ADD_MAXREPCOUNTER,
+	ADD_SEXPROJECT,
+	MULT_EYE_SEE_AGENT,
+	ADD_EYE, //UNUSED
+	MULT_EAR_HEAR_AGENT,
+	ADD_EAR, //UNUSED
+	MULT_CLOCK1,
+	MULT_CLOCK2,
+	MULT_CLOCK3,
+	MULT_SENSE_BLOOD,
+	MULT_SMELL_AGENTS,
 	
-
-
-
+	
 	//don't add beyond this entry!
 	GENE_TYPES
 };};
@@ -251,12 +260,12 @@ namespace conf {
 	const int WWIDTH = 1100;  //initial window width and height
 	const int WHEIGHT = 700;
 
-	const float VERSION= 0.04; //current program settings version. ++0.01 IF CHANGES MADE AND PROGRAM UPDATED
+	const float VERSION= 0.05; //current program settings version. ++0.01 IF CHANGES MADE AND PROGRAM UPDATED
 
 	const float SNAP_SPEED = 0.2; //how fast snapping to an object of interest is; 1 is instant, 0.1 is smooth, 0 is pointless
 	const float ZOOM_SPEED = 0.002; //how fast zoom actions change the magnification
 	const int EVENTS_DISP= 8; //how many events to display at once, at max. Will not ignore or miss events that exceed this; they'll wait
-	const int EVENTS_HALFLIFE= 300; //half-life (exact) for display of event messages.
+	const int EVENTS_HALFLIFE= 350; //half-life (exact) for display of event messages.
 	const float DEADTRANSPARENCY= 0.5; //the alpha value of dead agents
 
 	const int REPORTS_PER_EPOCH = 200; //(.cfg)
@@ -291,12 +300,12 @@ namespace conf {
 	//BOTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ BOTS
 	const float GRAVITYACCEL= 0.01; //(.cfg)
 	const float BUMP_PRESSURE= 0.13; //(.cfg)
-	const float GRAB_PRESSURE= 0.045; //(.cfg)
+	const float GRAB_PRESSURE= 0.05; //(.cfg)
 	const float BOTSPEED= 1.5; //(.cfg)
 	const float BOOSTSIZEMULT=3; //(.cfg)
 	const int CARCASSFRAMES= 3000; //number of frames before dead agents are removed
 
-	const float FOODTRANSFER= 0.05; //(.cfg)
+	const float FOODTRANSFER= 0.08; //(.cfg)
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
 	const float BASEEXHAUSTION= -5; //(.cfg)
 	const float EXHAUSTION_MULT= 0.5; //(.cfg)
@@ -341,7 +350,8 @@ namespace conf {
 
 	//brain settings
 	const int BRAINSIZE= 160; //(.cfg)
-	const float LEARNRATE= 0.001; // 0.02 (high-gen feedback) //how quickly a conn weight can change from use
+	const float LEARNRATE= 0.001; // CHANGE TO LEARN FROM USER INPUT
+	const bool ENABLE_LEARNING= true; //(.cfg & GUI)
 	const float BRAIN_DIRECTINPUTS= 0.1; //probability of random brain conns on average which will connect directly to inputs
 	const float BRAIN_DEADCONNS= 0.35; //probability of random brain conns which are "dead" (that is, weight = 0)
 	const float BRAIN_CHANGECONNS= 0.05; //probablility of random brain conns which are change sensitive
@@ -351,7 +361,7 @@ namespace conf {
 //	const float BRAIN_ANDCONNS= 0.2; //probability of random brain conns that multiply in instead of add.
 
 	//LAYERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LAYERS
-	const float STOMACH_EFF= 0.3; //(.cfg)
+	const float STOMACH_EFF= 0.25; //(.cfg)
 
 	const float FOODINTAKE= 0.0091; //(.cfg)
 	const float FOODDECAY = 0.000004; //(.cfg)
@@ -363,7 +373,7 @@ namespace conf {
 	//Plant food is the simplest and most plentiful form of nutrition, but it takes time to consume enough
 
 	const float FRUITINTAKE = 0.020; //(.cfg)
-	const float FRUITDECAY = 0.000005; //(.cfg)
+	const float FRUITDECAY = 0.000003; //(.cfg)
 	const float FRUITWASTE = 0.0023; //0.0014; //(.cfg)
 	const int FRUITADDFREQ = 4; //(.cfg)
 	const float FRUITREQUIRE= 0.1; //(.cfg)

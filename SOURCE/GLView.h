@@ -68,7 +68,9 @@ public:
 	void handleIdle();
 	void renderScene();
 	void handleRW(int action); //callback function for glui loading/saving
-	void handleCloses(int action); //callback function for closing glui's
+	void handleCloses(int action); //callback function for loading gui's
+	bool checkFile(char name[30]);
+	bool checkFile(std::string name);
 
 	void gotoDefaultZoom();
 
@@ -140,6 +142,7 @@ private:
 	GLUI * Alert;
 	GLUI_EditText * Filename;
 	char filename[30];
+	int lastsavedtime;
 
 	char buf[100];
 	char buf2[10]; //text buffers

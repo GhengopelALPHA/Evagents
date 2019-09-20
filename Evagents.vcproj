@@ -68,6 +68,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib opengl32.lib glui32d.lib glut32.lib glu32.lib $(NOINHERIT)"
 				Version="0.0"
+				AdditionalLibraryDirectories="SOURCE"
 				IgnoreDefaultLibraryNames=""
 				GenerateDebugInformation="true"
 				SubSystem="1"
@@ -188,35 +189,35 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\Agent.cpp"
+				RelativePath=".\SOURCE\Agent.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\DRAWSBrain.cpp"
+				RelativePath=".\SOURCE\DRAWSBrain.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\GLView.cpp"
+				RelativePath=".\SOURCE\GLView.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\main.cpp"
+				RelativePath=".\SOURCE\main.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\ReadWrite.cpp"
+				RelativePath=".\SOURCE\ReadWrite.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\View.cpp"
+				RelativePath=".\SOURCE\View.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\vmath.cpp"
+				RelativePath=".\SOURCE\vmath.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\World.cpp"
+				RelativePath=".\SOURCE\World.cpp"
 				>
 			</File>
 		</Filter>
@@ -226,47 +227,43 @@
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
 			>
 			<File
-				RelativePath=".\Agent.h"
+				RelativePath=".\SOURCE\Agent.h"
 				>
 			</File>
 			<File
-				RelativePath=".\config.h"
+				RelativePath=".\SOURCE\config.h"
 				>
 			</File>
 			<File
-				RelativePath=".\DRAWSBrain.h"
+				RelativePath=".\SOURCE\DRAWSBrain.h"
 				>
 			</File>
 			<File
-				RelativePath=".\glui.h"
+				RelativePath=".\SOURCE\GLView.h"
 				>
 			</File>
 			<File
-				RelativePath=".\GLView.h"
+				RelativePath=".\SOURCE\helpers.h"
 				>
 			</File>
 			<File
-				RelativePath=".\helpers.h"
+				RelativePath=".\SOURCE\ReadWrite.h"
 				>
 			</File>
 			<File
-				RelativePath=".\ReadWrite.h"
+				RelativePath=".\SOURCE\settings.h"
 				>
 			</File>
 			<File
-				RelativePath=".\settings.h"
+				RelativePath=".\SOURCE\View.h"
 				>
 			</File>
 			<File
-				RelativePath=".\View.h"
+				RelativePath=".\SOURCE\vmath.h"
 				>
 			</File>
 			<File
-				RelativePath=".\vmath.h"
-				>
-			</File>
-			<File
-				RelativePath=".\World.h"
+				RelativePath=".\SOURCE\World.h"
 				>
 			</File>
 		</Filter>
@@ -276,11 +273,11 @@
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
 			>
 			<File
-				RelativePath=".\Evagents.ico"
+				RelativePath=".\SOURCE\Evagents.ico"
 				>
 			</File>
 			<File
-				RelativePath=".\resource.rc"
+				RelativePath=".\SOURCE\resource.rc"
 				>
 			</File>
 		</Filter>

@@ -148,7 +148,7 @@ void World::spawn()
 	cellsLandMasses();
 
 	//add init agents
-	printf("programming bots.\n");
+	printf("programming agents.\n");
 	addAgents(100, -2); //-2 creates both herbivores and frugivores alternately
 	findStats(); //without this, selecting "New World" in the GUI would infiniloop program somewhere... I'm too tired to figure out where
 }
@@ -244,6 +244,7 @@ void World::cellsLandMasses()
 		}
 	}
 	STATlandratio/= CW*CH;
+	printf("The percent of world which is land is %.2f.\n",STATlandratio);
 
 	if(STATlandratio>0.75){
 		DISABLE_LAND_SPAWN= false;
@@ -631,6 +632,8 @@ void World::update()
 			++item;
 		}
 	}
+
+	if(DEBUG) printf("tick\n"); //must occur at/towards end of tick
 
 }
 
@@ -1322,7 +1325,7 @@ void World::processInteractions()
 			}
 		}
 	}
-	if(DEBUG) printf("/tick\n"); //must occur at/towards end of tick
+	if(DEBUG) printf("/");
 }
 
 void World::healthTick()
@@ -2238,8 +2241,8 @@ void World::init()
 		tips.push_back("Zoom in with '>' to see more details");
 		tips.push_back("Dead agents are semi-transparent");
 		tips.push_back("View other layers with 'k' & 'l'");
-		tips.push_back("Overgrowth means increased plants");
-		tips.push_back("Drought means decreased plant spread");
+		tips.push_back("Overgrowth: more plant growth");
+		tips.push_back("Drought: less plant growth");
 		tips.push_back("Press 'h' for detailed interface help");
 		tips.push_back("Try 'm' to activate fast mode");
 		tips.push_back("Epoch 0 is boring. Press 'm'!");
@@ -2449,7 +2452,7 @@ void World::readConfig()
 				MIN_INTAKE_HEALTH_RATIO= f;
 			}else if(strcmp(var, "FUN=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)FUN) printf("OHMYGODWHATHAVEYOUDONE, ");
+				if(i!=(int)FUN) for(int x=0; x<420; x++) printf("OHMYGODWHATHAVEYOUDONE");
 				FUN= true;
 			}else if(strcmp(var, "SUN_RED=")==0){
 				sscanf(dataval, "%f", &f);
@@ -2676,21 +2679,21 @@ void World::writeConfig()
 
 	FILE* cf= fopen("settings.cfg", "w");
 
-	fprintf(cf, "settings.cfg\nThis file will be regenerated with defualt values if missing (regeneration is not necissary for the program to work)\nModify any value in this file to change constants in Evagents.\nAll changes will require a reset or relaunch to take effect\n");
+	fprintf(cf, "settings.cfg\nThis file will be regenerated with default values if missing (regeneration is not necessary for the program to work)\nModify any value in this file to change constants in Evagents.\nAll changes will require a reset or relaunch to take effect\n");
 	fprintf(cf, "\n");
-	fprintf(cf, "Any lines that the program can't recognize are silently ignored (will work on a fix that tells the user what was/wasnt changed)\nPlease note the sim only takes the last entry of a flag's value if there are duplicates. Also, can you find the hidden config flags?...\n");
+	fprintf(cf, "Any lines that the program can't recognize are silently ignored, and anything that is changed is reported by the program.\nPlease note the sim only takes the last entry of a flag's value if there are duplicates. Also, can you find the hidden config flags?...\n");
 	fprintf(cf, "\n");
 	fprintf(cf, "Remember to RIGHT-CLICK and select LOAD CONFIG, or relaunch the program after modification!!!");
 	fprintf(cf, "\n\n");
 	fprintf(cf, "V= %f \t\t\t//Version number, internal, if different than program's, will ask user to overwrite or exit\n", conf::VERSION);
 	fprintf(cf, "\n");
 	fprintf(cf, "NOTIPS= %i \t\t\t//if true, prevents tips from being displayed. This value is whatever was set in program when this file was saved\n", NOTIPS);
-	fprintf(cf, "DISABLE_LAND_SPAWN= %i \t\t//true-false flag for disabling agents from spawning on land. 0= land spawn allowed, 1= not allowed. Is GUI-controlable, so this is only default value\n", conf::DISABLE_LAND_SPAWN);
-	fprintf(cf, "MOONLIT= %i \t\t\t//true-false flag for letting agents see other agents at night. 0= no eyesight, 1= see agents at half light. Is GUI-controlable and saved/loaded, so this is only default value\n", conf::MOONLIT);
-	fprintf(cf, "DROUGHTS= %i \t\t\t//true-false flag for if the drought/overgrowth mechanic is enabled. 0= constant normal growth, 1= variable. Is GUI-controlable and saved/loaded, so this is only default value\n", conf::DROUGHTS);
+	fprintf(cf, "DISABLE_LAND_SPAWN= %i \t\t//true-false flag for disabling agents from spawning on land. 0= land spawn allowed, 1= not allowed. Is GUI-controllable, so this is only default value\n", conf::DISABLE_LAND_SPAWN);
+	fprintf(cf, "MOONLIT= %i \t\t\t//true-false flag for letting agents see other agents at night. 0= no eyesight, 1= see agents at half light. Is GUI-controllable and saved/loaded, so this is only default value\n", conf::MOONLIT);
+	fprintf(cf, "DROUGHTS= %i \t\t\t//true-false flag for if the drought/overgrowth mechanic is enabled. 0= constant normal growth, 1= variable. Is GUI-controllable and saved/loaded, so this is only default value\n", conf::DROUGHTS);
 	fprintf(cf, "DROUGHT_MIN= %f \t\t//minimum multiplier value of droughts, below which it gets thrown back to near 1.0\n", conf::DROUGHT_MIN);
 	fprintf(cf, "DROUGHT_MAX= %f \t\t//maximum multiplier value of droughts (overgrowth), above which it gets thrown back near 1.0\n", conf::DROUGHT_MAX);
-	fprintf(cf, "MUTEVENTS= %i \t\t\t//true-false flag for if the mutation event mechanic is enabled. 0= normal mutation rates, 1= variable. Is GUI-controlable and saved/loaded, so this is only default value\n", conf::MUTEVENTS);
+	fprintf(cf, "MUTEVENTS= %i \t\t\t//true-false flag for if the mutation event mechanic is enabled. 0= normal mutation rates, 1= variable. Is GUI-controllable and saved/loaded, so this is only default value\n", conf::MUTEVENTS);
 	fprintf(cf, "MUTEVENT_MAX= %i \t\t//integer max possible multiplier for mutation event mechanic. =1 effectively disables. =0 enables 50%% chance no live mutations per epoch. Negative values increase this chance (-1 => 66%%, -2 => 75%%, etc).\n", conf::MUTEVENT_MAX);
 	fprintf(cf, "\n");
 	fprintf(cf, "MINFOOD= %i \t\t\t//Minimum number of food cells which must have food during simulation. 0= off\n", conf::MINFOOD);
@@ -2707,9 +2710,9 @@ void World::writeConfig()
 	fprintf(cf, "FRAMES_PER_EPOCH= %i \t//number of frames before epoch is incremented by 1.\n", conf::FRAMES_PER_EPOCH);
 	fprintf(cf, "FRAMES_PER_DAY= %i \t\t//number of frames it takes for the daylight cycle to go completely around the map\n", conf::FRAMES_PER_DAY);
 	fprintf(cf, "\n");
-	fprintf(cf, "CONTINENTS= %i \t\t\t//number of 'continents' generated on the land layer. Not guarenteed to be accurate\n", conf::CONTINENTS);
-	fprintf(cf, "OCEANPERCENT= %f \t\t//decimal ratio of terrain layer which will be ocean. Aproximately\n", conf::OCEANPERCENT);
-	fprintf(cf, "GRAVITYACCEL= %f \t\t//how fast a bot will 'fall' after jumping. 0= jump disabled, 0.1+ = super-gravity\n", conf::GRAVITYACCEL);
+	fprintf(cf, "CONTINENTS= %i \t\t\t//number of 'continents' generated on the land layer. Not guaranteed to be accurate\n", conf::CONTINENTS);
+	fprintf(cf, "OCEANPERCENT= %f \t\t//decimal ratio of terrain layer which will be ocean. Approximately\n", conf::OCEANPERCENT);
+	fprintf(cf, "GRAVITYACCEL= %f \t\t//how fast an agent will 'fall' after jumping. 0= jump disabled, 0.1+ = super-gravity\n", conf::GRAVITYACCEL);
 	fprintf(cf, "BUMP_PRESSURE= %f \t//the restoring force between two colliding agents. 0= no reaction (disables TOOCLOSE and all collisions). I'd avoid negative values if I were you...\n", conf::BUMP_PRESSURE);
 	fprintf(cf, "GRAB_PRESSURE= %f \t//the restoring force between and agent and its grab target. 0= no reaction (disables grab function), negative values push agents away\n", conf::GRAB_PRESSURE);
 	fprintf(cf, "BRAINSIZE= %i \t\t\t//number boxes in every agent brain. Will not make brains smaller than Inputs + Outputs. Saved per world, will override for loaded worlds\n", conf::BRAINSIZE);
@@ -2717,20 +2720,21 @@ void World::writeConfig()
 	fprintf(cf, "BOTSPEED= %f \t\t//fastest possible speed of agents. This effects so much of the sim I dont advise changing it\n", conf::BOTSPEED);
 	fprintf(cf, "BOOSTSIZEMULT= %f \t//how much speed boost do agents get when boost is active?\n", conf::BOOSTSIZEMULT);
 	fprintf(cf, "SOUNDPITCHRANGE= %f \t//range below hearhigh and above hearlow within which external sounds fade in. Would not recommend extreme values near or beyond [0,0.5]\n", conf::SOUNDPITCHRANGE);
-	fprintf(cf, "FOODTRANSFER= %f \t\t//how much health is transfered between two agents trading food per tick? =0 disables all generosity\n", conf::FOODTRANSFER);
+	fprintf(cf, "FOODTRANSFER= %f \t\t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::FOODTRANSFER);
 	fprintf(cf, "BASEEXHAUSTION= %f \t//base value of exhaustion. When negative, is essentially the sum amount of output allowed before healthloss. Would not recommend >=0 values\n", conf::BASEEXHAUSTION);
 	fprintf(cf, "EXHAUSTION_MULT= %f \t//multiplier applied to outputsum + BASEEXHAUSTION\n", conf::EXHAUSTION_MULT);
-	fprintf(cf, "MEANRADIUS= %f \t\t//\"average\" agent radius, range [0.2*,2.2*) (only applies to random agents, no limits on mutations). Average agents take full damage from spikes, large (2*MEANRADIUS) agents take half damage, and huge agents (2*MEANRADIUS+10) take no damage from spikes at all. Radius also effects assexual reproduction health penalty via *(radius/MEANRADIUS). would not recommend setting <=0\n", conf::MEANRADIUS);
+	fprintf(cf, "MEANRADIUS= %f \t\t//\"average\" agent radius, range [0.2*,2.2*) (only applies to random agents, no limits on mutations). Average agents take full damage from spikes, large (2*MEANRADIUS) agents take half damage, and huge agents (2*MEANRADIUS+10) take no damage from spikes at all. Radius also effects asexual reproduction health penalty via *(radius/MEANRADIUS). would not recommend setting <=0\n", conf::MEANRADIUS);
 	fprintf(cf, "SPIKESPEED= %f \t\t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKESPEED);
 	fprintf(cf, "FRESHKILLTIME= %i \t\t//number of ticks after a spike, collision, or bite that an agent will still drop full meat\n", conf::FRESHKILLTIME);
 	fprintf(cf, "TENDERAGE= %i \t\t\t//age (in 1/10ths) of agents where full meat, hazard, and collision damage is finally given. These multipliers are reduced via *age/TENDERAGE. 0= off\n", conf::TENDERAGE);
 	fprintf(cf, "MINMOMHEALTH= %f \t\t//minimum amount of health required for an agent to have a child\n", conf::MINMOMHEALTH);
 	fprintf(cf, "MIN_INTAKE_HEALTH_RATIO= %f //minimum metabolism ratio of intake sent to health. 0= no restrictions, 1= 100% health, no babies. default= 0.5\n", conf::MIN_INTAKE_HEALTH_RATIO);
+	if(STATallachieved) fprintf(cf, "FUN= 1\n");
 	fprintf(cf, "REP_PER_BABY= %f \t\t//amount of food required to be consumed for an agent to reproduce, per baby\n", conf::REP_PER_BABY);
 	fprintf(cf, "OVERHEAL_REPFILL= %i \t\t//true-false flag for letting agents redirect overfill health (>2) to repcounter. 1= conserves matter, 0= balanced most efficient metabolism\n", conf::OVERHEAL_REPFILL);
 //	fprintf(cf,	"LEARNRATE= %f\n", conf::LEARNRATE);
 	fprintf(cf, "MAXDEVIATION= %f \t//maximum difference in species ID a crossover reproducing agent will be willing to tolerate\n", conf::MAXDEVIATION);
-	fprintf(cf, "MUTCHANCE= %f \t\t//the chance of mutations occuring (note that various mutations modify this value up or down)\n", conf::MUTCHANCE);
+	fprintf(cf, "MUTCHANCE= %f \t\t//the chance of mutations occurring (note that various mutations modify this value up or down)\n", conf::MUTCHANCE);
 	fprintf(cf, "MUTSIZE= %f \t\t//the magnitude of mutations (note that various mutations modify this value up or down)\n", conf::MUTSIZE);
 	fprintf(cf, "LIVE_MUTATE_CHANCE= %f \t//chance, per tick, that a given agent will be mutated alive. Not typically harmful. Can be increased by mutation events if enabled.\n", conf::LIVE_MUTATE_CHANCE);
 	fprintf(cf, "MAXAGE= %i \t\t\t//Age at which the full HEALTHLOSS_AGING amount is applied to an agent\n", conf::MAXAGE);
@@ -2738,44 +2742,44 @@ void World::writeConfig()
 	fprintf(cf, "DIST= %f \t\t//how far the senses can detect other agents or cells\n", conf::DIST);
 	fprintf(cf, "SPIKELENGTH= %f \t\t//full spike length. Should not be more than DIST. 0 disables interaction\n", conf::SPIKELENGTH);
 	fprintf(cf, "TOOCLOSE= %f \t\t//how much two agents can be overlapping before they take damage. 0 disables interaction\n", conf::TOOCLOSE);
-	fprintf(cf, "FOOD_SHARING_DISTANCE= %f //how far away can food be shared between bots? Should not be more than DIST. 0 disables interaction\n", conf::FOOD_SHARING_DISTANCE);
+	fprintf(cf, "FOOD_SHARING_DISTANCE= %f //how far away can food be shared between agents? Should not be more than DIST. 0 disables interaction\n", conf::FOOD_SHARING_DISTANCE);
 	fprintf(cf, "SEXTING_DISTANCE= %f \t//how far away can two agents sexually reproduce? Should not be more than DIST. 0 disables interaction\n", conf::SEXTING_DISTANCE);
-	fprintf(cf, "GRABBING_DISTANCE= %f \t//how far away can a bot grab another? Should not be more than DIST. 0 disables interaction\n", conf::GRABBING_DISTANCE);
+	fprintf(cf, "GRABBING_DISTANCE= %f \t//how far away can an agent grab another? Should not be more than DIST. 0 disables interaction\n", conf::GRABBING_DISTANCE);
 	fprintf(cf, "\n");
-	fprintf(cf, "HEALTHLOSS_WHEELS= %f \t//How much health is lost for a bot driving at full speed\n", conf::HEALTHLOSS_WHEELS);
+	fprintf(cf, "HEALTHLOSS_WHEELS= %f \t//How much health is lost for an agent driving at full speed\n", conf::HEALTHLOSS_WHEELS);
 	fprintf(cf, "HEALTHLOSS_BOOSTMULT= %f \t//how much boost costs (set to 1 to nullify boost cost; its a multiplier)\n", conf::HEALTHLOSS_BOOSTMULT);
-	fprintf(cf, "HEALTHLOSS_BADTEMP= %f \t//how quickly health drains in nonpreferred temperatures\n", conf::HEALTHLOSS_BADTEMP);
+	fprintf(cf, "HEALTHLOSS_BADTEMP= %f \t//how quickly health drains in non-preferred temperatures\n", conf::HEALTHLOSS_BADTEMP);
 	fprintf(cf, "HEALTHLOSS_AGING= %f \t//health lost at MAXAGE. Note that this damage is applied to all agents in proportion to their age.\n", conf::HEALTHLOSS_AGING);
 	fprintf(cf, "HEALTHLOSS_BRAINUSE= %f \t//how much health is reduced for each box in the brain being active\n", conf::HEALTHLOSS_BRAINUSE);
-	fprintf(cf, "HEALTHLOSS_SPIKE_EXT= %f \t//how much health a bot looses for extending spike\n", conf::HEALTHLOSS_SPIKE_EXT);
+	fprintf(cf, "HEALTHLOSS_SPIKE_EXT= %f \t//how much health an agent looses for extending spike\n", conf::HEALTHLOSS_SPIKE_EXT);
 	fprintf(cf, "HEALTHLOSS_BADTERRAIN= %f //how much health is lost if in totally opposite environment\n", conf::HEALTHLOSS_BADTERRAIN);
-	fprintf(cf, "HEALTHLOSS_NOOXYGEN= %f \t//how much bots are penalized when total agents = TOOMANYBOTS\n", conf::HEALTHLOSS_NOOXYGEN);
+	fprintf(cf, "HEALTHLOSS_NOOXYGEN= %f \t//how much agents are penalized when total agents = TOOMANYBOTS\n", conf::HEALTHLOSS_NOOXYGEN);
 	fprintf(cf, "HEALTHLOSS_ASSEX= %f \t//multiplier for radius/MEANRADIUS penalty on mother for asexual reproduction\n", conf::HEALTHLOSS_ASSEX);
 	fprintf(cf, "\n");
 	fprintf(cf, "DAMAGE_FULLSPIKE= %f \t//health multiplier of spike injury. Note: it is effected by spike length and wheel speed\n", conf::DAMAGE_FULLSPIKE);
 	fprintf(cf, "DAMAGE_COLLIDE= %f \t//how much health is lost upon collision. Note that =0 does not disable the event (see TOOCLOSE)\n", conf::DAMAGE_COLLIDE);
-	fprintf(cf, "DAMAGE_JAWSNAP= %f \t//when jaws snap fully (0->1), this is the damage applied to bots in front\n", conf::DAMAGE_JAWSNAP);
+	fprintf(cf, "DAMAGE_JAWSNAP= %f \t//when jaws snap fully (0->1), this is the damage applied to agents in front\n", conf::DAMAGE_JAWSNAP);
 	fprintf(cf, "\n");
 	fprintf(cf, "STOMACH_EFF= %f \t\t//the worst possible multiplier produced from having at least two stomach types at 1. =0.1 is harsh. =1 disables (full efficiency)\n", conf::STOMACH_EFF);
 	fprintf(cf, "\n");
 	fprintf(cf, "FOODINTAKE= %f \t\t//how much plant food can feed an agent per tick?\n", conf::FOODINTAKE);
 	fprintf(cf, "FOODDECAY= %f \t\t//how much does food decay per tick? (negative values make it grow everywhere instead)\n", conf::FOODDECAY);
 	fprintf(cf, "FOODGROWTH= %f \t\t//how much does food increase by on a cell with both plant and hazard? (fertilizer effect). =0 disables\n", conf::FOODGROWTH);
-	fprintf(cf, "FOODWASTE= %f \t\t//how much food disapears when an agent eats it?\n", conf::FOODWASTE);
+	fprintf(cf, "FOODWASTE= %f \t\t//how much food disappears when an agent eats it?\n", conf::FOODWASTE);
 	fprintf(cf, "FOODADDFREQ= %i \t\t//how often does a random cell get set to full food randomly? Lower values are more frequent\n", conf::FOODADDFREQ);
 	fprintf(cf, "FOODSPREAD= %f \t\t//probability of a plant cell being seeded to a nearby cell. 0.0002= VERY fast food growth\n", conf::FOODSPREAD);
 	fprintf(cf, "FOODRANGE= %i \t\t\t//distance that a single cell of food can seed. Units in cells.\n", conf::FOODRANGE);
 	fprintf(cf, "\n");
 	fprintf(cf, "FRUITINTAKE= %f \t\t//how much fruit can feed an agent per tick?\n", conf::FRUITINTAKE);
 	fprintf(cf, "FRUITDECAY= %f \t\t//how much fruit decays per tick? This is applied *2 if less than FRUITREQUIRE plant is in the cell\n", conf::FRUITDECAY);
-	fprintf(cf, "FRUITWASTE= %f \t\t//how much fruit disapears when an agent eats it?\n", conf::FRUITWASTE);
+	fprintf(cf, "FRUITWASTE= %f \t\t//how much fruit disappears when an agent eats it?\n", conf::FRUITWASTE);
 	fprintf(cf, "FRUITADDFREQ= %i \t\t//how often does a high-plant-food cell get set to full fruit? Higher values are less frequent (must have at least FRUITREQUIRE plant)\n", conf::FRUITADDFREQ);
 	fprintf(cf, "FRUITREQUIRE= %f \t\t//minimum plant food on same cell required for fruit to persist or populate\n", conf::FRUITREQUIRE);
 	fprintf(cf, "\n");
 	fprintf(cf, "MEATINTAKE= %f \t\t//how much meat can feed an agent per tick?\n", conf::MEATINTAKE);
 	fprintf(cf, "MEATDECAY= %f \t\t//how much meat decays on a cell per tick? (negative values make it grow everywhere instead)\n", conf::MEATDECAY);
-	fprintf(cf, "MEATWASTE= %f \t\t//how much meat disapears when an agent eats it?\n", conf::MEATWASTE);
-	fprintf(cf, "MEATVALUE= %f \t\t//how much meat a bot's body is worth?\n", conf::MEATVALUE);
+	fprintf(cf, "MEATWASTE= %f \t\t//how much meat disappears when an agent eats it?\n", conf::MEATWASTE);
+	fprintf(cf, "MEATVALUE= %f \t\t//how much meat an agent's body is worth?\n", conf::MEATVALUE);
 	fprintf(cf, "\n");
 	fprintf(cf, "HAZARDFREQ= %i \t\t\t//how often an instant hazard appears?\n", conf::HAZARDFREQ);
 	fprintf(cf, "HAZARDDECAY= %f \t\t//how much non-event hazard decays on a cell per tick? (negative values make it grow everywhere instead)\n", conf::HAZARDDECAY);
