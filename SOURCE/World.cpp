@@ -59,8 +59,7 @@ void World::reset()
 		BRAINSIZE= Input::INPUT_SIZE+Output::OUTPUT_SIZE;
 	}
 
-	printf("sanitizing agents.\n");
-	agents.clear();
+	sanitize();
 
 	//handle layers
 	for(int cx=0; cx<(int)CW; cx++){
@@ -103,6 +102,12 @@ void World::reset()
 	STATlivemutations= 0;
 
 	addEvent("World Started!",9);
+}
+
+void World::sanitize()
+{
+	printf("sanitizing agents.\n");
+	agents.clear();
 }
 
 void World::spawn()
@@ -1065,7 +1070,11 @@ void World::processInteractions()
 				//the young are spry, and don't take much damage from hazard
 				float agemult= 1.0;
 				if(a->age<TENDERAGE) agemult= 0.5+0.5*agents[i].age/TENDERAGE;
-				a->health -= HAZARDDAMAGE*agemult*pow(hazard, HAZARDPOWER);
+
+				float damage= HAZARDDAMAGE*agemult*pow(hazard, HAZARDPOWER);
+				if(hazard>0.9) damage*= HAZARDEVENT_MULT; //if a hazard event, apply multiplier
+
+				a->health -= damage;
 				a->writeIfKilled("Killed by a Hazard");
 			}
 
@@ -2642,6 +2651,10 @@ void World::readConfig()
 				sscanf(dataval, "%i", &i);
 				if(i!=HAZARDFREQ) printf("HAZARDFREQ, ");
 				HAZARDFREQ= i;
+			}else if(strcmp(var, "HAZARDEVENT_MULT=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=HAZARDEVENT_MULT) printf("HAZARDEVENT_MULT, ");
+				HAZARDEVENT_MULT= f;
 			}else if(strcmp(var, "HAZARDDECAY=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=HAZARDDECAY) printf("HAZARDDECAY, ");
@@ -2782,6 +2795,7 @@ void World::writeConfig()
 	fprintf(cf, "MEATVALUE= %f \t\t//how much meat an agent's body is worth?\n", conf::MEATVALUE);
 	fprintf(cf, "\n");
 	fprintf(cf, "HAZARDFREQ= %i \t\t\t//how often an instant hazard appears?\n", conf::HAZARDFREQ);
+	fprintf(cf, "HAZARDEVENT_MULT= %f \t//multiplier for agents standing in a cell with a hazard event ongoing. multipied after HAZARDDAMAGE\n", conf::HAZARDEVENT_MULT);
 	fprintf(cf, "HAZARDDECAY= %f \t\t//how much non-event hazard decays on a cell per tick? (negative values make it grow everywhere instead)\n", conf::HAZARDDECAY);
 	fprintf(cf, "HAZARDDEPOSIT= %f \t//how much hazard is placed by an agent per tick? (Ideally. Agents can control the frequency and amount that they deposit, but in sum it should equal this per tick)\n", conf::HAZARDDEPOSIT);
 	fprintf(cf, "HAZARDPOWER= %f \t\t//power of the hazard layer value, applied before HAZARDDAMAGE. default= 0.5 (remember, hazard in range [0,1])\n", conf::HAZARDPOWER);

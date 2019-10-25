@@ -290,7 +290,7 @@ namespace conf {
 	const bool MOONLIT= true; //(.cfg & GUI)
 	const bool DROUGHTS= true; //(.cfg & GUI)
 	const float DROUGHT_NOTIFY= 0.15; //1.0 +/- this value of drought sends an event notification
-	const float DROUGHT_MIN= 0.7; //(.cfg)
+	const float DROUGHT_MIN= 0.5; //(.cfg)
 	const float DROUGHT_MAX= 1.3; //(.cfg)
 	const bool MUTEVENTS= true; //(.cfg & GUI)
 	const int MUTEVENT_MAX= 3; //(.cfg)
@@ -318,10 +318,10 @@ namespace conf {
 	const float REP_PER_BABY= 4; //(.cfg)
 	const float REPCOUNTER_MIN= 15; //minimum value the Repcounter may be set to
 	const float MAXDEVIATION=10; //(.cfg)
-	const float METAMUTRATE1= 0.0003; //what is the change in MUTRATE1 and 2 on reproduction? lol
+	const float METAMUTRATE1= 0.0005; //what is the change in MUTRATE1 and 2 on reproduction? lol
 	const float METAMUTRATE2= 0.00002;
 	const float MUTCHANCE= 0.15; //(.cfg)
-	const float MUTSIZE= 0.01; //(.cfg)
+	const float MUTSIZE= 0.03; //(.cfg)
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
 	const int MAXAGE=10000; //(.cfg)
 
@@ -363,7 +363,7 @@ namespace conf {
 	//LAYERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LAYERS
 	const float STOMACH_EFF= 0.25; //(.cfg)
 
-	const float FOODINTAKE= 0.0091; //(.cfg)
+	const float FOODINTAKE= 0.0090; //(.cfg)
 	const float FOODDECAY = 0.000004; //(.cfg)
 	const float FOODGROWTH= 0.000004; //(.cfg)
 	const float FOODWASTE= 0.0023;//0.0007; //(.cfg)
@@ -379,16 +379,17 @@ namespace conf {
 	const float FRUITREQUIRE= 0.1; //(.cfg)
 	//Fruit is a quick and easy alternative to plants. Also partially randomly populated, harkening back to ScriptBots origins
 
-	const float MEATINTAKE= 0.09; //(.cfg)
+	const float MEATINTAKE= 0.095; //(.cfg)
 	const float MEATDECAY= 0.0001; //(.cfg)
 	const float MEATWASTE= 0.0023; //0.002; //(.cfg)
 	const float MEATVALUE= 1.0; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays
 
 	const int HAZARDFREQ= 20; //(.cfg)
+	const float HAZARDEVENT_MULT= 2.0; //(.cfg)
 	const float HAZARDDECAY= 0.000002; //(.cfg)
 	const float HAZARDDEPOSIT= 0.0035; //(.cfg)
-	const float HAZARDDAMAGE= 0.003;//0.0025; //(.cfg)
+	const float HAZARDDAMAGE= 0.0032;//0.0025; //(.cfg)
 	const float HAZARDPOWER= 0.5; //(.cfg)
 	}
 

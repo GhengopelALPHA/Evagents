@@ -75,7 +75,7 @@ public:
 	void gotoDefaultZoom();
 
 	void glCreateMenu();
-	int m_id; //main right-click context menu
+	int m_id, sm1_id, sm2_id, sm3_id, sm4_id; //main right-click menues
 	int win1;
 	void gluiCreateMenu();
 

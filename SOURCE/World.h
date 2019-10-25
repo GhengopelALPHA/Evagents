@@ -18,6 +18,7 @@ public:
 	void writeConfig();
 
     void reset();
+	void sanitize();
 	void spawn();
 	void update();
 	
@@ -236,6 +237,7 @@ public:
 	float MEATVALUE;
 
 	int HAZARDFREQ;
+	float HAZARDEVENT_MULT;
 	float HAZARDDECAY;
 	float HAZARDDEPOSIT;
 	float HAZARDDAMAGE;

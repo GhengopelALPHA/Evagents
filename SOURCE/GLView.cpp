@@ -463,6 +463,8 @@ void GLView::menu(int key)
 		live_moonlight= (int)(world->MOONLIT);
 		live_droughts= (int)(world->DROUGHTS);
 		live_mutevents= (int)(world->MUTEVENTS);
+	} else if (key==1011) { //sanitize world (delete agents)
+		world->sanitize();
 	} else if (key=='n') { //dismiss visible world events
 		world->dismissNextEvents(conf::EVENTS_DISP);
 	} else {
@@ -489,29 +491,42 @@ void GLView::menuSpecial(int key) // special control keys
 
 void GLView::glCreateMenu()
 {
-	m_id = glutCreateMenu(gl_menu); //right-click context menu
-	glutAddMenuEntry("Fast Mode (m)", 'm');
-	glutAddMenuEntry("Dismiss Events (n)", 'n');
-	glutAddMenuEntry("Save World",1008);
-	glutAddMenuEntry("Remake Config", 1006);
-	glutAddMenuEntry("-------------------",-1);
-	glutAddMenuEntry("Load Config", 1010);
-	glutAddMenuEntry("Control Agent (w,a,s,d)", 999);
-	glutAddMenuEntry("Spawn Agents", 1001);
-	glutAddMenuEntry("Spawn Herbivores", 1002);
-	glutAddMenuEntry("Spawn Carnivores", 1003);
-	glutAddMenuEntry("Spawn Frugivores", 1004);
+	//right-click context menu
+	sm1_id= glutCreateMenu(gl_menu); //configs & UI
+	glutAddMenuEntry("Dismiss Visible Events (n)", 'n');
 	glutAddMenuEntry("-------------------",-1);
 	glutAddMenuEntry("Enter Debug Mode", 1005);
-	glutAddMenuEntry("Heal Agent (/)", '/');
-	glutAddMenuEntry("Reproduce Agent (|)", '|');
-	glutAddMenuEntry("Mutate Agent (~)", '~');
-	glutAddMenuEntry("Delete Agent (del)", 127);
-	glutAddMenuEntry("Toggle Closed (c)", 'c');
 	glutAddMenuEntry("-------------------",-1);
+	glutAddMenuEntry("Re(over)write Config", 1006);
+	glutAddMenuEntry("Load Config", 1010);
+
+	sm2_id= glutCreateMenu(gl_menu); //spawn new
+	glutAddMenuEntry("Agents", 1001);
+	glutAddMenuEntry("Herbivores", 1002);
+	glutAddMenuEntry("Carnivores", 1003);
+	glutAddMenuEntry("Frugivores", 1004);
+
+	sm3_id= glutCreateMenu(gl_menu); //selected agent
+	glutAddMenuEntry("Control (w,a,s,d)", 999);
+	glutAddMenuEntry("Heal (/)", '/');
+	glutAddMenuEntry("Reproduce (|)", '|');
+	glutAddMenuEntry("Mutate (~)", '~');
+	glutAddMenuEntry("Delete (del)", 127);
+
+	sm4_id= glutCreateMenu(gl_menu); //world control
 	glutAddMenuEntry("Load World",1009);
-	glutAddMenuEntry("Reset World", 1007);
+	glutAddMenuEntry("Sanitize World", 1011);
+	glutAddMenuEntry("New World", 1007);
 	glutAddMenuEntry("Exit (esc)", 27);
+
+	m_id = glutCreateMenu(gl_menu); 
+	glutAddMenuEntry("Fast Mode (m)", 'm');
+	glutAddSubMenu("UI & Config...", sm1_id);
+	glutAddMenuEntry("Save World",1008);
+	glutAddSubMenu("Alter World...", sm4_id);
+	glutAddSubMenu("Spawn New...", sm2_id);
+	glutAddMenuEntry("Toggle Closed (c)", 'c');
+	glutAddSubMenu("Selected Agent...", sm3_id);
 	glutAttachMenu(GLUT_RIGHT_BUTTON);
 }
 
@@ -842,7 +857,7 @@ bool GLView::checkFile(char name[30]){
 
 void GLView::trySaveWorld(bool autosave)
 {
-	if(autosave) savehelper->saveWorld(world, xtranslate, ytranslate, "AUTOSAVE");
+	if(autosave) savehelper->saveWorld(world, xtranslate, ytranslate, "AUTOSAVE.SAV");
 	else {
 		strcpy(filename, Filename->get_text());
 
