@@ -10,6 +10,9 @@ https://sites.google.com/view/evagentsproject/home
 ==============================================================================================================
 
 WHAT IS EVAGENTS?
+
+![Evagents](https://imgur.com/L0G2UpB)
+
 Evagents is a "natural" selection simulator. The program contains a world wherein agents can interact with that world and each other, reproduce, die, run around, eat, breed, communicate, and other things, using neural nets to calculate their responses to stimuli. Each agent has a huge number of features available to them that they can use in various ways to try and survive long enough to reproduce, extending their solution through time. Any time a baby is born its traits are copied from it's parent(s), but with chances of mutations. Thus a form of natural selection is applied to create populations of species that can best survive in the world. Competition and cooperation are important secondary characteristics that agents must develop, using their DRAWS Brains, a neural network with features of Dampening, Recurrence, Addition, Weighted, Sigmoid-outputs that takes inputs (in range 0-1) and feeds them to outputs (also 0-1) over time and in an initially random structure. As time passes, however, the brains can mutate into more efficient forms
 
 ==============================================================================================================
