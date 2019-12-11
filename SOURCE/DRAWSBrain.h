@@ -48,6 +48,7 @@ public:
     DRAWSBrain crossover( const DRAWSBrain &other );
 	std::vector<int> traceBack(int outback);
 
+
 private:
     void init();
 };

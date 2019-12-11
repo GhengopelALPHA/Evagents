@@ -47,6 +47,7 @@ public:
 	bool isSpikey(float SPIKELENGTH) const;
 
 	bool isTiny() const;
+	bool isAsexual() const;
 	
 	//Saved Variables
 	//simulation basics

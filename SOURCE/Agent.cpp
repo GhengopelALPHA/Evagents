@@ -559,13 +559,13 @@ bool Agent::isFrugivore() const
 
 bool Agent::isTerrestrial() const
 {
-	if (lungs>=0.5) return true;
+	if (lungs>0.5) return true;
 	return false;
 }
 
 bool Agent::isAmphibious() const
 {
-	if (lungs>0.25 && lungs<0.5) return true;
+	if (lungs>0.25 && lungs<=0.5) return true;
 	return false;
 }
 
@@ -585,6 +585,12 @@ bool Agent::isTiny() const
 {
 	if(radius<=5) return true;
 	return false;
+}
+
+bool Agent::isAsexual() const
+{
+	if(sexproject>0.5) return false;
+	return true;
 }
 
 void Agent::writeIfKilled(const char * cause)

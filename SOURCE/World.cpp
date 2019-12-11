@@ -319,24 +319,24 @@ void World::update()
 			int preeventcount= events.size(); //count of events before checks. Will cause next cycle to skip, reducing repeat event flags
 
 			//generic stats between last report and current
-			if(numTotal[ptr]<=numTotal[lastptr]*0.95-20 && current_epoch>0) {
+			if(numTotal[ptr]<=numTotal[lastptr]*0.9-20 && current_epoch>0) {
 				addEvent("Population Bust!",1);}
 			if(current_epoch>0 && numTotal[ptr]==NUMBOTS && STATfirstspecies && numTotal[lastptr]>NUMBOTS*1.1+5) {
 				addEvent("Population Crash!",1);}
-			if(numTotal[ptr]>=numTotal[lastptr]*1.05+20) {
-				//if having a major population boom or bust, check major phenotypes
-				if(numHerbivore[ptr]>=numHerbivore[lastptr]*1.05+20 && numHerbivore[ptr]>NUMBOTS) {
-					addEvent("Herbivore (H) Bloom",2);}
-				if(numCarnivore[ptr]>=numCarnivore[lastptr]*1.05+20 && numCarnivore[ptr]>NUMBOTS) {
-					addEvent("Carnivore (C) Bloom",2);}
-				if(numFrugivore[ptr]>=numFrugivore[lastptr]*1.05+20 && numFrugivore[ptr]>NUMBOTS) {
-					addEvent("Frugivore (F) Bloom",2);}
-				if(numAmphibious[ptr]>=numAmphibious[lastptr]*1.05+20 && numAmphibious[ptr]>NUMBOTS && (numTerrestrial[ptr]>NUMBOTS || numAquatic[ptr]>NUMBOTS)) {
-					addEvent("Amphibian (A) Bloom",2);}
-				if(numTerrestrial[ptr]>=numTerrestrial[lastptr]*1.05+20 && numTerrestrial[ptr]>NUMBOTS && (numAmphibious[ptr]>NUMBOTS || numAquatic[ptr]>NUMBOTS)) {
-					addEvent("Terrestrial (T) Bloom",2);}
-				if(numAquatic[ptr]>=numAquatic[lastptr]*1.05+20 && numAquatic[ptr]>NUMBOTS && (numAmphibious[ptr]>NUMBOTS || numTerrestrial[ptr]>NUMBOTS)) {
-					addEvent("Aquatic (T) Bloom",2);}
+			if(numTotal[ptr]>=numTotal[lastptr]*1.1+20) {
+				//if having a major population boom, check major phenotypes
+				if(numHerbivore[ptr]>=numHerbivore[lastptr]*1.1+20 && numHerbivore[ptr]>NUMBOTS) {
+					addEvent("Herbivore Bloom",2);}
+				if(numCarnivore[ptr]>=numCarnivore[lastptr]*1.1+20 && numCarnivore[ptr]>NUMBOTS) {
+					addEvent("Carnivore Bloom",2);}
+				if(numFrugivore[ptr]>=numFrugivore[lastptr]*1.1+20 && numFrugivore[ptr]>NUMBOTS) {
+					addEvent("Frugivore Bloom",2);}
+				if(numAmphibious[ptr]>=numAmphibious[lastptr]*1.1+20 && numAmphibious[ptr]>NUMBOTS && (numTerrestrial[ptr]>NUMBOTS || numAquatic[ptr]>NUMBOTS)) {
+					addEvent("Amphibian Bloom",2);}
+				if(numTerrestrial[ptr]>=numTerrestrial[lastptr]*1.1+20 && numTerrestrial[ptr]>NUMBOTS && (numAmphibious[ptr]>NUMBOTS || numAquatic[ptr]>NUMBOTS)) {
+					addEvent("Terrestrial Bloom",2);}
+				if(numAquatic[ptr]>=numAquatic[lastptr]*1.1+20 && numAquatic[ptr]>NUMBOTS && (numAmphibious[ptr]>NUMBOTS || numTerrestrial[ptr]>NUMBOTS)) {
+					addEvent("Aquatic Bloom",2);}
 			} else {
 				//if not having a major population boom or bust, check slower rates of growth/death
 				if(ptr>10 && numTotal[ptr]>numTotal[ptr-1] && numTotal[ptr-1]>numTotal[ptr-2] && numTotal[ptr-2]>numTotal[ptr-3]
@@ -399,7 +399,7 @@ void World::update()
 		int cy=randi(0,CH);
 		cells[Layer::HAZARDS][cx][cy]= cap((cells[Layer::HAZARDS][cx][cy]/90+0.99));
 	}
-	if (modcounter%FRUITADDFREQ==0) {
+	if (modcounter%FRUITADDFREQ==0 && randf(0,1)<DROUGHTMULT) {
 		while (true) {
 			int cx=randi(0,CW);
 			int cy=randi(0,CH);
@@ -538,11 +538,11 @@ void World::update()
 			if (agents[i].repcounter<0 && agents[i].health>=MINMOMHEALTH) { 
 				//agent is healthy and is ready to reproduce. Now to decide how...
 
-				if(SEXTING_DISTANCE>0 && agents[i].sexproject>0.5){
+				if(SEXTING_DISTANCE>0 && !agents[i].isAsexual()){
 					if(agents[i].sexproject>1.0) continue;; //'fathers' cannot themselves reproduce
 
 					for (int j=0; j<(int)agents.size(); j++) {
-						if(i==j || !(agents[j].sexproject>0.5) || agents[j].repcounter>0) continue;
+						if(i==j || agents[j].isAsexual() || agents[j].repcounter>0) continue;
 						float d= (agents[i].pos-agents[j].pos).length();
 						float deviation= abs(agents[i].species - agents[j].species); //species deviation check
 						if (d<=SEXTING_DISTANCE && deviation<=MAXDEVIATION) {
@@ -812,6 +812,13 @@ void World::setInputs()
 				//we will skip all eyesight if our agent is in the dark (light==0) without a moonlit sky
 				if(light!=0 || MOONLIT){
 					for(int q=0;q<NUMEYES;q++){
+						if(a->isTiny() && q+1>=NUMEYES/2){ //small agents have half-count of eyes, the rest get set to constant 1 input
+							r[q]= 1.0;
+							g[q]= 1.0;
+							b[q]= 1.0;
+							continue;
+						}
+
 						float aa = a->angle + a->eyedir[q];
 						if (aa<-M_PI) aa += 2*M_PI;
 						if (aa>M_PI) aa -= 2*M_PI;
@@ -825,17 +832,15 @@ void World::setInputs()
 							//we see a2 with this eye. Accumulate stats
 							float lightmult= light;
 							if(MOONLIT) lightmult= max((float)0.5, light);
-							float mul1= lightmult*a->eye_see_agent_mod*(fabs(fov-diff1)/fov)*(1-d/DIST);/*(1-d/DIST)*/;
-							r[q] += mul1*a2->real_red;
-							g[q] += mul1*a2->real_gre;
-							b[q] += mul1*a2->real_blu;
+							float mul1= lightmult*a->eye_see_agent_mod*(fabs(fov-diff1)/fov)*(1-d*d/DIST/DIST);/*(1-d/DIST)*/;
+							if(r[q]<mul1*a2->real_red) r[q]= mul1*a2->real_red;
+							if(g[q]<mul1*a2->real_gre) g[q]= mul1*a2->real_gre;
+							if(b[q]<mul1*a2->real_blu) b[q]= mul1*a2->real_blu;
 							if(a->id==SELECTION && isDebug()){ //debug sight lines, get coords
 								linesA.push_back(a->pos);
 								linesB.push_back(a2->pos);
 							}
 						}
-
-						if(a->isTiny() && q+1>=NUMEYES/2) break; //small agents have half-count of eyes
 					}
 				}
 				
@@ -917,17 +922,18 @@ void World::processOutputs(bool prefire)
 				a->w1= pright;
 				a->w2= pleft;
 			} else {
-				a->w1+= a->strength*(a->out[Output::LEFT_WHEEL_F]/exh - a->out[Output::LEFT_WHEEL_B]/exh - a->w1);
-				a->w2+= a->strength*(a->out[Output::RIGHT_WHEEL_F]/exh - a->out[Output::RIGHT_WHEEL_B]/exh - a->w2);
+				a->w1+= a->strength*(a->out[Output::LEFT_WHEEL_F] - a->out[Output::LEFT_WHEEL_B] - a->w1);
+				a->w2+= a->strength*(a->out[Output::RIGHT_WHEEL_F] - a->out[Output::RIGHT_WHEEL_B] - a->w2);
 			}
+			a->w1/= exh;
+			a->w2/= exh;
 		}
 		a->real_red+= 0.2*((1-a->chamovid)*a->gene_red + a->chamovid*a->out[Output::RED]-a->real_red);
 		a->real_gre+= 0.2*((1-a->chamovid)*a->gene_gre + a->chamovid*a->out[Output::GRE]-a->real_gre);
 		a->real_blu+= 0.2*((1-a->chamovid)*a->gene_blu + a->chamovid*a->out[Output::BLU]-a->real_blu);
-		// exhaustion does not alter color, but chamovid vs pigmentation is important
-		if (a->jump<=0) a->boost= a->out[Output::BOOST]/exh>0.5; //if jump height is zero, boost can change
+		if (a->jump<=0) a->boost= (a->out[Output::BOOST]/exh)>0.5; //if jump height is zero, boost can change
 		a->volume= a->out[Output::VOLUME]/exh;
-		a->tone= a->out[Output::TONE]/exh;
+		a->tone+= (a->out[Output::TONE]-a->tone)/exh;
 		a->give= a->out[Output::GIVE]/exh;
 		a->sexproject= a->sexprojectbias + a->out[Output::PROJECT]; //exhaustion does not effect the physical ability of sexual rep; should it?
 
@@ -944,9 +950,9 @@ void World::processOutputs(bool prefire)
 		a->grabangle+= 0.2/exh*(a->out[Output::GRAB_ANGLE]*2*M_PI-a->grabangle); //exhaustion effects angle move speed
 
 		//jump gets set to 2*((jump output) - 0.5) if itself is zero (the bot is on the ground) and if jump output is greater than 0.5
-		if(GRAVITYACCEL>0){
+		if(GRAVITYACCEL>0 && a->jump==0){
 			float height= (a->out[Output::JUMP]/exh - 0.5)*2;
-			if (a->jump==0 && height>0 && a->age>0) a->jump= height;
+			if (height>0 && a->age>0) a->jump= height;
 		}
 
 		//jaw *snap* mechanic
@@ -972,7 +978,7 @@ void World::processOutputs(bool prefire)
 			if(a->jump<-1) a->jump= 0; //-1 because we will be nice and give a "recharge" time between jumps
 
 			float basewheel= sqrt(a->radius/MEANRADIUS);
-			if (a->encumbered) basewheel*= 0.3;
+			if (a->encumbered) basewheel*= conf::ENCUMBEREDMULT;
 			if (a->boost) basewheel*= BOOSTSIZEMULT;
 
 			float BW1= basewheel*a->w1;
@@ -1158,13 +1164,13 @@ void World::processInteractions()
 				//---HEALTH GIVING---//
 				if (FOOD_SHARING_DISTANCE>0 && a->give>conf::MAXSELFISH && FOODTRANSFER>0 && a2->health<2) {
 					//all non-selfish agents allow health trading
-					float rd= a->give>0.5 ? FOOD_SHARING_DISTANCE : a->radius+a2->radius;
+					float rd= a->give>0.5 ? FOOD_SHARING_DISTANCE : sumrad;
 					//rd is the max range allowed to agent j. If generous, range allowed, otherwise bots must touch
 
 					if (d<=rd) {
 						//initiate transfer
 						float healthrate= a->give>0.5 ? FOODTRANSFER*a->give : FOODTRANSFER*2*a->give;
-						if(d<=a->radius+a2->radius && a->give>0.5) healthrate= FOODTRANSFER;
+						if(d<=sumrad && a->give>0.5) healthrate= FOODTRANSFER;
 						//healthrate goes from 0->1 for give [0,0.5], and from 0.5->1 for give (0.5,1]. Is maxxed when touching and generous
 						a2->health += healthrate;
 						a->health -= healthrate;
@@ -1523,7 +1529,7 @@ int World::getClosestRelative(int idx) const {
 				meta= 1+MAXDEVIATION-abs(agents[idx].species-agents[i].species);
 			} else meta= 0;
 
-			if(agents[idx].age==agents[i].age) meta+= 8; //choose siblings
+			if(agents[idx].age==agents[i].age) meta+= 9; //choose siblings
 			if(agents[i].age==0) meta+= 5; //choose newborns
 			if(agents[idx].gencount+1==agents[i].gencount) meta+= 5; //choose children or 2nd cousins
 			else if(agents[idx].gencount==agents[i].gencount) meta+= 2; //at least choose cousins
@@ -2701,12 +2707,12 @@ void World::writeConfig()
 	fprintf(cf, "V= %f \t\t\t//Version number, internal, if different than program's, will ask user to overwrite or exit\n", conf::VERSION);
 	fprintf(cf, "\n");
 	fprintf(cf, "NOTIPS= %i \t\t\t//if true, prevents tips from being displayed. This value is whatever was set in program when this file was saved\n", NOTIPS);
-	fprintf(cf, "DISABLE_LAND_SPAWN= %i \t\t//true-false flag for disabling agents from spawning on land. 0= land spawn allowed, 1= not allowed. Is GUI-controllable, so this is only default value\n", conf::DISABLE_LAND_SPAWN);
-	fprintf(cf, "MOONLIT= %i \t\t\t//true-false flag for letting agents see other agents at night. 0= no eyesight, 1= see agents at half light. Is GUI-controllable and saved/loaded, so this is only default value\n", conf::MOONLIT);
-	fprintf(cf, "DROUGHTS= %i \t\t\t//true-false flag for if the drought/overgrowth mechanic is enabled. 0= constant normal growth, 1= variable. Is GUI-controllable and saved/loaded, so this is only default value\n", conf::DROUGHTS);
+	fprintf(cf, "DISABLE_LAND_SPAWN= %i \t\t//true-false flag for disabling agents from spawning on land. 0= land spawn allowed, 1= not allowed. Is GUI-controllable. This value is whatever was set in program when this file was saved\n", DISABLE_LAND_SPAWN);
+	fprintf(cf, "MOONLIT= %i \t\t\t//true-false flag for letting agents see other agents at night. 0= no eyesight, 1= see agents at half light. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", MOONLIT);
+	fprintf(cf, "DROUGHTS= %i \t\t\t//true-false flag for if the drought/overgrowth mechanic is enabled. 0= constant normal growth, 1= variable. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", DROUGHTS);
 	fprintf(cf, "DROUGHT_MIN= %f \t\t//minimum multiplier value of droughts, below which it gets thrown back to near 1.0\n", conf::DROUGHT_MIN);
 	fprintf(cf, "DROUGHT_MAX= %f \t\t//maximum multiplier value of droughts (overgrowth), above which it gets thrown back near 1.0\n", conf::DROUGHT_MAX);
-	fprintf(cf, "MUTEVENTS= %i \t\t\t//true-false flag for if the mutation event mechanic is enabled. 0= normal mutation rates, 1= variable. Is GUI-controllable and saved/loaded, so this is only default value\n", conf::MUTEVENTS);
+	fprintf(cf, "MUTEVENTS= %i \t\t\t//true-false flag for if the mutation event mechanic is enabled. 0= normal mutation rates, 1= variable. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", MUTEVENTS);
 	fprintf(cf, "MUTEVENT_MAX= %i \t\t//integer max possible multiplier for mutation event mechanic. =1 effectively disables. =0 enables 50%% chance no live mutations per epoch. Negative values increase this chance (-1 => 66%%, -2 => 75%%, etc).\n", conf::MUTEVENT_MAX);
 	fprintf(cf, "\n");
 	fprintf(cf, "MINFOOD= %i \t\t\t//Minimum number of food cells which must have food during simulation. 0= off\n", conf::MINFOOD);

@@ -152,16 +152,22 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *filename)
 {
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
-	char address[32];
+	char addressSAV[64];
+	char addressREP[64];
 	printf("Filename %s given. Saving...\n", filename);
 
-	strcpy(address,"saves\\");
-	strcat(address,filename);
+	//set up our save file and report file addresses
+	strcpy(addressSAV,"saves\\");
+	strcat(addressSAV,filename);
+	strcpy(addressREP, addressSAV);
+	strcat(addressREP,"_report.txt");
 
-	//checking for the presence of the file has been relocated to GLView.cpp
+	strcat(addressSAV,".SAV");
+
+	//checking for the presence of the file has been relocated to GLView.cpp to allow GUI interactions
 
 	//open save file, write over any previous
-	FILE* fs = fopen(address, "w");
+	FILE* fs = fopen(addressSAV, "w");
 	
 	//start with saving world settings to compare with current
 	fprintf(fs,"<world>\n");
@@ -215,13 +221,11 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 
 
 	//now copy over report.txt logs
-	strcat(address,"_report.txt");
-
 	char line[1028], *pos;
 
 	//first, check if the last epoch in the saved report matches or is one less than the first one in the current report
 	FILE* fr = fopen("report.txt", "r"); 
-	FILE* ft = fopen(address, "r"); 
+	FILE* ft = fopen(addressREP, "r"); 
 	bool append= false;
 	char text[8]; //for checking
 	int epoch= 0;
@@ -259,7 +263,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 		if(world->isDebug()) printf("No old report.txt found. Continuing\n");
 	}
 	
-	ft = append ? fopen(address, "a") : fopen(address, "w");
+	ft = append ? fopen(addressREP, "a") : fopen(addressREP, "w");
 	if(fr){
 		if(world->isDebug()) printf("Copying report.txt to save file\n");
 		while(!feof(fr)){
@@ -298,6 +302,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 
 	strcpy(address,"saves\\");
 	strcat(address,filename);
+	strcat(address,".SAV");
 
 	FILE *fl;
 	fl= fopen(address, "r");

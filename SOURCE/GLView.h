@@ -7,6 +7,7 @@
 #include "World.h"
 #include "ReadWrite.h"
 #include "glui.h"
+#include <xutility>
 
 class GLView;
 
@@ -127,6 +128,7 @@ private:
 	int live_landspawns; // are landspawns enabled
 	int live_moonlight; //is moonlight enabled?
 	int live_droughts; //are droughts and overgrowth periods enabled?
+	float live_droughtmult; //value of the drought modifier
 	int live_mutevents; //are variable rate mutation events enabled?
 
 	int popupxy[2]; //simple x,y coords for the popup graphic

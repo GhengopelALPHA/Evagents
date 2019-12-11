@@ -302,7 +302,8 @@ namespace conf {
 	const float BUMP_PRESSURE= 0.13; //(.cfg)
 	const float GRAB_PRESSURE= 0.05; //(.cfg)
 	const float BOTSPEED= 1.5; //(.cfg)
-	const float BOOSTSIZEMULT=3; //(.cfg)
+	const float BOOSTSIZEMULT= 3; //(.cfg)
+	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
 	const int CARCASSFRAMES= 3000; //number of frames before dead agents are removed
 
 	const float FOODTRANSFER= 0.08; //(.cfg)
@@ -318,17 +319,17 @@ namespace conf {
 	const float REP_PER_BABY= 4; //(.cfg)
 	const float REPCOUNTER_MIN= 15; //minimum value the Repcounter may be set to
 	const float MAXDEVIATION=10; //(.cfg)
-	const float METAMUTRATE1= 0.0005; //what is the change in MUTRATE1 and 2 on reproduction? lol
-	const float METAMUTRATE2= 0.00002;
-	const float MUTCHANCE= 0.15; //(.cfg)
-	const float MUTSIZE= 0.03; //(.cfg)
+	const float METAMUTRATE1= 0.001; //what is the change in MUTRATE1 and 2 on reproduction? lol
+	const float METAMUTRATE2= 0.00008;
+	const float MUTCHANCE= 0.16; //(.cfg)
+	const float MUTSIZE= 0.015; //(.cfg)
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
 	const int MAXAGE=10000; //(.cfg)
 
 	//distances
 	const float DIST= 400; //(.cfg)
 	const float SPIKELENGTH=30; //(.cfg)
-	const float TOOCLOSE=12; //(.cfg)
+	const float TOOCLOSE=10; //(.cfg)
 	const float FOOD_SHARING_DISTANCE= 60; //(.cfg)
 	const float SEXTING_DISTANCE= 60; //(.cfg)
 	const float GRABBING_DISTANCE= 40; //(.cfg)
@@ -365,10 +366,10 @@ namespace conf {
 
 	const float FOODINTAKE= 0.0090; //(.cfg)
 	const float FOODDECAY = 0.000004; //(.cfg)
-	const float FOODGROWTH= 0.000004; //(.cfg)
+	const float FOODGROWTH= 0.000003; //(.cfg)
 	const float FOODWASTE= 0.0023;//0.0007; //(.cfg)
 	const int FOODADDFREQ= 250; //(.cfg)
-	const float FOODSPREAD= 0.00015; //(.cfg)
+	const float FOODSPREAD= 0.00012; //(.cfg)
 	const int FOODRANGE= 2; //(.cfg)
 	//Plant food is the simplest and most plentiful form of nutrition, but it takes time to consume enough
 

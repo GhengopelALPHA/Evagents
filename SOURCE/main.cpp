@@ -40,7 +40,6 @@ int main(int argc, char **argv) {
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glShadeModel(GL_FLAT);
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 
 	GLUI_Master.set_glutDisplayFunc(gl_renderScene);

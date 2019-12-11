@@ -81,6 +81,28 @@ void drawCircle(float x, float y, float r) {
 	}
 }
 
+void drawCircleRes(float x, float y, float r, int res) {
+	float n;
+	if(res<1) res=1;
+	for (int k=0;k<(8*res+1);k++) {
+		n = k*(M_PI/4/res);
+		glVertex3f(x+r*sin(n),y+r*cos(n),0);
+	}
+}
+
+
+void drawOutlineRes(float x, float y, float r, int res) {
+	float n;
+	if(res<1) res=1;
+	for (int k=0;k<(8*res+1);k++) {
+		n = k*(M_PI/4/res);
+		glVertex3f(x+r*sin(n),y+r*cos(n),0);
+		n = (k+1)*(M_PI/4/res);
+		glVertex3f(x+r*sin(n),y+r*cos(n),0);
+	}
+}
+
+
 void drawQuadrant(float x, float y, float r, float a, float b) {
 	glVertex3f(x,y,0);
 	float n;
@@ -107,6 +129,7 @@ GLView::GLView(World *s) :
 	mousex=0;mousey=0;
 	popupReset();
 	savehelper= new ReadWrite();
+	lastsavedtime= 0;
 }
 
 GLView::~GLView()
@@ -406,20 +429,22 @@ void GLView::menu(int key)
 		world->selectedStomachMut();
 	}else if (key==119) { //w (move faster)
 		world->pcontrol= true;
-		world->pleft= capm(world->pleft + 0.08, -1, 1);
-		world->pright= capm(world->pright + 0.08, -1, 1);
+		float newleft= capm(world->pleft + 0.04 + (world->pright-world->pleft)*0.35, -1, 1); //this extra code helps with turning out of tight circles
+		world->pright= capm(world->pright + 0.04 + (world->pleft-world->pright)*0.35, -1, 1);
+		world->pleft= newleft;
 	}else if (key==97) { //a (turn left)
 		world->pcontrol= true;
-		world->pleft= capm(world->pleft - 0.05 + (world->pright-world->pleft)*0.05, -1, 1); //this extra code helps with turning out of tight circles
-		world->pright= capm(world->pright + 0.05 + (world->pleft-world->pright)*0.05, -1, 1);
-	}else if (key==115) { //s (move slower)
+		world->pleft= capm(world->pleft - 0.02, -1, 1);
+		world->pright= capm(world->pright + 0.02, -1, 1);
+	}else if (key==115) { //s (move slower/reverse)
 		world->pcontrol= true;
-		world->pleft= capm(world->pleft - 0.08, -1, 1);
-		world->pright= capm(world->pright - 0.08, -1, 1);
+		float newleft= capm(world->pleft - 0.04 + (world->pright-world->pleft)*0.35, -1, 1);
+		world->pright= capm(world->pright - 0.04 + (world->pleft-world->pright)*0.35, -1, 1);
+		world->pleft= newleft;
 	}else if (key==100) { //d (turn right)
 		world->pcontrol= true;
-		world->pleft= capm(world->pleft + 0.05 + (world->pright-world->pleft)*0.05, -1, 1);
-		world->pright= capm(world->pright - 0.05 + (world->pleft-world->pright)*0.05, -1, 1);
+		world->pleft= capm(world->pleft + 0.02, -1, 1);
+		world->pright= capm(world->pright - 0.02, -1, 1);
 	} else if (key==999) { //player control
 		world->setControl(!world->pcontrol);
 		glutGet(GLUT_MENU_NUM_ITEMS);
@@ -549,6 +574,7 @@ void GLView::gluiCreateMenu()
 	live_landspawns= (int)world->DISABLE_LAND_SPAWN;
 	live_moonlight= (int)world->MOONLIT;
 	live_droughts= (int)world->DROUGHTS;
+	live_droughtmult= (int)world->DROUGHTMULT;
 	live_mutevents= (int)world->MUTEVENTS;
 
 	//create GLUI and add the options, be sure to connect them all to their real vals later
@@ -562,7 +588,7 @@ void GLView::gluiCreateMenu()
 
 	GLUI_Panel *panel_speed= new GLUI_Panel(Menu,"Speed Control");
 	Menu->add_checkbox_to_panel(panel_speed,"Fast Mode",&live_fastmode);
-	Menu->add_spinner_to_panel(panel_speed,"Speed",GLUI_SPINNER_INT,&live_skipdraw);
+	Menu->add_spinner_to_panel(panel_speed,"Speed:",GLUI_SPINNER_INT,&live_skipdraw);
 
 
 	GLUI_Rollout *rollout_world= new GLUI_Rollout(Menu,"World Options",false);
@@ -573,9 +599,11 @@ void GLView::gluiCreateMenu()
 	Menu->add_checkbox_to_panel(rollout_world,"Disable Spawns",&live_worldclosed);
 	Menu->add_checkbox_to_panel(rollout_world,"Disable Land Spawns",&live_landspawns);
 	Menu->add_checkbox_to_panel(rollout_world,"Moon Light",&live_moonlight);
-	Menu->add_checkbox_to_panel(rollout_world,"Global Droughts",&live_droughts);
 	Menu->add_checkbox_to_panel(rollout_world,"Mutation Events",&live_mutevents);
-
+	Menu->add_checkbox_to_panel(rollout_world,"Global Droughts",&live_droughts);
+	GLUI_Panel *panel_drought= new GLUI_Panel(rollout_world,"",GLUI_PANEL_NONE);
+	Menu->add_spinner_to_panel(panel_drought,"Drought Mod:",GLUI_SPINNER_FLOAT,&live_droughtmult);
+	panel_drought->disable();
 
 	GLUI_Rollout *rollout_vis= new GLUI_Rollout(Menu,"Visuals");
 
@@ -677,7 +705,7 @@ void GLView::handleRW(int action) //glui callback for saving/loading worlds
 			else if(time<86400000) { timetype= 'h'; time/=3600000; }
 			else { timetype= 'd'; time/=86400000; }
 
-			sprintf(buf,"Last saved %d %s ago", time, timetype);
+			sprintf(buf,"Last saved %d %c ago", time, timetype);
 			printf("%s", buf);
 
 			Alert = GLUI_Master.create_glui("Alert",0,50,50);
@@ -737,7 +765,6 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 	if (action==1) { //loading
 		//Step 2: actual loading
 		strcpy(filename,Filename->get_text());
-		strcat(filename, ".SAV");
 		
 		if (checkFile(filename)) {
 			savehelper->loadWorld(world, xtranslate, ytranslate, filename);
@@ -746,6 +773,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 			live_landspawns= (int)world->DISABLE_LAND_SPAWN;
 			live_moonlight= (int)world->MOONLIT;
 			live_droughts= (int)world->DROUGHTS;
+			live_droughtmult= (int)world->DROUGHTMULT;
 			live_mutevents= (int)world->MUTEVENTS;
 		}
 		Loader->hide();
@@ -816,8 +844,9 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 			savehelper->loadWorld(world, xtranslate, ytranslate, filename);
 		}
 		Loader->hide();
-	} else if(action==9) { //loader cancel
+	} else if(action==9) { //loader cancel from alert
 		Loader->hide();
+		Alert->hide();
 	}
 }
 
@@ -857,7 +886,7 @@ bool GLView::checkFile(char name[30]){
 
 void GLView::trySaveWorld(bool autosave)
 {
-	if(autosave) savehelper->saveWorld(world, xtranslate, ytranslate, "AUTOSAVE.SAV");
+	if(autosave) savehelper->saveWorld(world, xtranslate, ytranslate, "AUTOSAVE");
 	else {
 		strcpy(filename, Filename->get_text());
 
@@ -926,6 +955,7 @@ void GLView::handleIdle()
 	world->DISABLE_LAND_SPAWN= (bool)live_landspawns;
 	world->MOONLIT=	(bool)live_moonlight;
 	world->DROUGHTS= (bool)live_droughts;
+//	world->DROUGHTMULT= live_droughtmult;
 	world->MUTEVENTS= (bool)live_mutevents;
 	world->setDebug((bool) live_debug);
 	if(world->isDebug()) printf("/");
@@ -1331,13 +1361,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			glLineWidth(2);
 			glBegin(GL_LINES);
 			glColor3f(1,1,1);
-			for (int k=0;k<17;k++)
-			{
-				n = k*(M_PI/8);
-				glVertex3f(x+(agent.radius+4/scalemult)*sin(n),y+(agent.radius+4/scalemult)*cos(n),0);
-				n = (k+1)*(M_PI/8);
-				glVertex3f(x+(agent.radius+4/scalemult)*sin(n),y+(agent.radius+4/scalemult)*cos(n),0);
-			}
+			drawOutlineRes(x, y, r+4/scalemult, ceil(scalemult)), 
 			glEnd();
 			glLineWidth(1);
 
@@ -1560,19 +1584,14 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					//draw DIST range on selected in DEBUG
 					glBegin(GL_LINES);
 					glColor3f(1,0,1);
-					for (int k=0;k<17;k++)
-					{
-						n = k*(M_PI/8);
-						glVertex3f(x+world->DIST*sin(n),y+world->DIST*cos(n),0);
-						n = (k+1)*(M_PI/8);
-						glVertex3f(x+world->DIST*sin(n),y+world->DIST*cos(n),0);
-					}
+					drawOutlineRes(x, y, world->DIST, ceil(scalemult)+6);
 					glEnd();
 
 					//now spike, share, and grab effective zones
 					glBegin(GL_POLYGON);
-					glColor4f(1,0,0,0.35);
+					glColor4f(1,0,0,0.75);
 					glVertex3f(x,y,0);
+					glColor4f(1,0,0,0.25);
 					glVertex3f(x+(r+agent.spikeLength*world->SPIKELENGTH)*cos(agent.angle+M_PI/8),
 							   y+(r+agent.spikeLength*world->SPIKELENGTH)*sin(agent.angle+M_PI/8),0);
 					glVertex3f(x+(r+agent.spikeLength*world->SPIKELENGTH)*cos(agent.angle),
@@ -1636,8 +1655,15 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			}*/
 		}
 
+
 		float rad= r;
-		if( scalemult <= 0.1 && !ghost) rad= 15;
+		float centercmult= 0.75;
+		// when we're zoomed out far away, do some things differently, but not to the ghost (selected agent display)
+		if( scalemult <= 0.1 && !ghost) {
+			rad= 15;
+			centercmult= 1; //this keeps a solid color inside
+		} else if (agent.health<=0) centercmult= 1; //this keeps dead agents from appearing asexual (and the award for strangest comment goes to...)
+
 
 		//draw indicator of this agent... used for various events
 		if (agent.indicator>0) {
@@ -1674,6 +1700,12 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				glVertex3f(x,y,0);
 				float aa= agent.angle+agent.eyedir[q];
 				glVertex3f(x+(r+30)*cos(aa), y+(r+30)*sin(aa), 0);
+				if(world->isDebug()){
+					aa+= agent.eyefov[q]/2;
+					glVertex3f(x+(r+30)*cos(aa), y+(r+30)*sin(aa), 0);
+					aa-= agent.eyefov[q];
+					glVertex3f(x+(r+30)*cos(aa), y+(r+30)*sin(aa), 0);
+				}
 				glEnd();
 			}
 
@@ -1741,8 +1773,14 @@ glLineWidth(2);
 		
 		glBegin(GL_POLYGON); 
 		//body
+		if(agent.isAsexual() && centercmult<1.0) glColor4f(red,gre,blu,0); //asexuals get a transparent center (they're cells!)
+		else glColor4f(red*centercmult,gre*centercmult,blu*centercmult,dead); //sexuals get a darker center (they're masses!)
+		glVertex3f(x,y,0);
 		glColor4f(red,gre,blu,dead);
-		drawCircle(x, y, rad);
+		drawCircleRes(x, y, rad, ceil(scalemult)+1);
+		if(agent.isAsexual() && centercmult<1.0) glColor4f(red,gre,blu,0);
+		else glColor4f(red*centercmult,gre*centercmult,blu*centercmult,dead);
+		glVertex3f(x,y,0);
 		glEnd();
 
 		glBegin(GL_LINES);
@@ -1776,13 +1814,7 @@ glLineWidth(2);
 			glColor4f(0.7,0.7,0.7,dead);		
 		//otherwise, color as agent's body if zoomed out, color as above if normal zoomed
 		} else glColor4f(cap(out_red*blur + (1-blur)*red), cap(out_gre*blur + (1-blur)*gre), cap(out_blu*blur + (1-blur)*blu), dead);
-		for (int k=0;k<17;k++)
-		{
-			n = k*(M_PI/8);
-			glVertex3f(x+rad*sin(n),y+rad*cos(n),0);
-			n = (k+1)*(M_PI/8);
-			glVertex3f(x+rad*sin(n),y+rad*cos(n),0);
-		}
+		drawOutlineRes(x, y, rad, ceil(scalemult)+1);
 
 		//sound waves!
 		if(live_agentsvis==Visual::VOLUME && !ghost && agent.volume>0){
@@ -1926,7 +1958,7 @@ glLineWidth(2);
 						//different tag color schemes go here
 						if (i==0){
 							if(agent.hybrid) glColor3f(0,0,0.8); //hybrid?
-							else if(agent.sexproject>0.5) glColor4f(0,0.8,0.8,0.5);
+							else if(!agent.isAsexual()) glColor4f(0,0.8,0.8,0.5);
 							else continue;
 						}
 						else if (i==1) glColor3f(stomachcolor.red,stomachcolor.gre,stomachcolor.blu); //stomach type
@@ -1993,38 +2025,38 @@ void GLView::drawData()
 			glColor3f((1+graphcolor.red)/2,(1+graphcolor.gre)/2,(1+graphcolor.blu)/2);
 			continue;
 		}
-		glVertex3f(-2010 + q*10, conf::HEIGHT, 0);
 		glVertex3f(-2010 + q*10, conf::HEIGHT - mm*world->numTotal[q],0);
 		glVertex3f(-2010 +(q+1)*10, conf::HEIGHT - mm*world->numTotal[q+1],0);
 		glVertex3f(-2010 +(q+1)*10, conf::HEIGHT, 0);
+		glVertex3f(-2010 + q*10, conf::HEIGHT, 0);
 	}
 
 	//amphibian count
-	graphcolor= setColorLungs(0.5);
+	graphcolor= setColorLungs(0.4);
 	glColor3f(graphcolor.red,graphcolor.gre,graphcolor.blu);
 	for(int q=0;q<conf::RECORD_SIZE-1;q++) {
 		if(q==world->ptr-1){
 			glColor3f((1+graphcolor.red)/2,(1+graphcolor.gre)/2,(1+graphcolor.blu)/2);
 			continue;
 		}
-		glVertex3f(-2010 + q*10, conf::HEIGHT, 0);
 		glVertex3f(-2010 + q*10, conf::HEIGHT - mm*world->numAmphibious[q] - mm*world->numTerrestrial[q],0);
 		glVertex3f(-2010 +(q+1)*10, conf::HEIGHT - mm*world->numAmphibious[q+1] - mm*world->numTerrestrial[q+1],0);
 		glVertex3f(-2010 +(q+1)*10, conf::HEIGHT, 0);
+		glVertex3f(-2010 + q*10, conf::HEIGHT, 0);
 	}
 
 	//terrestrial count
-	graphcolor= setColorLungs(1.0);
+	graphcolor= setColorLungs(0.8);
 	glColor3f(graphcolor.red,graphcolor.gre,graphcolor.blu);
 	for(int q=0;q<conf::RECORD_SIZE-1;q++) {
 		if(q==world->ptr-1){
 			glColor3f((1+graphcolor.red)/2,(1+graphcolor.gre)/2,(1+graphcolor.blu)/2);
 			continue;
 		}
-		glVertex3f(-2010 + q*10, conf::HEIGHT, 0);
 		glVertex3f(-2010 + q*10, conf::HEIGHT - mm*world->numTerrestrial[q],0);
 		glVertex3f(-2010 +(q+1)*10, conf::HEIGHT - mm*world->numTerrestrial[q+1],0);
 		glVertex3f(-2010 +(q+1)*10, conf::HEIGHT, 0);
+		glVertex3f(-2010 + q*10, conf::HEIGHT, 0);
 	}
 	glEnd();
 
@@ -2223,6 +2255,7 @@ void GLView::drawStatic()
 		glColor4f(red,gre,blu,0.5*fade);
 		glVertex3f(ww-202, euy+5+2.5*ss+eo*ss+movezero+move-0.5*ss,0);
 		glVertex3f(ww-2, euy+5+2.5*ss+eo*ss+movezero+move-0.5*ss,0);
+		glColor4f(red*0.75,gre*0.75,blu*0.75,0.5*fade);
 		glVertex3f(ww-2, euy+5+2.5*ss+eo*ss+movezero+move+0.5*ss,0);
 		glVertex3f(ww-202, euy+5+2.5*ss+eo*ss+movezero+move+0.5*ss,0);
 		glEnd();
@@ -2236,19 +2269,46 @@ void GLView::drawStatic()
 	if(world->getSelectedAgent()>=0){
 		//get agent
 		Agent selected= world->agents[world->getSelectedAgent()];
-		//slightly transparent background
-		glBegin(GL_QUADS);
-		glColor4f(0,0.4,0.6,0.65);
+		//slightly transparent background with a black stylized border
+		glBegin(GL_POLYGON);
+		glColor4f(0,0,0,0);
+		glVertex3f(ww-440,10,0);
+		glColor4f(0,0,0,1);
+		glVertex3f(ww-2,2,0);
+		glColor4f(0,0,0,0);
+		glVertex3f(ww-10,euy,0);
+
+		
+		glEnd();
+
+		glBegin(GL_POLYGON);
+		glColor4f(0,0.4,0.6,0.45);
+		glVertex3f(ww-440,10,0);
+		glColor4f(0,0.4,0.6,1.0);
+		glVertex3f(ww-440/2,10,0);
 		glVertex3f(ww-10,10,0);
 		glVertex3f(ww-10,euy,0);
+		glColor4f(0,0.4,0.6,0.55);
+		glVertex3f(ww-440/2,euy,0);
+		glColor4f(0,0.4,0.6,0.25);
 		glVertex3f(ww-440,euy,0);
-		glVertex3f(ww-440,10,0);
+		
 		glEnd();
 
 		//draw Ghost Agent
 		drawAgent(selected, ww-370, 10+euy/2, true);
 
 		//Agent ID
+		glBegin(GL_QUADS);
+		glColor4f(0,0,0,0.7);
+		glVertex3f(ww-380+4+20+3*ceil(1.0+log((float)selected.id)),25+4,0);
+		glVertex3f(ww-380-4,25+4,0);
+		Color3f specie= setColorSpecies(selected.species);
+		glColor4f(specie.red,specie.gre,specie.blu,1);
+		glVertex3f(ww-380-4,25-4-uw,0);
+		glVertex3f(ww-380+4+20+3*ceil(1.0+log((float)selected.id)),25-4-uw,0);
+		glEnd();
+
 		sprintf(buf, "ID: %d", selected.id);
 		RenderString(ww-380,25, GLUT_BITMAP_HELVETICA_12,buf, 0.8f, 1.0f, 1.0f);
 
@@ -2302,6 +2362,7 @@ void GLView::drawStatic()
 					glColor3f(0.8,0.8,0);
 					glVertex3f(ux,uy,0);
 					glVertex3f(ux,uy-uw,0);
+					glColor3f(0.4,0.4,0);
 					glVertex3f((2/(1+exp(-world->EXHAUSTION_MULT*selected.exhaustion))-1)*ul+ux,uy-uw,0);
 					glVertex3f((2/(1+exp(-world->EXHAUSTION_MULT*selected.exhaustion))-1)*ul+ux,uy,0);
 				}
@@ -2386,7 +2447,7 @@ void GLView::drawStatic()
 
 			} else if(u==Hud::SEXPROJECT){
 				if(selected.sexproject>1.0) sprintf(buf, "Sexting (M)");
-				else if(selected.sexproject>0.5) sprintf(buf, "Sexting (F)");
+				else if(!selected.isAsexual()) sprintf(buf, "Sexting (F)");
 				else sprintf(buf, "Not Sexting");
 
 			} else if(u==Hud::SPECIESID){
@@ -2504,33 +2565,40 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 		glVertex3f(x*conf::CZ+conf::CZ-gadjust,y*conf::CZ+conf::CZ-gadjust,0);
 		glVertex3f(x*conf::CZ+gadjust,y*conf::CZ+conf::CZ-gadjust,0);
 
-		//if Land/All draw mode, draw fruit, then meat as little squares
+		//if Land/All draw mode, draw fruit and meat as little squares
 		if (live_layersvis==Display::REALITY) {
 			if(values[Layer::MEATS]>0){
 				float meat= values[Layer::MEATS];
 				cellcolor= setColorMeat(1.0); //meat on this layer is always bright red, but translucence is applied
 				glColor4f(cellcolor.red*values[Layer::LIGHT], cellcolor.gre*values[Layer::LIGHT], cellcolor.blu*values[Layer::LIGHT], meat);
-				meat= 0.3*meat+0.5; //reduce the meat value
+				meat= 0.3*meat+0.5; //reuse the meat value for sizing
 
 				glVertex3f(x*conf::CZ+meat*conf::CZ,y*conf::CZ+meat*conf::CZ,0);
 				glVertex3f(x*conf::CZ+conf::CZ-meat*conf::CZ,y*conf::CZ+meat*conf::CZ,0);
 				glVertex3f(x*conf::CZ+conf::CZ-meat*conf::CZ,y*conf::CZ+conf::CZ-meat*conf::CZ,0);
 				glVertex3f(x*conf::CZ+meat*conf::CZ,y*conf::CZ+conf::CZ-meat*conf::CZ,0);
 			}
-/*			if(values[Layer::FRUITS]>0){
-				for(int i= 0; i<values[Layer::FRUITS]*10; i++){
+			if(values[Layer::FRUITS]>0.1 && values[Layer::LIGHT]>0 && scalemult > 0.1){
+				for(int i= 1; i<values[Layer::FRUITS]*10; i++){
+					cellcolor= Color3f(0.8,0.8,0.2);
+					//pseudo random number output system:
+					//inputs: x, y of cell, the index of the fruit in range 0-10
+					//method: take initial x and y into vector, and then rotate it again by golden ratio and increase distance by index
+					float GR= 89.0/55;
+					Vector2f point(sinf((float)y),cosf((float)x));
+					point.rotate(2*M_PI*GR*i);
+					point.normalize();
 					
-					float adjustx= i%2==0 ? 10-i%3-i/2+i%4 : i%3+i*i/5;
-					float adjusty= i%3==1 ? 3+i%2+i : (i+1)%2+i*i/6
-					glVertex3f(x*conf::CZ,y*conf::CZ,0);
-					glVertex3f(x*conf::CZ+1,y*conf::CZ,0);
-					glVertex3f(x*conf::CZ+1,y*conf::CZ+1,0);
-					glVertex3f(x*conf::CZ,y*conf::CZ+1,0);
+//					float adjustx= i%2==0 ? 10-i%3-i/2+i%4 : i%3+i*i/5;
+//					float adjusty= i%3==1 ? 3+i%2+i : (i+1)%2+i*i/6
+					glColor4f(cellcolor.red*values[Layer::LIGHT], cellcolor.gre*values[Layer::LIGHT], cellcolor.blu*values[Layer::LIGHT], 1);
+					glVertex3f(x*conf::CZ+conf::CZ/2+point.x*i,y*conf::CZ+conf::CZ/2+point.y*i+1,0);
+					glVertex3f(x*conf::CZ+conf::CZ/2+point.x*i+1,y*conf::CZ+conf::CZ/2+point.y*i,0);
+					glVertex3f(x*conf::CZ+conf::CZ/2+point.x*i,y*conf::CZ+conf::CZ/2+point.y*i-1,0);
+					glVertex3f(x*conf::CZ+conf::CZ/2+point.x*i-1,y*conf::CZ+conf::CZ/2+point.y*i,0);
 				}
 			}
-*
-			
-*/		}
+		}
 
 		glEnd();
 	}
