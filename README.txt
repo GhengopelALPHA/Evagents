@@ -17,16 +17,13 @@ Evagents is a "natural" selection simulator. The program contains a world wherei
 NOTE ABOUT VERSION NUMBERS:
 Version numbers are in format x.xx.x
 
-First decimal is the overall version and status of the program. 0= development, 1= final release version 1, 2= frv 2, etc.
+First decimal is the overall version and status of the program. 0= development, 1= final release version (fvr) 1, 2= frv 2, etc.
 
 Second decimal is the release number. I expect this to get into double-digits in development status.
 
 Third decimal is the pre-release number of the NEXT version. IE, v0.04.1 is the first pre-release of the next version, 0.05. This is reverse of how most others use these numbers, where they represent patches to the release version, but it's easier for me to make an update to the next release version than it is to make a new release version, so that's how that's going to be.
 
-
-
 ==============================================================================================================
-
 
 BUILDING: (for users that want to edit the source code)
 
@@ -43,12 +40,7 @@ When finished, build the solution in either Debug or Release configuration, depe
 *OpenGL is typically included in Windows distributions, so a manual DL is not usually required.
 ==============================================================================================================
 
-COMMON USAGE:
-See README.txt in the download for details
-
-==============================================================================================================
-
-QUESTIONS, COMMENTS, ISSUES are best posted on the google group, available at the project site above, or contact me at: julian.hershey@gmail.com
+QUESTIONS, COMMENTS, ISSUES are best posted on the google group, available here: https://sites.google.com/view/evagentsproject/discussion
 
 ==============================================================================================================
 
