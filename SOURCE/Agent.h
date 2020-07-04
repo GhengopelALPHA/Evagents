@@ -45,14 +45,18 @@ public:
 	bool isAmphibious() const;
 	bool isAquatic() const;
 	bool isSpikey(float SPIKELENGTH) const;
-
 	bool isTiny() const;
+	bool isTinyEye(int eyenumber) const;
 	bool isAsexual() const;
+	bool isGrabbing() const;
+	bool isGiving() const;
+	bool isSelfish(float MAXSELFISH) const;
 	
 	//Saved Variables
 	//simulation basics
 	int id;
 	Vector2f pos;
+	Vector2f dpos; //UNSAVED
 	float angle; //of the bot
 
 	//Genes!

@@ -25,8 +25,12 @@ public:
     
     void draw(View* view, int layer);
     
+	//world status
     bool isClosed() const;
     void setClosed(bool close);
+	
+	bool isDrought() const;
+	bool isOvergrowth() const;
 
 	//debug stuff
 	bool isDebug() const;
@@ -35,9 +39,9 @@ public:
 	std::vector<Vector2f> linesB;
 
 	//following and selected agent stuff
-	void positionOfInterest(int type, float &xi, float &yi);
-
 	int getSelection() const;
+
+	void getGrabTargetCoords(Agent &agent);
 
 	float pleft;
 	float pright;

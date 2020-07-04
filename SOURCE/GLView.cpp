@@ -73,6 +73,17 @@ void RenderString(float x, float y, void *font, const char* string, float r, flo
 		glutBitmapCharacter(font, string[i]);
 }
 
+void RenderStringBlack(float x, float y, void *font, const char* string, float r, float g, float b, float a= 1.0)
+{
+	int len = (int) strlen(string);
+	glColor3f(0,0,0);
+	glRasterPos2f(x+1, y+1);
+	for (int i = 0; i < len; i++) glutBitmapCharacter(font, string[i]);
+	glColor4f(r,g,b,a);
+	glRasterPos2f(x, y);
+	for (int i = 0; i < len; i++) glutBitmapCharacter(font, string[i]);
+}
+
 void drawCircle(float x, float y, float r) {
 	float n;
 	for (int k=0;k<17;k++) {
@@ -230,13 +241,16 @@ void GLView::handlePopup(int x, int y)
 {
 	if(live_layersvis!=Display::REALITY && live_layersvis!=Display::NONE) {
 		//convert mouse x,y to world x,y
-		int worldcx= ((x-glutGet(GLUT_WINDOW_WIDTH)/2)/scalemult-xtranslate)/conf::CZ;
-		int worldcy= ((y-glutGet(GLUT_WINDOW_HEIGHT)/2)/scalemult-ytranslate)/conf::CZ;
+		int worldcx= (int)((((float)x-glutGet(GLUT_WINDOW_WIDTH)/2)/scalemult-xtranslate));
+		int worldcy= (int)((((float)y-glutGet(GLUT_WINDOW_HEIGHT)/2)/scalemult-ytranslate));
 
 		if (worldcx>=0 && worldcx<conf::WIDTH && worldcy>=0 && worldcy<conf::HEIGHT) { //if somewhere in world...
 			char line[128];
 			int level= 0;
+			worldcx/= conf::CZ;
+			worldcy/= conf::CZ;
 
+			if(world->isDebug()) printf("worldcx: %d, worldcy %d\n", worldcx, worldcy);
 			popupReset(x+12, y); //clear and set popup position near mouse
 			
 			switch(live_layersvis){
@@ -261,13 +275,14 @@ void GLView::handlePopup(int x, int y)
 			if(live_layersvis==Display::ELEVATION) {
 				int landtype= (int)ceilf(world->cells[level][worldcx][worldcy]*10);
 				switch(landtype){
-					case 0: case 1: case 2: case 3: case 4:	strcpy(line, "Ocean");	break;
-					case 5 :	strcpy(line, "Beach");	break;
-					case 6 :	strcpy(line, "Plains");	break;
-					case 7 :	strcpy(line, "Steppe");	break;
-					case 8 :	strcpy(line, "Hill");	break;
-					case 9 :	strcpy(line, "Highland");	break;
-					case 10 :	strcpy(line, "Mountain");	break;
+					case Elevation::DEEPWATER_LOW : case 1 : strcpy(line, "Ocean");	break;
+					case Elevation::SHALLOWWATER : case 3 : case 4 : strcpy(line, "Shallows");		break;
+					case Elevation::BEACH_MID :		strcpy(line, "Beach");		break;
+					case Elevation::PLAINS :	strcpy(line, "Plains");		break;
+					case Elevation::STEPPE :	strcpy(line, "Steppe");		break;
+					case Elevation::HILL :		strcpy(line, "Hill");		break;
+					case Elevation::HIGHLAND :	strcpy(line, "Highland");	break;
+					case Elevation::MOUNTAIN_HIGH :	strcpy(line, "Mountain");	break;
 				}
 				popupAddLine(line);
 			}
@@ -301,9 +316,9 @@ void GLView::processReleasedKeys(unsigned char key, int x, int y)
 
 void GLView::menu(int key)
 {
-	if (key == 27) //[esc] quit
-		exit(0);
-	else if (key=='h') { //interface help
+	if (key == 27 || key=='p') { //[esc] or "p" - pause
+		live_paused= !live_paused;
+	} else if (key=='h') { //interface help
 		//MAKE SURE ALL UI CHANGES CATELOGUED HERE
 		world->addEvent("Left-click an agent to select it",5);
 		world->addEvent("Press 'f' to follow selection",5);
@@ -339,9 +354,6 @@ void GLView::menu(int key)
 		world->addEvent(" '/' heals the selected agent",5);
 		world->addEvent(" '|' reproduces selected agent",5);
 		world->addEvent(" '~' mutates selected agent",5);
-	} else if (key=='p') {
-		//pause
-		live_paused= !live_paused;
 	} else if (key=='m') { //drawing
 		live_fastmode= !live_fastmode;
 		if (live_fastmode) world->dismissNextEvents(world->events.size());
@@ -414,9 +426,8 @@ void GLView::menu(int key)
 		if(scalemult<0.01) scalemult=0.01;
 	}else if (key==32) { //spacebar input [pressed]
 		world->selectedInput(1);
-	}else if (key==35) { //end key: print agent traits and pause world
-		world->selectedPrint();
-		live_paused= 1;
+//	}else if (key==35) { //??? key: print agent traits
+//		world->selectedPrint();
 	}else if (key=='e') { // e: report selected's wheel inputs
 		world->selectedTrace(1);
 	}else if (key=='/' && world->isDebug()) { // / heal selected
@@ -511,6 +522,8 @@ void GLView::menuSpecial(int key) // special control keys
 		if(world->setSelectionRelative(-1)) live_selection= Select::MANUAL;
 	} else if (key==GLUT_KEY_PAGE_UP) {
 		if(world->setSelectionRelative(1)) live_selection= Select::MANUAL;
+	} else if (key==GLUT_KEY_END) {
+		world->selectedPrint();
 	}
 }
 
@@ -601,9 +614,10 @@ void GLView::gluiCreateMenu()
 	Menu->add_checkbox_to_panel(rollout_world,"Moon Light",&live_moonlight);
 	Menu->add_checkbox_to_panel(rollout_world,"Mutation Events",&live_mutevents);
 	Menu->add_checkbox_to_panel(rollout_world,"Global Droughts",&live_droughts);
-	GLUI_Panel *panel_drought= new GLUI_Panel(rollout_world,"",GLUI_PANEL_NONE);
-	Menu->add_spinner_to_panel(panel_drought,"Drought Mod:",GLUI_SPINNER_FLOAT,&live_droughtmult);
-	panel_drought->disable();
+//	GLUI_Panel *panel_drought= new GLUI_Panel(rollout_world,"",GLUI_PANEL_NONE);
+	Menu->add_spinner_to_panel(rollout_world,"Drought Mod:",GLUI_SPINNER_FLOAT,&live_droughtmult)->set_speed(0.1);
+//	GLUI_Spinner *drought_spinner= new GLUI_Spinner(
+	//panel_drought->disable();
 
 	GLUI_Rollout *rollout_vis= new GLUI_Rollout(Menu,"Visuals");
 
@@ -660,18 +674,22 @@ void GLView::gluiCreateMenu()
 	}
 	Menu->add_checkbox_to_panel(rollout_vis, "Grid on", &live_grid);
 	
-	GLUI_Rollout *rollout_xyl= new GLUI_Rollout(Menu,"Selection");
+	GLUI_Rollout *rollout_xyl= new GLUI_Rollout(Menu,"Selection Mode");
 	GLUI_RadioGroup *group_select= new GLUI_RadioGroup(rollout_xyl,&live_selection);
 	for(int i=0; i<Select::SELECT_TYPES; i++){
 		char text[16]= "";
 		if(i==Select::OLDEST) strcpy(text, "Oldest");
 		else if(i==Select::BEST_GEN) strcpy(text, "Best Gen.");
 		else if(i==Select::HEALTHY) strcpy(text, "Healthiest");
+		else if(i==Select::ENERGETIC) strcpy(text, "Most Energetic");
 		else if(i==Select::PRODUCTIVE) strcpy(text, "Productive");
 		else if(i==Select::AGGRESSIVE) strcpy(text, "Aggressive");
 		else if(i==Select::NONE) strcpy(text, "off");
 		else if(i==Select::MANUAL) strcpy(text, "Manual");
 		else if(i==Select::RELATIVE) strcpy(text, "Relative");
+		else if(i==Select::BEST_HERBIVORE) strcpy(text, "Best Herbivore");
+		else if(i==Select::BEST_FRUGIVORE) strcpy(text, "Best Frugivore");
+		else if(i==Select::BEST_CARNIVORE) strcpy(text, "Best Carnivore");
 
 		new GLUI_RadioButton(group_select,text);
 		if(i==Select::NONE) Menu->add_checkbox_to_panel(rollout_xyl, "Follow Selected", &live_follow);
@@ -768,12 +786,12 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 		
 		if (checkFile(filename)) {
 			savehelper->loadWorld(world, xtranslate, ytranslate, filename);
-			//.cfg/.sav make sure to put all saved world variables with GUI options here so they update
+			//.cfg/.sav make sure to put all saved world variables with GUI options here so they update properly!
 			live_worldclosed= (int)world->isClosed();
 			live_landspawns= (int)world->DISABLE_LAND_SPAWN;
 			live_moonlight= (int)world->MOONLIT;
 			live_droughts= (int)world->DROUGHTS;
-			live_droughtmult= (int)world->DROUGHTMULT;
+			live_droughtmult= world->DROUGHTMULT;
 			live_mutevents= (int)world->MUTEVENTS;
 		}
 		Loader->hide();
@@ -955,7 +973,7 @@ void GLView::handleIdle()
 	world->DISABLE_LAND_SPAWN= (bool)live_landspawns;
 	world->MOONLIT=	(bool)live_moonlight;
 	world->DROUGHTS= (bool)live_droughts;
-//	world->DROUGHTMULT= live_droughtmult;
+	world->DROUGHTMULT= live_droughtmult;
 	world->MUTEVENTS= (bool)live_mutevents;
 	world->setDebug((bool) live_debug);
 	if(world->isDebug()) printf("/");
@@ -968,6 +986,9 @@ void GLView::handleIdle()
 
 	modcounter++;
 	if (!live_paused) world->update();
+
+	//pull back some variables which can change in-game that also have GUI selections
+	live_droughtmult= world->DROUGHTMULT;
 
 	//autosave world periodically, based on world time
 	if (live_autosave==1 && world->modcounter%(world->FRAMES_PER_DAY*10)==0){
@@ -1023,7 +1044,7 @@ void GLView::renderScene()
 
 	//handle world agent selection interface
 	world->setSelection(live_selection);
-	if (world->getSelection()==-1 && live_selection!=Select::MANUAL && live_selection!=Select::NONE && world->modcounter%5==0) {
+	if (world->getSelection()==-1 && live_selection!=Select::MANUAL && live_selection!=Select::NONE) {
 		live_selection= Select::NONE;
 		world->addEvent("No valid Autoselect targets", 13);
 	}
@@ -1094,9 +1115,9 @@ Color3f GLView::setColorTempPref(float discomfort)
 Color3f GLView::setColorMetabolism(float metabolism)
 {
 	Color3f color;
-	color.red= metabolism;
+	color.red= metabolism*metabolism;
 	color.gre= metabolism*(1-metabolism);
-	color.blu= 0.2+0.4*abs(metabolism*2-1);
+	color.blu= 0.2+0.4*(1-metabolism);
 	return color;
 }
 
@@ -1121,9 +1142,9 @@ Color3f GLView::setColorLungs(float lungs)
 Color3f GLView::setColorSpecies(float species)
 {
 	Color3f color;
-	color.red= (cos((float)species/123*M_PI)+1.0)/2.0;
-	color.gre= (sin((float)species/53*M_PI)+1.0)/2.0;
-	color.blu= (cos((float)species/37*M_PI)+1.0)/2.0;
+	color.red= (cos((float)species/175*M_PI)+1.0)/2.0;
+	color.gre= (sin((float)species/111*M_PI)+1.0)/2.0;
+	color.blu= (cos((float)species/71*M_PI)+1.0)/2.0;
 	return color;
 }
 
@@ -1161,13 +1182,17 @@ Color3f GLView::setColorGenerocity(float give)
 
 Color3f GLView::setColorCellsAll(const float values[Layer::LAYERS])
 {
+	//this controls the final output colors for every cell when Reality layer selected
 	Color3f color;
-	bool is_land= (values[Layer::ELEVATION]>0.5) ? true : false;
+	bool is_land= (values[Layer::ELEVATION]>Elevation::BEACH_MID*0.1) ? true : false;
+
 	Color3f terrain= setColorTerrain(values[Layer::ELEVATION]);
 	Color3f plant= is_land ? setColorPlant(values[Layer::PLANTS]) : setColorWaterPlant(values[Layer::PLANTS]);
-	if (values[Layer::ELEVATION]==1) plant= setColorMountPlant(values[Layer::PLANTS]);
+
+	if (values[Layer::ELEVATION]==Elevation::MOUNTAIN_HIGH*0.1) plant= setColorMountPlant(values[Layer::PLANTS]);
 	Color3f hazard= is_land ? setColorHazard(values[Layer::HAZARDS]) : setColorWaterHazard(values[Layer::HAZARDS]);
 	Color3f light= setColorLight(values[Layer::LIGHT]);
+
 	//if hazard is white (event), then make it show no matter if its night or day
 	if(hazard.red==1.0f && hazard.gre==1.0f && hazard.blu==1.0f){ light.red=1.0; light.gre=1.0; light.blu=1.0; }
 
@@ -1182,14 +1207,18 @@ Color3f GLView::setColorTerrain(float val)
 {
 	Color3f color;
 	if(val==1){ //rocky
-		color.red= 0.8;
-		color.gre= 0.8;
-		color.blu= 0.8;
+		color.red= 0.9;
+		color.gre= 0.9;
+		color.blu= 0.9;
 	} else if(val==0.5){ //beach
 		color.red= 0.9;
 		color.gre= 0.9;
 		color.blu= 0.6;
-	} else if(val==0) { //water
+/*	} else if(val==0) { //(deep) water
+		color.red= 0.1;
+		color.gre= 0.1;
+		color.blu= 0.7;*/
+	} else if(val==0) { //(shallow) water
 		color.red= 0.3;
 		color.gre= 0.3;
 		color.blu= 0.9;
@@ -1227,7 +1256,13 @@ Color3f GLView::setColorMountPlant(float val)
 
 Color3f GLView::setColorFruit(float val)
 {
-	Color3f color(val/2*0.8,val/2*0.8,0.1);
+	Color3f color(val/2,val/2,0.1);
+	return color;
+}
+
+Color3f GLView::setColorWaterFruit(float val)
+{
+	Color3f color(val/2*0.8,val/2*0.5,0.1);
 	return color;
 }
 
@@ -1284,21 +1319,19 @@ Color3f GLView::setColorLight(float val)
 }
 
 
-//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~DRAW AGENT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~DRAW BEFORE AGENTs~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
 
-void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
+
+void GLView::drawPreAgent(const Agent& agent, float x, float y)
 {
 	float n;
 	float r= agent.radius;
 	float rp= agent.radius+2.8;
 
 	if (live_agentsvis!=Visual::NONE) {
-
-		//agent body color assignment
-		float red= 0,gre= 0,blu= 0;
-
-		//first, calculate colors
+		//first, calculate colors for indicators
 		Color3f healthcolor= setColorHealth(agent.health);
 		Color3f stomachcolor= setColorStomach(agent.stomach);
 		Color3f discomfortcolor= setColorTempPref(agent.discomfort);
@@ -1309,66 +1342,92 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		Color3f crossablecolor= setColorCrossable(agent.species);
 		Color3f generocitycolor= setColorGenerocity(agent.dhealth);
 
-		//now colorize agents and other things
-		if (live_agentsvis==Visual::RGB){ //real rgb values
-			red= agent.real_red; gre= agent.real_gre; blu= agent.real_blu;
+		glPushMatrix(); //switch to local position coordinates
+		glTranslatef(x,y,0);
 
-		} else if (live_agentsvis==Visual::STOMACH){
-			red= stomachcolor.red;
-			gre= stomachcolor.gre;
-			blu= stomachcolor.blu;
-		
-		} else if (live_agentsvis==Visual::DISCOMFORT){
-			red= discomfortcolor.red;
-			gre= discomfortcolor.gre;
-			blu= discomfortcolor.blu;
+		if(agent.id==world->getSelection()){
 
-		} else if (live_agentsvis==Visual::VOLUME) {
-			red= agent.volume;
-			gre= agent.volume;
-			blu= agent.volume;
+			if(world->isDebug()){
+				//draw DIST range on selected in DEBUG
+				glBegin(GL_LINES);
+				glColor3f(1,0,1);
+				drawOutlineRes(0, 0, world->DIST, ceil(scalemult)+6);
+				glEnd();
 
-		} else if (live_agentsvis==Visual::SPECIES){ 
-			red= speciescolor.red;
-			gre= speciescolor.gre;
-			blu= speciescolor.blu;
-		
-		} else if (live_agentsvis==Visual::CROSSABLE){ //crossover-compatable to selection
-			red= crossablecolor.red;
-			gre= crossablecolor.gre;
-			blu= crossablecolor.blu;
+				//spike effective zone
+				if(agent.isSpikey(world->SPIKELENGTH)){
+					glBegin(GL_POLYGON);
+					glColor4f(1,0,0,0.25);
+					glVertex3f(0,0,0);
+					glVertex3f((r+agent.spikeLength*world->SPIKELENGTH)*cos(agent.angle+M_PI/8),
+							   (r+agent.spikeLength*world->SPIKELENGTH)*sin(agent.angle+M_PI/8),0);
+					glColor4f(1,0.25,0.25,0.75);
+					glVertex3f((r+agent.spikeLength*world->SPIKELENGTH)*cos(agent.angle),
+							   (r+agent.spikeLength*world->SPIKELENGTH)*sin(agent.angle),0);
+					glColor4f(1,0,0,0.25);
+					glVertex3f((r+agent.spikeLength*world->SPIKELENGTH)*cos(agent.angle-M_PI/8),
+							   (r+agent.spikeLength*world->SPIKELENGTH)*sin(agent.angle-M_PI/8),0);
+					glVertex3f(0,0,0);
+					glEnd();
+				}
 
-		} else if (live_agentsvis==Visual::HEALTH) {
-			red= healthcolor.red;
-			gre= healthcolor.gre;
-			//blu= healthcolor.blu;
+				//grab effective zone and dist
+				glBegin(GL_LINES);
+				glColor4f(0,1,1,1);
+				drawOutlineRes(0, 0, r+world->GRABBING_DISTANCE, ceil(scalemult)+2);
+				glEnd();
 
-		} else if (live_agentsvis==Visual::METABOLISM){
-			red= metabcolor.red;
-			gre= metabcolor.gre;
-			blu= metabcolor.blu;
-		
-		} else if (live_agentsvis==Visual::LUNGS){
-			red= lungcolor.red;
-			gre= lungcolor.gre;
-			blu= lungcolor.blu;
-		}
+				if(agent.isGrabbing()){
+					glBegin(GL_POLYGON);
+					glColor4f(0,1,1,0);
+					glVertex3f(0,0,0);
+					glColor4f(0,1,1,0.25);
+					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle+M_PI/4),
+							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle+M_PI/4),0);
+					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle+M_PI/8),
+							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle+M_PI/8),0);
+					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle),
+							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle),0);
+					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle-M_PI/8),
+							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle-M_PI/8),0);
+					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle-M_PI/4),
+							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle-M_PI/4),0);
+					glColor4f(0,1,1,0);
+					glVertex3f(0,0,0);
+					glEnd();
+				}
 
+				//health-sharing/give range
+				if(!agent.isSelfish(conf::MAXSELFISH)){
+					float sharedist= agent.isGiving() ? world->FOOD_SHARING_DISTANCE : (agent.give>conf::MAXSELFISH ? r+5 : 0);
+					glBegin(GL_POLYGON);
+					glColor4f(0,0.5,0,0.25);
+					drawCircle(0,0,sharedist);
+					glEnd();
+				}
 
-		//handle selected agent
-		if (agent.id==world->getSelection() && !ghost) {
-			//draw selection
-			glLineWidth(2);
-			glBegin(GL_LINES);
-			glColor3f(1,1,1);
-			drawOutlineRes(x, y, r+4/scalemult, ceil(scalemult)), 
-			glEnd();
-			glLineWidth(1);
+				//debug eyesight FOV's
+				for(int q=0;q<NUMEYES;q++) {
+					if(agent.isTiny() && !agent.isTinyEye(q)) break;
+					float aa= agent.angle+agent.eyedir[q]+agent.eyefov[q]/2;
+					glBegin(GL_POLYGON);
+
+					glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.15);
+
+					glVertex3f(world->DIST*cos(aa), world->DIST*sin(aa), 0);
+					aa-= agent.eyefov[q]/2;
+					glVertex3f(world->DIST*cos(aa), world->DIST*sin(aa), 0);
+					aa-= agent.eyefov[q]/2;
+					glVertex3f(world->DIST*cos(aa), world->DIST*sin(aa), 0);
+					glColor4f(0.5,0.5,0.5,0.0);
+					glVertex3f(0,0,0);
+					glEnd();
+				}
+			}
+
+			glTranslatef(-90,24+0.5*r,0);
 
 			if(scalemult > .2){
-				glPushMatrix();
-				glTranslatef(x-90,y+24+0.5*agent.radius,0);
-
 				//draw profile(s)
 				float col;
 				float yy=15;
@@ -1470,6 +1529,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					glEnd();
 				}
 
+				//Draw one of the profilers based on the mode we have selected
 				if(live_profilevis==Profile::BRAIN){
 					//draw brain in brain profile mode, complements the i/o as drawn above
 					glBegin(GL_QUADS);
@@ -1491,6 +1551,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 						}
 					}
 					glEnd();
+
 				} else if (live_profilevis==Profile::EYES){
 					//eyesight profile. Draw a box with colored disks
 					glBegin(GL_QUADS);
@@ -1522,6 +1583,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					glVertex3f(180, 0, 0);
 					
 					glEnd();
+
 				} else if (live_profilevis==Profile::SOUND) {
 					//sound profiler
 					glBegin(GL_QUADS);
@@ -1568,7 +1630,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					glEnd();
 
 					//now show our own sound, colored by tone
-					glLineWidth(2);
+					glLineWidth(3);
 					glBegin(GL_LINES);
 					glColor4f(tonecolor.red, tonecolor.gre, tonecolor.blu, 0.5);
 					glVertex3f(2+176*agent.tone, 78, 0);
@@ -1577,82 +1639,278 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					glLineWidth(1);
 
 				}
-				
-				glPopMatrix();
+			}
+			glTranslatef(90,-24-0.5*r,0); //return to agent location for later stuff
 
-				if(world->isDebug()){
-					//draw DIST range on selected in DEBUG
-					glBegin(GL_LINES);
-					glColor3f(1,0,1);
-					drawOutlineRes(x, y, world->DIST, ceil(scalemult)+6);
-					glEnd();
+		}
 
-					//now spike, share, and grab effective zones
-					glBegin(GL_POLYGON);
-					glColor4f(1,0,0,0.75);
-					glVertex3f(x,y,0);
-					glColor4f(1,0,0,0.25);
-					glVertex3f(x+(r+agent.spikeLength*world->SPIKELENGTH)*cos(agent.angle+M_PI/8),
-							   y+(r+agent.spikeLength*world->SPIKELENGTH)*sin(agent.angle+M_PI/8),0);
-					glVertex3f(x+(r+agent.spikeLength*world->SPIKELENGTH)*cos(agent.angle),
-							   y+(r+agent.spikeLength*world->SPIKELENGTH)*sin(agent.angle),0);
-					glVertex3f(x+(r+agent.spikeLength*world->SPIKELENGTH)*cos(agent.angle-M_PI/8),
-							   y+(r+agent.spikeLength*world->SPIKELENGTH)*sin(agent.angle-M_PI/8),0);
-					glVertex3f(x,y,0);
-					glEnd();
-
-					//grab is currently a range-only thing, change?
-					glBegin(GL_POLYGON);
-					glColor4f(0,1,1,0.15);
-					drawCircle(x,y,r+world->GRABBING_DISTANCE);
-					glEnd();
-
-					//health-sharing
-					glBegin(GL_POLYGON);
-					glColor4f(0,0.5,0,0.25);
-					drawCircle(x,y,world->FOOD_SHARING_DISTANCE);
-					glEnd();
+		/*
+		//draw lines connecting connected brain boxes, but only in debug mode (NEEDS SIMPLIFICATION)
+		if(world->isDebug()){
+			glEnd();
+			glBegin(GL_LINES);
+			float offx=0;
+			ss=30;
+			xx=ss;
+			for (int j=0;j<BRAINSIZE;j++) {
+				for(int k=0;k<CONNS;k++){
+					int j2= agent.brain.boxes[j].id[k];
+					
+					//project indices j and j2 into pixel space
+					float x1= 0;
+					float y1= 0;
+					if(j<Input::INPUT_SIZE) { x1= j*ss; y1= yy; }
+					else { 
+						x1= ((j-Input::INPUT_SIZE)%30)*ss;
+						y1= yy+ss+2*ss*((int) (j-Input::INPUT_SIZE)/30);
+					}
+					
+					float x2= 0;
+					float y2= 0;
+					if(j2<Input::INPUT_SIZE) { x2= j2*ss; y2= yy; }
+					else { 
+						x2= ((j2-Input::INPUT_SIZE)%30)*ss;
+						y2= yy+ss+2*ss*((int) (j2-Input::INPUT_SIZE)/30);
+					}
+					
+					float ww= agent.brain.boxes[j].w[k];
+					if(ww<0) glColor3f(-ww, 0, 0);
+					else glColor3f(0,0,ww);
+					
+					glVertex3f(x1,y1,0);
+					glVertex3f(x2,y2,0);
 				}
 			}
+		}*/
 
-			/*
-			//draw lines connecting connected brain boxes, but only in debug mode (NEEDS SIMPLIFICATION)
-			if(world->isDebug()){
-				glEnd();
-				glBegin(GL_LINES);
-				float offx=0;
-				ss=30;
-				xx=ss;
-				for (int j=0;j<BRAINSIZE;j++) {
-					for(int k=0;k<CONNS;k++){
-						int j2= agent.brain.boxes[j].id[k];
-						
-						//project indices j and j2 into pixel space
-						float x1= 0;
-						float y1= 0;
-						if(j<Input::INPUT_SIZE) { x1= j*ss; y1= yy; }
-						else { 
-							x1= ((j-Input::INPUT_SIZE)%30)*ss;
-							y1= yy+ss+2*ss*((int) (j-Input::INPUT_SIZE)/30);
-						}
-						
-						float x2= 0;
-						float y2= 0;
-						if(j2<Input::INPUT_SIZE) { x2= j2*ss; y2= yy; }
-						else { 
-							x2= ((j2-Input::INPUT_SIZE)%30)*ss;
-							y2= yy+ss+2*ss*((int) (j2-Input::INPUT_SIZE)/30);
-						}
-						
-						float ww= agent.brain.boxes[j].w[k];
-						if(ww<0) glColor3f(-ww, 0, 0);
-						else glColor3f(0,0,ww);
-						
-						glVertex3f(x1,y1,0);
-						glVertex3f(x2,y2,0);
+		//draw indicator of all agents... used for various events
+		if (agent.indicator>0) {
+			glBegin(GL_POLYGON);
+			glColor4f(agent.ir,agent.ig,agent.ib,0.75);
+			drawCircle(0, 0, r+((int)agent.indicator));
+			glEnd();
+		}
+
+		if(scalemult > .3) {//hide extra visual data if really far away
+
+			int xo=8+agent.radius;
+			int yo=-21;
+
+			//health
+			glBegin(GL_QUADS);
+			glColor3f(0,0,0);
+			glVertex3f(xo,yo,0);
+			glVertex3f(xo+5,yo,0);
+			glVertex3f(xo+5,yo+42,0);
+			glVertex3f(xo,yo+42,0);
+
+			glColor3f(0,0.8,0);
+			glVertex3f(xo,yo+21*(2-agent.health),0);
+			glVertex3f(xo+5,yo+21*(2-agent.health),0);
+			glColor3f(0,0.6,0);
+			glVertex3f(xo+5,yo+42,0);
+			glVertex3f(xo,yo+42,0);
+
+			//repcounter/energy
+			xo+= 7;
+			glBegin(GL_QUADS);
+			glColor3f(0,0,0);
+			glVertex3f(xo,yo,0);
+			glVertex3f(xo+5,yo,0);
+			glVertex3f(xo+5,yo+42,0);
+			glVertex3f(xo,yo+42,0);
+
+			glColor3f(0,0.7,0.7);
+			glVertex3f(xo,yo+42*cap(agent.repcounter/agent.maxrepcounter),0);
+			glVertex3f(xo+5,yo+42*cap(agent.repcounter/agent.maxrepcounter),0);
+			glColor3f(0,0.5,0.6);
+			glVertex3f(xo+5,yo+42,0);
+			glVertex3f(xo,yo+42,0);
+			glEnd();
+			
+			if(world->isDebug()) {
+				//tags: quick HUD of basic bot traits/stats
+				int sep= 2;
+				int le= 9;
+				int wid= 5;
+				int numtags= 8;
+
+				xo+= 7+sep;
+				glBegin(GL_QUADS);
+				for(int i=0;i<numtags;i++){
+					int xmult= (int)floor((float)(i/4));
+					int ymult= i%4;
+
+					//different tag color schemes go here
+					if (i==0){
+						if(agent.hybrid) glColor3f(0,0,0.8); //hybrid?
+						else if(!agent.isAsexual()) glColor4f(0,0.8,0.8,0.5);
+						else continue;
 					}
+					else if (i==1) glColor3f(stomachcolor.red,stomachcolor.gre,stomachcolor.blu); //stomach type
+					else if (i==2) glColor3f(agent.volume,agent.volume,agent.volume); //sound volume emitted
+					else if (i==3) glColor3f(discomfortcolor.red,discomfortcolor.gre,discomfortcolor.blu); //temp discomfort
+					else if (i==4) glColor3f(lungcolor.red,lungcolor.gre,lungcolor.blu); //land/water lungs requirement
+					else if (i==7) glColor3f(metabcolor.red,metabcolor.gre,metabcolor.blu); //metabolism
+					else if (i==5){ //ear 1 volume value heard
+						float hear= agent.in[Input::HEARING1];
+						if(hear==0) continue;
+						else glColor3f(hear,hear,hear); //! =D
+					}					
+					else if (i==6){ //ear 2 volume value heard
+						float hear= agent.in[Input::HEARING2];
+						if(hear==0) continue;
+						else glColor3f(hear,hear,hear);
+					}
+					
+					glVertex3f(xo+(wid+sep)*xmult,yo+(le+sep)*ymult,0);
+					glVertex3f(xo+(wid+sep)*xmult+wid,yo+(le+sep)*ymult,0);
+					glVertex3f(xo+(wid+sep)*xmult+wid,yo+(le+sep)*ymult+le,0);
+					glVertex3f(xo+(wid+sep)*xmult,yo+(le+sep)*ymult+le,0);
 				}
-			}*/
+				glEnd();
+
+				glTranslatef(8+agent.radius, -32, 0);
+				//print hidden stats & values
+				//wheel speeds
+				sprintf(buf2, "%.3f", agent.w1);
+				RenderString(0, -12, GLUT_BITMAP_HELVETICA_12, buf2, 0.8f, 0.0f, 1.0f);
+
+				sprintf(buf2, "%.3f", agent.w2);
+				RenderString(0, -24, GLUT_BITMAP_HELVETICA_12, buf2, 0.0f, 1.0f, 0.0f);
+
+				//exhaustion readout
+				sprintf(buf2, "%.3f", agent.exhaustion);
+				RenderString(0, -36, GLUT_BITMAP_HELVETICA_12, buf2, 0.8f, 1.0f, 0.0f);
+			}
+		}
+
+		//end local coordinate stuff
+		glPopMatrix();
+
+		if(agent.id==world->getSelection()) {//extra info for selected agent
+			//debug stuff
+			if(world->isDebug()) {
+				//debug sight lines: connect to anything selected agent sees
+				glBegin(GL_LINES);
+				for (int i=0;i<(int)world->linesA.size();i++) {
+					glColor3f(1,1,1);
+					glVertex3f(world->linesA[i].x,world->linesA[i].y,0);
+					glVertex3f(world->linesB[i].x,world->linesB[i].y,0);
+				}
+				world->linesA.resize(0);
+				world->linesB.resize(0);
+				
+				//debug cell smell box: outlines all cells the selected agent is "smelling"
+				
+				int minx, maxx, miny, maxy;
+				int scx= (int) (agent.pos.x/conf::CZ);
+				int scy= (int) (agent.pos.y/conf::CZ);
+
+				minx= (scx-world->DIST/conf::CZ/2) > 0 ? (scx-world->DIST/conf::CZ/2)*conf::CZ : 0;
+				maxx= (scx+1+world->DIST/conf::CZ/2) < conf::WIDTH/conf::CZ ? (scx+1+world->DIST/conf::CZ/2)*conf::CZ : conf::WIDTH;
+				miny= (scy-world->DIST/conf::CZ/2) > 0 ? (scy-world->DIST/conf::CZ/2)*conf::CZ : 0;
+				maxy= (scy+1+world->DIST/conf::CZ/2) < conf::HEIGHT/conf::CZ ? (scy+1+world->DIST/conf::CZ/2)*conf::CZ : conf::HEIGHT;
+
+				glColor3f(0,1,0);
+				glVertex3f(minx,miny,0);
+				glVertex3f(minx,maxy,0);
+				glVertex3f(minx,maxy,0);
+				glVertex3f(maxx,maxy,0);
+				glVertex3f(maxx,maxy,0);
+				glVertex3f(maxx,miny,0);
+				glVertex3f(maxx,miny,0);
+				glVertex3f(minx,miny,0);
+
+				glEnd();
+			}
+		}
+	}
+}
+
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~DRAW AGENT~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+
+
+
+void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
+{
+	float n;
+	float r= agent.radius;
+	float rp= agent.radius+2.8;
+
+	if (live_agentsvis!=Visual::NONE) {
+
+		//agent body color assignment
+		float red= 0,gre= 0,blu= 0;
+
+		//first, calculate colors
+		Color3f healthcolor= setColorHealth(agent.health);
+		Color3f stomachcolor= setColorStomach(agent.stomach);
+		Color3f discomfortcolor= setColorTempPref(agent.discomfort);
+		Color3f metabcolor= setColorMetabolism(agent.metabolism);
+		Color3f tonecolor= setColorTone(agent.tone);
+		Color3f lungcolor= setColorLungs(agent.lungs);
+		Color3f speciescolor= setColorSpecies(agent.species);
+		Color3f crossablecolor= setColorCrossable(agent.species);
+		Color3f generocitycolor= setColorGenerocity(agent.dhealth);
+
+		//now colorize agents and other things
+		if (live_agentsvis==Visual::RGB){ //real rgb values
+			red= agent.real_red; gre= agent.real_gre; blu= agent.real_blu;
+
+		} else if (live_agentsvis==Visual::STOMACH){
+			red= stomachcolor.red;
+			gre= stomachcolor.gre;
+			blu= stomachcolor.blu;
+		
+		} else if (live_agentsvis==Visual::DISCOMFORT){
+			red= discomfortcolor.red;
+			gre= discomfortcolor.gre;
+			blu= discomfortcolor.blu;
+
+		} else if (live_agentsvis==Visual::VOLUME) {
+			red= agent.volume;
+			gre= agent.volume;
+			blu= agent.volume;
+
+		} else if (live_agentsvis==Visual::SPECIES){ 
+			red= speciescolor.red;
+			gre= speciescolor.gre;
+			blu= speciescolor.blu;
+		
+		} else if (live_agentsvis==Visual::CROSSABLE){ //crossover-compatable to selection
+			red= crossablecolor.red;
+			gre= crossablecolor.gre;
+			blu= crossablecolor.blu;
+
+		} else if (live_agentsvis==Visual::HEALTH) {
+			red= healthcolor.red;
+			gre= healthcolor.gre;
+			//blu= healthcolor.blu;
+
+		} else if (live_agentsvis==Visual::METABOLISM){
+			red= metabcolor.red;
+			gre= metabcolor.gre;
+			blu= metabcolor.blu;
+		
+		} else if (live_agentsvis==Visual::LUNGS){
+			red= lungcolor.red;
+			gre= lungcolor.gre;
+			blu= lungcolor.blu;
+		}
+
+
+		//handle selected agent
+		if (agent.id==world->getSelection() && !ghost) {
+			//draw selection outline
+			glLineWidth(2);
+			glBegin(GL_LINES);
+			glColor3f(1,1,1);
+			drawOutlineRes(x, y, r+4/scalemult, ceil(scalemult+r/10)), 
+			glEnd();
+			glLineWidth(1);
 		}
 
 
@@ -1664,14 +1922,6 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			centercmult= 1; //this keeps a solid color inside
 		} else if (agent.health<=0) centercmult= 1; //this keeps dead agents from appearing asexual (and the award for strangest comment goes to...)
 
-
-		//draw indicator of this agent... used for various events
-		if (agent.indicator>0) {
-			glBegin(GL_POLYGON);
-			glColor4f(agent.ir,agent.ig,agent.ib,0.75);
-			drawCircle(x, y, rad+((int)agent.indicator));
-			glEnd();
-		}
 
 		//draw giving/receiving
 		if(agent.dhealth!=0){
@@ -1692,31 +1942,34 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		if (scalemult > .3 || ghost) { //dont render eyes, ears, or boost if zoomed out, but always render them on ghosts
 			//draw eyes
 			for(int q=0;q<NUMEYES;q++) {
+				if(agent.isTiny() && !agent.isTinyEye(q)) break; //skip extra eyes for tinies
+				float aa= agent.angle+agent.eyedir[q];
+				
 				glBegin(GL_LINES);
 				if (live_profilevis==Profile::EYES) {
-					//color eyes based on actual input if we're on the eyesight profile
+					//color eye lines based on actual input if we're on the eyesight profile
 					glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.75*dead);
 				} else glColor4f(0.5,0.5,0.5,0.75*dead);
-				glVertex3f(x,y,0);
-				float aa= agent.angle+agent.eyedir[q];
-				glVertex3f(x+(r+30)*cos(aa), y+(r+30)*sin(aa), 0);
-				if(world->isDebug()){
-					aa+= agent.eyefov[q]/2;
-					glVertex3f(x+(r+30)*cos(aa), y+(r+30)*sin(aa), 0);
-					aa-= agent.eyefov[q];
-					glVertex3f(x+(r+30)*cos(aa), y+(r+30)*sin(aa), 0);
-				}
+
+				glVertex3f(x+r*cos(aa), y+r*sin(aa),0);
+				glVertex3f(x+(2*r+30)*cos(aa), y+(2*r+30)*sin(aa), 0); //this draws whiskers. Don't get rid of or change these <3
+
 				glEnd();
 			}
 
 			//ears
 			for(int q=0;q<NUMEARS;q++) {
 				glBegin(GL_POLYGON);
-				//color ears differently if we are set on the sound profile or ghost
-				if(live_profilevis==Profile::SOUND || ghost) glColor4f(1-(q/(NUMEARS-1)),q/(NUMEARS-1),0,0.75);
-				else glColor4f(0.6,0.6,0,0.5);
 				float aa= agent.angle + agent.eardir[q];
-				drawCircle(x+r*cos(aa), y+r*sin(aa), 2.3);
+				//the centers of ears are black
+				glColor4f(0,0,0,0.5);
+				glVertex3f(x+r*cos(aa), y+r*sin(aa),0);
+				//color ears differently if we are set on the sound profile or ghost
+				if(live_profilevis==Profile::SOUND || world->isDebug()) glColor4f(1-(q/(NUMEARS-1)),q/(NUMEARS-1),0,0.75);
+				else glColor4f(0.6,0.6,0,0.5);				
+				drawCircle(x+r*cos(aa), y+r*sin(aa), 2*agent.hear_mod);
+				glColor4f(0,0,0,0.5);
+				glVertex3f(x+r*cos(aa), y+r*sin(aa),0);
 				glEnd();
 			}
 
@@ -1734,39 +1987,34 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			}
 
 			//vis grabbing (if enabled)
-			if(world->GRAB_PRESSURE!=0 && agent.grabbing>0.5){
+			if(world->GRAB_PRESSURE!=0 && agent.isGrabbing()){
 				glLineWidth(2);
 				glBegin(GL_LINES);
-				
-				glColor4f(0.0,0.7,0.7,0.75);
-				glVertex3f(x,y,0);
-				float mult= agent.grabID==-1 ? 1 : 0;
-				float aa= agent.angle+agent.grabangle+M_PI/8*mult;
-				float ab= agent.angle+agent.grabangle-M_PI/8*mult;
-				glVertex3f(x+(world->GRABBING_DISTANCE+r)*cos(aa), y+(world->GRABBING_DISTANCE+r)*sin(aa), 0);
-				glVertex3f(x,y,0);
-				glVertex3f(x+(world->GRABBING_DISTANCE+r)*cos(ab), y+(world->GRABBING_DISTANCE+r)*sin(ab), 0);
-				glEnd();
-				glLineWidth(1);
 
-/* agent-agent directed grab vis code. Works but coords are wrong from World.cpp
-glLineWidth(2);
-				glBegin(GL_LINES);
-				
-				glColor4f(0.0,0.7,0.7,0.75);
-				glVertex3f(x,y,0);
-		
-				if(agent.grabID!=-1) glVertex3f(agent.grabx, agent.graby, 0);
-				else {
-					float aa= agent.angle+M_PI/8;
-					float ab= agent.angle-M_PI/8;
+				if(agent.grabID==-1 || ghost){
+					glColor4f(0.0,0.7,0.7,0.75);
+
+					float mult= agent.grabID==-1 ? 1 : 0;
+					float aa= agent.angle+agent.grabangle+M_PI/8*mult;
+					float ab= agent.angle+agent.grabangle-M_PI/8*mult;
+					glVertex3f(x+r*cos(aa), y+r*sin(aa),0);
 					glVertex3f(x+(world->GRABBING_DISTANCE+r)*cos(aa), y+(world->GRABBING_DISTANCE+r)*sin(aa), 0);
-					glVertex3f(x,y,0);
+
+					glVertex3f(x+r*cos(ab), y+r*sin(ab),0);
 					glVertex3f(x+(world->GRABBING_DISTANCE+r)*cos(ab), y+(world->GRABBING_DISTANCE+r)*sin(ab), 0);
+
+				} else {
+					//agent->agent directed grab vis
+					float var= cap(1.0f+sin((float)(glutGet(GLUT_ELAPSED_TIME))/500));
+					glColor4f(0.0,0.85*var,0.85*var,1.0);
+					glVertex3f(x,y,0);
+					var= cap(1.0f+cos((float)(glutGet(GLUT_ELAPSED_TIME))/500));
+					glColor4f(0.0,0.85*var,0.85*var,1.0);
+					glVertex3f(agent.grabx, agent.graby, 0);
 				}
+
 				glEnd();
 				glLineWidth(1);
-*/
 			}
 
 		}
@@ -1834,17 +2082,58 @@ glLineWidth(2);
 				}
 			}
 		}
-
-		//and spike, if harmful
-		if ((scalemult > .08 && agent.isSpikey(world->SPIKELENGTH)) || ghost) {
-			//dont render spike if zoomed too far out, but always render it on ghosts
-			glColor4f(0.7,0,0,blur);
-			glVertex3f(x,y,0);
-			glVertex3f(x+(world->SPIKELENGTH*agent.spikeLength)*cos(agent.angle),
-					   y+(world->SPIKELENGTH*agent.spikeLength)*sin(agent.angle),
-					   0);
-		}
 		glEnd();
+
+		//some final stuff to render over top of the body but only when zoomed in or on the ghost
+		if(scalemult > .08 || ghost){
+
+			//spike, but only if sticking out
+			if (agent.isSpikey(world->SPIKELENGTH)) {
+				glBegin(GL_LINES);
+				glColor4f(0.7,0,0,blur);
+				glVertex3f(x,y,0);
+				glVertex3f(x+(world->SPIKELENGTH*agent.spikeLength)*cos(agent.angle),
+						   y+(world->SPIKELENGTH*agent.spikeLength)*sin(agent.angle),
+						   0);
+				glEnd();
+			}
+			
+			//brainsize (boxes with weights != 0) is indicated by a pair of circles: one for the "max brain size"
+/* this turned out to not be too helpful, as it seems most agents by generation ~100 have had all their weights adjusted
+			//added a new brain mutation to set weights to zero sometimes
+			glBegin(GL_POLYGON); 
+			glColor4f(0,0,0,dead*0.5);
+			glVertex3f(x,y,0);
+			glColor4f(agent.real_red,agent.real_gre,agent.real_blu,dead*0.5);
+			drawCircleRes(x, y, rad*0.35, ceil(scalemult)+1);
+			glColor4f(0,0,0,dead*0.5);
+			glVertex3f(x,y,0);
+			glEnd();
+
+			glPushMatrix(); //switch to local position coordinates
+			glTranslatef(x,y,0);
+			glRotatef(agent.angle*180/M_PI,0,0,1);
+
+			glBegin(GL_POLYGON); 
+			glColor4f(1.0,0.8,0.8,0.5);
+			drawCircleRes(0, 0, rad*0.35*agent.brain.getNonZeroWRatio(), 0);
+			glEnd();
+
+			glPopMatrix();*/
+
+			//draw cute little dots for eyes
+			for(int q=0;q<NUMEYES;q++) {
+				if(agent.isTiny() && !agent.isTinyEye(q)) break;
+
+				glBegin(GL_POLYGON);
+				glColor4f(0,0,0,1.0);
+				float aa= agent.angle+agent.eyedir[q];
+				//the eyes are small and tiny if the agent has a low eye mod. otherwise they are big and buggie
+				float eyesize= capm(agent.eye_see_agent_mod/2,0.1,1);
+				drawCircle(x+(r-2+eyesize)*cos(aa), y+(r-2+eyesize)*sin(aa), eyesize);
+				glEnd();
+			}
+		}
 
 		//some final debug stuff that is shown even on ghosts:
 		if(world->isDebug() || ghost){
@@ -1853,11 +2142,11 @@ glLineWidth(2);
 			glBegin(GL_LINES);
 			glColor3f(1,0,1);
 			glVertex3f(x+agent.radius/2*cos(wheelangle),y+agent.radius/2*sin(wheelangle),0);
-			glVertex3f(x+agent.radius/2*cos(wheelangle)+20*agent.w1*cos(agent.angle), y+agent.radius/2*sin(wheelangle)+20*agent.w1*sin(agent.angle), 0);
+			glVertex3f(x+agent.radius/2*cos(wheelangle)+35*agent.w1*cos(agent.angle), y+agent.radius/2*sin(wheelangle)+35*agent.w1*sin(agent.angle), 0);
 			wheelangle-= M_PI;
 			glColor3f(0,1,0);
 			glVertex3f(x+agent.radius/2*cos(wheelangle),y+agent.radius/2*sin(wheelangle),0);
-			glVertex3f(x+agent.radius/2*cos(wheelangle)+20*agent.w2*cos(agent.angle), y+agent.radius/2*sin(wheelangle)+20*agent.w2*sin(agent.angle), 0);
+			glVertex3f(x+agent.radius/2*cos(wheelangle)+35*agent.w2*cos(agent.angle), y+agent.radius/2*sin(wheelangle)+35*agent.w2*sin(agent.angle), 0);
 			glEnd();
 
 			glBegin(GL_POLYGON); 
@@ -1870,143 +2159,11 @@ glLineWidth(2);
 			drawCircle(x+agent.radius/2*cos(wheelangle), y+agent.radius/2*sin(wheelangle), 1);
 			glEnd();
 		}
-
-		if(!ghost){ //only draw extra infos if not a ghost
-
-			if(scalemult > .3) {//hide extra visual data if really far away
-
-				int xo=8+agent.radius;
-				int yo=-21;
-
-				//health
-				glBegin(GL_QUADS);
-				glColor3f(0,0,0);
-				glVertex3f(x+xo,y+yo,0);
-				glVertex3f(x+xo+5,y+yo,0);
-				glVertex3f(x+xo+5,y+yo+42,0);
-				glVertex3f(x+xo,y+yo+42,0);
-
-				glColor3f(0,0.8,0);
-				glVertex3f(x+xo,y+yo+21*(2-agent.health),0);
-				glVertex3f(x+xo+5,y+yo+21*(2-agent.health),0);
-				glVertex3f(x+xo+5,y+yo+42,0);
-				glVertex3f(x+xo,y+yo+42,0);
-
-				//repcounter/energy
-				xo+= 7;
-				glBegin(GL_QUADS);
-				glColor3f(0,0,0);
-				glVertex3f(x+xo,y+yo,0);
-				glVertex3f(x+xo+5,y+yo,0);
-				glVertex3f(x+xo+5,y+yo+42,0);
-				glVertex3f(x+xo,y+yo+42,0);
-
-				glColor3f(0,0.7,0.7);
-				glVertex3f(x+xo,y+yo+42*cap(agent.repcounter/agent.maxrepcounter),0);
-				glVertex3f(x+xo+5,y+yo+42*cap(agent.repcounter/agent.maxrepcounter),0);
-				glVertex3f(x+xo+5,y+yo+42,0);
-				glVertex3f(x+xo,y+yo+42,0);
-
-				//debug stuff
-				if(world->isDebug()) {
-					//debug sight lines: connect to anything selected agent sees
-					glBegin(GL_LINES);
-					for (int i=0;i<(int)world->linesA.size();i++) {
-						glColor3f(1,1,1);
-						glVertex3f(world->linesA[i].x,world->linesA[i].y,0);
-						glVertex3f(world->linesB[i].x,world->linesB[i].y,0);
-					}
-					world->linesA.resize(0);
-					world->linesB.resize(0);
-					glEnd();
-
-					//debug cell smell box: outlines all cells the selected agent is "smelling"
-					if(agent.id==world->getSelection()){
-						int minx, maxx, miny, maxy;
-						int scx= (int) (agent.pos.x/conf::CZ);
-						int scy= (int) (agent.pos.y/conf::CZ);
-
-						minx= (scx-world->DIST/conf::CZ/2) > 0 ? (scx-world->DIST/conf::CZ/2)*conf::CZ : 0;
-						maxx= (scx+1+world->DIST/conf::CZ/2) < conf::WIDTH/conf::CZ ? (scx+1+world->DIST/conf::CZ/2)*conf::CZ : conf::WIDTH;
-						miny= (scy-world->DIST/conf::CZ/2) > 0 ? (scy-world->DIST/conf::CZ/2)*conf::CZ : 0;
-						maxy= (scy+1+world->DIST/conf::CZ/2) < conf::HEIGHT/conf::CZ ? (scy+1+world->DIST/conf::CZ/2)*conf::CZ : conf::HEIGHT;
-
-						glBegin(GL_LINES);
-						glColor3f(0,1,0);
-						glVertex3f(minx,miny,0);
-						glVertex3f(minx,maxy,0);
-						glVertex3f(minx,maxy,0);
-						glVertex3f(maxx,maxy,0);
-						glVertex3f(maxx,maxy,0);
-						glVertex3f(maxx,miny,0);
-						glVertex3f(maxx,miny,0);
-						glVertex3f(minx,miny,0);
-						glEnd();
-					}
-				
-					//tags: quick HUD of basic bot traits/stats
-					int sep= 2;
-					int le= 9;
-					int wid= 5;
-					int numtags= 8;
-
-					xo+= 7+sep;
-					for(int i=0;i<numtags;i++){
-						int xmult= (int)floor((float)(i/4));
-						int ymult= i%4;
-
-						//different tag color schemes go here
-						if (i==0){
-							if(agent.hybrid) glColor3f(0,0,0.8); //hybrid?
-							else if(!agent.isAsexual()) glColor4f(0,0.8,0.8,0.5);
-							else continue;
-						}
-						else if (i==1) glColor3f(stomachcolor.red,stomachcolor.gre,stomachcolor.blu); //stomach type
-						else if (i==2) glColor3f(agent.volume,agent.volume,agent.volume); //sound volume emitted
-						else if (i==3) glColor3f(discomfortcolor.red,discomfortcolor.gre,discomfortcolor.blu); //temp discomfort
-						else if (i==4) glColor3f(lungcolor.red,lungcolor.gre,lungcolor.blu); //land/water lungs requirement
-						else if (i==7) glColor3f(metabcolor.red,metabcolor.gre,metabcolor.blu); //metabolism
-						else if (i==5){ //ear 1 volume value heard
-							float hear= agent.in[Input::HEARING1];
-							if(hear==0) continue;
-							else glColor3f(hear,hear,hear); //! =D
-						}					
-						else if (i==6){ //ear 2 volume value heard
-							float hear= agent.in[Input::HEARING2];
-							if(hear==0) continue;
-							else glColor3f(hear,hear,hear);
-						}
-						
-						glVertex3f(x+xo+(wid+sep)*xmult,y+yo+(le+sep)*ymult,0);
-						glVertex3f(x+xo+(wid+sep)*xmult+wid,y+yo+(le+sep)*ymult,0);
-						glVertex3f(x+xo+(wid+sep)*xmult+wid,y+yo+(le+sep)*ymult+le,0);
-						glVertex3f(x+xo+(wid+sep)*xmult,y+yo+(le+sep)*ymult+le,0);
-					}
-
-					//print stats
-					//generation count
-					sprintf(buf2, "%i", agent.gencount);
-					RenderString(x-rp*1.414, y-rp*1.414, GLUT_BITMAP_HELVETICA_12, buf2, 0.8f, 1.0f, 1.0f);
-
-					//age
-					sprintf(buf2, "%.1f", (float)agent.age/10);
-					float red= world->HEALTHLOSS_AGING==0 ? 0 : cap((float) agent.age/world->MAXAGE);
-					//will be redder the closer it is to MAXAGE if health loss by aging is enabled
-					RenderString(x-rp*1.414, y-rp*1.414-12, GLUT_BITMAP_HELVETICA_12, buf2, 0.8f, 1.0-red, 1.0-red);
-
-					//species id
-					sprintf(buf2, "%i", agent.species);
-					RenderString(x-rp*1.414, y-rp*1.414-24, GLUT_BITMAP_HELVETICA_12, buf2, speciescolor.red, speciescolor.gre, speciescolor.blu);
-					
-					//exhaustion readout
-					sprintf(buf2, "%.2f", agent.exhaustion);
-					RenderString(x-rp*1.414, y-rp*1.414-36, GLUT_BITMAP_HELVETICA_12, buf2, 0.8f, 1.0f, 1.0f);
-				}
-				glEnd();
-			}
-		}
 	}
 }
+
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ END DRAW AGENT ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
 
 
 void GLView::drawData()
@@ -2162,30 +2319,100 @@ void GLView::drawStatic()
 	/*end setup*/
 
 	//begin things that we actually want to draw staticly
-	if(live_paused) RenderString(10, 20, GLUT_BITMAP_HELVETICA_12, "Paused", 0.5f, 0.5f, 0.5f);
-	if(live_follow!=0) {
-		if(world->getSelectedAgent()>=0) RenderString(10, 40, GLUT_BITMAP_HELVETICA_12, "Following", 0.5f, 0.5f, 0.5f);
-		else RenderString(10, 40, GLUT_BITMAP_HELVETICA_12, "No Follow Target", 1.0f, 0.5f, 0.5f);
+	int currentline= 1;
+	int spaceperline= 16;
+
+	int linecount= StaticDisplay::STATICDISPLAYS; //this is not use in for loop because we modify it if Debug is on
+
+	for(int line=0; line<linecount; line++){
+		if(line==StaticDisplay::PAUSED)	{
+			if(live_paused){
+				float redness= 0.5*abs(sin((float)(glutGet(GLUT_ELAPSED_TIME))/250));
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Paused", 0.5f+redness, 0.55f-redness, 0.55f-redness);
+				currentline++;
+			}
+		} else if(line==StaticDisplay::FOLLOW) {
+			if(live_follow!=0) {
+				if(world->getSelectedAgent()>=0) RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Following", 0.75f, 0.75f, 0.75f);
+				else RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "No Follow Target", 0.75f, 0.75f, 0.75f);
+				currentline++;
+			}
+		} else if(line==StaticDisplay::AUTOSELECT) {
+			if(live_selection!=Select::NONE && live_selection!=Select::MANUAL) {
+				if(live_selection==Select::RELATIVE) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Relatives Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::AGGRESSIVE) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Aggression Stat Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::BEST_GEN) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Highest Generation Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::HEALTHY) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Healthiest Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::ENERGETIC) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Energetic Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::OLDEST) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Oldest Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::PRODUCTIVE) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Children Stat Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::BEST_CARNIVORE) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Carnivore Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::BEST_FRUGIVORE) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Frugivore Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::BEST_HERBIVORE) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Herbivore Autoselect", 0.5f, 0.8f, 0.5f);
+				}
+				currentline++;
+			}
+		} else if(line==StaticDisplay::CLOSED) {
+			if(world->isClosed()) {
+				float blueness= 0.5*abs(sin((float)(glutGet(GLUT_ELAPSED_TIME))/250));
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Closed World", 0.55f-blueness, 0.75f-blueness, 0.5f+blueness);
+				currentline++;
+			}
+		} else if(line==StaticDisplay::DROUGHT) {
+			if(world->isDrought()) {
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Current Drought", 1.0f, 1.0f, 0.0f);
+				currentline++;
+			} else if(world->isOvergrowth()) {
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Current Overgrowth", 0.0f, 0.65f, 0.25f);
+				currentline++;
+			}
+		} else if (line==StaticDisplay::MUTATIONS) {
+			if(world->MUTEVENTMULT>1) {
+				sprintf(buf, "%ix Mutation Rate", world->MUTEVENTMULT);
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.75f, 0.0f, 1.0f);
+				currentline++;
+			}
+		} 
+		
+		//we do not include debug here yet. see below 
 	}
-	if(live_selection==Select::RELATIVE) RenderString(10, 60, GLUT_BITMAP_HELVETICA_12, "Relative Autoselect Mode", 0.5f, 0.8f, 0.5f);
-	if(world->isClosed()) RenderString(10, 80, GLUT_BITMAP_HELVETICA_12, "Closed World", 0.5f, 0.5f, 0.5f);
+	
+
 	if(world->isDebug()) {
+		currentline++;
 		sprintf(buf, "Plant-Haz Supp: %i agents", (int)(world->getFoodSupp()-world->getHazardSupp()));
-		RenderString(5, 140, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		currentline++;
 		sprintf(buf, "Fruit-Haz Supp: %i agents", (int)(world->getFruitSupp()-world->getHazardSupp()));
-		RenderString(5, 160, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		currentline++;
 		sprintf(buf, "Meat-Haz Supp: %i agents", (int)(world->getMeatSupp()-world->getHazardSupp()));
-		RenderString(5, 180, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		currentline++;
 		sprintf(buf, "-Haz 'Supp': %i agents", (int)(-world->getHazardSupp()));
-		RenderString(5, 200, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		currentline++;
 		sprintf(buf, "modcounter: %i", world->modcounter);
-		RenderString(5, 240, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		currentline++;
 		sprintf(buf, "GL modcounter: %i", modcounter);
-		RenderString(5, 260, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		currentline++;
 		sprintf(buf, "GL scalemult: %.4f", scalemult);
-		RenderString(5, 280, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		currentline++;
 		sprintf(buf, "%% Land: %.3f", world->getLandRatio());
-		RenderString(5, 320, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
 	}
 
 	//center axis markers
@@ -2260,8 +2487,7 @@ void GLView::drawStatic()
 		glVertex3f(ww-202, euy+5+2.5*ss+eo*ss+movezero+move+0.5*ss,0);
 		glEnd();
 
-		RenderString(ww-200+1, euy+10+2.5*ss+eo*ss+movezero+move+1, GLUT_BITMAP_HELVETICA_12, world->events[eo].first, 0.0f, 0.0f, 0.0f, fade);
-		RenderString(ww-200, euy+10+2.5*ss+eo*ss+movezero+move, GLUT_BITMAP_HELVETICA_12, world->events[eo].first, 1.0f, 1.0f, 1.0f, fade);
+		RenderStringBlack(ww-200, euy+10+2.5*ss+eo*ss+movezero+move, GLUT_BITMAP_HELVETICA_12, world->events[eo].first, 1.0f, 1.0f, 1.0f, fade);
 	}
 
 
@@ -2270,7 +2496,7 @@ void GLView::drawStatic()
 		//get agent
 		Agent selected= world->agents[world->getSelectedAgent()];
 		//slightly transparent background with a black stylized border
-		glBegin(GL_POLYGON);
+/*		glBegin(GL_POLYGON);
 		glColor4f(0,0,0,0);
 		glVertex3f(ww-440,10,0);
 		glColor4f(0,0,0,1);
@@ -2279,7 +2505,7 @@ void GLView::drawStatic()
 		glVertex3f(ww-10,euy,0);
 
 		
-		glEnd();
+		glEnd(); this looks stupid b/c no antialiasing*/
 
 		glBegin(GL_POLYGON);
 		glColor4f(0,0.4,0.6,0.45);
@@ -2349,22 +2575,27 @@ void GLView::drawStatic()
 				} else if (u==Hud::REPCOUNTER){ //repcounter indicator, ux=ww-200, uy=25
 					glColor3f(0,0.7,0.7);
 					glVertex3f(ux,uy,0);
+					glColor3f(0,0.5,0.6);
 					glVertex3f(ux,uy-uw,0);
+					glColor3f(0,0.7,0.7);
 					glVertex3f(cap(selected.repcounter/selected.maxrepcounter)*-ul+ux+ul,uy-uw,0);
+					glColor3f(0,0.5,0.6);
 					glVertex3f(cap(selected.repcounter/selected.maxrepcounter)*-ul+ux+ul,uy,0);
 				} else if (u==Hud::HEALTH){ //health indicator, ux=ww-300, uy=25
 					glColor3f(0,0.8,0);
-					glVertex3f(ux,uy,0);
 					glVertex3f(ux,uy-uw,0);
 					glVertex3f(selected.health/2.0*ul+ux,uy-uw,0);
+					glColor3f(0,0.6,0);
 					glVertex3f(selected.health/2.0*ul+ux,uy,0);
+					glVertex3f(ux,uy,0);
 				} else if (u==Hud::EXHAUSTION){ //Exhaustion/energy indicator ux=ww-100, uy=25
+					float exh= 2/(1+exp(world->EXHAUSTION_MULT*selected.exhaustion));
 					glColor3f(0.8,0.8,0);
 					glVertex3f(ux,uy,0);
 					glVertex3f(ux,uy-uw,0);
-					glColor3f(0.4,0.4,0);
-					glVertex3f((2/(1+exp(-world->EXHAUSTION_MULT*selected.exhaustion))-1)*ul+ux,uy-uw,0);
-					glVertex3f((2/(1+exp(-world->EXHAUSTION_MULT*selected.exhaustion))-1)*ul+ux,uy,0);
+					glColor3f(0.8*exh,0.8*exh,0);
+					glVertex3f(exh*ul+ux,uy-uw,0);
+					glVertex3f(exh*ul+ux,uy,0);
 				}
 				//end draw graphs
 				glEnd();
@@ -2379,7 +2610,7 @@ void GLView::drawStatic()
 			
 			} else if(u==Hud::EXHAUSTION){
 				if(world->EXHAUSTION_MULT>0 && selected.exhaustion>(5*world->EXHAUSTION_MULT)) sprintf(buf, "Exhausted!");
-				else if (world->EXHAUSTION_MULT>0 && selected.exhaustion<(0.5*world->EXHAUSTION_MULT)) sprintf(buf, "Energetic!");
+				else if (world->EXHAUSTION_MULT>0 && selected.exhaustion<(2*world->EXHAUSTION_MULT)) sprintf(buf, "Energetic!");
 				else sprintf(buf, "Tired.");
 
 			} else if(u==Hud::STOMACH){
@@ -2534,6 +2765,9 @@ void GLView::drawStatic()
 }
 
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ START DRAW CELLS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~//
+
+
 void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 {
 	if (live_layersvis!=0) { //0: white
@@ -2548,7 +2782,7 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 		} else if (live_layersvis==Display::FRUITS) {
 			cellcolor= setColorFruit(values[Layer::FRUITS]);
 		} else if (live_layersvis==Display::REALITY) {
-			cellcolor= setColorCellsAll(values);//setColorLandWater(val);
+			cellcolor= setColorCellsAll(values);
 		} else if (live_layersvis==Display::LIGHT) {
 			cellcolor= setColorLight(values[Layer::LIGHT]);
 		} else if (live_layersvis==Display::TEMP) {
@@ -2557,45 +2791,61 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 			cellcolor= setColorHeight(values[Layer::ELEVATION]);
 		}
 		glColor4f(cellcolor.red, cellcolor.gre, cellcolor.blu, 1);
+
 		//code below makes cells into divided boxes when zoomed close up
 		float gadjust= 0;
 		if(scalemult>0.8 || live_grid) gadjust= scalemult<=0 ? 0 : 0.5/scalemult;
+
 		glVertex3f(x*conf::CZ+gadjust,y*conf::CZ+gadjust,0);
 		glVertex3f(x*conf::CZ+conf::CZ-gadjust,y*conf::CZ+gadjust,0);
 		glVertex3f(x*conf::CZ+conf::CZ-gadjust,y*conf::CZ+conf::CZ-gadjust,0);
 		glVertex3f(x*conf::CZ+gadjust,y*conf::CZ+conf::CZ-gadjust,0);
 
-		//if Land/All draw mode, draw fruit and meat as little squares
+		//if Land/All draw mode, draw fruit and meat as little diamonds
 		if (live_layersvis==Display::REALITY) {
 			if(values[Layer::MEATS]>0){
 				float meat= values[Layer::MEATS];
 				cellcolor= setColorMeat(1.0); //meat on this layer is always bright red, but translucence is applied
-				glColor4f(cellcolor.red*values[Layer::LIGHT], cellcolor.gre*values[Layer::LIGHT], cellcolor.blu*values[Layer::LIGHT], meat);
-				meat= 0.3*meat+0.5; //reuse the meat value for sizing
+				glColor4f(cellcolor.red*values[Layer::LIGHT], cellcolor.gre*values[Layer::LIGHT], cellcolor.blu*values[Layer::LIGHT], meat*0.8);
+				float meatsz= 0.25*meat+0.15;
 
-				glVertex3f(x*conf::CZ+meat*conf::CZ,y*conf::CZ+meat*conf::CZ,0);
-				glVertex3f(x*conf::CZ+conf::CZ-meat*conf::CZ,y*conf::CZ+meat*conf::CZ,0);
-				glVertex3f(x*conf::CZ+conf::CZ-meat*conf::CZ,y*conf::CZ+conf::CZ-meat*conf::CZ,0);
-				glVertex3f(x*conf::CZ+meat*conf::CZ,y*conf::CZ+conf::CZ-meat*conf::CZ,0);
+				glVertex3f(x*conf::CZ+0.5*conf::CZ,y*conf::CZ+0.5*conf::CZ+meatsz*conf::CZ,0);
+				glVertex3f(x*conf::CZ+0.5*conf::CZ+meatsz*conf::CZ,y*conf::CZ+0.5*conf::CZ,0);
+				glVertex3f(x*conf::CZ+0.5*conf::CZ,y*conf::CZ+0.5*conf::CZ-meatsz*conf::CZ,0);
+				glVertex3f(x*conf::CZ+0.5*conf::CZ-meatsz*conf::CZ,y*conf::CZ+0.5*conf::CZ,0);
+				
+				//make a smaller, solid center
+				glColor4f(cellcolor.red*values[Layer::LIGHT], cellcolor.gre*values[Layer::LIGHT], cellcolor.blu*values[Layer::LIGHT], 1);
+				meatsz-= 0.15;
+
+				glVertex3f(x*conf::CZ+0.5*conf::CZ,y*conf::CZ+0.5*conf::CZ+meatsz*conf::CZ,0);
+				glVertex3f(x*conf::CZ+0.5*conf::CZ+meatsz*conf::CZ,y*conf::CZ+0.5*conf::CZ,0);
+				glVertex3f(x*conf::CZ+0.5*conf::CZ,y*conf::CZ+0.5*conf::CZ-meatsz*conf::CZ,0);
+				glVertex3f(x*conf::CZ+0.5*conf::CZ-meatsz*conf::CZ,y*conf::CZ+0.5*conf::CZ,0);
 			}
-			if(values[Layer::FRUITS]>0.1 && values[Layer::LIGHT]>0 && scalemult > 0.1){
+
+			if(values[Layer::FRUITS]>0.1 && values[Layer::LIGHT]>0 && scalemult>0.1){
 				for(int i= 1; i<values[Layer::FRUITS]*10; i++){
-					cellcolor= Color3f(0.8,0.8,0.2);
+					cellcolor= setColorFruit(1.6);
+					//if(values[Layer::ELEVATION]<Elevation::BEACH_MID*0.1) cellcolor= setColorWaterFruit(1.6);
 					//pseudo random number output system:
 					//inputs: x, y of cell, the index of the fruit in range 0-10
 					//method: take initial x and y into vector, and then rotate it again by golden ratio and increase distance by index
 					float GR= 89.0/55;
 					Vector2f point(sinf((float)y),cosf((float)x));
-					point.rotate(2*M_PI*GR*i);
+					float dirmult= (x+y)%2==0 ? 1 : -1;
+					point.rotate(dirmult*2*M_PI*GR*i);
 					point.normalize();
 					
 //					float adjustx= i%2==0 ? 10-i%3-i/2+i%4 : i%3+i*i/5;
 //					float adjusty= i%3==1 ? 3+i%2+i : (i+1)%2+i*i/6
+					float fruitposx= x*conf::CZ+conf::CZ/2+2*point.x*i;
+					float fruitposy= y*conf::CZ+conf::CZ/2+2*point.y*i;
 					glColor4f(cellcolor.red*values[Layer::LIGHT], cellcolor.gre*values[Layer::LIGHT], cellcolor.blu*values[Layer::LIGHT], 1);
-					glVertex3f(x*conf::CZ+conf::CZ/2+point.x*i,y*conf::CZ+conf::CZ/2+point.y*i+1,0);
-					glVertex3f(x*conf::CZ+conf::CZ/2+point.x*i+1,y*conf::CZ+conf::CZ/2+point.y*i,0);
-					glVertex3f(x*conf::CZ+conf::CZ/2+point.x*i,y*conf::CZ+conf::CZ/2+point.y*i-1,0);
-					glVertex3f(x*conf::CZ+conf::CZ/2+point.x*i-1,y*conf::CZ+conf::CZ/2+point.y*i,0);
+					glVertex3f(fruitposx,fruitposy+1,0);
+					glVertex3f(fruitposx+1,fruitposy,0);
+					glVertex3f(fruitposx,fruitposy-1,0);
+					glVertex3f(fruitposx-1,fruitposy,0);
 				}
 			}
 		}

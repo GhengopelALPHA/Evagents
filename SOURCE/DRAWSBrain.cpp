@@ -115,13 +115,25 @@ void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 	}
 }
 
-float DRAWSBrain::getActivity() const
+float DRAWSBrain::getActivityRatio() const
 {
 	float sum= 0;
 	for (int j=Input::INPUT_SIZE; j<(int)boxes.size(); j++){
 		sum+= fabs(boxes[j].out - boxes[j].oldout);
 	}
-	return sum/boxes.size();
+	return sum/(boxes.size()-Input::INPUT_SIZE);
+}
+
+float DRAWSBrain::getNonZeroWRatio() const
+{
+	float sum= 0;
+	for (int j=Input::INPUT_SIZE; j<(int)boxes.size(); j++){
+		for (int k=0;k<CONNS;k++) {
+			if(boxes[j].w[k]==0) continue;
+			else sum++;
+		}
+	}
+	return sum/(boxes.size()-Input::INPUT_SIZE)/CONNS;
 }
 
 void DRAWSBrain::initMutate(float MR, float MR2)
@@ -129,6 +141,8 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 	//for mutations which may occur at conception
 	for (int j=Input::INPUT_SIZE; j<(int)boxes.size(); j++){
 		DRAWSBox* abox= &boxes[j];
+
+		//start with rare mutations
 		if (randf(0,1)<MR/30) {
 			//randomize synapse type
 			int rc= randi(0, CONNS);
@@ -138,6 +152,21 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 		}
 
 		if (randf(0,1)<MR/25) {
+			//copy box
+			int k= randi(0,boxes.size());
+			if(k!=j) {
+				abox->type= boxes[k].type;
+				abox->id= boxes[k].id;
+				abox->bias= boxes[k].bias;
+				abox->kp= boxes[k].kp;
+				abox->type= boxes[k].type;
+				abox->w= boxes[k].w;
+//				a2.mutations.push_back("box coppied\n");
+				abox->seed= 0;
+			}
+		}
+
+		if (randf(0,1)<MR/10) {
 			//branch box (sets a conn to reference a box which refers the same as another conn's box's references)
 			//eg: [j]
 			//    / \+create this conn
@@ -172,21 +201,6 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			}
 		}
 
-		if (randf(0,1)<MR/10) {
-			//copy box
-			int k= randi(0,boxes.size());
-			if(k!=j) {
-				abox->type= boxes[k].type;
-				abox->id= boxes[k].id;
-				abox->bias= boxes[k].bias;
-				abox->kp= boxes[k].kp;
-				abox->type= boxes[k].type;
-				abox->w= boxes[k].w;
-//				a2.mutations.push_back("box coppied\n");
-				abox->seed= 0;
-			}
-		}
-
 		if (randf(0,1)<MR/5) {
 			//randomize connection
 			int rc= randi(0, CONNS);
@@ -194,6 +208,13 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			abox->id[rc]= ri;
 //		  a2.mutations.push_back("connection randomized\n");
 			abox->seed= 0;
+		}
+
+		if (randf(0,1)<MR) { //this chance is low because of additional randomness below
+			//wither connection
+			int rc= randi(0, CONNS);
+			if(randf(0,1)>fabs(abox->w[rc])) abox->w[rc]= 0; //the closer the weight is to 0, the more likely it withers
+//		  a2.mutations.push_back("connection withered\n");
 		}
 
 		if (randf(0,1)<MR/4) {
@@ -248,7 +269,7 @@ void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 	int j= randi(Input::INPUT_SIZE,boxes.size());
 	DRAWSBox* abox= &boxes[j];
 
-	if (randf(0,1)<MR) {
+	if (randf(0,1)<MR/5) {
 		//"neurons that fire together, wire together". Hebb process
 		int rc= randi(0, CONNS);
 		int b= -1;
@@ -267,6 +288,12 @@ void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 		}
 	}
 
+	if (randf(0,1)<MR) { //this chance is lowe because of additional randomness below
+		//wither connection
+		int rc= randi(0, CONNS);
+		if(randf(0,1)>fabs(abox->w[rc])) abox->w[rc]= 0; //the closer the weight is to 0, the more likely it withers
+	}
+
 	if (randf(0,1)<MR && conf::LEARNRATE>0) {
 		//stimulate box weight
 		float stim= out[Output::STIMULANT];
@@ -277,7 +304,6 @@ void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 				abox->w[k]+= conf::LEARNRATE*stim*(abox->oldout-(1-oldin));
 			}
 		}
-//		abox->seed= 0;
 	}
 
 	if (randf(0,1)<MR*5) {

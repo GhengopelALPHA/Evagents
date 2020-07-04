@@ -42,7 +42,8 @@ public:
     virtual DRAWSBrain& operator=(const DRAWSBrain& other);
 
     void tick(std::vector<float>& in, std::vector<float>& out);
-	float getActivity() const;
+	float getActivityRatio() const;
+	float getNonZeroWRatio() const;
     void initMutate(float MR, float MR2);
 	void liveMutate(float MR, float MR2, std::vector<float>& out);
     DRAWSBrain crossover( const DRAWSBrain &other );

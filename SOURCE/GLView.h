@@ -43,6 +43,7 @@ public:
 	GLView(World* w);
 	virtual ~GLView();
 	
+	virtual void drawPreAgent(const Agent &a, float x, float y);
 	virtual void drawAgent(const Agent &a, float x, float y, bool ghost= 0);
 	virtual void drawCell(int x, int y, const float values[Layer::LAYERS]); //draws the background boxes
 	virtual void drawData(); //draws info in the left side of the sim
@@ -103,6 +104,7 @@ private:
 	Color3f setColorWaterPlant(float val);
 	Color3f setColorMountPlant(float val);
 	Color3f setColorFruit(float val);
+	Color3f setColorWaterFruit(float val);
 	Color3f setColorMeat(float val);
 	Color3f setColorHazard(float val);
 	Color3f setColorWaterHazard(float val);

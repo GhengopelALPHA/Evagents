@@ -313,7 +313,7 @@ void Agent::initSplash(float size, float r, float g, float b)
 
 float Agent::getActivity() const
 {
-	float brainact= brain.getActivity();
+	float brainact= brain.getActivityRatio();
 	return brainact;
 }
 
@@ -528,6 +528,7 @@ void Agent::setPos(float x, float y)
 void Agent::setPosRandom(float maxx, float maxy)
 {
 	this->pos= Vector2f(randf(0,maxx),randf(0,maxy));
+	this->borderRectify();
 }
 
 void Agent::borderRectify()
@@ -587,10 +588,34 @@ bool Agent::isTiny() const
 	return false;
 }
 
+bool Agent::isTinyEye(int eyenumber) const
+{
+	if(eyenumber<NUMEYES/2) return true;
+	return false;
+}
+
 bool Agent::isAsexual() const
 {
 	if(sexproject>0.5) return false;
 	return true;
+}
+
+bool Agent::isGrabbing() const
+{
+	if(grabbing>0.5) return true;
+	return false;
+}
+
+bool Agent::isGiving() const
+{
+	if(give>0.5) return true;
+	return false;
+}
+
+bool Agent::isSelfish(float MAXSELFISH) const
+{
+	if(give<=MAXSELFISH) return true;
+	return false;
 }
 
 void Agent::writeIfKilled(const char * cause)

@@ -381,7 +381,6 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 				}else if(strcmp(var, "DROUGHTMULT=")==0){
 					sscanf(dataval, "%f", &f);
 					world->DROUGHTMULT= f;
-					if(i>9000) world->DROUGHTMULT= randf(0,2);
 				}else if(strcmp(var, "MUTEVENTS=")==0){
 					sscanf(dataval, "%i", &i);
 					if(i>=1) world->MUTEVENTS= true;

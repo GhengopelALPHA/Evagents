@@ -24,6 +24,19 @@ enum {
 	LAYERS
 };};
 
+//defines for terrain elevation levels. IMPORTANT: This is currently always /=10 for a decimal value 
+namespace Elevation{
+enum {
+	DEEPWATER_LOW= 0,
+	SHALLOWWATER= 2,
+	BEACH_MID= 5,
+	PLAINS= 6,
+	STEPPE= 7,
+	HILL= 8,
+	HIGHLAND= 9,
+	MOUNTAIN_HIGH= 10 //Don't add beyond this entry! unless you are re-scalling to /=100
+};};
+
 //defines for layer display. Changing order here changes cycle order and menu listing order
 namespace Display{
 enum {
@@ -49,12 +62,12 @@ enum {
 	STOMACH,
 	LUNGS,
 	HEALTH,
+	METABOLISM,
 	DISCOMFORT,
 	VOLUME,
 	SPECIES,
 	CROSSABLE,
-	METABOLISM,
-
+	
 	//Don't add beyond this entry!
 	VISUALS
 };};
@@ -72,6 +85,21 @@ enum {
 	PROFILES
 };};
 
+//defines for the static display in the top-left corner. Changing order here changes listing order
+namespace StaticDisplay{
+enum {
+	PAUSED= 0,
+	CLOSED,
+	DROUGHT,
+	MUTATIONS,
+	FOLLOW,
+	AUTOSELECT,
+//	DEBUG, //this is currently very... awkwardly set up. see GLView.cpp
+
+	//Don't add beyond this entry!
+	STATICDISPLAYS
+};};
+
 //defines for selected agent heads up display ordering. Changing order here changes arrangement order
 //keep in mind, it is displayed in 3 columns, so the 4th entry will be in the same column as the 1st,
 //5th with the 2nd, etc
@@ -80,8 +108,8 @@ enum {
 	HEALTH= 0,
 	REPCOUNTER,
 	EXHAUSTION,
-	AGE,
-	GENERATION,
+	AGE, //I'm under HEALTH!
+	GENERATION, //I'm under REPCOUNTER! Etc
 	STOMACH,
 	METBOLISM,
 	NUMBABIES,
@@ -118,11 +146,14 @@ enum {
 	MANUAL,
 	OLDEST,
 	BEST_GEN,
+	BEST_HERBIVORE,
+	BEST_FRUGIVORE,
+	BEST_CARNIVORE,
 	HEALTHY,
+	ENERGETIC,
 	PRODUCTIVE,
 	AGGRESSIVE,
 	RELATIVE,
-	//EXTREMOPHILE,
 
 	//Don't add beyond this entry!
 	SELECT_TYPES
@@ -300,18 +331,19 @@ namespace conf {
 	//BOTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ BOTS
 	const float GRAVITYACCEL= 0.01; //(.cfg)
 	const float BUMP_PRESSURE= 0.13; //(.cfg)
-	const float GRAB_PRESSURE= 0.05; //(.cfg)
+	const float GRAB_PRESSURE= 0.1; //(.cfg)
 	const float BOTSPEED= 1.5; //(.cfg)
 	const float BOOSTSIZEMULT= 3; //(.cfg)
 	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
 	const int CARCASSFRAMES= 3000; //number of frames before dead agents are removed
 
-	const float FOODTRANSFER= 0.08; //(.cfg)
+	const float FOODTRANSFER= 0.1; //(.cfg)
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
 	const float BASEEXHAUSTION= -5; //(.cfg)
 	const float EXHAUSTION_MULT= 0.5; //(.cfg)
 	const float MEANRADIUS=10.0; //(.cfg)
 	const float SPIKESPEED= 0.01; //(.cfg)
+	const float VELOCITYSPIKEMIN= 0.2; //minimum velocity difference between two agents in the positive direction to be spiked by the other
 	const int FRESHKILLTIME= 50; //(.cfg)
 	const int TENDERAGE= 10; //(.cfg)
 	const float MINMOMHEALTH=0.25; //(.cfg)
@@ -381,13 +413,13 @@ namespace conf {
 	//Fruit is a quick and easy alternative to plants. Also partially randomly populated, harkening back to ScriptBots origins
 
 	const float MEATINTAKE= 0.095; //(.cfg)
-	const float MEATDECAY= 0.0001; //(.cfg)
+	const float MEATDECAY= 0.00001; //(.cfg)
 	const float MEATWASTE= 0.0023; //0.002; //(.cfg)
 	const float MEATVALUE= 1.0; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays
 
 	const int HAZARDFREQ= 20; //(.cfg)
-	const float HAZARDEVENT_MULT= 2.0; //(.cfg)
+	const float HAZARDEVENT_MULT= 4.0; //(.cfg)
 	const float HAZARDDECAY= 0.000002; //(.cfg)
 	const float HAZARDDEPOSIT= 0.0035; //(.cfg)
 	const float HAZARDDAMAGE= 0.0032;//0.0025; //(.cfg)

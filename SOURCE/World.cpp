@@ -177,13 +177,13 @@ void World::cellsLandMasses()
 		//spawn init continents (mountains= 1, beach= 0.5, between is normal terrain)
 		int cx=randi(0,CW);
 		int cy=randi(0,CH);
-		cells[Layer::ELEVATION][cx][cy]= i%2==0 ? 1 : 0.7; //50% of the land spawns are type BUGFIX "Plains", = 0.6
+		cells[Layer::ELEVATION][cx][cy]= i%2==0 ? (float)(Elevation::MOUNTAIN_HIGH)*0.1 : (float)(Elevation::STEPPE)*0.1; //50% of the land spawns are type "Steppe", = 0.7
 	}
 	for (int i=0;i<1.85*(sqrt((float)CW*CH)/1000*pow((float)2.5,3*OCEANPERCENT)*(CONTINENTS+1))-1;i++) {
 		//spawn oceans (water= 0)
 		int cx=randi(0,CW);
 		int cy=randi(0,CH);
-		cells[Layer::ELEVATION][cx][cy]= 0;
+		cells[Layer::ELEVATION][cx][cy]= (float)(Elevation::DEEPWATER_LOW)*0.1;
 	}
 
 	printf("moving tectonic plates.\n");
@@ -192,7 +192,7 @@ void World::cellsLandMasses()
 			for(int j=0;j<CH;j++) {
 				float height= cells[Layer::ELEVATION][i][j];
 				//land spread
-				if (height>0.5){
+				if (height>Elevation::BEACH_MID*0.1){
 					int ox= randi(i-1,i+2);
 					int oy= randi(j-1,j+2);//+2 to correct for randi [x,y)
 					if (ox<0) ox+= CW;
@@ -200,7 +200,7 @@ void World::cellsLandMasses()
 					if (oy<0) oy+= CH;
 					if (oy>CH-1) oy-= CH;
 					if (cells[Layer::ELEVATION][ox][oy]==-1 && randf(0,1)<0.9) {//90% chance to spread
-						if(height<=0.6){ //will not reduce level 0.6 and below, allowing us to create beaches (0.5) later
+						if(height<=Elevation::PLAINS*0.1){ //will not reduce level 0.6 and below, allowing us to create beaches (0.5) later
 							cells[Layer::ELEVATION][ox][oy]= height;
 						} else cells[Layer::ELEVATION][ox][oy]= randf(0,1)<0.9 ? height : height-0.1;
 						//90% chance it remains the same, 10% chance it reduces by 0.1
@@ -208,14 +208,14 @@ void World::cellsLandMasses()
 				}
 
 				//water spread
-				else if (height==0){
+				else if (height<Elevation::BEACH_MID*0.1 && height>=Elevation::DEEPWATER_LOW*0.1){
 					int ox= randi(i-1,i+2);
 					int oy= randi(j-1,j+2);
 					if (ox<0) ox+= CW;
 					if (ox>CW-1) ox-= CW;
 					if (oy<0) oy+= CH;
 					if (oy>CH-1) oy-= CH;
-					if (cells[Layer::ELEVATION][ox][oy]==-1 && randf(0,1)<OCEANPERCENT*8) cells[Layer::ELEVATION][ox][oy]= 0;
+					if (cells[Layer::ELEVATION][ox][oy]==-1 && randf(0,1)<OCEANPERCENT*8) cells[Layer::ELEVATION][ox][oy]= Elevation::DEEPWATER_LOW*0.1;
 				}
 			}
 		}
@@ -226,17 +226,18 @@ void World::cellsLandMasses()
 				if (cells[Layer::ELEVATION][i][j]==-1){
 					leftcount++;
 
-				} else if (cells[Layer::ELEVATION][i][j]>0.5){
+				} else if (cells[Layer::ELEVATION][i][j]>Elevation::BEACH_MID*0.1){
 					//if this is land, check nearby cells. If 2+ are water, turn into beach
 					int watercount= 0;
 					if(i==0 || j==0 || i==CW-1 || j==CH-1) watercount= 1; //edges get a helping hand (without this there are weird beaches)
 					for(int oi=max(0,i-1);oi<min(CW,i+2);oi++) {
 						for(int oj=max(0,j-1);oj<min(CH,j+2);oj++) {
-							if(cells[Layer::ELEVATION][oi][oj]==0) watercount++;
+							if(cells[Layer::ELEVATION][oi][oj]<Elevation::BEACH_MID*0.1 && cells[Layer::ELEVATION][oi][oj]>=Elevation::DEEPWATER_LOW*0.1) 
+								watercount++;
 						}
 					}
 
-					if(watercount>=2) cells[Layer::ELEVATION][i][j]=0.5;
+					if(watercount>=2) cells[Layer::ELEVATION][i][j]=Elevation::BEACH_MID*0.1;
 				}
 			}
 		}
@@ -245,7 +246,7 @@ void World::cellsLandMasses()
 	STATlandratio= 0;
 	for(int i=0;i<CW;i++) {
 		for(int j=0;j<CH;j++) {
-			if(cells[Layer::ELEVATION][i][j]>=0.5) STATlandratio++;
+			if(cells[Layer::ELEVATION][i][j]>=Elevation::BEACH_MID*0.1) STATlandratio++;
 		}
 	}
 	STATlandratio/= CW*CH;
@@ -372,8 +373,8 @@ void World::update()
 		if(DROUGHTS){
 			DROUGHTMULT= randn(DROUGHTMULT, 0.08);
 			if(DROUGHTMULT>DROUGHT_MAX || DROUGHTMULT<DROUGHT_MIN) DROUGHTMULT= randn(1.0, 0.05);
-			if(DROUGHTMULT<1.0-conf::DROUGHT_NOTIFY) addEvent("Global Drought Epoch!",11);
-			if(DROUGHTMULT>1.0+conf::DROUGHT_NOTIFY) addEvent("Global Overgrowth Epoch!",2);
+			if(isDrought()) addEvent("Global Drought Epoch!",11);
+			if(isOvergrowth()) addEvent("Global Overgrowth Epoch!",2);
 			printf("Set Drought Multiplier to %f\n", DROUGHTMULT);
 		} else DROUGHTMULT= 1.0;
 
@@ -399,12 +400,17 @@ void World::update()
 		int cy=randi(0,CH);
 		cells[Layer::HAZARDS][cx][cy]= cap((cells[Layer::HAZARDS][cx][cy]/90+0.99));
 	}
-	if (modcounter%FRUITADDFREQ==0 && randf(0,1)<DROUGHTMULT) {
+	if (modcounter%FRUITADDFREQ==0 && randf(0,1)<abs(DROUGHTMULT)) {
 		while (true) {
 			int cx=randi(0,CW);
 			int cy=randi(0,CH);
-			if (cells[Layer::PLANTS][cx][cy]>FRUITREQUIRE) {
-				cells[Layer::FRUITS][cx][cy]= 1.0;
+			if(DROUGHTMULT>0){
+				if (cells[Layer::PLANTS][cx][cy]>FRUITREQUIRE) {
+					cells[Layer::FRUITS][cx][cy]= 1.0;
+					break;
+				}
+			} else { //also handle negative Drought multipliers
+				cells[Layer::FRUITS][cx][cy]= cap(cells[Layer::FRUITS][cx][cy]-0.1);
 				break;
 			}
 		}
@@ -697,7 +703,7 @@ void World::setInputs()
 				fruit+= cells[Layer::FRUITS][scx][scy];
 				meat+= cells[Layer::MEATS][scx][scy];
 				hazard+= cells[Layer::HAZARDS][scx][scy];
-				water+= cells[Layer::ELEVATION][scx][scy]<0.5 ? 1 : 0; // all water smells the same, only water cells detected
+				water+= cells[Layer::ELEVATION][scx][scy]<=Elevation::BEACH_MID*0.1 ? 1 : 0; // all water smells the same, only water cells detected
 			}
 		}
 		float dimmensions= (maxx-minx)*(maxy-miny);
@@ -812,7 +818,7 @@ void World::setInputs()
 				//we will skip all eyesight if our agent is in the dark (light==0) without a moonlit sky
 				if(light!=0 || MOONLIT){
 					for(int q=0;q<NUMEYES;q++){
-						if(a->isTiny() && q+1>=NUMEYES/2){ //small agents have half-count of eyes, the rest get set to constant 1 input
+						if(a->isTiny() && !a->isTinyEye(q)){ //small agents have half-count of eyes, the rest get set to constant 1 input
 							r[q]= 1.0;
 							g[q]= 1.0;
 							b[q]= 1.0;
@@ -850,8 +856,8 @@ void World::setInputs()
 				if (fabs(forwangle)>M_PI) diff4= 2*M_PI- fabs(forwangle);
 				diff4= fabs(diff4);
 				if (diff4<PI38) {
-					float mul4= ((PI38-diff4)/PI38)*(1-d/DIST);
-					blood+= a->blood_mod*mul4*(1-agents[j].health/2); //remember: health is in [0,2]
+					float newblood= a->blood_mod*((PI38-diff4)/PI38)*(1-d/DIST)*(1-agents[j].health/2); //remember: health is in [0,2]
+					if(newblood>blood) blood= newblood;
 					//agents with high life dont bleed. low life makes them bleed more. dead agents bleed the maximum
 				}
 			}
@@ -903,7 +909,7 @@ void World::processOutputs(bool prefire)
 	#pragma omp parallel for schedule(dynamic)
 	for (int i=0; i<(int)agents.size(); i++) {
 		Agent* a= &agents[i];
-		float exh= 1.0+a->exhaustion; //exhaustion reduces agent output->physical 
+		float exh= 1.0+a->exhaustion; //exhaustion reduces agent output->physical action rates
 
 		if (a->health<=0) {
 			//dead agents continue to exist, come to a stop, and loose their voice, but skip everything else
@@ -966,9 +972,13 @@ void World::processOutputs(bool prefire)
 		a->clockf3+= 0.3*(95*(1-a->out[Output::CLOCKF3])+5 - a->clockf3); //exhaustion doesn't effect clock freq
 		if(a->clockf3>100) a->clockf3= 100;
 		if(a->clockf3<2) a->clockf3= 2;
+
+		//backup previous x & y pos's This is done as a prefire on purpose (it's not saved)
+		a->dpos.x= a->pos.x;
+		a->dpos.y= a->pos.y;
 	}
 
-	//move bots if this is not a prefire.
+	//move bots if this is not a prefire. A prefire is needed when loading, as all the values above need refreshing, but we shouldn't move yet
 	if(!prefire){
 		#pragma omp parallel for schedule(dynamic)
 		for (int i=0; i<(int)agents.size(); i++) {
@@ -1097,7 +1107,10 @@ void World::processInteractions()
 
 		//land/water (always interacted with)
 		float land= cells[Layer::ELEVATION][scx][scy];
-		if(a->jump>0) land= max(land, 0.5f); //jumping while underwater allows one to breathe at lung value 0.5
+		if(a->jump>0){ //jumping while underwater allows one to breathe at lung value 0.5
+			float minland= 0.1*Elevation::BEACH_MID;
+			land= max(land, minland);
+		}
 		float dd= pow(land - a->lungs,2);
 		if (dd>0.01){ //a difference of 0.1 or less between lung and land type lets us skip taking damage
 			a->health -= HEALTHLOSS_BADTERRAIN*dd;
@@ -1152,7 +1165,7 @@ void World::processInteractions()
 			for (int j=0; j<(int)agents.size(); j++) {
 				if (i==j || !agents[j].near) continue;
 				if (agents[j].health<=0){
-					if(a->grabbing>0.5 && a->grabID==agents[j].id) a->grabID= -1; //help catch grabbed agents deaths and let the grabber know
+					if(a->isGrabbing() && a->grabID==agents[j].id) a->grabID= -1; //help catch grabbed agents deaths and let the grabber know
 					if(agents[j].health==0) continue; //health == because we want to weed out bots who died already via other causes
 				}
 
@@ -1162,15 +1175,16 @@ void World::processInteractions()
 				float sumrad= a->radius+a2->radius;
 
 				//---HEALTH GIVING---//
-				if (FOOD_SHARING_DISTANCE>0 && a->give>conf::MAXSELFISH && FOODTRANSFER>0 && a2->health<2) {
+				if (FOOD_SHARING_DISTANCE>0 && !a->isSelfish(conf::MAXSELFISH) && a2->health<2) {
 					//all non-selfish agents allow health trading
-					float rd= a->give>0.5 ? FOOD_SHARING_DISTANCE : sumrad;
-					//rd is the max range allowed to agent j. If generous, range allowed, otherwise bots must touch
+
+					float rd= a->isGiving() ? FOOD_SHARING_DISTANCE : sumrad+1;
+					//rd is the max range allowed to agent j. If generous, range allowed, otherwise bots must basically touch
 
 					if (d<=rd) {
 						//initiate transfer
-						float healthrate= a->give>0.5 ? FOODTRANSFER*a->give : FOODTRANSFER*2*a->give;
-						if(d<=sumrad && a->give>0.5) healthrate= FOODTRANSFER;
+						float healthrate= a->isGiving() ? FOODTRANSFER*a->give : FOODTRANSFER*2*a->give;
+						if(d<=sumrad+1 && a->isGiving()) healthrate= FOODTRANSFER;
 						//healthrate goes from 0->1 for give [0,0.5], and from 0.5->1 for give (0.5,1]. Is maxxed when touching and generous
 						a2->health += healthrate;
 						a->health -= healthrate;
@@ -1230,45 +1244,55 @@ void World::processInteractions()
 					}
 				} //end collision mechanics
 
-				//---SPIKING---//
 				const char * fix2= "Killed by a Murder";
-				//low speed doesn't count, nor does a small spike. If the target is jumping in midair, can't attack either
-				if(a->isSpikey(SPIKELENGTH) && a->w1>0.1 && a->w2>0.1 && d<=(sumrad + SPIKELENGTH*a->spikeLength) && a2->jump<=0){
-
-					//these two are in collision and agent i has extended spike and is going decent fast!
+				//---SPIKING---//
+				//small spike doesn't count. If the target is jumping in midair, can't attack either
+				if(a->isSpikey(SPIKELENGTH) && d<=(a2->radius + SPIKELENGTH*a->spikeLength) && a2->jump<=0){
 					Vector2f v(1,0);
 					v.rotate(a->angle);
 					float diff= v.angle_between(a2->pos-a->pos);
-					if (fabs(diff)<M_PI/8) {
-						//bot i is also properly aligned!!! that's a hit
-						float DMG= DAMAGE_FULLSPIKE*a->spikeLength*max(a->w1,a->w2);
+					float spikerange= d*sin(diff); //get range to agent from spike, closest approach
+					if (a2->radius>spikerange) { //other agent is properly aligned and in range!!! getting close now...
+						//need to calculate the velocity differential of the agents
+						Vector2f velocitya(a->pos.x-a->dpos.x, a->pos.y-a->dpos.y);
+						Vector2f velocitya2(a2->pos.x-a2->dpos.x, a2->pos.y-a2->dpos.y);
 
-						a2->health-= DMG*(1-1.0/(1+expf(-(a2->radius/2-MEANRADIUS)))); //tiny, small, & average agents take full damage. 
-						//large (2*MEANRADIUS) agents take half damage, and huge agents (2*MEANRADIUS+10) take no damage from spikes at all
-						a2->writeIfKilled(fix2);
-						a2->freshkill= FRESHKILLTIME; //this agent was hit this turn, giving full meat value
+						velocitya-= velocitya2;
+						float diff2= v.angle_between(velocitya);
+						float veldiff= velocitya.length()*cos(diff2);
 
-						a->spikeLength= 0; //retract spike back down
+						if(veldiff>conf::VELOCITYSPIKEMIN){
+							//these two are in collision and agent a has extended spike and is going decently fast relatively! That's a hit!
+						
+							float DMG= DAMAGE_FULLSPIKE*a->spikeLength*veldiff;
 
-						a->initSplash(20*DMG,1,0.5,0); //orange splash means bot has spiked the other bot. nice!
-						if (a2->health==0){ 
-							//red splash means bot has killed the other bot. Murderer!
-							a->initSplash(20*DMG,1,0,0);
-							if(a->id==SELECTION) addEvent("Selected Agent Killed Another!",1);
-							a->killed++;
-							continue;
-						} else if(a->id==SELECTION) addEvent("Selected Agent Stabbed Another!",12);
+							a2->health-= DMG*(1-1.0/(1+expf(-(a2->radius/2-MEANRADIUS)))); //tiny, small, & average agents take full damage. 
+							//large (2*MEANRADIUS) agents take half damage, and huge agents (2*MEANRADIUS+10) take no damage from spikes at all
+							a2->writeIfKilled(fix2);
+							a2->freshkill= FRESHKILLTIME; //this agent was hit this turn, giving full meat value
 
-						a->hits++;
+							a->spikeLength= 0; //retract spike back down
 
-						/*Vector2f v2(1,0);
-						v2.rotate(a2->angle);
-						float adiff= v.angle_between(v2);
-						if (fabs(adiff)<M_PI/2) {
-							//this was attack from the back. Retract spike of the other agent (startle!)
-							//this is done so that the other agent cant right away "by accident" attack this agent
-							a2->spikeLength= 0;
-						}*/
+							a->initSplash(30*DMG,1,0.5,0); //orange splash means bot has spiked the other bot. nice!
+							if (a2->health==0){ 
+								//red splash means bot has killed the other bot. Murderer!
+								a->initSplash(30*DMG,1,0,0);
+								if(a->id==SELECTION) addEvent("Selected Agent Killed Another!",1);
+								a->killed++;
+								continue;
+							} else if(a->id==SELECTION) addEvent("Selected Agent Stabbed Another!",12);
+
+							a->hits++;
+
+							/*Vector2f v2(1,0);
+							v2.rotate(a2->angle);
+							float adiff= v.angle_between(v2);
+							if (fabs(adiff)<M_PI/2) {
+								//this was attack from the back. Retract spike of the other agent (startle!)
+								//this is done so that the other agent cant right away "by accident" attack this agent
+								a2->spikeLength= 0;
+							}*/
+						}
 					}
 				} //end spike mechanics
 
@@ -1298,36 +1322,44 @@ void World::processInteractions()
 				} //end jaw mechanics
 
 				//---GRABBING---//
-				//doing this last because agent deaths may occur up till now
-				if(GRAB_PRESSURE!=0 && GRABBING_DISTANCE>0 && a->grabbing>0.5 && a2->health>0) {
+				//doing this last because agent deaths may occur up till now, and we don't want to worry about holding onto things that die while holding them
+				if(GRAB_PRESSURE!=0 && GRABBING_DISTANCE>0 && a->isGrabbing() && a2->health>0) {
 					if(d<=GRABBING_DISTANCE+a->radius){
+						Vector2f v(1,0);
+						v.rotate(a->angle+a->grabangle);
+						float diff= v.angle_between(a2->pos-a->pos);
+
 						//check init grab
 						if(a->grabID==-1){
-							Vector2f v(1,0);
-							v.rotate(a->angle+a->grabangle);
-							float diff= v.angle_between(a2->pos-a->pos);
-							if (fabs(diff)<M_PI/4 && randf(0,1)<0.4) { //very wide AOE centered on a's grabangle, 40% chance any one bot is picked
+							if (fabs(diff)<M_PI/4 && randf(0,1)<0.3) { //very wide AOE centered on a's grabangle, 30% chance any one bot is picked
 								a->grabID= a2->id;
 							}
+						} 
 
-						} else if (a->grabID==a2->id && d>(sumrad+1.0)) {
-							//we have a grab target, and it is this agent. Pull us together!
-							//find the target point for a2
-							float dpref= sumrad + 1.5;
-							Vector2f tpos(a->pos.x+dpref*cos(a->angle+a->grabangle),a->pos.y+dpref*sin(a->angle+a->grabangle));
-
-							float ff1= a2->radius/a->radius*a->grabbing*GRAB_PRESSURE; //the radii come in here for inertia-like effect
-							float ff2= a->radius/a2->radius*a->grabbing*GRAB_PRESSURE;
-							a->pos.x-= (tpos.x-a2->pos.x)*ff1;
-							a->pos.y-= (tpos.y-a2->pos.y)*ff1;
-							a2->pos.x+= (tpos.x-a2->pos.x)*ff2;
-							a2->pos.y+= (tpos.y-a2->pos.y)*ff2;
-
-							a->borderRectify();
-							a2->borderRectify();
-
+						if (a->grabID==a2->id) {
+							//we have a grab target, and it is this other agent. 
 							//"grab" (hehe) the coords of the other agent
-							//a->grabx= a2->pos.x; a->graby= a2->pos.y;
+							a->grabx= a2->pos.x; a->graby= a2->pos.y;
+
+							if(d>(sumrad+1.0)){
+								//Pull us together!
+								//find the target point for a2
+								float dpref= sumrad + 1.5;
+								Vector2f tpos(a->pos.x+dpref*cos(a->angle+a->grabangle),a->pos.y+dpref*sin(a->angle+a->grabangle));
+
+								float ff1= a2->radius/a->radius*a->grabbing*GRAB_PRESSURE; //the radii come in here for inertia-like effect
+								float ff2= a->radius/a2->radius*a->grabbing*GRAB_PRESSURE;
+								a->pos.x-= (tpos.x-a2->pos.x)*ff1;
+								a->pos.y-= (tpos.y-a2->pos.y)*ff1;
+								a2->pos.x+= (tpos.x-a2->pos.x)*ff2;
+								a2->pos.y+= (tpos.y-a2->pos.y)*ff2;
+
+								a->borderRectify();
+								a2->borderRectify();
+							}
+
+							//the graber gets rotated toward the grabbed agent by a ratio of their output strength, limited to 0.08 radian
+							a->angle+= capm(a->grabbing*diff, -0.08, 0.08);
 						}
 					} else if (a->grabID==a2->id) {
 						//grab distance exceeded, break the bond
@@ -1385,10 +1417,10 @@ void World::healthTick()
 
 void World::setSelection(int type) {
 	int maxi= -1;
-	//to find the desired selection, we must process all agents. Lets do this sparingly
-	if (modcounter%5==0){
+	//to find the desired selection, we must process all agents. Lets do this sparingly unless no-one is selected
+	if (SELECTION==-1 || modcounter%15==0){
 		if (type==Select::NONE) {
-			//easy enough: if none desired, set selection ID to negative
+			//easy enough: if none desired, set selection ID to negative 
 			SELECTION= -1;
 		} else if (type==Select::OLDEST) {
 			//oldest: simply compare all agents age's and when we find the highest one, save its index
@@ -1414,6 +1446,15 @@ void World::setSelection(int type) {
 			for (int i=0; i<(int)agents.size(); i++) {
 				if (agents[i].health>maxhealth) {
 					maxhealth= agents[i].health;
+					maxi= i;
+				}
+			}
+		} else if(type==Select::ENERGETIC){
+			//Energetic: finds agent with most energy (lowest exhaustion value)
+			float minexhaust= 1000;
+			for (int i=0; i<(int)agents.size(); i++) {
+				if (agents[i].health>0 && agents[i].age>0 && agents[i].exhaustion<minexhaust) {
+					minexhaust= agents[i].exhaustion;
 					maxi= i;
 				}
 			}
@@ -1452,15 +1493,45 @@ void World::setSelection(int type) {
 						setSelectedAgent(randi(0,agents.size()));
 						addEvent("No More Living Relatives!", 13);
 					}
+				} else maxi= select;
+			}
+		} else if (type==Select::BEST_HERBIVORE){
+			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract
+			float maxindex= -1;
+			for (int i=0; i<(int)agents.size(); i++) {
+				float index= agents[i].stomach[Stomach::PLANT] - agents[i].stomach[Stomach::MEAT] - agents[i].stomach[Stomach::FRUIT];
+				if (agents[i].health>0 && agents[i].gencount>0 && index>maxindex) {
+					maxindex= index;
+					maxi= i;
 				}
 			}
-		} //else if (type==Select::EXTREMOPHILE){
-			//float 
-
-	}
+		} else if (type==Select::BEST_FRUGIVORE){
+			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract
+			float maxindex= -1;
+			for (int i=0; i<(int)agents.size(); i++) {
+				float index= agents[i].stomach[Stomach::FRUIT] - agents[i].stomach[Stomach::MEAT] - agents[i].stomach[Stomach::PLANT];
+				if (agents[i].health>0 && agents[i].gencount>0 && index>maxindex) {
+					maxindex= index;
+					maxi= i;
+				}
+			}
+		} else if (type==Select::BEST_CARNIVORE){
+			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract
+			float maxindex= -1;
+			for (int i=0; i<(int)agents.size(); i++) {
+				float index= agents[i].stomach[Stomach::MEAT] - agents[i].stomach[Stomach::FRUIT] - agents[i].stomach[Stomach::PLANT];
+				if (agents[i].health>0 && agents[i].gencount>0 && index>maxindex) {
+					maxindex= index;
+					maxi= i;
+				}
+			}
+		}
 			
-	if (maxi!=-1 && agents[maxi].id!= SELECTION) {
-		setSelectedAgent(maxi);
+		if (maxi!=-1) {
+			if(agents[maxi].id!= SELECTION) setSelectedAgent(maxi);
+		} else if (type!=Select::MANUAL) {
+			SELECTION= -1;
+		}
 	}
 }
 
@@ -1516,7 +1587,7 @@ int World::getSelectedAgent() const {
 }
 
 int World::getClosestRelative(int idx) const {
-	//retrieve the index of the given agent's closest living relative. Takes age, gencount, and species id into account, returns -1 if none
+	//retrieve the index of the given agent's closest living relative. Takes age, gencount, stomach, lungs, and species id into account, returns -1 if none
 	int nidx= -1;
 	int meta, metamax= MAXDEVIATION;
 
@@ -1527,21 +1598,29 @@ int World::getClosestRelative(int idx) const {
 			if(abs(agents[idx].species-agents[i].species)<MAXDEVIATION && agents[i].health>0){
 				//choose an alive agent that is within maxdeviation; closer the better
 				meta= 1+MAXDEVIATION-abs(agents[idx].species-agents[i].species);
-			} else meta= 0;
+			} else continue; //if you aren't related, you're off to a very bad start if we're trying to find relatives... skip!
 
-			if(agents[idx].age==agents[i].age) meta+= 9; //choose siblings
-			if(agents[i].age==0) meta+= 5; //choose newborns
-			if(agents[idx].gencount+1==agents[i].gencount) meta+= 5; //choose children or 2nd cousins
-			else if(agents[idx].gencount==agents[i].gencount) meta+= 2; //at least choose cousins
+			if(agents[idx].age==agents[i].age) meta+= 10; //choose siblings
+			if(agents[i].age<TENDERAGE) meta+= 5; //choose young agents at least
+			if(agents[idx].gencount+1==agents[i].gencount) meta+= 5; //choose children or nephews and nieces
+			else if(agents[idx].gencount==agents[i].gencount) meta+= 3; //at least choose cousins... 
+			else if(agents[idx].gencount==agents[i].gencount+1) meta+= 2; //...or parents/aunts/uncles
+
+			for(int j=0; j<Stomach::FOOD_TYPES; j++){ //penalize mis-matching stomach types harshly
+				meta-= 5*abs(agents[idx].stomach[j]-agents[i].stomach[j]); //diff of 0.2 scales to a -1 penalty, max possible= -15
+			}
+			meta-= abs(agents[idx].lungs-agents[i].lungs); //penalize mis-matching lung types, max possible= -1
+			meta-= abs(agents[idx].temperature_preference-agents[i].temperature_preference); //penalize mis-matching temp preference, max possible: -1
 			
-			//else meta-= (int)(abs(agents[idx].gencount-agents[i].gencount)/2); //avoid aunts, uncles, nephews, nieces several times removed
-			
+			//if the meta counter is better than the best selection so far*, return our new target
+			//*note that it has to do better than MAXDEVIATION as a baseline because we want ONLY relatives, and if no matches, we return -1
 			if(meta>metamax){
 				nidx= i;
 				metamax= meta;
 			}
 		}
 	}
+	//IMPORTANT: we may return -1 here; DO NOT USE FOR ARRAYS DIRECTLY
 	return nidx;
 }
 
@@ -1549,6 +1628,20 @@ int World::getSelection() const {
 	//retrieve world->SELECTION
 	return SELECTION;
 }
+
+void World::getGrabTargetCoords(Agent &agent) {
+	//for a given agent, get and set its grab target's coords
+	//THIS ISN'T WORKING
+	if(agent.isGrabbing()) {
+		#pragma omp parallel for
+		for (int i=0; i<(int)agents.size(); i++) {
+			if (agents[i].id==agent.grabID){
+				agent.grabx= agents[i].pos.x; agent.graby= agents[i].pos.y;
+			}
+		}
+	}
+}
+
 
 void World::selectedHeal() {
 	//heal selected agent
@@ -1682,7 +1775,10 @@ void World::draw(View* view, int layer)
 	//draw all agents
 	vector<Agent>::const_iterator it;
 	for ( it = agents.begin(); it != agents.end(); ++it) {
-		view->drawAgent(*it,it->pos.x,it->pos.y);
+		view->drawPreAgent(*it,it->pos.x,it->pos.y); //draw things before/under all agents
+	}
+	for ( it = agents.begin(); it != agents.end(); ++it) {
+		view->drawAgent(*it,it->pos.x,it->pos.y); //draw agents themselves
 	}
 
 	view->drawStatic();
@@ -1704,7 +1800,7 @@ void World::addAgents(int num, int set_stomach, float nx, float ny, bool set_lun
 			while(true){
 				scx= (int) a.pos.x/conf::CZ;
 				scy= (int) a.pos.y/conf::CZ;
-				if(cells[Layer::ELEVATION][scx][scy]==0) break;
+				if(cells[Layer::ELEVATION][scx][scy]<Elevation::BEACH_MID*0.1) break;
 				a.setPosRandom(conf::WIDTH, conf::HEIGHT);
 			}
 		}
@@ -1853,14 +1949,26 @@ void World::writeReport()
 	fclose(fr);
 }
 
+bool World::isClosed() const
+{
+	return CLOSED;
+}
+
 void World::setClosed(bool close)
 {
 	CLOSED = close;
 }
 
-bool World::isClosed() const
+bool World::isDrought() const
 {
-	return CLOSED;
+	if(DROUGHTMULT<1.0-conf::DROUGHT_NOTIFY) return true;
+	return false;
+}
+
+bool World::isOvergrowth() const
+{
+	if(DROUGHTMULT>1.0+conf::DROUGHT_NOTIFY) return true;
+	return false;
 }
 
 int World::getHerbivores() const

@@ -36,6 +36,7 @@ int main(int argc, char **argv) {
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_RGBA);
 	glutInitWindowPosition(250,20);
 	glutInitWindowSize(conf::WWIDTH,conf::WHEIGHT);
+
 	GLVIEW->win1= glutCreateWindow("Evagents");
 
 	glEnable(GL_BLEND);
