@@ -89,7 +89,6 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	exhaustion= 0;
 
 
-
 	//output mechanical values
 	w1= 0;
 	w2= 0;
@@ -112,6 +111,7 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 
 	//stats
 	hybrid= false;
+	damages.clear();
 	death= "Killed by Unknown Factor!"; //default death message, just in case
 	children= 0;
 	killed= 0;
@@ -305,7 +305,7 @@ void Agent::traceBack(int outback)
 
 void Agent::initSplash(float size, float r, float g, float b)
 {
-	indicator=size;
+	indicator=min(size,conf::MAXSPLASHSIZE);
 	ir=r;
 	ig=g;
 	ib=b;
@@ -348,6 +348,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	Vector2f fb(this->radius*randf(2, 3),0);
 	fb.rotate(this->angle+M_PI+this->numbabies*randf(-0.4,0.4));
 	a2.pos= this->pos + fb;
+	a2.dpos= a2.pos;
 	a2.borderRectify();
 
 	//basic trait inheritance
@@ -464,7 +465,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	a2.brain= this->brain.crossover(that.brain);
 	a2.brain.initMutate(MR,MR2);
 
-	a2.initSplash(20,0.8,0.8,0.8); //grey event means we were just born! Welcome!
+	a2.initSplash(conf::MAXSPLASHSIZE*0.5,0.8,0.8,0.8); //grey event means we were just born! Welcome!
 	
 	return a2;
 
@@ -478,7 +479,7 @@ void Agent::resetRepCounter(float MEANRADIUS, float REP_PER_BABY)
 
 void Agent::liveMutate()//float MR, float MR2)
 {
-	initSplash(30,0.5,0,1.0);
+	initSplash(conf::MAXSPLASHSIZE*0.5,0.5,0,1.0);
 	
 	float MR= this->MUTRATE1;
 	float MR2= this->MUTRATE2;
@@ -600,6 +601,12 @@ bool Agent::isAsexual() const
 	return true;
 }
 
+bool Agent::isMale() const
+{
+	if(sexproject>1.0) return true;
+	return false;
+}
+
 bool Agent::isGrabbing() const
 {
 	if(grabbing>0.5) return true;
@@ -618,26 +625,53 @@ bool Agent::isSelfish(float MAXSELFISH) const
 	return false;
 }
 
-void Agent::writeIfKilled(const char * cause)
-/*======LIST OF CURRENT DEATH CAUSES=======//
-"Killed by Unknown Factor!			Agent.cpp	~ln 87  Note: if no other message is applied, this will pop up
-"Killed by Something ?"				World.cpp	~ln 210 Note: the space is for easy interpretation by Excel with text->data delimitation via spaces
-"Killed by Spike Raising"			World.cpp	~ln 515
-"Killed by a Hazard"				World.cpp	~ln 620
-"Killed by Suffocation ."			World.cpp	~ln 632	Note: the space is for easy interpretation by Excel with text->data delimitation via spaces
-"Killed by Excessive Generosity"	World.cpp	~ln 658
-"Killed by a Collision"				World.cpp	~ln 687-9
-"Killed by a Murder"				World.cpp	~ln 754 Note: death by both spike and jaws
-"Killed by Natural Causes"			World.cpp	~ln 808	Note: contains wheel loss, aging, boost penalty, and brain use
-"Killed by Temp Discomfort"			World.cpp	~ln 816
-"Killed by LackOf Oxygen"			World.cpp	~ln 821
-"Killed by God (you)"				World.cpp	~ln 927
-"Killed by Child Birth" 			World.cpp	~ln 1069
-*/
+void Agent::addDamage(const char * sourcetext, float amount)
 {
+	std::string newtext= std::string(sourcetext);
+	addDamage(newtext, amount);
+}
+
+void Agent::addDamage(std::string sourcetext, float amount)
+{
+	//this method now handles subtraction of health as well as checking if the agent died
+	#pragma omp critical //protect us from ourselves... collapse any threads for 
+	if(amount!=0){
+		this->health-= amount;
+
+		//we are going to interate through the list of injury causes, and if we've been injured before, add to the amount
+		bool added= false;
+		for(int i=0; i<this->damages.size(); i++){
+			if(this->damages[i].first.compare(sourcetext)==0){
+				this->damages[i].second+= amount;
+				added= true;
+				break;
+			}
+		}
+
+		if(!added){ //if we checked the list and didn't find the injury cause, add it as a new one
+			std::pair<std::string, float> temppair= std::make_pair(sourcetext, amount);
+			this->damages.push_back(temppair);
+		}
+	}
+
+	//check if agent died. If it did, properly bury it
 	if(this->health<0){
-		this->death= cause;
+		this->death= "Killed by " + sourcetext;
 		this->health= 0;
 		this->indicator= -1;
 	}
+}
+
+std::pair<std::string, float> Agent::getMostDamage() const
+{
+	float max= 0;
+	std::string text= "";
+	for(int i=0; i<this->damages.size(); i++){
+		if(this->damages[i].second>max) {
+			max= this->damages[i].second;
+			text= this->damages[i].first;
+		}
+	}
+	std::pair<std::string, float> temppair= std::make_pair(text, max);
+	return temppair;
 }

@@ -21,7 +21,7 @@ public:
 	void sanitize();
 	void spawn();
 	void update();
-	
+	void cellsRoundTerrain();
     
     void draw(View* view, int layer);
     
@@ -100,9 +100,9 @@ public:
 
 	void healthTick();
 
-	void addAgents(int num, int set_stomach=-1, float nx=-1, float ny=-1, bool set_lungs=true);
+	void addAgents(int num, int set_stomach=-1, bool set_lungs=true, float nx=-1, float ny=-1);
 
-	std::vector<const char *> deaths; //record of all the causes of death this epoch
+	std::vector<std::string> deaths; //record of all the causes of death this epoch
 
 	std::vector<float> selectedSounds; //a list of all the sounds heard by the agent. the int-value /100 is the volume, the float-value is the tone. Visual only
 

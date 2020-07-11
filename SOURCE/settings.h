@@ -12,7 +12,7 @@
 //defines for layer data. Making changes here changes cells[LAYERS][][] in World. Order does not matter (except in ReadWrite...)
 namespace Layer{
 enum {
-	//NOTE these are physical layers of data, as opposed to Display::, which handles drawing
+	//NOTE these are physical layers of data, as opposed to DisplayMode::, which handles drawing
 	ELEVATION= 0,
 	PLANTS,
 	FRUITS,
@@ -37,12 +37,27 @@ enum {
 	MOUNTAIN_HIGH= 10 //Don't add beyond this entry! unless you are re-scalling to /=100
 };};
 
-//defines for layer display. Changing order here changes cycle order and menu listing order
+//defines for layer display. Changing order here changes cycle order and menu listing order. This may soon be depreciated
 namespace Display{
 enum {
 	NONE= 0,
 	REALITY,
 	ELEVATION,
+	PLANTS,
+	MEATS,
+	FRUITS,
+	HAZARDS,	
+	TEMP,
+	LIGHT,
+
+	//Don't add beyond this entry!
+	DISPLAYS
+};};
+
+//defines for layer display, but this is a list of toggle-ables. Changing order here changes cycle order and menu listing order.
+namespace DisplayLayers{
+enum {
+	ELEVATION= 0,
 	PLANTS,
 	MEATS,
 	FRUITS,
@@ -132,7 +147,7 @@ enum {
 	STAT_KILLED,
 	STAT_CHILDREN,
 	SPECIESID,
-	blank,
+	DAMAGE,
 	DEATH,
 
 	//Don't add beyond this entry!
@@ -296,8 +311,9 @@ namespace conf {
 	const float SNAP_SPEED = 0.2; //how fast snapping to an object of interest is; 1 is instant, 0.1 is smooth, 0 is pointless
 	const float ZOOM_SPEED = 0.002; //how fast zoom actions change the magnification
 	const int EVENTS_DISP= 8; //how many events to display at once, at max. Will not ignore or miss events that exceed this; they'll wait
-	const int EVENTS_HALFLIFE= 350; //half-life (exact) for display of event messages.
+	const int EVENTS_HALFLIFE= 350; //half-life (in #ticks) for display of event messages.
 	const float DEADTRANSPARENCY= 0.5; //the alpha value of dead agents
+	const float MAXSPLASHSIZE= 30.0; //max indicator splash size on any agent
 
 	const int REPORTS_PER_EPOCH = 200; //(.cfg)
 	const int FRAMES_PER_EPOCH = 200000; //(.cfg)
@@ -320,9 +336,11 @@ namespace conf {
 	const bool DISABLE_LAND_SPAWN= true; //(.cfg & GUI)
 	const bool MOONLIT= true; //(.cfg & GUI)
 	const bool DROUGHTS= true; //(.cfg & GUI)
-	const float DROUGHT_NOTIFY= 0.15; //1.0 +/- this value of drought sends an event notification
+	const float DROUGHT_STDDEV= 0.1; // The standard deviation of changes to the DROUGHTMULT
+	const int DROUGHT_WEIGHT= 2; // the weight multiple of the current DROUGHTMULT when averaged (1.0 has a weight of 1)
+	const float DROUGHT_NOTIFY= 0.2; //+/- this value from 1.0 of drought shows notifications
 	const float DROUGHT_MIN= 0.5; //(.cfg)
-	const float DROUGHT_MAX= 1.3; //(.cfg)
+	const float DROUGHT_MAX= 1.5; //(.cfg)
 	const bool MUTEVENTS= true; //(.cfg & GUI)
 	const int MUTEVENT_MAX= 3; //(.cfg)
 	const float SOUNDPITCHRANGE= 0.1; //(.cfg)
@@ -332,10 +350,10 @@ namespace conf {
 	const float GRAVITYACCEL= 0.01; //(.cfg)
 	const float BUMP_PRESSURE= 0.13; //(.cfg)
 	const float GRAB_PRESSURE= 0.1; //(.cfg)
-	const float BOTSPEED= 1.5; //(.cfg)
+	const float BOTSPEED= 1.0; //(.cfg)
 	const float BOOSTSIZEMULT= 3; //(.cfg)
 	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
-	const int CARCASSFRAMES= 3000; //number of frames before dead agents are removed
+	const int CARCASSFRAMES= 4000; //number of frames before dead agents are removed
 
 	const float FOODTRANSFER= 0.1; //(.cfg)
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
@@ -375,7 +393,7 @@ namespace conf {
 	const float HEALTHLOSS_SPIKE_EXT= 0.0; //(.cfg)
 	const float HEALTHLOSS_BADTERRAIN= 0.022; //(.cfg)
 	const float HEALTHLOSS_NOOXYGEN= 0.0002; //(.cfg)
-	const float HEALTHLOSS_ASSEX= 0.4; //(.cfg)
+	const float HEALTHLOSS_ASSEX= 0.25; //(.cfg)
 
 	const float DAMAGE_FULLSPIKE= 4.0; //(.cfg)
 	const float DAMAGE_COLLIDE= 3.0; //(.cfg)
@@ -416,9 +434,9 @@ namespace conf {
 	const float MEATDECAY= 0.00001; //(.cfg)
 	const float MEATWASTE= 0.0023; //0.002; //(.cfg)
 	const float MEATVALUE= 1.0; //(.cfg)
-	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays
+	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)
 
-	const int HAZARDFREQ= 20; //(.cfg)
+	const int HAZARDFREQ= 30; //(.cfg)
 	const float HAZARDEVENT_MULT= 4.0; //(.cfg)
 	const float HAZARDDECAY= 0.000002; //(.cfg)
 	const float HAZARDDEPOSIT= 0.0035; //(.cfg)

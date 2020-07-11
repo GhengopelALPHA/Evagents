@@ -3,6 +3,7 @@
 
 #include <stdarg.h>
 
+//#include "UIElement.h"
 #include "View.h"
 #include "World.h"
 #include "ReadWrite.h"
@@ -71,7 +72,7 @@ public:
 	void renderScene();
 	void handleRW(int action); //callback function for glui loading/saving
 	void handleCloses(int action); //callback function for loading gui's
-	bool checkFile(char name[30]);
+	bool checkFile(char name[32]);
 	bool checkFile(std::string name);
 
 	void gotoDefaultZoom();
@@ -119,9 +120,8 @@ private:
 	int live_fastmode; //are we drawing?
 	int live_skipdraw; //are we skipping some frames?
 	int live_agentsvis; //are we drawing agents? If so, what's the scheme? see namespace "Visuals" in settings.h for details
-	int past_agentsvis; //what was the previous agent visualization? helps when changing views w/o the GUI
-	int live_layersvis; //what cell layer is currently active? see namespace "Layers" in settings.h
-	int past_layersvis; // unused
+	int live_layersvis; //what cell layer is currently active? see namespace "Layers" in settings.h, this may be depreciated soon
+//	int livearray_layersvis[DisplayLayers::DISPLAYS-1]; //list of bools keeping track of which layers we're displaying.
 	int live_profilevis; //what visualization profile are we displaying next to the selected agent? see namespace "Profiles"
 	int live_selection; //what bot catagory are we currently trying to autoselect? see namespace "Select" in settings.h
 	int live_follow; //are we following the selected agent?
@@ -132,12 +132,15 @@ private:
 	int live_droughts; //are droughts and overgrowth periods enabled?
 	float live_droughtmult; //value of the drought modifier
 	int live_mutevents; //are variable rate mutation events enabled?
+	int live_debug; //are we debugging?
 
+	//not live variables, but pretty closely related
+	int past_agentsvis; //what was the previous agent visualization? helps when changing views w/o the GUI
 	int popupxy[2]; //simple x,y coords for the popup graphic
 	std::vector<std::string> popuptext;
-	
-	int live_debug; //are we debugging?
 	bool debug;
+
+	//Menu, file, and load/saving system
 	GLUI * Menu;
 	GLUI_FileBrowser * Browser;
 	std::string file_name;
@@ -145,7 +148,7 @@ private:
 	GLUI * Saver;
 	GLUI * Alert;
 	GLUI_EditText * Filename;
-	char filename[30];
+	char filename[32];
 	int lastsavedtime;
 
 	char buf[100];

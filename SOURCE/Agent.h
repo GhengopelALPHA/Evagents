@@ -13,45 +13,7 @@ class Agent
 //IMPORTANT: if ANY variables are added/removed, you MUST check ReadWrite.cpp to see how loading and saving will be effected!!!
 public:
 	Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1, float MUTARATE2);
-	void exhibitGenes(); //process genes list and set/update agent traits & abilities
-
-	void printSelf();
-	void traceBack(int outback=0);
-
-	void initSplash(float size, float r, float g, float b);
-	
-	void tick();
-	float getActivity() const;
-	float getOutputSum() const;
-	void writeIfKilled(const char * cause);
-
-	Agent reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY);
-	void resetRepCounter(float MEANRADIUS, float REP_PER_BABY);
-
-	void liveMutate();//float METAMR, float METAMR2);
-
-	//random agent creation tweakers
-	void setHerbivore();
-	void setCarnivore();
-	void setFrugivore();
-	void setPos(float x, float y);
-	void setPosRandom(float maxx, float maxy);
-	void borderRectify();
-
-	bool isHerbivore() const;
-	bool isCarnivore() const;
-	bool isFrugivore() const;
-	bool isTerrestrial() const;
-	bool isAmphibious() const;
-	bool isAquatic() const;
-	bool isSpikey(float SPIKELENGTH) const;
-	bool isTiny() const;
-	bool isTinyEye(int eyenumber) const;
-	bool isAsexual() const;
-	bool isGrabbing() const;
-	bool isGiving() const;
-	bool isSelfish(float MAXSELFISH) const;
-	
+		
 	//Saved Variables
 	//simulation basics
 	int id;
@@ -119,7 +81,8 @@ public:
 	int hits; //you should see the other guy... counts attacks on other agents
 	float brainmutations; //records the number of mutations of the brain
 	std::vector<std::string> mutations;
-	const char * death; //the cause of death of this agent
+	std::vector<std::pair<std::string, float>> damages; //tracker for sources of injury
+	std::string death; //the cause of death of this agent
 	
 	
 	//outputs
@@ -139,6 +102,50 @@ public:
 	float grabbing; //is this agent attempting to grab another? If already grabbed, how far are we willing to let them go?
 	float grabangle; //the position of this bot's grab. Other agents can only be grabbed at this angle, and are drawn to this point specifically once grabbed
 	float sexproject; //is this bot trying to give out its genetic data? if so, how strongly? in range [0,2] (bias+output, considered 'father' if >1.0
+
+	//
+	void exhibitGenes(); //process genes list and set/update agent traits & abilities
+
+	void printSelf();
+	void traceBack(int outback=0);
+
+	void initSplash(float size, float r, float g, float b);
+	
+	void tick();
+	float getActivity() const;
+	float getOutputSum() const;
+	void addDamage(const char * sourcetext, float amount);
+	void addDamage(std::string sourcetext, float amount);
+	std::pair<std::string, float> getMostDamage() const;
+	void writeIfKilled();
+
+	Agent reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY);
+	void resetRepCounter(float MEANRADIUS, float REP_PER_BABY);
+
+	void liveMutate();//float METAMR, float METAMR2);
+
+	//random agent creation tweakers
+	void setHerbivore();
+	void setCarnivore();
+	void setFrugivore();
+	void setPos(float x, float y);
+	void setPosRandom(float maxx, float maxy);
+	void borderRectify();
+
+	bool isHerbivore() const;
+	bool isCarnivore() const;
+	bool isFrugivore() const;
+	bool isTerrestrial() const;
+	bool isAmphibious() const;
+	bool isAquatic() const;
+	bool isSpikey(float SPIKELENGTH) const;
+	bool isTiny() const;
+	bool isTinyEye(int eyenumber) const;
+	bool isAsexual() const;
+	bool isMale() const;
+	bool isGrabbing() const;
+	bool isGiving() const;
+	bool isSelfish(float MAXSELFISH) const;
 };
 
 #endif // AGENT_H

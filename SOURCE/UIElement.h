@@ -15,14 +15,16 @@ public:
 
 	float red, gre, blu, alpha; //3-float colors and 1 float alpha
 	
-	int type; //button type. 0= unclick-able object (eg: panels), 1= clickable button, 2= toggleable button, 3= 
-	int state; //for butons with requirements for long-period tracking of state, this exists
-	std::string text; //text contained in the (top) of the UI Element
+	int type; //button type. 0= unclick-able object (eg: panels), 1= clickable button, 2= toggleable button, 3= temporary notification
+	int state; //the state of the button. typically 0= off, 1= on, -1= disabled
+	std::string text; //text contained in the (top) of the UI Element. Also used as the Name of the element
 
 	int group; //element group ID. When multiple buttons share a group ID, they all toggle off when one of them is turned on
-	UIElement panel; //element panel element. When buttons are assigned to a panel, other buttons can make them appear/disappear together
+	UIElement panel; //element's panel element. When buttons are assigned to a panel, other buttons can make them appear/disappear together
 
-	bool isClicked(Vector2f mousepos); //bool method for if button was clicked or not
+	void setState(int set);
+
+	bool isClicked(Vector2f mousepos); //bool method for if button was clicked by mouse or not
 
 };
 
