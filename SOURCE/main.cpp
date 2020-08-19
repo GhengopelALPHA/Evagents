@@ -18,18 +18,35 @@
 #endif
 
 #include <stdio.h>
+#include <irrKlang.h>
 
 
 GLView* GLVIEW = new GLView(0);
-int main(int argc, char **argv) {
-	srand(time(0));
 
-	printf("Evagents v%3.2f\n\n", conf::VERSION);
-	if (conf::WIDTH%conf::CZ!=0 || conf::HEIGHT%conf::CZ!=0) printf("CAREFUL! The cell size variable conf::CZ should divide evenly into both conf::WIDTH and conf::HEIGHT! It doesn't right now!\n");
-	
-	printf( "GLUI version: %3.2f\n", GLUI_Master.get_version() );
+int main(int argc, char **argv) {
+	unsigned int seed= time(0);
+	srand(seed);
+
+	printf("Evagents v%3.2f\n\n", conf::VERSION );
+	printf( "OpenGL+GLUI, version: %3.2f\n", GLUI_Master.get_version() );
+	printf( "irrKlang Audio, version: %s\n", IRR_KLANG_VERSION );
+	printf( "\n" );
+
+	//WORLD SETUP
+	if (conf::WIDTH%conf::CZ!=0 || conf::HEIGHT%conf::CZ!=0) 
+		printf("CAREFUL! The cell size variable conf::CZ should divide evenly into both conf::WIDTH and conf::HEIGHT! It doesn't right now!\n");
+	printf( "Seed: %d\n", seed );
+
 	World* world = new World();
 	GLVIEW->setWorld(world);
+
+
+	//AUDIO SETUP
+	// start the sound engine with default parameters
+	irrklang::ISoundEngine* audioengine = irrklang::createIrrKlangDevice(ESOD_AUTO_DETECT, ESEO_MULTI_THREADED | ESEO_MUTE_IF_NOT_FOCUSED); //only using Multithreaded option; more are available
+	if (!audioengine) return 0; // error starting up the engine
+	world->setAudioEngine(audioengine);
+
 
 	//GLUT SETUP
 	glutInit(&argc, argv);
@@ -76,6 +93,10 @@ int main(int argc, char **argv) {
 		printf("Severe error!\n");
 	}
 
+
+	//CLOSING THE PROGRAM
+	GLUI_Master.close_all();
 	SetThreadExecutionState(ES_CONTINUOUS); //return sleep state
+	audioengine->drop(); // delete audio engine
 	return 0;
 }

@@ -3,8 +3,6 @@
 #include "settings.h"
 #include "helpers.h"
 #include <stdio.h>
-#include <string>
-#include "DRAWSBrain.h"
 
 using namespace std;
 Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1, float MUTARATE2) : 
@@ -16,8 +14,8 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	angle= randf(-M_PI,M_PI);
 
 	//genes
-	MUTRATE1= MUTARATE1+MEANRADIUS*randf(-conf::METAMUTRATE1,conf::METAMUTRATE1)*3; //chance of mutations. MEANRADIUS turns off the throw for children
-	MUTRATE2= MUTARATE2+MEANRADIUS*randf(-conf::METAMUTRATE2,conf::METAMUTRATE2)*15; //size of mutations
+	MUTRATE1= abs(MUTARATE1+randf(-conf::METAMUTRATE1,conf::METAMUTRATE1)*50); //chance of mutations.
+	MUTRATE2= abs(MUTARATE2+randf(-conf::METAMUTRATE2,conf::METAMUTRATE2)*50); //size of mutations
 	radius= randf(MEANRADIUS*0.2,MEANRADIUS*2.2);
 	numbabies= randi(1,6);
 	gene_red= randf(0,1);
@@ -87,6 +85,7 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	discomfort= 0;
 	encumbered= false;
 	exhaustion= 0;
+	carcasscount= -1;
 
 
 	//output mechanical values
@@ -121,6 +120,7 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	ig= 0;
 	ib= 0;
 	jawrend= 0;
+	centerrender= 0.5;
 	dhealth= 0;
 }
 
@@ -159,7 +159,7 @@ void Agent::printSelf()
 	printf("lungs: %f\n", lungs);
 	printf("metabolism: %f\n", metabolism);
 	for(int i=0; i<Stomach::FOOD_TYPES; i++){
-		printf("stomach &i value: %f\n", i, stomach[i]);
+		printf("stomach %i value: %f\n", i, stomach[i]);
 	}
 	if (isHerbivore()) printf("Herbivore\n");
 	if (isCarnivore()) printf("Carnivore\n");
@@ -490,7 +490,7 @@ void Agent::liveMutate()//float MR, float MR2)
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*2) this->stomach[i]= cap(randn(this->stomach[i], MR2*2));
 	//METAMUTERATE used for chance because this is supposed to represent background mutation chances
 	if (randf(0,1)<conf::METAMUTRATE1/10) this->MUTRATE1= abs(randn(this->MUTRATE1, conf::METAMUTRATE1*25));
-	if (randf(0,1)<conf::METAMUTRATE1/10) this->MUTRATE2= abs(randn(this->MUTRATE2, conf::METAMUTRATE2*50));
+	if (randf(0,1)<conf::METAMUTRATE1/10) this->MUTRATE2= abs(randn(this->MUTRATE2, conf::METAMUTRATE2*100));
 	if (randf(0,1)<MR) this->clockf1= randn(this->clockf1, MR2/2);
 	if (this->clockf1<2) this->clockf1= 2;
 	if (randf(0,1)<MR) this->clockf2= randn(this->clockf2, MR2/2);
@@ -658,7 +658,7 @@ void Agent::addDamage(std::string sourcetext, float amount)
 	if(this->health<0){
 		this->death= "Killed by " + sourcetext;
 		this->health= 0;
-		this->indicator= -1;
+		this->carcasscount= 0;
 	}
 }
 

@@ -21,7 +21,9 @@ World::World() :
 		MUTEVENTMULT(1),
 		pcontrol(false),
 		pright(0),
-		pleft(0)
+		pleft(0),
+		dosounds(true)
+//		loadedagent(NUMBOXES, MEANRADIUS, REP_PER_BABY, MUTARATE1, MUTARATE2)
 {
 	//inititalize happens only once when launching program (like right now!)
 	init();	
@@ -32,6 +34,48 @@ World::World() :
 
 	printf("WORLD MADE!\n");
 }
+
+World::~World()
+{
+
+}
+
+
+void World::setAudioEngine(ISoundEngine* a)
+{
+	audio= a;
+	//audio call example: if(dosounds) audio->play2D("sounds/agents/chirp1.ogg");
+}
+
+
+void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitch, float volume)
+{
+	//try to play audio at location x,y if specified (if not, just play 2D audio), and with a specified pitch change multiple
+	#pragma omp critical
+	if(soundFileName!=NULL){
+		if(dosounds){// && Cull::atCoords(x,y)){ //dosounds is set by GLView and disables when rendering is disabled
+			ISound* play = 0;
+			if(x==0 && y==0) play= audio->play2D(soundFileName, false, false, true);
+			else play= audio->play3D(soundFileName, vec3df(x, y, 0), false, false, true);
+			if(play && pitch!=1.0) play->setPlaybackSpeed(pitch);
+			if(play && volume!=1.0) play->setVolume(volume);
+		}
+	}
+}
+
+
+//void World::tryCullAudio(Controller* control)
+//{
+//	audio->
+//	for(int a=0; a<audio->; a++) {
+//		ISoundSource* check= audio->getSoundSource(a);
+///		if(check){
+//			vec3df pos= check->getPosition();
+///			if(control->cullAtCoords((int)pos.X, (int)pos.Y)) check->drop();
+//		}
+//	}
+//}
+
 
 void World::reset()
 {
@@ -408,20 +452,20 @@ void World::update()
 			if(DROUGHTMULT>DROUGHT_MAX || DROUGHTMULT<DROUGHT_MIN) 
 				DROUGHTMULT= (DROUGHTMULT*conf::DROUGHT_WEIGHT+1.0)/((float)(conf::DROUGHT_WEIGHT+1)); //try to average back wandering Droughts
 			if(isDrought()) addEvent("Global Drought Epoch!",11);
-			if(isOvergrowth()) addEvent("Global Overgrowth Epoch!",2);
-			printf("Set Drought Multiplier to %f\n", DROUGHTMULT);
+			if(isOvergrowth()) addEvent("Global Overgrowth Epoch!",15);
+			if(DEBUG) printf("Set Drought Multiplier to %f\n", DROUGHTMULT);
 		} else DROUGHTMULT= 1.0;
 
 		//adjust global mutation rate
 		if(MUTEVENTS){
 			MUTEVENTMULT= randf(0,1)<0.5 ? randi(min(1,MUTEVENT_MAX),max(1,MUTEVENT_MAX+1)) : 1;
 			if(MUTEVENTMULT<0) MUTEVENTMULT= 0;
-			if(MUTEVENTMULT==0) addEvent("No Mutation chance Epoch!?!",11);
-			else if(MUTEVENTMULT==2) addEvent("Double Mutation chance Epoch!",11);
-			else if(MUTEVENTMULT==3) addEvent("TRIPPLE Mutation chance Epoch!",11);
-			else if(MUTEVENTMULT==4) addEvent("QUADRUPLE Mutation chance Epoch!",11);
-			else if(MUTEVENTMULT>4) addEvent("Mutation chance > *4!!!",11);
-			printf("Set Mutation Multiplier to %i\n", MUTEVENTMULT);
+			if(MUTEVENTMULT==0) addEvent("No Mutation chance Epoch!?!",14);
+			else if(MUTEVENTMULT==2) addEvent("Double Mutation chance Epoch!",14);
+			else if(MUTEVENTMULT==3) addEvent("TRIPPLE Mutation chance Epoch!",14);
+			else if(MUTEVENTMULT==4) addEvent("QUADRUPLE Mutation chance Epoch!",14);
+			else if(MUTEVENTMULT>4) addEvent("Mutation chance > *4!!!",14);
+			if(DEBUG) printf("Set Mutation Multiplier to %i\n", MUTEVENTMULT);
 		}
 	}
 
@@ -522,10 +566,12 @@ void World::update()
 	for (int i=0; i<(int)agents.size(); i++) {
 		Agent* a= &agents[i];
 
-		//process indicator (used in drawing, and when negative, used to expire dead agents)
+		//process indicator, used in drawing
 		if(a->indicator>0) a->indicator-= 0.5;
 		if(a->indicator<0) a->indicator-= 1;
-		if(a->indicator<-conf::CARCASSFRAMES) a->indicator= 0;
+
+		//process carcass counter, which keeps dead agents on the world while meat is under them
+		if(a->carcasscount>=0) a->carcasscount++;
 
 		//process jaw renderer
 		if(a->jawrend>0) a->jawrend-=1;
@@ -554,8 +600,14 @@ void World::update()
 				a->jawrend= 15;
 			} else if (a->jawPosition<0) a->jawPosition= min(0.0, a->jawPosition + 0.05*(2 + a->jawPosition));
 
+			//update center render mode
+			if(a->isAsexual()) a->centerrender= cap(a->centerrender-0.02);
+			else if(a->isMale()) a->centerrender= cap(a->centerrender+0.01)*2; //centerrender > 1 means we darken the center, =2 full black
+			else a->centerrender= cap(a->centerrender+0.01); 
+
 			//exhaustion gets increased
-			a->exhaustion= max((float)0,a->exhaustion + a->getOutputSum() + BASEEXHAUSTION)*EXHAUSTION_MULT;
+			float boostmult= a->boost ? BOOSTEXAUSTMULT : 1;
+			a->exhaustion= max((float)0,a->exhaustion + a->getOutputSum()*boostmult + BASEEXHAUSTION)*EXHAUSTION_MULT;
 
 			//temp discomfort gets re-calculated mod%10, to simulate heat absorption/release
 			if (modcounter%10==0){
@@ -592,6 +644,7 @@ void World::update()
 							if(DEBUG) printf("Attempting to have children...");
 							reproduce(i, j); //reproduce resets mother's rep counter, not father's
 							if(agents[i].id==SELECTION) addEvent("Selected Agent Sexually Reproduced", 3);
+							tryPlayAudio(conf::SFX_SMOOCH1, agents[i].pos.x, agents[i].pos.y, randn(1.0,0.15));
 							if(DEBUG) printf(" Success!\n");
 							break;
 							continue;
@@ -602,11 +655,12 @@ void World::update()
 					if(DEBUG) printf("Attempting budding...");
 					reproduce(i, i);
 					if(agents[i].id==SELECTION) addEvent("Selected Agent Assexually Budded", 8);
+					tryPlayAudio(conf::SFX_PLOP1, agents[i].pos.x, agents[i].pos.y, randn(1.0,0.15));
 					if(DEBUG) printf(" Success!\n");
 					continue;
 				}
 			}
-			if(FUN && randf(0,1)<0.4){
+			if(FUN && randf(0,1)<0.3){
 				if(agents[i].indicator<=0) agents[i].indicator= 60;
 				agents[i].ir= randf(0,1);
 				agents[i].ig= randf(0,1);
@@ -621,7 +675,10 @@ void World::update()
 	for (int i=0; i<(int)agents.size(); i++) {
 		//process dead agents. first distribute meat
 		if(agents[i].health<0) printf("Please check the code: an agent unexpectedly had negative health when it should have had exactly zero\n");
-		if (agents[i].health==0 && agents[i].indicator==-1) { 
+		if (agents[i].health==0 && agents[i].carcasscount==0) { 
+			//world is only now picking up the fact that the agent died from the agent itself
+			tryPlayAudio(conf::SFX_DEATH1, agents[i].pos.x, agents[i].pos.y, randn(1.0,0.15));
+
 			if (SELECTION==agents[i].id){
 				printf("The Selected Agent was %s!\n", agents[i].death.c_str());
 				addEvent("The Selected Agent Died!");
@@ -647,8 +704,8 @@ void World::update()
 
 	vector<Agent>::iterator iter= agents.begin();
 	while (iter != agents.end()) {
-		if (iter->health <=0 && iter->indicator==0) {
-			if(iter->id==SELECTION) addEvent("The Selected Agent has decayed", 7);
+		if (iter->health <=0 && iter->carcasscount == conf::CARCASSFRAMES) {
+			if(iter->id == SELECTION) addEvent("The Selected Agent has decayed", 7);
 			iter= agents.erase(iter);
 		} else {
 			++iter;
@@ -957,8 +1014,10 @@ void World::processOutputs(bool prefire)
 			if(a->volume<0.0001) a->volume= 0;
 
 			a->sexproject= 0; //no necrophilia
+			a->boost= false; //no boosting
 			continue;
 		}
+
 		if (a->jump<=0) { //if not jumping, then change wheel speeds. otherwise, we want to keep wheel speeds constant
 			if (pcontrol && a->id==SELECTION) {
 				a->w1= pright;
@@ -973,11 +1032,11 @@ void World::processOutputs(bool prefire)
 		a->real_red+= 0.2*((1-a->chamovid)*a->gene_red + a->chamovid*a->out[Output::RED]-a->real_red);
 		a->real_gre+= 0.2*((1-a->chamovid)*a->gene_gre + a->chamovid*a->out[Output::GRE]-a->real_gre);
 		a->real_blu+= 0.2*((1-a->chamovid)*a->gene_blu + a->chamovid*a->out[Output::BLU]-a->real_blu);
-		if (a->jump<=0) a->boost= (a->out[Output::BOOST]/exh)>0.5; //if jump height is zero, boost can change
+		if (a->jump<=0) a->boost= (a->out[Output::BOOST])>0.5; //if jump height is zero, boost can change. Also, exhaustion doesn't effect the boost toggle
 		a->volume= a->out[Output::VOLUME]/exh;
-		a->tone+= (a->out[Output::TONE]-a->tone)/exh;
+		a->tone+= (a->out[Output::TONE]-a->tone)/exh; //exhaustion effects the change rate of tone
 		a->give= a->out[Output::GIVE]/exh;
-		a->sexproject= a->sexprojectbias + a->out[Output::PROJECT]; //exhaustion does not effect the physical ability of sexual rep; should it?
+		a->sexproject= a->sexprojectbias + a->out[Output::PROJECT]; //exhaustion does not effect the physical type of sexual rep; should it somehow?
 
 		//spike length should slowly tend towards spike output
 		float g= a->out[Output::SPIKE];
@@ -1007,6 +1066,14 @@ void World::processOutputs(bool prefire)
 		a->clockf3+= 0.3*(95*(1-a->out[Output::CLOCKF3])+5 - a->clockf3); //exhaustion doesn't effect clock freq
 		if(a->clockf3>100) a->clockf3= 100;
 		if(a->clockf3<2) a->clockf3= 2;
+
+		//play some audio for agents making sounds!
+		if(a->volume>0.1 && (modcounter+a->id)%min(200,(int)ceil(20.0/(a->tone+0.0000001)))==0){
+			float playx= a->pos.x, playy= a->pos.y;
+			if(a->id==SELECTION) { playx= 0; playy= 0; }
+			if(a->isTiny()) tryPlayAudio(conf::SFX_CHIRP1, playx, playy, a->tone*0.8+0.3, a->volume*0.4);
+			else tryPlayAudio(conf::SFX_CHIRP2, playx, playy, a->tone*0.9+0.1, a->volume*0.7);
+		}
 
 		//backup previous x & y pos's This is done as a prefire on purpose (it's not saved)
 		a->dpos.x= a->pos.x;
@@ -1059,7 +1126,9 @@ void World::processInteractions()
 	if(DEBUG) printf("C");
 	#pragma omp parallel for
 	for (int i=0; i<(int)agents.size(); i++) {
-		if(agents[i].health<=0) continue;
+		if(agents[i].health<=0 && modcounter%25>0) continue; // okay, so what we're doing here is complicated
+		//if the agent is alive, we process them. If they are dead and the tick count mod 25 is not 0, we process them
+		//we want to process dead agents because we want to check if they have meat under them, and if so, reset the corpse counter
 		Agent* a= &agents[i];
 
 		float randr= min(a->radius, (float)abs(randn(0.0,a->radius/3)));
@@ -1069,97 +1138,104 @@ void World::processInteractions()
 		int scx= (int) (a->pos.x + source.x)/conf::CZ;
 		int scy= (int) (a->pos.y + source.y)/conf::CZ;
 
-		if (a->jump<=0){ //no interaction with these cells if jumping
-			float intake= 0;
-			float speedmult= pow(1-max(abs(a->w1), abs(a->w2)),3) / (1.0+a->exhaustion);
-			//exhaustion reduces agent physical actions including all intake, applied to speed for code efficiency
+		if(agents[i].health>0){
+			if (a->jump<=0){ //no interaction with these cells if jumping
+				float intake= 0;
+				float speedmult= pow(1-max(abs(a->w1), abs(a->w2)),3) / (1.0+a->exhaustion);
+				//exhaustion reduces agent physical actions including all intake, applied to speed for code efficiency
 
-			float invmult= 1-STOMACH_EFF;
-			float invplant=1-a->stomach[Stomach::PLANT]*invmult;
-			float invmeat= 1-a->stomach[Stomach::MEAT]*invmult;
-			float invfruit=1-a->stomach[Stomach::FRUIT]*invmult;
-			//inverted stomach vals, with the efficiency mult applied
+				float invmult= 1-STOMACH_EFF;
+				float invplant=1-a->stomach[Stomach::PLANT]*invmult;
+				float invmeat= 1-a->stomach[Stomach::MEAT]*invmult;
+				float invfruit=1-a->stomach[Stomach::FRUIT]*invmult;
+				//inverted stomach vals, with the efficiency mult applied
 
-			//---START FOOD---//
-			//plant food
-			float food= cells[Layer::PLANTS][scx][scy];
-			if (food>0) { //agent eats the food
-				//Plant intake is proportional to plant stomach, inverse to meat & fruit stomachs, and speed/exhaustion
-				//min rate is the actual amount of food we can take. Otherwise, apply wasterate
-				float planttake= min(food,FOODWASTE*a->stomach[Stomach::PLANT]*invmeat*invfruit*speedmult);
-				//unique for plant food: the less there is, the harder it is to eat, but not impossible
-				planttake*= max(food,0.25f);
-				//decrease cell content
-				cells[Layer::PLANTS][scx][scy]-= planttake;
-				//now convert the taken food into intake for the agent
-				intake+= FOODINTAKE*planttake/FOODWASTE;
+				//---START FOOD---//
+				//plant food
+				float food= cells[Layer::PLANTS][scx][scy];
+				if (food>0) { //agent eats the food
+					//Plant intake is proportional to plant stomach, inverse to meat & fruit stomachs, and speed/exhaustion
+					//min rate is the actual amount of food we can take. Otherwise, apply wasterate
+					float planttake= min(food,FOODWASTE*a->stomach[Stomach::PLANT]*invmeat*invfruit*speedmult);
+					//unique for plant food: the less there is, the harder it is to eat, but not impossible
+					planttake*= max(food,0.25f);
+					//decrease cell content
+					cells[Layer::PLANTS][scx][scy]-= planttake;
+					//now convert the taken food into intake for the agent
+					intake+= FOODINTAKE*planttake/FOODWASTE;
+				}
+
+				//meat food
+				float meat= cells[Layer::MEATS][scx][scy];
+				if (meat>0) { //agent eats meat
+					float meattake= min(meat,MEATWASTE*a->stomach[Stomach::MEAT]*invplant*invfruit*speedmult);
+					cells[Layer::MEATS][scx][scy]-= meattake;
+					intake+= MEATINTAKE*meattake/MEATWASTE;
+				}
+
+				//Fruit food
+				float fruit= cells[Layer::FRUITS][scx][scy];
+				if (fruit>0) { //agent eats fruit
+					float fruittake= min(fruit,FRUITWASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*speedmult);
+					cells[Layer::FRUITS][scx][scy]-= fruittake;
+					intake+= FRUITINTAKE*fruittake/FRUITWASTE;
+				}
+
+				// proportion intake via metabolism
+				a->repcounter -= a->metabolism*(1-MIN_INTAKE_HEALTH_RATIO)*intake;
+				if (a->repcounter<0) a->encumbered= true;
+				else a->encumbered= false;
+
+				a->health += (1-a->metabolism*(1-MIN_INTAKE_HEALTH_RATIO))*intake;
+				//---END FOOD---//
+
+
+				//hazards
+				float hazard= cells[Layer::HAZARDS][scx][scy];
+				if (hazard>0){
+					//the young are spry, and don't take much damage from hazard
+					float agemult= 1.0;
+					if(a->age<TENDERAGE) agemult= 0.5+0.5*agents[i].age/TENDERAGE;
+
+					float damage= HAZARDDAMAGE*agemult*pow(hazard, HAZARDPOWER);
+					if(hazard>0.9) damage*= HAZARDEVENT_MULT; //if a hazard event, apply multiplier
+
+					a->addDamage("a Hazard", damage);
+				}
+
+				//waste deposit
+				int freqwaste= (int)max(1.0f, a->out[Output::WASTE_RATE]*MAXWASTEFREQ);
+				//agents can control the rate of deposit, [1,MAXWASTEFREQ] frames
+				if (modcounter%freqwaste==0){
+					//agents fill up hazard cells only up to 9/10, because any greater is a special event
+					if(hazard<0.9) hazard+= HAZARDDEPOSIT*freqwaste/MAXWASTEFREQ*a->health;
+					
+					cells[Layer::HAZARDS][scx][scy]= capm(hazard, 0, 0.9);
+				}
 			}
 
-			//meat food
+			//land/water (always interacted with)
+			float land= cells[Layer::ELEVATION][scx][scy];
+			if(a->jump>0){ //jumping while underwater allows one to breathe at lung value 0.5, aka the agent is "floating"
+				float minland= 0.1*Elevation::BEACH_MID; //apparently C++ doesn't like it if just this value is passed to the next function?... okay
+				land= max(land, minland);
+			}
+			float dd= pow(land - a->lungs,2);
+			if (dd>=0.01){ //a difference of 0.1 or less between lung and land type lets us skip taking damage
+				if(HEALTHLOSS_BADTERRAIN!=0) a->addDamage("Suffocation .", HEALTHLOSS_BADTERRAIN*dd);
+				if(a->health>0 && dd>=0.2) a->encumbered= true; //this should reeeeeally be some sort of "leg type" mechanic, not lungs
+			}
+
+			if (a->health>2){ //if health has been increased over the cap, limit
+				if(OVERHEAL_REPFILL!=0) a->repcounter -= (a->health-2)*OVERHEAL_REPFILL; //if enabled, allow overflow to first fill the repcounter
+				a->health= 2;
+			}
+		} else {
+			//agent is dead. Just check for meat and refresh corpse counter if meat amount is high enough
 			float meat= cells[Layer::MEATS][scx][scy];
-			if (meat>0) { //agent eats meat
-				float meattake= min(meat,MEATWASTE*a->stomach[Stomach::MEAT]*invplant*invfruit*speedmult);
-				cells[Layer::MEATS][scx][scy]-= meattake;
-				intake+= MEATINTAKE*meattake/MEATWASTE;
-			}
-
-			//Fruit food
-			float fruit= cells[Layer::FRUITS][scx][scy];
-			if (fruit>0) { //agent eats fruit
-				float fruittake= min(fruit,FRUITWASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*speedmult);
-				cells[Layer::FRUITS][scx][scy]-= fruittake;
-				intake+= FRUITINTAKE*fruittake/FRUITWASTE;
-			}
-
-			// proportion intake via metabolism
-			a->repcounter -= a->metabolism*(1-MIN_INTAKE_HEALTH_RATIO)*intake;
-			if (a->repcounter<0) a->encumbered= true;
-			else a->encumbered= false;
-
-			a->health += (1-a->metabolism*(1-MIN_INTAKE_HEALTH_RATIO))*intake;
-			//---END FOOD---//
-
-
-			//hazards
-			float hazard= cells[Layer::HAZARDS][scx][scy];
-			if (hazard>0){
-				//the young are spry, and don't take much damage from hazard
-				float agemult= 1.0;
-				if(a->age<TENDERAGE) agemult= 0.5+0.5*agents[i].age/TENDERAGE;
-
-				float damage= HAZARDDAMAGE*agemult*pow(hazard, HAZARDPOWER);
-				if(hazard>0.9) damage*= HAZARDEVENT_MULT; //if a hazard event, apply multiplier
-
-				a->addDamage("a Hazard", damage);
-			}
-
-			//waste deposit
-			int freqwaste= (int)ceil(0.000001 + 49*a->out[Output::WASTE_RATE]);
-			if (modcounter%freqwaste==0){
-				//agents can control the rate of deposit, [1,50] frames
-				//agents fill up hazard cells only up to 9/10, because any greater is a special event
-				if(hazard<0.9) hazard+= HAZARDDEPOSIT*freqwaste/50*a->health; // /50 b/c of freqwaste in range [1,50]
-				//this whole function applied with frequency makes a rate of "0.5" most efficent
-				cells[Layer::HAZARDS][scx][scy]= capm(hazard, 0, 0.9);
-			}
+			if(meat>0.25) a->carcasscount= 1; //1 because 0 triggers meat dropping... it's a mess, I'm sorry
 		}
 
-		//land/water (always interacted with)
-		float land= cells[Layer::ELEVATION][scx][scy];
-		if(a->jump>0){ //jumping while underwater allows one to breathe at lung value 0.5, aka the agent is "floating"
-			float minland= 0.1*Elevation::BEACH_MID; //apparently C++ doesn't like it if just this value is passed to the next function?... okay
-			land= max(land, minland);
-		}
-		float dd= pow(land - a->lungs,2);
-		if (dd>=0.01){ //a difference of 0.1 or less between lung and land type lets us skip taking damage
-			if(HEALTHLOSS_BADTERRAIN!=0) a->addDamage("Suffocation .", HEALTHLOSS_BADTERRAIN*dd);
-			if(a->health>0 && dd>=0.2) a->encumbered= true; //this should reeeeeally be some sort of "leg type" mechanic, not lungs
-		}
-
-		if (a->health>2){ //if health has been increased over the cap, limit
-			if(OVERHEAL_REPFILL!=0) a->repcounter -= (a->health-2)*OVERHEAL_REPFILL; //if enabled, allow overflow to first fill the repcounter
-			a->health= 2;
-		}
 	}
 	if(DEBUG) printf("/");
 
@@ -1285,48 +1361,51 @@ void World::processInteractions()
 					Vector2f v(1,0);
 					v.rotate(a->angle);
 					float diff= v.angle_between(a2->pos-a->pos);
-					float spikerange= d*sin(diff); //get range to agent from spike, closest approach
-					if (a2->radius>spikerange) { //other agent is properly aligned and in range!!! getting close now...
-						//need to calculate the velocity differential of the agents
-						Vector2f velocitya(a->pos.x-a->dpos.x, a->pos.y-a->dpos.y);
-						Vector2f velocitya2(a2->pos.x-a2->dpos.x, a2->pos.y-a2->dpos.y);
+					if (fabs(diff)<M_PI/2){ //need to be in front
+						float spikerange= d*abs(sin(diff)); //get range to agent from spike, closest approach
+						if (a2->radius>spikerange) { //other agent is properly aligned and in range!!! getting close now...
+							//need to calculate the velocity differential of the agents
+							Vector2f velocitya(a->pos.x-a->dpos.x, a->pos.y-a->dpos.y);
+							Vector2f velocitya2(a2->pos.x-a2->dpos.x, a2->pos.y-a2->dpos.y);
 
-						velocitya-= velocitya2;
-						float diff2= v.angle_between(velocitya);
-						float veldiff= velocitya.length()*cos(diff2);
+							velocitya-= velocitya2;
+							float diff2= velocitya.angle_between(a2->pos-a->pos);
+							float veldiff= velocitya.length()*cap(cos(diff2));
 
-						if(veldiff>conf::VELOCITYSPIKEMIN){
-							//these two are in collision and agent a has extended spike and is going decently fast relatively! That's a hit!
-						
-							float DMG= DAMAGE_FULLSPIKE*a->spikeLength*veldiff*(1-1.0/(1+expf(-(a2->radius/2-MEANRADIUS))));
-							//tiny, small, & average agents take full damage, scaled by the difference in velocity. 
-							//large (2*MEANRADIUS) agents take half damage, and huge agents (2*MEANRADIUS+10) take no damage from spikes at all
+							if(veldiff>conf::VELOCITYSPIKEMIN){
+								//these two are in collision and agent a has extended spike and is going decently fast relatively! That's a hit!
+							
+								float DMG= DAMAGE_FULLSPIKE*a->spikeLength*veldiff*(1-1.0/(1+expf(-(a2->radius/2-MEANRADIUS))));
+								//tiny, small, & average agents take full damage, scaled by the difference in velocity. 
+								//large (2*MEANRADIUS) agents take half damage, and huge agents (2*MEANRADIUS+10) take no damage from spikes at all
 
-							if(DEBUG) printf("\nan agent received spike damage: %.4f\n", DMG);
-							a2->addDamage("a Murder", DMG); 
-							a2->freshkill= FRESHKILLTIME; //this agent was hit this turn, giving full meat value
+								if(DEBUG) printf("\nan agent received spike damage: %.4f\n", DMG);
+								a2->addDamage("a Murder", DMG); 
+								a2->freshkill= FRESHKILLTIME; //this agent was hit this turn, giving full meat value
+								if(a2->id==SELECTION) addEvent("Selected Agent was Stabbed!",13);
 
-							a->spikeLength= 0; //retract spike down
+								a->hits++;
+								a->spikeLength= 0; //retract spike down
+								a->initSplash(conf::MAXSPLASHSIZE*0.5*DMG,1,0.5,0); //orange splash means bot has spiked the other bot. nice!
+								tryPlayAudio(conf::SFX_STAB1, a2->pos.x, a2->pos.y, randn(1.0,0.2));
 
-							a->initSplash(conf::MAXSPLASHSIZE*0.5*DMG,1,0.5,0); //orange splash means bot has spiked the other bot. nice!
-							if (a2->health==0){ 
-								//red splash means bot has killed the other bot. Murderer!
-								a->initSplash(conf::MAXSPLASHSIZE,1,0,0);
-								if(a->id==SELECTION) addEvent("Selected Agent Killed Another!",1);
-								a->killed++;
-								continue;
-							} else if(a->id==SELECTION) addEvent("Selected Agent Stabbed Another!",12);
+								if (a2->health==0){ 
+									//red splash means bot has killed the other bot. Murderer!
+									a->initSplash(conf::MAXSPLASHSIZE,1,0,0);
+									if(a->id==SELECTION) addEvent("Selected Agent Killed Another!",1);
+									a->killed++;
+									continue;
+								} else if(a->id==SELECTION) addEvent("Selected Agent Stabbed Another!",12);
 
-							a->hits++;
-
-							/*Vector2f v2(1,0);
-							v2.rotate(a2->angle);
-							float adiff= v.angle_between(v2);
-							if (fabs(adiff)<M_PI/2) {
-								//this was attack from the back. Retract spike of the other agent (startle!)
-								//this is done so that the other agent cant right away "by accident" attack this agent
-								a2->spikeLength= 0;
-							}*/
+								/*Vector2f v2(1,0);
+								v2.rotate(a2->angle);
+								float adiff= v.angle_between(v2);
+								if (fabs(adiff)<M_PI/2) {
+									//this was attack from the back. Retract spike of the other agent (startle!)
+									//this is done so that the other agent cant right away "by accident" attack this agent
+									a2->spikeLength= 0;
+								}*/
+							}
 						}
 					}
 				} //end spike mechanics
@@ -1342,9 +1421,11 @@ void World::processInteractions()
 						if(DEBUG) printf("\nan agent received bite damage: %.4f\n", DMG);
 						a2->addDamage("a Murder", DMG);
 						a2->freshkill= FRESHKILLTIME;
-						a->hits++;
+						if(a2->id==SELECTION) addEvent("Selected Agent was Bitten!",13);
 
+						a->hits++;
 						a->initSplash(conf::MAXSPLASHSIZE*0.5*DMG,1,1,0); //yellow splash means bot has chomped the other bot. ouch!
+
 						if (a2->health==0){ 
 							//red splash means bot has killed the other bot. Murderer!
 							a->initSplash(conf::MAXSPLASHSIZE,1,0,0);
@@ -1373,8 +1454,8 @@ void World::processInteractions()
 
 						if (a->grabID==a2->id) {
 							//we have a grab target, and it is this other agent. 
-							//"grab" (hehe) the coords of the other agent
-							a->grabx= a2->pos.x; a->graby= a2->pos.y;
+							//"grab" (hehe) the coords of the other agent, relative to current agent
+							a->grabx= a2->pos.x-a->pos.x; a->graby= a2->pos.y-a->pos.y;
 
 							if(d>(sumrad+1.0)){
 								//Pull us together!
@@ -1493,11 +1574,12 @@ void World::setSelection(int type) {
 			//Productivity: find the agent who's been most successful at having children
 			for (int i=0; i<(int)agents.size(); i++) {
 				if(agents[i].health>0 && agents[i].age!=0){
-					if (((float)agents[i].children/sqrt((float)agents[i].age))>maxprog){
-						//note: productivity needs =/age b/c otherwise the oldest will almost always be the most productive
+					float prog= (float)agents[i].children/sqrt((float)agents[i].age);
+					//note: productivity needs to be / age b/c otherwise the oldest will almost always be the most productive
 						//and we're using sqrt because pow^1 it would be inverse (youngest who just had babies is always selected)
 						//we want a middle-ground: select the middle-aged agent who's had the most babies
-						maxprog= (float)agents[i].children/(float)agents[i].age;
+					if (prog>maxprog){
+						maxprog= prog;
 						maxi= i;
 					}
 				}
@@ -1522,7 +1604,7 @@ void World::setSelection(int type) {
 						maxi= index;
 						printf("---> New relative selected.\n");
 					} else {
-						addEvent("No More Living Relatives!", 13);
+						addEvent("No More Living Relatives!", 100);
 					}
 				} else maxi= select;
 			}
@@ -1660,19 +1742,6 @@ int World::getSelection() const {
 	return SELECTION;
 }
 
-void World::getGrabTargetCoords(Agent &agent) {
-	//for a given agent, get and set its grab target's coords
-	//THIS ISN'T WORKING
-	if(agent.isGrabbing()) {
-		#pragma omp parallel for
-		for (int i=0; i<(int)agents.size(); i++) {
-			if (agents[i].id==agent.grabID){
-				agent.grabx= agents[i].pos.x; agent.graby= agents[i].pos.y;
-			}
-		}
-	}
-}
-
 
 void World::selectedHeal() {
 	//heal selected agent
@@ -1782,37 +1851,21 @@ bool World::processMouse(int button, int state, int x, int y, float scale)
 		} else return false;
 	} else return false;
 }
-	 
-void World::draw(View* view, int layer)
+
+
+void World::addAgent(Agent &agent)
 {
-	view->drawData();
-
-	//draw cell layer
-	if(layer!=0) {
-		for(int x=0;x<CW;x++) {
-			for(int y=0;y<CH;y++) {
-				float values[Layer::LAYERS];
-
-				for(int l=0;l<Layer::LAYERS; l++) {
-					values[l]= cells[l][x][y];
-				}
-
-				view->drawCell(x,y,values);
-			}
-		}
-	}
-	
-	//draw all agents
-	vector<Agent>::const_iterator it;
-	for ( it = agents.begin(); it != agents.end(); ++it) {
-		view->drawPreAgent(*it,it->pos.x,it->pos.y); //draw things before/under all agents
-	}
-	for ( it = agents.begin(); it != agents.end(); ++it) {
-		view->drawAgent(*it,it->pos.x,it->pos.y); //draw agents themselves
-	}
-
-	view->drawStatic();
+	agent.id= idcounter;
+	idcounter++;
+	agents.push_back(agent);
 }
+
+/*void World::addLoadedAgent(float x, float y)
+{
+	Agent a= loadedagent;
+	a.pos.x= x; a.pos.y= y;
+	addAgent(a);
+}*/
 
 void World::addAgents(int num, int set_stomach, bool set_lungs, float nx, float ny)
 {
@@ -1846,10 +1899,7 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, float nx, float 
 			a.pos.y= ny;
 		}
 
-		a.id= idcounter;
-		idcounter++;
-		agents.push_back(a);
-
+		addAgent(a);
 	}
 }
 
@@ -1896,9 +1946,7 @@ void World::reproduce(int i1, int i2)
 
 		agents[i1].children++;
 
-		daughter.id= idcounter;
-		idcounter++;
-		agents.push_back(daughter);
+		addAgent(daughter);
 		}
 	}
 }
@@ -2090,7 +2138,8 @@ float World::getLandRatio() const //count land cells and report as a ratio
 
 float World::getFoodSupp() const
 {
-	return STATallplant/FOODWASTE*FOODINTAKE/2/100; //#food * 1 tick/FOODWASTE food * FOODINTAKE health/1 tick * agent/2 health = #agents
+	return STATallplant/FOODWASTE*FOODINTAKE/2/100; //#food * 1/FOODWASTE tick/food * FOODINTAKE/1 health/tick * 1/2 agent/health = #agents
+	// /100 because... reasons
 }
 
 float World::getFruitSupp() const
@@ -2105,7 +2154,7 @@ float World::getMeatSupp() const
 
 float World::getHazardSupp() const
 {
-	return STATallhazard*HAZARDDAMAGE/2*50; //BUG? #hazard * HAZARDDAMAGE health / hazard / 1 tick * agent/2 health != #agents killed per tick
+	return STATallhazard*HAZARDDAMAGE/2*50; //BUG? #hazard * HAZARDDAMAGE/1/1 health/hazard/tick * 1/2 agent/health != #agents killed per tick
 }
 
 void World::findStats()
@@ -2241,19 +2290,22 @@ bool World::isDebug() const
 void World::addEvent(const char * text, int type)
 {
 	//type 0: white		- Selected agent event
-	//type 1: red		- Selected agent killed/global bad
-	//type 2: green		- global good
+	//type 1: red		- Selected agent killed / population bad
+	//type 2: green		- population good
 	//type 3: blue		- Selected sexual reproduction
 	//type 4: yellow	- tips
 	//type 5: cyan		- simulation notification and controls
 	//type 6: purple	- Selected mutation event
 	//type 7: brown		- Selected decayed
 	//type 8: neon		- Selected assexual reproduction
-	//type 9: mint		- simulation start/restart
+	//type 9: mint		- simulation start/restart/change
 	//type 10: multicolor -achievements
 	//type 11: pink		- global change
 	//type 12: orange	- Selected attacked
-	//type 13+: black	- 
+	//type 13: bloodred - selected bad
+	//type 14: lavender - global change (mutations)
+	//type 15: lime		- global good
+	//type 16+: black	- 
 	std::pair <const char *,std::pair <int,int> > data;
 	data.first= text;
 	data.second.first= type;
@@ -2305,6 +2357,7 @@ void World::init()
 	BRAINSIZE= conf::BRAINSIZE;
     BOTSPEED= conf::BOTSPEED;
     BOOSTSIZEMULT= conf::BOOSTSIZEMULT;
+	BOOSTEXAUSTMULT= conf::BOOSTEXAUSTMULT;
 	SOUNDPITCHRANGE= conf::SOUNDPITCHRANGE;
 
     FOODTRANSFER= conf::FOODTRANSFER;
@@ -2328,6 +2381,7 @@ void World::init()
 	MUTSIZE= conf::MUTSIZE;
 	LIVE_MUTATE_CHANCE= conf::LIVE_MUTATE_CHANCE;
     MAXAGE= conf::MAXAGE;
+	MAXWASTEFREQ= conf::MAXWASTEFREQ;
 
     DIST= conf::DIST;
     SPIKELENGTH= conf::SPIKELENGTH;
@@ -2415,6 +2469,8 @@ void World::init()
 		tips.push_back("Press 'h' for interface help");
 	}
 	
+//	#pragma omp critical
+//	tryPlayAudio(conf::SFX_PLOP1); //finished setting up! make a sound
 }
 
 void World::readConfig()
@@ -2446,7 +2502,7 @@ void World::readConfig()
 					readConfig();
 					break;
 				}
-						}else if(strcmp(var, "DISABLE_LAND_SPAWN=")==0){
+			}else if(strcmp(var, "DISABLE_LAND_SPAWN=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=(int)DISABLE_LAND_SPAWN) printf("DISABLE_LAND_SPAWN, ");
 				if(i==1) DISABLE_LAND_SPAWN= true;
@@ -2563,6 +2619,10 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=BOOSTSIZEMULT) printf("BOOSTSIZEMULT, ");
 				BOOSTSIZEMULT= f;
+			}else if(strcmp(var, "BOOSTEXAUSTMULT=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=BOOSTEXAUSTMULT) printf("BOOSTEXAUSTMULT, ");
+				BOOSTEXAUSTMULT= f;
 			}else if(strcmp(var, "SOUNDPITCHRANGE=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=SOUNDPITCHRANGE) printf("SOUNDPITCHRANGE, ");
@@ -2651,6 +2711,10 @@ void World::readConfig()
 				sscanf(dataval, "%i", &i);
 				if(i!=MAXAGE) printf("MAXAGE, ");
 				MAXAGE= i;
+			}else if(strcmp(var, "MAXWASTEFREQ=")==0){
+				sscanf(dataval, "%i", &i);
+				if(i!=MAXWASTEFREQ) printf("MAXWASTEFREQ, ");
+				MAXWASTEFREQ= i;
 			}else if(strcmp(var, "DIST=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=DIST) printf("DIST, ");
@@ -2876,6 +2940,7 @@ void World::writeConfig()
 	fprintf(cf, "\n");
 	fprintf(cf, "BOTSPEED= %f \t\t//fastest possible speed of agents. This effects so much of the sim I dont advise changing it\n", conf::BOTSPEED);
 	fprintf(cf, "BOOSTSIZEMULT= %f \t//how much speed boost do agents get when boost is active?\n", conf::BOOSTSIZEMULT);
+	fprintf(cf, "BOOSTEXAUSTMULT= %f \t//how much exhaustion from brain outputs is multiplied by when boost is active?\n", conf::BOOSTEXAUSTMULT);
 	fprintf(cf, "SOUNDPITCHRANGE= %f \t//range below hearhigh and above hearlow within which external sounds fade in. Would not recommend extreme values near or beyond [0,0.5]\n", conf::SOUNDPITCHRANGE);
 	fprintf(cf, "FOODTRANSFER= %f \t\t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::FOODTRANSFER);
 	fprintf(cf, "BASEEXHAUSTION= %f \t//base value of exhaustion. When negative, is essentially the sum amount of output allowed before healthloss. Would not recommend >=0 values\n", conf::BASEEXHAUSTION);
@@ -2894,6 +2959,7 @@ void World::writeConfig()
 	fprintf(cf, "MUTSIZE= %f \t\t//the magnitude of mutations (note that various mutations modify this value up or down)\n", conf::MUTSIZE);
 	fprintf(cf, "LIVE_MUTATE_CHANCE= %f \t//chance, per tick, that a given agent will be mutated alive. Not typically harmful. Can be increased by mutation events if enabled.\n", conf::LIVE_MUTATE_CHANCE);
 	fprintf(cf, "MAXAGE= %i \t\t\t//Age at which the full HEALTHLOSS_AGING amount is applied to an agent\n", conf::MAXAGE);
+	fprintf(cf, "MAXWASTEFREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. Default= 200, 1= no agent control allowed, 0= crash\n", conf::MAXWASTEFREQ);
 	fprintf(cf, "\n");
 	fprintf(cf, "DIST= %f \t\t//how far the senses can detect other agents or cells\n", conf::DIST);
 	fprintf(cf, "SPIKELENGTH= %f \t\t//full spike length. Should not be more than DIST. 0 disables interaction\n", conf::SPIKELENGTH);

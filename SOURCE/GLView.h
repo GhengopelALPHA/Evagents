@@ -1,14 +1,18 @@
 #ifndef GLVIEW_H
 #define GLVIEW_H
 
+#include "glui.h"
 #include <stdarg.h>
 
-//#include "UIElement.h"
-#include "View.h"
+#include "UIElement.h"
+//#include "View.h"
 #include "World.h"
 #include "ReadWrite.h"
-#include "glui.h"
+
 #include <xutility>
+
+//#define STB_IMAGE_IMPLEMENTATION
+//#include "stb_image.h"
 
 class GLView;
 
@@ -37,23 +41,24 @@ struct Color3f
 	float blu;
 };
 
-class GLView : public View
+class GLView
 {
 
 public:
 	GLView(World* w);
-	virtual ~GLView();
+	~GLView();
 	
-	virtual void drawPreAgent(const Agent &a, float x, float y);
-	virtual void drawAgent(const Agent &a, float x, float y, bool ghost= 0);
-	virtual void drawCell(int x, int y, const float values[Layer::LAYERS]); //draws the background boxes
-	virtual void drawData(); //draws info in the left side of the sim
-	virtual void drawStatic(); //draws viewer-static objects
+	bool cullAtCoords(int x, int y); //determine if, at our translation and scale, the current x and y position deserves (generous) culling
+	void drawPreAgent(const Agent &a, float x, float y, bool ghost= 0);
+	void drawAgent(const Agent &a, float x, float y, bool ghost= 0);
+	void drawCell(int x, int y, const float values[Layer::LAYERS]); //draws the background boxes
+	void drawData(); //draws info in the left side of the sim
+	void drawStatic(); //draws viewer-static objects
 
-	virtual void trySaveWorld(bool autosave= false); //called by world, starts GLView working on saving the world
 //	virtual void trySaveAgent(); //starts GLView working on saving selected agent
 //	virtual void tryLoadAgent(); //loads up an agent from a file
 	ReadWrite* savehelper; //for loading/saving
+	void trySaveWorld(bool force= false, bool autosave= false);
 	
 	void setWorld(World* w);
 	
@@ -64,6 +69,7 @@ public:
 	void processMouse(int button, int state, int x, int y);
 	void processMouseActiveMotion(int x, int y);
 	void processMousePassiveMotion(int x, int y);
+
 	void handlePopup(int x, int y);
 	void menu(int key);
 	void menuSpecial(int key);
@@ -72,8 +78,8 @@ public:
 	void renderScene();
 	void handleRW(int action); //callback function for glui loading/saving
 	void handleCloses(int action); //callback function for loading gui's
-	bool checkFile(char name[32]);
-	bool checkFile(std::string name);
+	bool checkFileName(char name[32]);
+	bool checkFileName(std::string name);
 
 	void gotoDefaultZoom();
 
@@ -81,9 +87,6 @@ public:
 	int m_id, sm1_id, sm2_id, sm3_id, sm4_id; //main right-click menues
 	int win1;
 	void gluiCreateMenu();
-
-	void popupReset(float x= -1, float y= -1);
-	void popupAddLine(std::string line);
 	
 private:
 	//3f agent color defs
@@ -112,21 +115,37 @@ private:
 	Color3f setColorTemp(float val);
 	Color3f setColorLight(float val);
 
-	void countdownEvents();
+	void popupReset(float x= -1, float y= -1);
+	void popupAddLine(std::string line);
+
+	void createTile(UIElement &parent, int x, int y, int w, int h, std::string key, std::string title= "");
+	void createTile(int x, int y, int w, int h, std::string key, std::string title= "");
+	void createTile(UIElement &parent, int w, int h, std::string key, std::string title= "", bool d= true, bool r= false);
+	void checkTileListClicked(std::vector<UIElement> tiles, int mx, int my, int state);
+
+	void processTiles(); //process all tiles. Make them move, hide/unhide, etc
+
+	int* renderTile(UIElement t, bool maintile= false, int bevel= UID::TILEBEVEL); //render a given (sub-)tile
+	void renderAllTiles(); //render all tiles. main tiles and any of their children
+	void countdownEvents(); //MERGE WITH TILES
+
+	int getLayerDisplayCount(); //get the number of display layers we have running. If more than 1, use Reality! mode. If 0, disable drawing of cells
 	
 	World *world; //the WORLD
-	int live_worldclosed; //live variable support via glui
+	//live variable support via glui
+	int live_mousemode; //what mode is the mouse using?
+	int live_worldclosed; //is the world closed?
 	int live_paused; //are we paused?
 	int live_fastmode; //are we drawing?
 	int live_skipdraw; //are we skipping some frames?
 	int live_agentsvis; //are we drawing agents? If so, what's the scheme? see namespace "Visuals" in settings.h for details
-	int live_layersvis; //what cell layer is currently active? see namespace "Layers" in settings.h, this may be depreciated soon
-//	int livearray_layersvis[DisplayLayers::DISPLAYS-1]; //list of bools keeping track of which layers we're displaying.
+	int livearray_layersvis[DisplayLayers::DISPLAYS]; //list of bools keeping track of which layers we're displaying.
 	int live_profilevis; //what visualization profile are we displaying next to the selected agent? see namespace "Profiles"
 	int live_selection; //what bot catagory are we currently trying to autoselect? see namespace "Select" in settings.h
 	int live_follow; //are we following the selected agent?
 	int live_autosave; //are we allowing autosaves?
 	int live_grid; //override usual grid behavior and always draw grid?
+	int live_hidedead; //hide dead agents?
 	int live_landspawns; // are landspawns enabled
 	int live_moonlight; //is moonlight enabled?
 	int live_droughts; //are droughts and overgrowth periods enabled?
@@ -136,9 +155,10 @@ private:
 
 	//not live variables, but pretty closely related
 	int past_agentsvis; //what was the previous agent visualization? helps when changing views w/o the GUI
+
+	//popup containers
 	int popupxy[2]; //simple x,y coords for the popup graphic
-	std::vector<std::string> popuptext;
-	bool debug;
+	std::vector<std::string> popuptext; //potentially multi-line container of popup text
 
 	//Menu, file, and load/saving system
 	GLUI * Menu;
@@ -153,15 +173,23 @@ private:
 
 	char buf[100];
 	char buf2[10]; //text buffers
-	int modcounter; //tick counter
+	int modcounter; //tick counter BUGGY DO NOT USE
+	int currentTime; //always up to date live time variable
 	int lastUpdate;
 	int frames;
+	int wWidth;
+	int wHeight; //window width and height, to reduce glutGet calls
 	
 	float scalemult; //the viewer's scale factor (larger values are closer zoom)
 	float xtranslate, ytranslate; //the viewer's x and y position
 	int downb[3]; //the three buttons and their states
 	int mousex, mousey;
-	bool mousedrag; //was the mouse dragged? used to disable button click activity when click-moving
+	bool mousedrag; //was the mouse dragged recently? used to disable button click activity when click-moving
+	bool uiclicked; //was the ui clicked recently? used to disable drag fuctions if inital click was on UI
+
+	int ui_layerpreset; //user can select a preset of layer displays using this
+	bool ui_movetiles; //are we allowing tiles to be moved?
+	std::vector<UIElement> maintiles; //list of interactive tile buttons! WIP
 };
 
 #endif // GLVIEW_H

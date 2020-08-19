@@ -1,37 +1,54 @@
 #include "UIElement.h"
 
+#include "settings.h"
 
 
-	//event log display
-	float ss= 18;
-	float movezero= 0;
-	int fadetime= conf::EVENTS_HALFLIFE-20;
+using namespace std;
 
-	int count= world->events.size();
-	if(conf::EVENTS_DISP<count) count= conf::EVENTS_DISP;
-
-	for(int io= 0; io<count; io++){
-		int counter= world->events[io].second;
-
-		float fade= cap((-abs((float)counter)+conf::EVENTS_HALFLIFE)/20);
-
-		float move= 0;
+UIElement::UIElement(int x, int y, int w, int h, std::string key, std::string title, bool shown, bool clickable) :
+	x(x), y(y), w(w), h(h), key(key), title(title), shown(shown), clickable(clickable) {}
 
 
-		if(counter>fadetime) move= powf(((float)counter-fadetime)/7.4,3);
-		else if (counter<-fadetime) move= powf(((float)counter+fadetime)/7.4,3);
-
-		if(io==0){
-			movezero= move;
-			//move= 0;
-		}
-		glBegin(GL_QUADS);
-		glColor4f(0.8,0.8,0.8,0.5*fade);
-		glVertex3f(ww-202, 145+2.5*ss+io*ss+movezero+move-0.5*ss,0);
-		glVertex3f(ww-2, 145+2.5*ss+io*ss+movezero+move-0.5*ss,0);
-		glVertex3f(ww-2, 145+2.5*ss+io*ss+movezero+move+0.5*ss,0);
-		glVertex3f(ww-202, 145+2.5*ss+io*ss+movezero+move+0.5*ss,0);
-		glEnd();
-
-		RenderString(ww-200, 150+2.5*ss+io*ss+movezero+move, GLUT_BITMAP_HELVETICA_12, world->events[io].first, 0.0f, 0.0f, 0.0f, fade);
+void UIElement::moveElement(int x, int y)
+{
+	int parentoldx= this->x;
+	int parentoldy= this->y;
+	this->x= x;
+	this->y= y;
+	for(int i=0; i<this->children.size(); i++){ //when we move an Element, we want to move all children too
+		int childoldx= this->children[i].x;
+		int childoldy= this->children[i].y;
+		this->children[i].moveElement(childoldx+(x-parentoldx), childoldy+(y-parentoldy));
+		//this of course should chain down through any their children
 	}
+}
+
+
+void UIElement::addChild(UIElement &child)
+{
+	if(child.x < this->x) child.x= this->x + UID::TILEMARGIN;
+	if(child.y < this->y) child.x= this->y + UID::TILEMARGIN;
+	if(child.x + child.w > this->x + this->w) child.x= this->x + this->w - UID::TILEMARGIN;
+	if(child.y + child.h > this->y + this->h) child.y= this->y + this->h - UID::TILEMARGIN;
+	this->children.push_back(child);
+}
+
+
+void UIElement::show()
+{
+	//show this Element and all children
+	this->shown= true;
+	for(int i=0; i<this->children.size(); i++){
+		this->children[i].show();
+	}
+}
+
+
+void UIElement::hide()
+{
+	//deactivate this Element and all children
+	this->shown= false;
+	for(int i=0; i<this->children.size(); i++){
+		this->children[i].hide();
+	}
+}

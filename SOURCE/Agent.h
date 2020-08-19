@@ -63,11 +63,13 @@ public:
 	int gencount; //generation counter
 	float repcounter; //when repcounter gets to 0, this bot reproduces
 	float exhaustion; //sum of this agent's outputs over time, reduced by a constant. If this gets too high, the agent suffers
+	int carcasscount; //counter for how long a dead agent stays on the world. Is reset as long as there is meat under the agent
 	bool hybrid; //is this agent result of crossover? ============= WHY IS THIS SAVED?===============
 	//unsaved, are recalculated as needed
 	float discomfort; //what level of temperature discomfort this agent is currently experiencing [0,1]
 	bool encumbered; //is this agent experiencing any encumbering effects (childbearing, difficult terrain)?
 	int jawrend; //render counter for jaw. Past ~10 ticks of no jaw action, it is "retracted" visually
+	float centerrender; //alpha of the agent's center. This is changed slowly by current reproduction mode: asexual= 0, clear; sexual (F)= 0.5, (M)= 1.0
 	float indicator;
 	float ir, ig, ib; //indicator colors
 	bool near; //are we near any other bots? Used to "tree" the agent-agent code

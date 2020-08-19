@@ -8,6 +8,74 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+//defines for reading/writing GUI handles. Order changes nothing
+namespace RWOpen{
+enum {
+	STARTLOAD= 0,
+	NEWWORLD,
+	IGNOREOVERLOAD,
+	UNSAVEDALERT,
+	BASICLOAD,
+	BASICSAVE,
+	BASICSAVEAGENT,
+	ADVANCEDLOAD,
+
+	//Don't add beyond this entry!
+	HANDLES
+};};
+
+//defines for reading/writing GUI handles. Order changes nothing
+namespace RWClose{
+enum {
+	BASICLOAD= 0,
+	BASICSAVE,
+	NEWWORLD,
+	CANCELLOAD,
+	CANCELLOADALERT,
+	CANCELSAVE,
+	CANCELALERT,
+	BASICSAVEOVERWRITE,
+	BASICSAVEAGENT,
+	ADVANCEDLOAD,
+
+	//Don't add beyond this entry!
+	HANDLES
+};};
+
+//defines for tile (buttons) data. Order changes nothing except my sanity
+namespace MainTiles{
+enum {
+	SAD= 0, //Selected Agent Display, our first tile! It has lots of sub-tiles that get made automatically
+	TOOLBOX,
+
+	//Don't add beyond this entry!
+	TILES
+};};
+
+//defines for ui dimensions and useful values throughout the program
+namespace UID{
+	const int CHARHEIGHT= 9;
+	const int CHARWIDTH= 7; //height and width (on screen) allowed for text characters
+	const int HUDSWIDTH= 88; //the width we are assuming when it comes to text space in the Selected Agent Display.
+	const int TILEMARGIN= 10; //what is the min margin between a sub-tile and the next tile above (or window if main tile)
+	const int TILEBEVEL= 5; //bevel size on tiles. 5 was scaled for the SAD; consider code for smaller tiles to have smaller bevels
+	const int SADWIDTH= 440; //Selected Agent Display width. SHOULD be tied to HUDSWIDTH above, but there's a lot more stuff going on there
+	const int BUFFER= 6; //extra buffer space, mostly for text
+};
+
+//defines for mouse modes. Order changes nothing
+namespace MouseMode{
+enum {
+	NONE= 0,
+	POPUPS, //show popups only
+	SELECT, //select agent only
+	POPUPS_SELECT, //DEFAULT select agents and show popups
+	PLACE, //place agents only
+	POPUPS_PLACE, //show popups and place agents
+
+	//Don't add beyond this entry!
+	MODES
+};};
 
 //defines for layer data. Making changes here changes cells[LAYERS][][] in World. Order does not matter (except in ReadWrite...)
 namespace Layer{
@@ -37,10 +105,11 @@ enum {
 	MOUNTAIN_HIGH= 10 //Don't add beyond this entry! unless you are re-scalling to /=100
 };};
 
-//defines for layer display. Changing order here changes cycle order and menu listing order. This may soon be depreciated
-namespace Display{
+//defines for layer presets. Changing order here changes cycle order when using 'k' and 'l'
+namespace LayerPreset{
 enum {
 	NONE= 0,
+	CUSTOM,
 	REALITY,
 	ELEVATION,
 	PLANTS,
@@ -51,13 +120,13 @@ enum {
 	LIGHT,
 
 	//Don't add beyond this entry!
-	DISPLAYS
+	PRESETS
 };};
 
 //defines for layer display, but this is a list of toggle-ables. Changing order here changes cycle order and menu listing order.
 namespace DisplayLayers{
 enum {
-	ELEVATION= 0,
+	ELEVATION,
 	PLANTS,
 	MEATS,
 	FRUITS,
@@ -82,6 +151,7 @@ enum {
 	VOLUME,
 	SPECIES,
 	CROSSABLE,
+//	REPMODE,
 	
 	//Don't add beyond this entry!
 	VISUALS
@@ -109,6 +179,7 @@ enum {
 	MUTATIONS,
 	FOLLOW,
 	AUTOSELECT,
+	USERCONTROL,
 //	DEBUG, //this is currently very... awkwardly set up. see GLView.cpp
 
 	//Don't add beyond this entry!
@@ -123,32 +194,33 @@ enum {
 	HEALTH= 0,
 	REPCOUNTER,
 	EXHAUSTION,
-	AGE, //I'm under HEALTH!
-	GENERATION, //I'm under REPCOUNTER! Etc
+	AGE, //I'm underneath HEALTH!
+	SPECIESID, //I'm underneath REPCOUNTER! Etc
 	STOMACH,
-	METBOLISM,
+	METABOLISM,
+	GENERATION,
 	NUMBABIES,
-	SIZE,
 	STRENGTH,
 	HYBRID,
-	LUNGS,
+	SIZE,
 	MOTION,
 	SEXPROJECT,
+	LUNGS,
+	WASTE,
+	GIVING,
 	TEMPPREF,
 	SPIKE,
-	GIVING,
-	MUTRATE1,
-	BITE,
 	GRAB,
-	MUTRATE2,
-	WASTE,
-	VOLUME,
 	CHAMOVID,
+	BITE,
+	VOLUME,
+	TONE,
 	STAT_KILLED,
 	STAT_CHILDREN,
-	SPECIESID,
-	DAMAGE,
+	MUTRATE1,
 	DEATH,
+	blank2,
+	MUTRATE2,
 
 	//Don't add beyond this entry!
 	HUDS
@@ -308,10 +380,18 @@ namespace conf {
 
 	const float VERSION= 0.05; //current program settings version. ++0.01 IF CHANGES MADE AND PROGRAM UPDATED
 
+	//sound file defines
+	const char SFX_SMOOCH1[]= "sounds/agents/smooch1.ogg";
+	const char SFX_PLOP1[]= "sounds/agents/plop1.ogg";
+	const char SFX_DEATH1[]= "sounds/agents/death1.ogg";
+	const char SFX_STAB1[]= "sounds/agents/stab1.ogg";
+	const char SFX_CHIRP1[]= "sounds/agents/chirp1.ogg";
+	const char SFX_CHIRP2[]= "sounds/agents/chirp2.ogg";
+
 	const float SNAP_SPEED = 0.2; //how fast snapping to an object of interest is; 1 is instant, 0.1 is smooth, 0 is pointless
 	const float ZOOM_SPEED = 0.002; //how fast zoom actions change the magnification
 	const int EVENTS_DISP= 8; //how many events to display at once, at max. Will not ignore or miss events that exceed this; they'll wait
-	const int EVENTS_HALFLIFE= 350; //half-life (in #ticks) for display of event messages.
+	const int EVENTS_HALFLIFE= 400; //half-life (in #ticks) for display of event messages.
 	const float DEADTRANSPARENCY= 0.5; //the alpha value of dead agents
 	const float MAXSPLASHSIZE= 30.0; //max indicator splash size on any agent
 
@@ -339,8 +419,8 @@ namespace conf {
 	const float DROUGHT_STDDEV= 0.1; // The standard deviation of changes to the DROUGHTMULT
 	const int DROUGHT_WEIGHT= 2; // the weight multiple of the current DROUGHTMULT when averaged (1.0 has a weight of 1)
 	const float DROUGHT_NOTIFY= 0.2; //+/- this value from 1.0 of drought shows notifications
-	const float DROUGHT_MIN= 0.5; //(.cfg)
-	const float DROUGHT_MAX= 1.5; //(.cfg)
+	const float DROUGHT_MIN= 0.6; //(.cfg)
+	const float DROUGHT_MAX= 1.4; //(.cfg)
 	const bool MUTEVENTS= true; //(.cfg & GUI)
 	const int MUTEVENT_MAX= 3; //(.cfg)
 	const float SOUNDPITCHRANGE= 0.1; //(.cfg)
@@ -351,9 +431,11 @@ namespace conf {
 	const float BUMP_PRESSURE= 0.13; //(.cfg)
 	const float GRAB_PRESSURE= 0.1; //(.cfg)
 	const float BOTSPEED= 1.0; //(.cfg)
-	const float BOOSTSIZEMULT= 3; //(.cfg)
+	const float BOOSTSIZEMULT= 2.0; //(.cfg)
+	const float BOOSTEXAUSTMULT= 4.0; //(.cfg)
 	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
-	const int CARCASSFRAMES= 4000; //number of frames before dead agents are removed
+	const int CARCASSFRAMES= 400; //number of frames before dead agents are removed after meat= 0
+	const int BLINKTIME= 5; //it's really a little thing... how many ticks the agent eyes blink for. Purely aesthetic
 
 	const float FOODTRANSFER= 0.1; //(.cfg)
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
@@ -368,13 +450,15 @@ namespace conf {
 	const float MIN_INTAKE_HEALTH_RATIO= 0.5; //(.cfg)
 	const float REP_PER_BABY= 4; //(.cfg)
 	const float REPCOUNTER_MIN= 15; //minimum value the Repcounter may be set to
-	const float MAXDEVIATION=10; //(.cfg)
+	const float MAXDEVIATION= 10; //(.cfg)
+	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
 	const float METAMUTRATE1= 0.001; //what is the change in MUTRATE1 and 2 on reproduction? lol
-	const float METAMUTRATE2= 0.00008;
+	const float METAMUTRATE2= 0.0002;
 	const float MUTCHANCE= 0.16; //(.cfg)
 	const float MUTSIZE= 0.015; //(.cfg)
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
 	const int MAXAGE=10000; //(.cfg)
+	const int MAXWASTEFREQ= 50; //(.cfg)
 
 	//distances
 	const float DIST= 400; //(.cfg)
@@ -386,7 +470,7 @@ namespace conf {
 
 	//Health losses
 	const float HEALTHLOSS_WHEELS = 0.0; //(.cfg)
-	const float HEALTHLOSS_BOOSTMULT=4; //(.cfg)
+	const float HEALTHLOSS_BOOSTMULT= 2.0; //(.cfg)
 	const float HEALTHLOSS_BADTEMP = 0.0046; //(.cfg)
 	const float HEALTHLOSS_AGING = 0.0001; //(.cfg)
 	const float HEALTHLOSS_BRAINUSE= 0.0; //(.cfg)
@@ -431,7 +515,7 @@ namespace conf {
 	//Fruit is a quick and easy alternative to plants. Also partially randomly populated, harkening back to ScriptBots origins
 
 	const float MEATINTAKE= 0.095; //(.cfg)
-	const float MEATDECAY= 0.00001; //(.cfg)
+	const float MEATDECAY= 0.00003;//0.00001; //(.cfg)
 	const float MEATWASTE= 0.0023; //0.002; //(.cfg)
 	const float MEATVALUE= 1.0; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)

@@ -25,6 +25,8 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="xcopy /e/s/y &quot;$(ProjectDir)BIN&quot; &quot;$(OutDir)&quot;"
+				ExcludedFromBuild="true"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -45,6 +47,7 @@
 				FavorSizeOrSpeed="1"
 				EnableFiberSafeOptimizations="true"
 				WholeProgramOptimization="true"
+				AdditionalIncludeDirectories="$(SolutionDir)SOURCE\irrKlang"
 				PreprocessorDefinitions="WIN32;_WINDOWS;_DEBUG"
 				MinimalRebuild="false"
 				BasicRuntimeChecks="0"
@@ -66,10 +69,11 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib opengl32.lib glui32d.lib glut32.lib glu32.lib $(NOINHERIT)"
+				AdditionalDependencies="kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib opengl32.lib glui32d.lib glut32.lib glu32.lib irrKlang.lib $(NOINHERIT)"
 				Version="0.0"
 				AdditionalLibraryDirectories="SOURCE"
 				IgnoreDefaultLibraryNames=""
+				AddModuleNamesToAssembly=""
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				LinkTimeCodeGeneration="1"
@@ -95,7 +99,8 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				ExcludedFromBuild="true"
+				CommandLine="xcopy /e/i/s/y &quot;$(ProjectDir)sounds&quot; &quot;$(OutDir)\sounds&quot;"
+				ExcludedFromBuild="false"
 			/>
 		</Configuration>
 		<Configuration
@@ -104,10 +109,12 @@
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
 			CharacterSet="2"
+			DeleteExtensionsOnClean="*.cfg;*.txt;*.dll;*.obj;*.ilk;*.tlb;*.tli;*.tlh;*.tmp;*.rsp;*.pgc;*.pgd;*.meta;$(TargetPath)"
 			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				CommandLine="xcopy /e/s/y &quot;$(ProjectDir)BIN\VCOMP90.dll&quot; &quot;$(OutDir)&quot;&#x0D;&#x0A;xcopy /e/s/y &quot;$(ProjectDir)BIN\glut32.dll&quot; &quot;$(OutDir)&quot;&#x0D;&#x0A;xcopy /e/s/y &quot;$(ProjectDir)BIN\irrKlang.dll&quot; &quot;$(OutDir)&quot;"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -128,6 +135,7 @@
 				EnableIntrinsicFunctions="true"
 				FavorSizeOrSpeed="1"
 				EnableFiberSafeOptimizations="true"
+				AdditionalIncludeDirectories="$(SolutionDir)SOURCE\irrKlang"
 				PreprocessorDefinitions="WIN32;_WINDOWS;NDEBUG;"
 				RuntimeLibrary="0"
 				EnableFunctionLevelLinking="true"
@@ -145,10 +153,12 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				LinkLibraryDependencies="false"
-				AdditionalDependencies="$(NOINHERIT) kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib opengl32.lib glut32.lib glu32.lib LIBCMT.lib"
+				LinkLibraryDependencies="true"
+				AdditionalDependencies="$(NOINHERIT) kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib opengl32.lib glut32.lib glu32.lib irrKlang.lib LIBCMT.lib"
 				Version="0.0"
 				LinkIncremental="0"
+				AdditionalLibraryDirectories="SOURCE"
+				GenerateManifest="false"
 				IgnoreAllDefaultLibraries="false"
 				IgnoreDefaultLibraryNames="msvcprt;MSVCP90;MSVCRT.lib"
 				GenerateDebugInformation="false"
@@ -177,6 +187,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine="xcopy /e/i/s/y &quot;$(ProjectDir)sounds&quot; &quot;$(OutDir)\sounds&quot;"
 			/>
 		</Configuration>
 	</Configurations>
@@ -209,7 +220,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\SOURCE\View.cpp"
+				RelativePath=".\SOURCE\UIElement.cpp"
 				>
 			</File>
 			<File
@@ -255,7 +266,11 @@
 				>
 			</File>
 			<File
-				RelativePath=".\SOURCE\View.h"
+				RelativePath=".\SOURCE\stb_image.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\UIElement.h"
 				>
 			</File>
 			<File
@@ -278,6 +293,94 @@
 			</File>
 			<File
 				RelativePath=".\SOURCE\resource.rc"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="irrKlang"
+			>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_ESoundEngineOptions.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_ESoundOutputDrivers.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_EStreamModes.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_IAudioRecorder.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_IAudioStream.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_IAudioStreamLoader.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_IFileFactory.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_IFileReader.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_IRefCounted.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_irrKlangTypes.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_ISound.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_ISoundDeviceList.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_ISoundEffectControl.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_ISoundEngine.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_ISoundMixedOutputReceiver.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_ISoundSource.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_ISoundStopEventReceiver.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_IVirtualRefCounted.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_SAudioStreamFormat.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\ik_vec3d.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\irrKlang\irrKlang.h"
 				>
 			</File>
 		</Filter>

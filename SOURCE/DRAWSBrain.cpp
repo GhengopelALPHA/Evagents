@@ -56,21 +56,24 @@ DRAWSBrain& DRAWSBrain::operator=(const DRAWSBrain& other)
 
 void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 {
-	//do a single tick of the brain
+	//do a single tick of the brain, for each box
 	for (int j=0; j<(int)boxes.size(); j++){
 		DRAWSBox* abox= &boxes[j];
 		
-		if (j<Input::INPUT_SIZE) { //take first few boxes and set their out to in[]. (no need to do these separately, since thay are first)
+		//fist, calculate the target values of the box
+		if (j<Input::INPUT_SIZE) { //take first few boxes and set their out to in[] and don't do any more value calc
 			abox->out= in[j];
 		} else { //then do a dynamics tick
 			float acc= abox->bias; //start with bias of box
 
-			for (int k=0;k<CONNS;k++) {
+			for (int k=0;k<CONNS;k++) { //for each possible connection...
+				if(abox->w[k]==0) continue; //help out processing by skipping if weight is exactly 0
+
 				int idx=abox->id[k];
 				int type = abox->type[k];
 				float val= boxes[idx].out;
 
-				if(type==2){ //switch conn
+				if(type==2){ //switch conn. If its own value is >0.5, it freezes all later inputs to the box and finalizes sum, otherwise it's skipped
 					if(val>0.5){
 						break;
 						continue;
@@ -78,17 +81,20 @@ void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 					continue;
 				}
 				
-				if(type==1){ //change sensitive conn
+				if(type==1){ //change sensitive conn compares to old value, and gets magnified by *10 (arbitrary)
+					//we do this AFTER type==2 because switch conn just checks the normal val
 					val-= boxes[idx].oldout;
 					val*=10;
 				}
 
+				//multiply by weight and add to the accumulation
 				acc+= val*abox->w[k];
 			}
 			
+			//multiply by global weight before sigmoiding it
 			acc*= abox->gw;
 			
-			//put through sigmoid
+			//put through sigmoid. very negative values -> 0, very positive values -> 1, values close to 0 -> near 0.5
 			acc= 1.0/(1.0+exp(-acc));
 			
 			//apply as target
@@ -110,8 +116,10 @@ void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 	//finally set out[] to the last few boxes output
 	for (int j=0;j<Output::OUTPUT_SIZE;j++) {
 		//jump has different responce because we've made it into a change sensitive output
-		if (j==Output::JUMP) out[j]= cap(10*(boxes[boxes.size()-1-j].out-boxes[boxes.size()-1-j].oldout));
-		else out[j]= boxes[boxes.size()-1-j].out;
+		int sourcebox= boxes.size()-1-j;
+
+		if (j==Output::JUMP) out[j]= cap(10*(boxes[sourcebox].out-boxes[sourcebox].oldout));
+		else out[j]= boxes[sourcebox].out;
 	}
 }
 
@@ -338,7 +346,7 @@ DRAWSBrain DRAWSBrain::crossover(const DRAWSBrain& other)
 		int s1= this->boxes[i].seed;
 		int s2= other.boxes[i].seed;
 		//function which offers pobability of which parent to use, based on relative seed counters
-		float threshold= ((s1-s2)/(1+abs(s1-s2))+1)/2;
+		float threshold= ((s1-s2)/(conf::BRAINSEEDHALFTOLERANCE+abs(s1-s2))+1)/2;
 
 		if(randf(0,1)<threshold){
 			newbrain.boxes[i].bias= this->boxes[i].bias;

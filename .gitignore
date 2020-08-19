@@ -8,6 +8,7 @@ saves/
 saved_agents/
 OUTDATED/
 RELEASES/
+_MEDIA/
 *.SAV
 *.sav
 *.ncb

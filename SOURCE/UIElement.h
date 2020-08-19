@@ -9,22 +9,24 @@
 class UIElement
 {
 public:
-	UIElement(Vector4f pos, int type, int group);
+	UIElement(int x= 0, int y= 0, int w= 10, int h= 10, std::string key= "", std::string title= "", bool shown= true, bool clickable= true);
 
-	Vector4f pos; //4-vector coords of top-left and bottom right corner (in theory...)
+	void moveElement(int x, int y);
+	void addChild(UIElement &child);
+	void show();
+	void hide();
 
-	float red, gre, blu, alpha; //3-float colors and 1 float alpha
-	
-	int type; //button type. 0= unclick-able object (eg: panels), 1= clickable button, 2= toggleable button, 3= temporary notification
-	int state; //the state of the button. typically 0= off, 1= on, -1= disabled
-	std::string text; //text contained in the (top) of the UI Element. Also used as the Name of the element
+	int x, y; //top-left point x,y
+	int w, h; //width, height
 
-	int group; //element group ID. When multiple buttons share a group ID, they all toggle off when one of them is turned on
-	UIElement panel; //element's panel element. When buttons are assigned to a panel, other buttons can make them appear/disappear together
+	std::string title;
+	std::string key; //"unique" function identifier (can be shared, but... why?)
 
-	void setState(int set);
+	std::vector<UIElement> children;
 
-	bool isClicked(Vector2f mousepos); //bool method for if button was clicked by mouse or not
+	//status flags
+	bool shown; //is the UI element shown or hidden?
+	bool clickable; //is the UI clickable? (still blocks clicks on elements above it / the world space)
 
 };
 

@@ -1,17 +1,25 @@
 #ifndef WORLD_H
 #define WORLD_H
 
-#include "View.h"
 #include "Agent.h"
 #include "settings.h"
 //#include "ReadWrite.h"
 #include <vector>
+
+#include <irrKlang.h>
+using namespace irrklang;
+
 class World
 {
 public:
     World();
 	World(int width, int height);
     ~World();
+
+	ISoundEngine* audio; //audio engine, provided by irrKlang. See http://www.ambiera.com/irrklang for details
+	bool dosounds; //are we currently allowed to start new sounds?
+	void setAudioEngine(ISoundEngine* a);
+	void tryPlayAudio(const char* soundFileName, float x= 0, float y= 0, float pitch= 1.0, float volume= 1.0);
     
 	void init();
 	void readConfig();
@@ -22,8 +30,6 @@ public:
 	void spawn();
 	void update();
 	void cellsRoundTerrain();
-    
-    void draw(View* view, int layer);
     
 	//world status
     bool isClosed() const;
@@ -40,8 +46,6 @@ public:
 
 	//following and selected agent stuff
 	int getSelection() const;
-
-	void getGrabTargetCoords(Agent &agent);
 
 	float pleft;
 	float pright;
@@ -92,6 +96,7 @@ public:
 
 	//the agents!
 	std::vector<Agent> agents;
+//	Agent loadedagent;
 
 	void setInputs();
 	void brainsTick();  //takes in[] to out[] for every agent
@@ -100,6 +105,8 @@ public:
 
 	void healthTick();
 
+	void addAgent(Agent &agent);
+	void addLoadedAgent(float x, float y);
 	void addAgents(int num, int set_stomach=-1, bool set_lungs=true, float nx=-1, float ny=-1);
 
 	std::vector<std::string> deaths; //record of all the causes of death this epoch
@@ -174,6 +181,7 @@ public:
 	int BRAINSIZE;
 	float BOTSPEED;
 	float BOOSTSIZEMULT;
+	float BOOSTEXAUSTMULT;
 	float SOUNDPITCHRANGE;
 
 	float FOODTRANSFER;
@@ -197,6 +205,7 @@ public:
 	float MUTSIZE;
 	float LIVE_MUTATE_CHANCE;
 	int MAXAGE;
+	int MAXWASTEFREQ;
 
 	float DIST;
 	float SPIKELENGTH;

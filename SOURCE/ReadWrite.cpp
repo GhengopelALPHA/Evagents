@@ -82,6 +82,7 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "carn= %f\n", a->stomach[Stomach::MEAT]);
 	fprintf(file, "frug= %f\n", a->stomach[Stomach::FRUIT]);
 	fprintf(file, "exhaustion= %f\n", a->exhaustion);
+	fprintf(file, "carcasscount= %i\n", a->carcasscount);
 	fprintf(file, "species= %i\n", a->species);
 	fprintf(file, "radius= %f\n", a->radius);
 	fprintf(file, "spike= %f\n", a->spikeLength);
@@ -148,13 +149,257 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "</a>\n"); //end of agent
 }
 
+void ReadWrite::loadAgents(World *world, FILE *file, bool loadexact)
+{
+	//NOTE: this method REQUIRES "file" to be opened and closed outside
+	//loadexact is flag for loading agent EXACTLY is same pos, same health, exhaustion, etc, if set to false we give it random spawn settings for non-genes
+	char address[32];
+	char line[64], *pos;
+	char var[16];
+	char dataval[16];
+	int mode= 2;//loading mode: -1= off, 0= world, 1= cell, 2= agent, 3= box, 4= connection, 5= eyes, 6= ears
+
+	Agent xa(world->BRAINSIZE, world->MEANRADIUS, world->REP_PER_BABY, world->MUTCHANCE, world->MUTSIZE); //mock agent. gets moved and deleted after loading
+	bool t2= false; //triggers for keeping track of where exactly we are
+
+	int eyenum= -1; //counters
+	int earnum= -1;
+	int boxnum= -1;
+	int connnum= -1;
+	int i; //integer buffer
+	float f; //float buffer
+
+
+	while(!feof(file)){
+		fgets(line, sizeof(line), file);
+		pos= strtok(line,"\n");
+		sscanf(line, "%s%s", var, dataval);
+		
+		if(mode==2){
+			if(strcmp(var, "</a>")==0){
+				//end agent tag is checked for, and when found, copies agent xa to the world
+				if(loadexact) world->addAgent(xa);
+//				else world->loadedagent= xa; //if we are loading a single agent, push it to buffer
+
+			}else if(strcmp(var, "posx=")==0 && loadexact){
+				sscanf(dataval, "%f", &f);
+				xa.pos.x= f;
+			}else if(strcmp(var, "posy=")==0 && loadexact){
+				sscanf(dataval, "%f", &f);
+				xa.pos.y= f;
+			}else if(strcmp(var, "angle=")==0 && loadexact){
+				sscanf(dataval, "%f", &f);
+				xa.angle= f;
+			}else if(strcmp(var, "health=")==0 && loadexact){
+				sscanf(dataval, "%f", &f);
+				xa.health= f;
+			}else if(strcmp(var, "gene_red=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.gene_red= f;
+			}else if(strcmp(var, "gene_gre=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.gene_gre= f;
+			}else if(strcmp(var, "gene_blu=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.gene_blu= f;
+			}else if(strcmp(var, "chamovid=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.chamovid= f;
+			}else if(strcmp(var, "sexprojectbias=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.sexprojectbias= f;
+			}else if(strcmp(var, "herb=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.stomach[Stomach::PLANT]= f;
+			}else if(strcmp(var, "carn=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.stomach[Stomach::MEAT]= f;
+			}else if(strcmp(var, "frug=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.stomach[Stomach::FRUIT]= f;
+			}else if(strcmp(var, "exhaustion=")==0 && loadexact){
+				sscanf(dataval, "%f", &f);
+				xa.exhaustion= f;
+			}else if(strcmp(var, "carcasscount=")==0 && loadexact){
+				sscanf(dataval, "%i", &i);
+				xa.carcasscount= i;
+			}else if(strcmp(var, "species=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.species= i;
+			}else if(strcmp(var, "radius=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.radius= f;
+			}else if(strcmp(var, "spike=")==0 && loadexact){
+				sscanf(dataval, "%f", &f);
+				xa.spikeLength= f;
+			}else if(strcmp(var, "jump=")==0 && loadexact){
+				sscanf(dataval, "%f", &f);
+				xa.jump= f;
+			}else if((strcmp(var, "dfood=")==0 || strcmp(var, "dhealth=")==0) && loadexact){
+				sscanf(dataval, "%f", &f);
+				xa.dhealth= f;
+			}else if(strcmp(var, "age=")==0 && loadexact){
+				sscanf(dataval, "%i", &i);
+				xa.age= i;
+			}else if(strcmp(var, "gen=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.gencount= i;
+			}else if(strcmp(var, "hybrid=")==0){
+				sscanf(dataval, "%i", &i);
+				if(i==1) xa.hybrid= true;
+				else xa.hybrid= false;
+			}else if(strcmp(var, "cl1=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.clockf1= f;
+			}else if(strcmp(var, "cl2=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.clockf2= f;
+			}else if(strcmp(var, "smellmod=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.smell_mod= f;
+			}else if(strcmp(var, "hearmod=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.hear_mod= f;
+			}else if(strcmp(var, "bloodmod=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.blood_mod= f;
+			}else if(strcmp(var, "eyemod=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.eye_see_agent_mod= f;
+//				}else if(strcmp(var, "eyecellmod=")==0){
+//					sscanf(dataval, "%f", &f);
+//					xa.eye_see_cell_mod= f;
+			}else if(strcmp(var, "numbabies=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.numbabies= i;
+			}else if(strcmp(var, "metab=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.metabolism= f;
+			}else if(strcmp(var, "repc=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.repcounter= f;
+			}else if(strcmp(var, "temppref=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.temperature_preference= f;
+			}else if(strcmp(var, "lungs=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.lungs= f;
+			}else if(strcmp(var, "mutrate1=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.MUTRATE1= f;
+			}else if(strcmp(var, "mutrate2=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.MUTRATE2= f;
+			}else if(strcmp(var, "freshkill=")==0 && loadexact){
+				sscanf(dataval, "%i", &i);
+				xa.freshkill= i;
+			}else if(strcmp(var, "strength=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.strength= f;
+			}else if(strcmp(var, "<y>")==0){
+				mode= 5; //eye mode
+			}else if(strcmp(var, "<x>")==0){
+				mode= 3; //brain mode
+			}else if(strcmp(var, "<e>")==0){
+				mode= 6; //ear mode
+			}
+		}else if(mode==5){ //mode @ 5 = eye (of agent)
+			if(strcmp(var, "</y>")==0){
+				mode= 2;
+			}else if(strcmp(var, "eye#=")==0){
+				sscanf(dataval, "%i", &i);
+				eyenum= i;
+			}else if(strcmp(var, "eyedir=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.eyedir[eyenum]= f;
+			}else if(strcmp(var, "eyefov=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.eyefov[eyenum]= f;
+			}
+		}else if(mode==6){ //mode @ 6 = ear (of agent)
+			if(strcmp(var, "</e>")==0){
+				mode= 2;
+			}else if(strcmp(var, "ear#=")==0){
+				sscanf(dataval, "%i", &i);
+				earnum= i;
+			}else if(strcmp(var, "eardir=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.eardir[earnum]= f;
+			}else if(strcmp(var, "hearlow=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.hearlow[earnum]= f;
+			}else if(strcmp(var, "hearhigh=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.hearhigh[earnum]= f;
+			}
+		}else if(mode==3){ //mode @ 3 = brain box (of agent)
+			if(strcmp(var, "</x>")==0){
+				mode= 2;
+			}else if(strcmp(var, "box#=")==0){
+				sscanf(dataval, "%i", &i);
+				boxnum= i;
+			}else if(strcmp(var, "seed=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.brain.boxes[boxnum].seed= i;
+			}else if(strcmp(var, "kp=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.brain.boxes[boxnum].kp= f;
+			}else if(strcmp(var, "bias=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.brain.boxes[boxnum].bias= f;
+			}else if(strcmp(var, "globalw=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.brain.boxes[boxnum].gw= f;
+			}else if(strcmp(var, "target=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.brain.boxes[boxnum].target= f;
+			}else if(strcmp(var, "out=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.brain.boxes[boxnum].out= f;
+			}else if(strcmp(var, "oldout=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.brain.boxes[boxnum].oldout= f;
+			}else if(strcmp(var, "<n>")==0){
+				mode= 4;
+			}
+		}else if(mode==4){ //mode @ 4 = connection (of brain box of agent)
+			if(strcmp(var, "</n>")==0){
+				mode= 3;
+			}else if(strcmp(var, "conn#=")==0){
+				sscanf(dataval, "%i", &i);
+				connnum= i;
+			}else if(strcmp(var, "type=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.brain.boxes[boxnum].type[connnum]= i;
+			}else if(strcmp(var, "w=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.brain.boxes[boxnum].w[connnum]= f;
+			}else if(strcmp(var, "cid=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.brain.boxes[boxnum].id[connnum]= f;
+			}
+		}
+	}
+	printf("loaded agents.\n"); //report status
+}
+
+
+/*void ReadWrite::loadAgentFile(World *world, const char *address)
+{
+	//Some Notes: When this method is called, it's assumed that address is not blank or null
+	strcat(address,".AGT");
+
+	FILE* fl = fopen(address, "r");
+	if(fl){
+		loadAgents(world, fl, false);
+*/
 
 void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *filename)
 {
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
 	char addressSAV[64];
 	char addressREP[64];
-	printf("Filename %s given. Saving...\n", filename);
+	printf("Filename '%s' given. Saving...\n", filename);
 
 	//set up our save file and report file addresses
 	strcpy(addressSAV,"saves\\");
@@ -164,9 +409,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 
 	strcat(addressSAV,".SAV");
 
-	//checking for the presence of the file has been relocated to GLView.cpp to allow GUI interactions
-
-	//open save file, write over any previous
+	//open save file, write over any previous, checking for the presence of the file has been relocated to GLView.cpp to allow GUI interactions
 	FILE* fs = fopen(addressSAV, "w");
 	
 	//start with saving world settings to compare with current
@@ -289,13 +532,8 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 	int cyl= 0;
 	int mode= -1;//loading mode: -1= off, 0= world, 1= cell, 2= agent, 3= box, 4= connection, 5= eyes, 6= ears
 
-	Agent xa(world->BRAINSIZE, world->MEANRADIUS, world->REP_PER_BABY, world->MUTCHANCE, world->MUTSIZE); //mock agent. gets moved and deleted after loading
-	bool t1= false, t2= false; //triggers for keeping track of where exactly we are
+	bool t1= false; //triggers for keeping track of where exactly we are
 
-	int eyenum= -1; //counters
-	int earnum= -1;
-	int boxnum= -1;
-	int connnum= -1;
 	int cellmult= 1; //version 0.04 upgrade tool
 	int i; //integer buffer
 	float f; //float buffer
@@ -308,6 +546,9 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 	fl= fopen(address, "r");
 	if(fl){
 		printf("file '%s' exists! loading.\n", address);
+		//real quick: don't keep user control active from last world
+		world->pcontrol= false;
+
 		while(!feof(fl)){
 			fgets(line, sizeof(line), fl);
 			pos= strtok(line,"\n");
@@ -319,9 +560,6 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					mode= 0;
 					world->reset();
 					printf("discovered world.\n"); //report status
-				}else if(strcmp(var, "<a>")==0){
-					//if we find an <agent> tag, jump right to agent loading (for spawning saved agents)
-					mode= 2;
 				}
 			}else if(mode==0){ //mode @ 0 = world
 				if(strcmp(var, "V=")==0){
@@ -340,35 +578,41 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 				}else if(strcmp(var, "INPUTS=")==0){
 					sscanf(dataval, "%i", &i);
 					if(i!=Input::INPUT_SIZE) {
-						printf("ALERT: Brain Input size different! Issues may occur!\n");
+						printf("ALERT: Brain Input size different! Issues WILL occur! Press enter to try and continue. . .\n");
+						cin.get();
 					}
 				}else if(strcmp(var, "OUTPUTS=")==0){
 					sscanf(dataval, "%i", &i);
 					if(i!=Output::OUTPUT_SIZE) {
-						printf("ALERT: Brain Output size different! Issues may occur!\n");
+						printf("ALERT: Brain Output size different! Issues WILL occur! Press enter to try and continue. . .\n");
+						cin.get();
 					}
 				}else if(strcmp(var, "CONNECTIONS=")==0){
 					sscanf(dataval, "%i", &i);
 					if(i!=CONNS) {
-						printf("ALERT: Brain CONNS per brain box different! Issues may occur!\n");
+						printf("ALERT: Brain CONNS per brain box different! Issues WILL occur! Press enter to try and continue. . .\n");
+						cin.get();
 					}
 				}else if(strcmp(var, "WIDTH=")==0){
 					//this WILL be loaded soon
 					sscanf(dataval, "%i", &i);
 					if(i!=conf::WIDTH) {
-						printf("ALERT: World Width different! Issues may occur!\n");
+						printf("ALERT: World Width different! Issues WILL occur! Press enter to try and continue. . .\n");
+						cin.get();
 					}
 				}else if(strcmp(var, "HEIGHT=")==0){
 					//this WILL be loaded soon
 					sscanf(dataval, "%i", &i);
 					if(i!=conf::HEIGHT) {
-						printf("ALERT: World Height different! Issues may occur!\n");
+						printf("ALERT: World Height different! Issues WILL occur! Press enter to try and continue. . .\n");
+						cin.get();
 					}
 				}else if(strcmp(var, "CELLSIZE=")==0){
 					//this may be loaded soon
 					sscanf(dataval, "%i", &i);
 					if(i!=conf::CZ) {
-						printf("ALERT: Cell Size different! Issues may occur!\n");
+						printf("ALERT: Cell Size different! Issues WILL occur! Press enter to try and continue. . .\n");
+						cin.get();
 					}
 				}else if(strcmp(var, "MOONLIT=")==0){
 					sscanf(dataval, "%i", &i);
@@ -433,14 +677,15 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					mode= 1;
 				}else if(strcmp(var, "<a>")==0){
 					//agent tag activates agent reading mode
-					mode= 2;
-					if (!t1) printf("loaded cells.\n"); //report status
-					t1= true;
+					//version 0.05: this is no longer a mode, but rather a whole another method. Should function identically
+					loadAgents(world, fl); //when we leave here, should be EOF					
 				}
 			}else if(mode==1){ //mode @ 1 = cell
 				if(strcmp(var, "</c>")==0){
 					//end_cell tag is checked for first, because of else condition
 					mode= 0;
+					if (!t1) printf("loaded cells.\n"); //report status
+					t1= true;
 				}else if(strcmp(var, "cx=")==0){
 					sscanf(dataval, "%i", &i);
 					cxl= i;
@@ -449,229 +694,22 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					cyl= i;
 				}else if(strcmp(var, "food=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::PLANTS][cxl][cyl]= f*cellmult; //version 0.04 upgrade tool
+					world->cells[Layer::PLANTS][cxl][cyl]= f*cellmult; //cellmult is version 0.04 upgrade tool
 				}else if(strcmp(var, "meat=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::MEATS][cxl][cyl]= f*cellmult; //version 0.04 upgrade tool
+					world->cells[Layer::MEATS][cxl][cyl]= f*cellmult;
 				}else if(strcmp(var, "hazard=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::HAZARDS][cxl][cyl]= f*cellmult; //version 0.04 upgrade tool
+					world->cells[Layer::HAZARDS][cxl][cyl]= f*cellmult;
 				}else if(strcmp(var, "fruit=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::FRUITS][cxl][cyl]= f*cellmult; //version 0.04 upgrade tool
+					world->cells[Layer::FRUITS][cxl][cyl]= f*cellmult;
 				}else if(strcmp(var, "land=")==0){
 					sscanf(dataval, "%f", &f);
 					world->cells[Layer::ELEVATION][cxl][cyl]= f;
-				}			
-			}else if(mode==2){ //mode @ 2 = agent
-				if(strcmp(var, "</a>")==0){
-					//end_agent tag is checked for, and when found, copies agent xa
-					mode= 0;
-					Agent loadee= xa;
-					loadee.id= world->idcounter;
-					world->idcounter++;
-					world->agents.push_back(loadee);
-					if(!t2 && randf(0,1)>world->NUMBOTS/world->agents.size()){
-						printf("halfway there.\n");
-						t2= true;
-					}
-				}else if(strcmp(var, "posx=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.pos.x= f;
-				}else if(strcmp(var, "posy=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.pos.y= f;
-				}else if(strcmp(var, "angle=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.angle= f;
-				}else if(strcmp(var, "health=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.health= f;
-				}else if(strcmp(var, "gene_red=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.gene_red= f;
-				}else if(strcmp(var, "gene_gre=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.gene_gre= f;
-				}else if(strcmp(var, "gene_blu=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.gene_blu= f;
-				}else if(strcmp(var, "chamovid=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.chamovid= f;
-				}else if(strcmp(var, "sexprojectbias=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.sexprojectbias= f;
-				}else if(strcmp(var, "herb=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.stomach[Stomach::PLANT]= f;
-				}else if(strcmp(var, "carn=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.stomach[Stomach::MEAT]= f;
-				}else if(strcmp(var, "frug=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.stomach[Stomach::FRUIT]= f;
-				}else if(strcmp(var, "exhaustion=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.exhaustion= f;
-				}else if(strcmp(var, "species=")==0){
-					sscanf(dataval, "%i", &i);
-					xa.species= i;
-				}else if(strcmp(var, "radius=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.radius= f;
-				}else if(strcmp(var, "spike=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.spikeLength= f;
-				}else if(strcmp(var, "jump=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.jump= f;
-				}else if(strcmp(var, "dfood=")==0 || strcmp(var, "dhealth=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.dhealth= f;
-				}else if(strcmp(var, "age=")==0){
-					sscanf(dataval, "%i", &i);
-					xa.age= i;
-				}else if(strcmp(var, "gen=")==0){
-					sscanf(dataval, "%i", &i);
-					xa.gencount= i;
-				}else if(strcmp(var, "hybrid=")==0){
-					sscanf(dataval, "%i", &i);
-					if(i==1) xa.hybrid= true;
-					else xa.hybrid= false;
-				}else if(strcmp(var, "cl1=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.clockf1= f;
-				}else if(strcmp(var, "cl2=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.clockf2= f;
-				}else if(strcmp(var, "smellmod=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.smell_mod= f;
-				}else if(strcmp(var, "hearmod=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.hear_mod= f;
-				}else if(strcmp(var, "bloodmod=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.blood_mod= f;
-				}else if(strcmp(var, "eyemod=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.eye_see_agent_mod= f;
-//				}else if(strcmp(var, "eyecellmod=")==0){
-//					sscanf(dataval, "%f", &f);
-//					xa.eye_see_cell_mod= f;
-				}else if(strcmp(var, "numbabies=")==0){
-					sscanf(dataval, "%i", &i);
-					xa.numbabies= i;
-				}else if(strcmp(var, "metab=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.metabolism= f;
-				}else if(strcmp(var, "repc=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.repcounter= f;
-				}else if(strcmp(var, "temppref=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.temperature_preference= f;
-				}else if(strcmp(var, "lungs=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.lungs= f;
-				}else if(strcmp(var, "mutrate1=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.MUTRATE1= f;
-				}else if(strcmp(var, "mutrate2=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.MUTRATE2= f;
-				}else if(strcmp(var, "freshkill=")==0){
-					sscanf(dataval, "%i", &i);
-					xa.freshkill= i;
-				}else if(strcmp(var, "strength=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.strength= f;
-				}else if(strcmp(var, "<y>")==0){
-					mode= 5; //eye mode
-				}else if(strcmp(var, "<x>")==0){
-					mode= 3; //brain mode
-				}else if(strcmp(var, "<e>")==0){
-					mode= 6; //ear mode
-				}
-			}else if(mode==5){ //mode @ 5 = eye (of agent)
-				if(strcmp(var, "</y>")==0){
-					mode= 2;
-				}else if(strcmp(var, "eye#=")==0){
-					sscanf(dataval, "%i", &i);
-					eyenum= i;
-				}else if(strcmp(var, "eyedir=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.eyedir[eyenum]= f;
-				}else if(strcmp(var, "eyefov=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.eyefov[eyenum]= f;
-				}
-			}else if(mode==6){ //mode @ 6 = ear (of agent)
-				if(strcmp(var, "</e>")==0){
-					mode= 2;
-				}else if(strcmp(var, "ear#=")==0){
-					sscanf(dataval, "%i", &i);
-					earnum= i;
-				}else if(strcmp(var, "eardir=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.eardir[earnum]= f;
-				}else if(strcmp(var, "hearlow=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.hearlow[earnum]= f;
-				}else if(strcmp(var, "hearhigh=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.hearhigh[earnum]= f;
-				}
-			}else if(mode==3){ //mode @ 3 = brain box (of agent)
-				if(strcmp(var, "</x>")==0){
-					mode= 2;
-				}else if(strcmp(var, "box#=")==0){
-					sscanf(dataval, "%i", &i);
-					boxnum= i;
-				}else if(strcmp(var, "seed=")==0){
-					sscanf(dataval, "%i", &i);
-					xa.brain.boxes[boxnum].seed= i;
-				}else if(strcmp(var, "kp=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.brain.boxes[boxnum].kp= f;
-				}else if(strcmp(var, "bias=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.brain.boxes[boxnum].bias= f;
-				}else if(strcmp(var, "globalw=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.brain.boxes[boxnum].gw= f;
-				}else if(strcmp(var, "target=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.brain.boxes[boxnum].target= f;
-				}else if(strcmp(var, "out=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.brain.boxes[boxnum].out= f;
-				}else if(strcmp(var, "oldout=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.brain.boxes[boxnum].oldout= f;
-				}else if(strcmp(var, "<n>")==0){
-					mode= 4;
-				}
-			}else if(mode==4){ //mode @ 4 = connection (of brain box of agent)
-				if(strcmp(var, "</n>")==0){
-					mode= 3;
-				}else if(strcmp(var, "conn#=")==0){
-					sscanf(dataval, "%i", &i);
-					connnum= i;
-				}else if(strcmp(var, "type=")==0){
-					sscanf(dataval, "%i", &i);
-					xa.brain.boxes[boxnum].type[connnum]= i;
-				}else if(strcmp(var, "w=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.brain.boxes[boxnum].w[connnum]= f;
-				}else if(strcmp(var, "cid=")==0){
-					sscanf(dataval, "%f", &f);
-					xa.brain.boxes[boxnum].id[connnum]= f;
-				}
+				}		
 			}
 		}
-		printf("loaded agents.\n"); //report status
 		fclose(fl);
 
 		printf("WORLD LOADED!\n");
