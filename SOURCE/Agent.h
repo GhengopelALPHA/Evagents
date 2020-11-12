@@ -13,6 +13,7 @@ class Agent
 //IMPORTANT: if ANY variables are added/removed, you MUST check ReadWrite.cpp to see how loading and saving will be effected!!!
 public:
 	Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1, float MUTARATE2);
+	Agent();
 		
 	//Saved Variables
 	//simulation basics
@@ -21,11 +22,12 @@ public:
 	Vector2f dpos; //UNSAVED
 	float angle; //of the bot
 
-	//Genes!
+	//Genes! WIP
 	std::vector<std::pair<int, float> > genes; //NEW genes. First is type, second is value. All Values of same Type get averaged or added
 
-	float MUTRATE1; //how often do mutations occur?
-	float MUTRATE2; //how significant are they?
+	float MUTCHANCE; //how often do mutations occur?
+	float MUTSIZE; //how significant are they?
+	int parentid; //who's your momma? Note that like mitochondrial DNA, this is only passed from mother to children
 	float radius; //radius of bot
 	float gene_red, gene_gre, gene_blu; //genetic color traits of the agent. can be hidden by chamovid= 1
 	float chamovid; //how strongly the output colors are overriding the genetic colors. 0= full genes, 1= full output
@@ -64,7 +66,8 @@ public:
 	float repcounter; //when repcounter gets to 0, this bot reproduces
 	float exhaustion; //sum of this agent's outputs over time, reduced by a constant. If this gets too high, the agent suffers
 	int carcasscount; //counter for how long a dead agent stays on the world. Is reset as long as there is meat under the agent
-	bool hybrid; //is this agent result of crossover? ============= WHY IS THIS SAVED?===============
+	bool hybrid; //is this agent result of crossover?
+
 	//unsaved, are recalculated as needed
 	float discomfort; //what level of temperature discomfort this agent is currently experiencing [0,1]
 	bool encumbered; //is this agent experiencing any encumbering effects (childbearing, difficult terrain)?
@@ -84,6 +87,7 @@ public:
 	float brainmutations; //records the number of mutations of the brain
 	std::vector<std::string> mutations;
 	std::vector<std::pair<std::string, float>> damages; //tracker for sources of injury
+	std::vector<std::pair<std::string, float>> intakes; //tracker for sources of intake
 	std::string death; //the cause of death of this agent
 	
 	
@@ -99,13 +103,13 @@ public:
 	float give;	//is this agent attempting to give food to other agent?
 	float spikeLength; //"my, what a long spike you have!"
 	float jawPosition; //what "position" the jaw is in. 0 for open, 1 for closed
-	float jawOldPos; //the previous "position" of the jaw
+	float jawOldOutput; //the previous output of the jaw
 	int grabID; //id of agent this agent is "glued" to. =-1 if none selected
 	float grabbing; //is this agent attempting to grab another? If already grabbed, how far are we willing to let them go?
 	float grabangle; //the position of this bot's grab. Other agents can only be grabbed at this angle, and are drawn to this point specifically once grabbed
 	float sexproject; //is this bot trying to give out its genetic data? if so, how strongly? in range [0,2] (bias+output, considered 'father' if >1.0
 
-	//
+	//WIP
 	void exhibitGenes(); //process genes list and set/update agent traits & abilities
 
 	void printSelf();
@@ -119,6 +123,8 @@ public:
 	void addDamage(const char * sourcetext, float amount);
 	void addDamage(std::string sourcetext, float amount);
 	std::pair<std::string, float> getMostDamage() const;
+	void addIntake(const char * sourcetext, float amount);
+	void addIntake(std::string sourcetext, float amount);
 	void writeIfKilled();
 
 	Agent reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY);

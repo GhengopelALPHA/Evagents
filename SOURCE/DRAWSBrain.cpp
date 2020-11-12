@@ -23,13 +23,19 @@ DRAWSBox::DRAWSBox(int maxid)
 	}
 
 	seed= 0;
-	kp= randf(0.01,1);
+	kp= cap(abs(randn(1.0,0.5)));
 	gw= randf(-2,2);
-	bias= randf(-10,10);
+	bias= randf(-2,2);
 
 	out= 0;
 	oldout= 0;
 	target= 0;
+}
+
+DRAWSBox::DRAWSBox(){
+}
+
+DRAWSBrain::DRAWSBrain(){
 }
 
 DRAWSBrain::DRAWSBrain(int numboxes)
@@ -150,8 +156,10 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 	for (int j=Input::INPUT_SIZE; j<(int)boxes.size(); j++){
 		DRAWSBox* abox= &boxes[j];
 
+		float seedfactor= 0.01*abox->seed+1;
+
 		//start with rare mutations
-		if (randf(0,1)<MR/30) {
+		if (randf(0,1)*seedfactor<MR/10) {
 			//randomize synapse type
 			int rc= randi(0, CONNS);
 			abox->type[rc] = randi(0,2);
@@ -159,8 +167,8 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			abox->seed= 0;
 		}
 
-		if (randf(0,1)<MR/25) {
-			//copy box
+		if (randf(0,1)*seedfactor<MR/5) {
+			//copy another box
 			int k= randi(0,boxes.size());
 			if(k!=j) {
 				abox->type= boxes[k].type;
@@ -174,7 +182,7 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			}
 		}
 
-		if (randf(0,1)<MR/10) {
+		if (randf(0,1)*seedfactor<MR/5) {
 			//branch box (sets a conn to reference a box which refers the same as another conn's box's references)
 			//eg: [j]
 			//    / \+create this conn
@@ -209,7 +217,7 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			}
 		}
 
-		if (randf(0,1)<MR/5) {
+		if (randf(0,1)*seedfactor<MR/2) {
 			//randomize connection
 			int rc= randi(0, CONNS);
 			int ri= randi(0,boxes.size());
@@ -218,14 +226,7 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			abox->seed= 0;
 		}
 
-		if (randf(0,1)<MR) { //this chance is low because of additional randomness below
-			//wither connection
-			int rc= randi(0, CONNS);
-			if(randf(0,1)>fabs(abox->w[rc])) abox->w[rc]= 0; //the closer the weight is to 0, the more likely it withers
-//		  a2.mutations.push_back("connection withered\n");
-		}
-
-		if (randf(0,1)<MR/4) {
+		if (randf(0,1)*seedfactor<MR/2) {
 			//swap two input sources
 			int rc1= randi(0, CONNS);
 			int rc2= randi(0, CONNS);
@@ -236,7 +237,7 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			abox->seed= 0;
 		}
 
-		if (randf(0,1)<MR/3) {
+		if (randf(0,1)*seedfactor<MR) {
 			//mirror an input weight
 			int rc1= randi(0, CONNS);
 			int rc2= randi(0, CONNS);
@@ -246,24 +247,30 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 		}
 
 		// more likely changes here
-		if (randf(0,1)<MR/2) {
+		if (randf(0,1)*seedfactor<MR*2) {
 			//jiggle global weight
 			abox->gw+= randn(0, MR2);
 		}
 
-		if (randf(0,1)<MR) {
+		if (randf(0,1)*seedfactor<MR*2) {
 			//jiggle bias
 			abox->bias+= randn(0, MR2*5);
 		}
 
-		if (randf(0,1)<MR) {
+		if (randf(0,1)*seedfactor<MR*2) {
 			//jiggle dampening
-			abox->kp+= randn(0, MR2);
-			if (abox->kp<0.01) abox->kp=0.01;
-			if (abox->kp>1) abox->kp=1;
+			abox->kp+= randn(0, MR2*0.5);
+			abox->kp= cap(abs(abox->kp));
 		}
 
-		if (randf(0,1)<MR*2) {
+		if (randf(0,1)*seedfactor<MR*3) {
+			//wither connection
+			int rc= randi(0, CONNS);
+			if(randf(0,1)>fabs(abox->w[rc])) abox->w[rc]= 0; //the closer the weight is to 0, the more likely it withers
+//		  a2.mutations.push_back("connection withered\n");
+		}
+
+		if (randf(0,1)*seedfactor<MR*5) {
 			//jiggle weight
 			int rc= randi(0, CONNS);
 			abox->w[rc]+= randn(0, MR2*5);
@@ -277,7 +284,9 @@ void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 	int j= randi(Input::INPUT_SIZE,boxes.size());
 	DRAWSBox* abox= &boxes[j];
 
-	if (randf(0,1)<MR/5) {
+	float seedfactor= 0.01*abox->seed+1;
+
+	if (randf(0,1)*seedfactor<MR/5) {
 		//"neurons that fire together, wire together". Hebb process
 		int rc= randi(0, CONNS);
 		int b= -1;
@@ -287,7 +296,7 @@ void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 				b= rb;
 				break;
 			}
-			if (b<=-100) break;
+			if (b<-100) break;
 			b-= 1;
 		}
 		if (b>=0){
@@ -296,13 +305,7 @@ void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 		}
 	}
 
-	if (randf(0,1)<MR) { //this chance is lowe because of additional randomness below
-		//wither connection
-		int rc= randi(0, CONNS);
-		if(randf(0,1)>fabs(abox->w[rc])) abox->w[rc]= 0; //the closer the weight is to 0, the more likely it withers
-	}
-
-	if (randf(0,1)<MR && conf::LEARNRATE>0) {
+	if (randf(0,1)*seedfactor<MR && conf::LEARNRATE>0) {
 		//stimulate box weight
 		float stim= out[Output::STIMULANT];
 		if(stim>0.5){
@@ -314,19 +317,24 @@ void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 		}
 	}
 
-	if (randf(0,1)<MR*5) {
+	if (randf(0,1)*seedfactor<MR*5) {
 		//jiggle bias
 		abox->bias+= randn(0, MR2*10);
 	}
 
-	if (randf(0,1)<MR*5) {
+	if (randf(0,1)*seedfactor<MR*5) {
 		//jiggle dampening
-		abox->kp+= randn(0, MR2*10);
-		if (abox->kp<0.01) abox->kp=0.01;
-		if (abox->kp>1) abox->kp=1;
+		abox->kp+= randn(0, MR2*2);
+		abox->kp= cap(abs(abox->kp));
 	}
 
-	if (randf(0,1)<MR*10) {
+	if (randf(0,1)*seedfactor<MR*10) {
+		//wither connection
+		int rc= randi(0, CONNS);
+		if(randf(0,1)>fabs(abox->w[rc])) abox->w[rc]= 0; //the closer the weight is to 0, the more likely it withers
+	}
+
+	if (randf(0,1)*seedfactor<MR*10) {
 		//jiggle weight
 		int rc= randi(0, CONNS);
 		abox->w[rc]+= randn(0, MR2*10);

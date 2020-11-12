@@ -28,6 +28,7 @@ void gl_processMousePassiveMotion(int x, int y);
 void gl_changeSize(int w, int h);
 void gl_handleIdle();
 void gl_renderScene();
+void glui_handleButtons(int action);
 void glui_handleRW(int action);
 void glui_handleCloses(int action);
 
@@ -36,6 +37,16 @@ struct Color3f
 	Color3f() : red(0), gre(0), blu(0.1) {} //navy-blue default color
 	Color3f(float r, float g) : red(r), gre(g), blu(0.1) {}
 	Color3f(float r, float g, float b) : red(r), gre(g), blu(b) {}
+	void mix(Color3f ocolor) {
+		this->red= (this->red+ocolor.red)*0.5;
+		this->gre= (this->gre+ocolor.gre)*0.5;
+		this->blu= (this->blu+ocolor.blu)*0.5;
+	}
+	void mix(float r, float g, float b) {
+		this->red= (this->red+r)*0.5;
+		this->gre= (this->gre+g)*0.5;
+		this->blu= (this->blu+b)*0.5;
+	}
 	float red;
 	float gre;
 	float blu;
@@ -54,6 +65,7 @@ public:
 	void drawCell(int x, int y, const float values[Layer::LAYERS]); //draws the background boxes
 	void drawData(); //draws info in the left side of the sim
 	void drawStatic(); //draws viewer-static objects
+	void drawPieDisplay(float x, float y, float size, std::vector<std::pair<std::string, float>> values); //draw a pie chart at specified screen x and y
 
 //	virtual void trySaveAgent(); //starts GLView working on saving selected agent
 //	virtual void tryLoadAgent(); //loads up an agent from a file
@@ -76,12 +88,14 @@ public:
 	void changeSize(int w, int h);
 	void handleIdle();
 	void renderScene();
+	void handleButtons(int action); //callback function for buttons
 	void handleRW(int action); //callback function for glui loading/saving
 	void handleCloses(int action); //callback function for loading gui's
 	bool checkFileName(char name[32]);
 	bool checkFileName(std::string name);
 
 	void gotoDefaultZoom();
+	void processLayerPreset();
 
 	void glCreateMenu();
 	int m_id, sm1_id, sm2_id, sm3_id, sm4_id; //main right-click menues
@@ -99,6 +113,7 @@ private:
 	Color3f setColorSpecies(float species);
 	Color3f setColorCrossable(float species);
 	Color3f setColorGenerocity(float give);
+	Color3f setColorRepCount(float repcount);
 
 	//3f cell color defs
 	Color3f setColorCellsAll(const float values[Layer::LAYERS]);
@@ -130,6 +145,7 @@ private:
 	void countdownEvents(); //MERGE WITH TILES
 
 	int getLayerDisplayCount(); //get the number of display layers we have running. If more than 1, use Reality! mode. If 0, disable drawing of cells
+	int getAgentRes(bool ghost= false); //get desired agent resolution
 	
 	World *world; //the WORLD
 	//live variable support via glui
@@ -139,7 +155,8 @@ private:
 	int live_fastmode; //are we drawing?
 	int live_skipdraw; //are we skipping some frames?
 	int live_agentsvis; //are we drawing agents? If so, what's the scheme? see namespace "Visuals" in settings.h for details
-	int livearray_layersvis[DisplayLayers::DISPLAYS]; //list of bools keeping track of which layers we're displaying.
+	int live_layersvis[DisplayLayer::DISPLAYS]; //list of bools keeping track of which layers we're displaying.
+	int live_waterfx; //are we rendering water effects?
 	int live_profilevis; //what visualization profile are we displaying next to the selected agent? see namespace "Profiles"
 	int live_selection; //what bot catagory are we currently trying to autoselect? see namespace "Select" in settings.h
 	int live_follow; //are we following the selected agent?
@@ -148,9 +165,11 @@ private:
 	int live_hidedead; //hide dead agents?
 	int live_landspawns; // are landspawns enabled
 	int live_moonlight; //is moonlight enabled?
+	float live_oceanpercent; //what is the setting for the percentage of water in the world?
 	int live_droughts; //are droughts and overgrowth periods enabled?
 	float live_droughtmult; //value of the drought modifier
 	int live_mutevents; //are variable rate mutation events enabled?
+	int live_cursormode; //what mode are we on with the cursor? 0= select mode, 1= place mode
 	int live_debug; //are we debugging?
 
 	//not live variables, but pretty closely related
@@ -165,6 +184,7 @@ private:
 	GLUI_FileBrowser * Browser;
 	std::string file_name;
 	GLUI * Loader;
+	GLUI_Button * LoadAgentButton;
 	GLUI * Saver;
 	GLUI * Alert;
 	GLUI_EditText * Filename;
@@ -181,6 +201,8 @@ private:
 	int wHeight; //window width and height, to reduce glutGet calls
 	
 	float scalemult; //the viewer's scale factor (larger values are closer zoom)
+	//REF: scalemult= 5.0 is VERY zoomed in, 1= every detail should be visible, 0.0859= current default zoom, 0.03= minimum scale
+	//many details stop rendering at scale= .3
 	float xtranslate, ytranslate; //the viewer's x and y position
 	int downb[3]; //the three buttons and their states
 	int mousex, mousey;
@@ -188,6 +210,7 @@ private:
 	bool uiclicked; //was the ui clicked recently? used to disable drag fuctions if inital click was on UI
 
 	int ui_layerpreset; //user can select a preset of layer displays using this
+	int ui_sadmode; //what rendering mode are we using for the Selected Agent Display? 0= off (text only), 1= normal agent view, 2= damage pie chart
 	bool ui_movetiles; //are we allowing tiles to be moved?
 	std::vector<UIElement> maintiles; //list of interactive tile buttons! WIP
 };

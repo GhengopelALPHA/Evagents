@@ -120,7 +120,8 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 //	fprintf(file, "indicator= %f\n", a->indicator);
 //	fprintf(file, "ir= %f\nig= %f\nib= %f\n", a->ir, a->ig, a->ib);
 //	fprintf(file, "give= %f\n", a->give);
-	fprintf(file, "mutrate1= %f\nmutrate2= %f\n", a->MUTRATE1, a->MUTRATE2);
+	fprintf(file, "mutchance= %f\nmutsize= %f\n", a->MUTCHANCE, a->MUTSIZE);
+	fprintf(file, "parentid= %i\n", a->parentid);
 	fprintf(file, "freshkill= %i\n", a->freshkill);
 	fprintf(file, "strength= %f\n", a->strength);
 	fprintf(file, "<b>\n"); //signals the writing of the brain (more for organization than proper loading)
@@ -159,7 +160,7 @@ void ReadWrite::loadAgents(World *world, FILE *file, bool loadexact)
 	char dataval[16];
 	int mode= 2;//loading mode: -1= off, 0= world, 1= cell, 2= agent, 3= box, 4= connection, 5= eyes, 6= ears
 
-	Agent xa(world->BRAINSIZE, world->MEANRADIUS, world->REP_PER_BABY, world->MUTCHANCE, world->MUTSIZE); //mock agent. gets moved and deleted after loading
+	Agent xa(world->BRAINSIZE, world->MEANRADIUS, world->REP_PER_BABY, world->DEFAULT_MUTCHANCE, world->DEFAULT_MUTSIZE); //mock agent. gets moved and deleted after loading
 	bool t2= false; //triggers for keeping track of where exactly we are
 
 	int eyenum= -1; //counters
@@ -179,7 +180,7 @@ void ReadWrite::loadAgents(World *world, FILE *file, bool loadexact)
 			if(strcmp(var, "</a>")==0){
 				//end agent tag is checked for, and when found, copies agent xa to the world
 				if(loadexact) world->addAgent(xa);
-//				else world->loadedagent= xa; //if we are loading a single agent, push it to buffer
+				else world->loadedagent= xa; //if we are loading a single agent, push it to buffer
 
 			}else if(strcmp(var, "posx=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
@@ -284,12 +285,15 @@ void ReadWrite::loadAgents(World *world, FILE *file, bool loadexact)
 			}else if(strcmp(var, "lungs=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.lungs= f;
-			}else if(strcmp(var, "mutrate1=")==0){
+			}else if(strcmp(var, "mutchance=")==0 || strcmp(var, "mutrate1=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.MUTRATE1= f;
-			}else if(strcmp(var, "mutrate2=")==0){
+				xa.MUTCHANCE= f;
+			}else if(strcmp(var, "mutsize=")==0 || strcmp(var, "mutrate2=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.MUTRATE2= f;
+				xa.MUTSIZE= f;
+			}else if(strcmp(var, "parentid=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.parentid= i;
 			}else if(strcmp(var, "freshkill=")==0 && loadexact){
 				sscanf(dataval, "%i", &i);
 				xa.freshkill= i;
@@ -384,15 +388,18 @@ void ReadWrite::loadAgents(World *world, FILE *file, bool loadexact)
 }
 
 
-/*void ReadWrite::loadAgentFile(World *world, const char *address)
+void ReadWrite::loadAgentFile(World *world, const char *address)
 {
 	//Some Notes: When this method is called, it's assumed that address is not blank or null
-	strcat(address,".AGT");
+//	strcat(address,".AGT");
 
 	FILE* fl = fopen(address, "r");
 	if(fl){
 		loadAgents(world, fl, false);
-*/
+	}
+	fclose(fl);
+}
+
 
 void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *filename)
 {
@@ -424,6 +431,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 	fprintf(fs,"CELLSIZE= %i\n", conf::CZ); //these saved values up till now are mostly for version control for now
 	//save settings which have GUI controls
 	fprintf(fs,"MOONLIT= %i\n", world->MOONLIT);
+	fprintf(fs,"MOONLIGHTMULT= %f\n", world->MOONLIGHTMULT);
 	fprintf(fs,"DROUGHTS= %i\n", world->DROUGHTS);
 	fprintf(fs,"DROUGHTMULT= %f\n", world->DROUGHTMULT);
 	fprintf(fs,"MUTEVENTS= %i\n", world->MUTEVENTS);
@@ -463,60 +471,66 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 	fclose(fs);
 
 
-	//now copy over report.txt logs
-	char line[1028], *pos;
+	//now copy over report.txt logs if demo mode was disabled
+	if(!world->isDemo()){
+		char line[1028], *pos;
 
-	//first, check if the last epoch in the saved report matches or is one less than the first one in the current report
-	FILE* fr = fopen("report.txt", "r"); 
-	FILE* ft = fopen(addressREP, "r"); 
-	bool append= false;
-	char text[8]; //for checking
-	int epoch= 0;
-	int maxepoch= 0;
+		//first, check if the last epoch in the saved report matches or is one less than the first one in the current report
+		FILE* fr = fopen("report.txt", "r"); 
+		FILE* ft = fopen(addressREP, "r"); 
+		bool append= false;
+		char text[8]; //for checking
+		int epoch= 0;
+		int maxepoch= 0;
 
-	if(ft){
-		while(!feof(ft)){
-			fgets(line, sizeof(line), ft);
-			pos= strtok(line,"\n");
-			sscanf(line, "%s%i%*s", &text, &epoch);
-			if (strcmp(text, "Epoch:")==0) {
-				if (epoch>maxepoch) maxepoch= epoch;
+		if(ft){
+			while(!feof(ft)){
+				fgets(line, sizeof(line), ft);
+				pos= strtok(line,"\n");
+				sscanf(line, "%s%i%*s", &text, &epoch);
+				if (strcmp(text, "Epoch:")==0) {
+					if (epoch>maxepoch) maxepoch= epoch;
+				}
 			}
-		}
-		fclose(ft);
+			fclose(ft);
 
-		if(world->isDebug()) printf("Old report.txt found, and its last epoch was %i.\n", maxepoch);
+			if(world->isDebug()) printf("Old report.txt found, and its last epoch was %i.\n", maxepoch);
+			
+			//now compare the max epoch from original with the first entry of the new
+			if(fr){
+				fgets(line, sizeof(line), fr);
+				pos= strtok(line,"\n");
+				sscanf(line, "%s%i%*s", &text, &epoch);
+				if (strcmp(text, "Epoch:")==0) {
+					//if it is, we append, because this is (very likely) a continuation of that save
+					if(world->isDebug())printf("Our report.txt starts at epoch %i. ", epoch);
+					if (epoch==maxepoch || epoch==maxepoch+1){
+						append= true;
+						printf("Old report.txt found with matching Epoch numbers. Apending to it.\n");
+					} else printf("Old report.txt found. Replacing it.\n");
+				}
+				rewind(fr);
+			}
+			//otherwise, we overwrite!
+		} else {
+			printf("No old report.txt found. Continuing normally.\n");
+		}
 		
-		//now compare the max epoch from original with the first entry of the new
+		ft = append ? fopen(addressREP, "a") : fopen(addressREP, "w");
 		if(fr){
-			fgets(line, sizeof(line), fr);
-			pos= strtok(line,"\n");
-			sscanf(line, "%s%i%*s", &text, &epoch);
-			if (strcmp(text, "Epoch:")==0) {
-				//if it is, we append, because this is (very likely) a continuation of that save
-				if(world->isDebug())printf("Our report.txt starts at epoch %i. ", epoch);
-				if (epoch==maxepoch || epoch==maxepoch+1){
-					append= true;
-				} else printf("Old report.txt found. Replacing it.\n");
+			if(world->isDebug()) printf("Copying report.txt to save file\n");
+			while(!feof(fr)){
+				fgets(line, sizeof(line), fr);
+				fprintf(ft, line);
 			}
-			rewind(fr);
+		} else {
+			printf("report.txt didn\'t exist. That\'s... odd...\n");
 		}
-		//otherwise, we overwrite!
-	} else {
-		if(world->isDebug()) printf("No old report.txt found. Continuing\n");
-	}
-	
-	ft = append ? fopen(addressREP, "a") : fopen(addressREP, "w");
-	if(fr){
-		if(world->isDebug()) printf("Copying report.txt to save file\n");
-		while(!feof(fr)){
-			fgets(line, sizeof(line), fr);
-			fprintf(ft, line);
-		}
-	} else {
-		printf("report.txt didn\'t exist. That\'s... odd...\n");
-	}
-	fclose(fr); fclose(ft);
+		fclose(fr); fclose(ft);
+	} else printf("Demo mode was active; no report data was ready\n");
+
+	//once we've saved, and checked if demo mode was active, we set it to false to make sure we start recording
+	world->setDemo(false);
 	
 	printf("World Saved!\n");
 }
@@ -548,6 +562,8 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 		printf("file '%s' exists! loading.\n", address);
 		//real quick: don't keep user control active from last world
 		world->pcontrol= false;
+		//also disable demo mode
+		world->setDemo(false);
 
 		while(!feof(fl)){
 			fgets(line, sizeof(line), fl);
@@ -618,6 +634,9 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					sscanf(dataval, "%i", &i);
 					if(i==1) world->MOONLIT= true;
 					else world->MOONLIT= false;
+				}else if(strcmp(var, "MOONLIGHTMULT=")==0){
+					sscanf(dataval, "%f", &f);
+					world->MOONLIGHTMULT= f;
 				}else if(strcmp(var, "DROUGHTS=")==0){
 					sscanf(dataval, "%i", &i);
 					if(i>=1) world->DROUGHTS= true;

@@ -69,4 +69,23 @@ inline float pointline(Vector2f posA, Vector2f posB, Vector2f posC){
 	float normalLength=(posA-posB).length();
 	return fabs((posC.x-posA.x)*(posB.y-posA.y) - (posC.y-posA.y)*(posB.x-posA.x))/normalLength;
 }
+
+
+//Passed arrays store different data types
+template <typename T, typename U, int size1, int size2>
+inline bool matchArrays(T (&arr1)[size1], U (&arr2)[size2] ){
+    return false;
+}
+
+//Passed arrays store SAME data types
+template <typename T, int size1, int size2>
+inline bool matchArrays(T (&arr1)[size1], T (&arr2)[size2] ){
+    if(size1 == size2) {
+        for(int i = 0 ; i < size1; ++i){
+            if(arr1[i] != arr2[i]) return false;
+        }
+        return true;
+    }
+    return false;
+}
 #endif

@@ -12,6 +12,7 @@ class DRAWSBox {
 public:
 
     DRAWSBox(int maxid);
+	DRAWSBox();
 
     std::vector<float> w; //weight of each connecting box
     std::vector<int> id; //id in boxes[] of the connecting box
@@ -37,6 +38,7 @@ public:
 
     std::vector<DRAWSBox> boxes;
 
+	DRAWSBrain();
     DRAWSBrain(int numboxes);
     DRAWSBrain(const DRAWSBrain &other);
     virtual DRAWSBrain& operator=(const DRAWSBrain& other);

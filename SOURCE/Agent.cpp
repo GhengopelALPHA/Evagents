@@ -1,6 +1,5 @@
 #include "Agent.h"
 
-#include "settings.h"
 #include "helpers.h"
 #include <stdio.h>
 
@@ -14,8 +13,9 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	angle= randf(-M_PI,M_PI);
 
 	//genes
-	MUTRATE1= abs(MUTARATE1+randf(-conf::METAMUTRATE1,conf::METAMUTRATE1)*50); //chance of mutations.
-	MUTRATE2= abs(MUTARATE2+randf(-conf::METAMUTRATE2,conf::METAMUTRATE2)*50); //size of mutations
+	MUTCHANCE= abs(MUTARATE1+randf(-conf::META_MUTCHANCE,conf::META_MUTCHANCE)*10); //chance of mutations.
+	MUTSIZE= abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10); //size of mutations
+	parentid= 0;
 	radius= randf(MEANRADIUS*0.2,MEANRADIUS*2.2);
 	numbabies= randi(1,6);
 	gene_red= randf(0,1);
@@ -25,7 +25,7 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	lungs= randf(0,1);
 	metabolism= randf(0.25,0.75);
 	temperature_preference= cap(randn(2.0*abs(pos.y/conf::HEIGHT - 0.5),0.05));
-	species= randi(-conf::NUMBOTS*200,conf::NUMBOTS*200); //related to numbots because it's a good relationship
+	species= randi(-conf::AGENTS_MIN_NOTCLOSED*200,conf::AGENTS_MIN_NOTCLOSED*200); //related to AGENTS_MIN_NOTCLOSED because it's a good relationship
 	sexprojectbias= randf(-1,1);
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) stomach[i]= 0;
 	float budget= 1.5; //
@@ -42,7 +42,7 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	eyefov.resize(NUMEYES, 0);
 	eyedir.resize(NUMEYES, 0);
 	for(int i=0;i<NUMEYES;i++) {
-		eyefov[i] = randf(0.01, 1.5);
+		eyefov[i] = randf(0.001, 1.25);
 		eyedir[i] = randf(0, 2*M_PI);
 	}
 
@@ -73,6 +73,8 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	in.resize(Input::INPUT_SIZE, 0);
 	out.resize(Output::OUTPUT_SIZE, 0);
 	brainmutations= 0;
+	mutations.clear();
+	damages.clear();
 
 
 	//triggers, counters, and stats
@@ -102,7 +104,7 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	give= 0;
 	spikeLength= 0;
 	jawPosition= 0;
-	jawOldPos= 0;
+	jawOldOutput= 0;
 	grabID= -1;
 	grabbing= 0;
 	grabangle= 0;
@@ -124,6 +126,16 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	dhealth= 0;
 }
 
+Agent::Agent(){
+}
+
+/*Agent& Agent::operator=(const Agent& other)
+{
+	if( this != &other )
+		this
+	return *this;
+}*/
+
 //void Agent::exhibitGenes()
 //{
 	//for every gene in our genelist, we calculate our agent's stats and traits
@@ -139,7 +151,8 @@ void Agent::printSelf()
 	printf("AGENT, ID: %i\n", id);
 	printf("pos & angle: (%f,%f), %f\n", pos.x, pos.y, angle);
 	printf("health, age, & gencount: %f, %.1f, %i\n", health, (float)age/10, gencount);
-	printf("MUTRATE1: %f, MUTRATE2: %f\n", MUTRATE1, MUTRATE2);
+	printf("MUTCHANCE: %f, MUTSIZE: %f\n", MUTCHANCE, MUTSIZE);
+	printf("parent ID: &i\n", parentid);
 	printf("radius: %f\n", radius);
 	printf("strength: %f\n", strength);
 	printf("camo: %f\n", chamovid);
@@ -233,8 +246,13 @@ void Agent::printSelf()
 	printf("give health gfx magnitude, pos: %f, (%f,%f)\n", dhealth, dhealthx, dhealthy);
 	printf("grab gfx pos: (%f,%f)\n", grabx, graby);
 	printf("jaw gfx counter: %f\n", jawrend); //render counter for jaw. Past ~10 ticks of no jaw action, it is "retracted" visually
-	for (int i=0; i<(int)mutations.size(); i++) {
-		cout << mutations[i];
+	printf("mutations:\n");
+		for (int i=0; i<(int)mutations.size(); i++) {
+		cout << mutations[i] << endl;
+	}
+	printf("damages:\n");
+	for (int i=0; i<(int)damages.size(); i++) {
+		cout << damages[i].first << ": " << damages[i].second << endl;
 	}
 	printf("~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 }
@@ -305,7 +323,7 @@ void Agent::traceBack(int outback)
 
 void Agent::initSplash(float size, float r, float g, float b)
 {
-	indicator=min(size,conf::MAXSPLASHSIZE);
+	indicator=min(size,conf::RENDER_MAXSPLASHSIZE);
 	ir=r;
 	ig=g;
 	ib=b;
@@ -334,8 +352,8 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 {
 	//moved muterate gets into reproduce because thats where its needed and used, no reason to go through world
 	//choose a value of our agent's mutation and their saved mutation value, can be anywhere between the parents'
-	float MR= randf(min(this->MUTRATE1,that.MUTRATE1),max(this->MUTRATE1,that.MUTRATE1));
-	float MR2= randf(min(this->MUTRATE2,that.MUTRATE2),max(this->MUTRATE2,that.MUTRATE2));
+	float MR= randf(min(this->MUTCHANCE,that.MUTCHANCE),max(this->MUTCHANCE,that.MUTCHANCE));
+	float MR2= randf(min(this->MUTSIZE,that.MUTSIZE),max(this->MUTSIZE,that.MUTSIZE));
 
 	//create baby. Note that if the bot selects itself to mate with, this function acts also as assexual reproduction
 	//NOTES: Agent "this" is mother, Agent "that" is father, Agent "a2" is daughter
@@ -365,8 +383,9 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	a2.gene_blu= randf(0,1)<0.5 ? this->gene_blu : that.gene_blu;
 	a2.sexprojectbias= randf(0,1)<0.5 ? this->sexprojectbias : that.sexprojectbias;
 
-	a2.MUTRATE1= randf(0,1)<0.5 ? this->MUTRATE1 : that.MUTRATE1;
-	a2.MUTRATE2= randf(0,1)<0.5 ? this->MUTRATE2 : that.MUTRATE2;
+	a2.MUTCHANCE= randf(0,1)<0.5 ? this->MUTCHANCE : that.MUTCHANCE;
+	a2.MUTSIZE= randf(0,1)<0.5 ? this->MUTSIZE : that.MUTSIZE;
+	a2.parentid= this->id; //parent ID is strictly inherited from mothers
 	a2.clockf1= randf(0,1)<0.5 ? this->clockf1 : that.clockf1;
 	a2.clockf2= randf(0,1)<0.5 ? this->clockf2 : that.clockf2;
 
@@ -394,7 +413,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	if (randf(0,1)<MR) a2.metabolism= cap(randn(a2.metabolism, MR2*3));
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*4) a2.stomach[i]= cap(randn(a2.stomach[i], MR2*7)); //*10 was a bit much
 	if (randf(0,1)<MR*20) a2.species+= (int) (randn(0, MR2*120));
-	if (randf(0,1)<MR*5) a2.radius= randn(a2.radius, MR2*10);
+	if (randf(0,1)<MR*10) a2.radius= randn(a2.radius, MR2*15);
 	if (a2.radius<1) a2.radius= 1;
 	if (randf(0,1)<MR*2) a2.strength= cap(randn(a2.strength, MR2));
 	if (randf(0,1)<MR) a2.chamovid= cap(randn(a2.chamovid, MR2/2));
@@ -403,8 +422,8 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	if (randf(0,1)<MR*2) a2.gene_blu= cap(randn(a2.gene_blu, MR2));
 	if (randf(0,1)<MR/2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2/2), -1.0, 1.0);
 
-	if (randf(0,1)<MR) a2.MUTRATE1= abs(randn(a2.MUTRATE1, conf::METAMUTRATE1));
-	if (randf(0,1)<MR) a2.MUTRATE2= abs(randn(a2.MUTRATE2, conf::METAMUTRATE2));
+	if (randf(0,1)<MR) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTCHANCE));
+	if (randf(0,1)<MR) a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
 	//we dont really want mutrates to get to zero; thats too stable. so take absolute randn instead.
 
 	if (randf(0,1)<MR) a2.clockf1= randn(a2.clockf1, MR2);
@@ -465,7 +484,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	a2.brain= this->brain.crossover(that.brain);
 	a2.brain.initMutate(MR,MR2);
 
-	a2.initSplash(conf::MAXSPLASHSIZE*0.5,0.8,0.8,0.8); //grey event means we were just born! Welcome!
+	a2.initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0.8,0.8,0.8); //grey event means we were just born! Welcome!
 	
 	return a2;
 
@@ -477,20 +496,22 @@ void Agent::resetRepCounter(float MEANRADIUS, float REP_PER_BABY)
 	this->repcounter= this->maxrepcounter;
 }
 
-void Agent::liveMutate()//float MR, float MR2)
+void Agent::liveMutate()
 {
-	initSplash(conf::MAXSPLASHSIZE*0.5,0.5,0,1.0);
+	initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0.5,0,1.0);
 	
-	float MR= this->MUTRATE1;
-	float MR2= this->MUTRATE2;
-	this->brain.liveMutate(MR, MR2, this->out);
+	float MR= this->MUTCHANCE;
+	float MR2= this->MUTSIZE;
+	for(int i= 0; i<5; i++){
+		this->brain.liveMutate(MR, MR2, this->out);
+	}
 
 	//change other mutable traits here
 	if (randf(0,1)<MR) this->metabolism= cap(randn(this->metabolism, MR2/5));
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*2) this->stomach[i]= cap(randn(this->stomach[i], MR2*2));
 	//METAMUTERATE used for chance because this is supposed to represent background mutation chances
-	if (randf(0,1)<conf::METAMUTRATE1/10) this->MUTRATE1= abs(randn(this->MUTRATE1, conf::METAMUTRATE1*25));
-	if (randf(0,1)<conf::METAMUTRATE1/10) this->MUTRATE2= abs(randn(this->MUTRATE2, conf::METAMUTRATE2*100));
+	if (randf(0,1)<conf::META_MUTCHANCE/10) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTCHANCE*25));
+	if (randf(0,1)<conf::META_MUTCHANCE/10) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE*100));
 	if (randf(0,1)<MR) this->clockf1= randn(this->clockf1, MR2/2);
 	if (this->clockf1<2) this->clockf1= 2;
 	if (randf(0,1)<MR) this->clockf2= randn(this->clockf2, MR2/2);
@@ -561,19 +582,19 @@ bool Agent::isFrugivore() const
 
 bool Agent::isTerrestrial() const
 {
-	if (lungs>0.5) return true;
+	if (lungs>Elevation::BEACH_MID+0.05) return true;
 	return false;
 }
 
 bool Agent::isAmphibious() const
 {
-	if (lungs>0.25 && lungs<=0.5) return true;
+	if (lungs>0.5*(Elevation::BEACH_MID+Elevation::SHALLOWWATER) && lungs<=Elevation::BEACH_MID+0.05) return true;
 	return false;
 }
 
 bool Agent::isAquatic() const
 {
-	if (lungs<=0.25) return true;
+	if (lungs<=0.5*(Elevation::BEACH_MID+Elevation::SHALLOWWATER)) return true;
 	return false;
 }
 
@@ -635,7 +656,7 @@ void Agent::addDamage(std::string sourcetext, float amount)
 {
 	//this method now handles subtraction of health as well as checking if the agent died
 	#pragma omp critical //protect us from ourselves... collapse any threads for 
-	if(amount!=0){
+	if(amount>0){
 		this->health-= amount;
 
 		//we are going to interate through the list of injury causes, and if we've been injured before, add to the amount
@@ -674,4 +695,32 @@ std::pair<std::string, float> Agent::getMostDamage() const
 	}
 	std::pair<std::string, float> temppair= std::make_pair(text, max);
 	return temppair;
+}
+
+void Agent::addIntake(const char * sourcetext, float amount)
+{
+	std::string newtext= std::string(sourcetext);
+	addIntake(newtext, amount);
+}
+
+void Agent::addIntake(std::string sourcetext, float amount)
+{
+	//this method ONLY adds the amount of food taken from world cells
+	#pragma omp critical //protect us from ourselves... collapse any threads for 
+	if(amount>0){
+		//we are going to interate through the list of intake sources, and if we've taken it before, add to the amount
+		bool added= false;
+		for(int i=0; i<this->intakes.size(); i++){
+			if(this->intakes[i].first.compare(sourcetext)==0){
+				this->intakes[i].second+= amount;
+				added= true;
+				break;
+			}
+		}
+
+		if(!added){ //if we checked the list and didn't find the injury cause, add it as a new one
+			std::pair<std::string, float> temppair= std::make_pair(sourcetext, amount);
+			this->intakes.push_back(temppair);
+		}
+	}
 }

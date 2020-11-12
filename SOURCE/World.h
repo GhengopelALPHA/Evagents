@@ -20,6 +20,10 @@ public:
 	bool dosounds; //are we currently allowed to start new sounds?
 	void setAudioEngine(ISoundEngine* a);
 	void tryPlayAudio(const char* soundFileName, float x= 0, float y= 0, float pitch= 1.0, float volume= 1.0);
+	bool dosongs; //are we allowed to start new music?
+	int last5songs[5]; //tracker for last 5 songs based on index that we played, to prevent recent repeats
+	ISound* currentsong;
+	int timenewsong; //timer. Gets set when a song ends, and when it hits 0, a new song starts
     
 	void init();
 	void readConfig();
@@ -38,6 +42,9 @@ public:
 	bool isDrought() const;
 	bool isOvergrowth() const;
 
+	bool isDemo() const;
+	void setDemo(bool state);
+
 	//debug stuff
 	bool isDebug() const;
 	void setDebug(bool state);
@@ -45,7 +52,7 @@ public:
 	std::vector<Vector2f> linesB;
 
 	//following and selected agent stuff
-	int getSelection() const;
+	int getSelectedID() const;
 
 	float pleft;
 	float pright;
@@ -56,7 +63,7 @@ public:
 	bool setSelectionRelative(int posneg);
 	void setSelectedAgent(int idx = -1);
 	int getSelectedAgent() const;
-	int getClosestRelative(int idx = -1) const;
+	int getClosestRelative(int idx = -1);
 	void selectedHeal();
 	void selectedKill();
 	void selectedBabys();
@@ -96,7 +103,7 @@ public:
 
 	//the agents!
 	std::vector<Agent> agents;
-//	Agent loadedagent;
+	Agent loadedagent;
 
 	void setInputs();
 	void brainsTick();  //takes in[] to out[] for every agent
@@ -106,7 +113,7 @@ public:
 	void healthTick();
 
 	void addAgent(Agent &agent);
-	void addLoadedAgent(float x, float y);
+	bool addLoadedAgent(float x, float y);
 	void addAgents(int num, int set_stomach=-1, bool set_lungs=true, float nx=-1, float ny=-1);
 
 	std::vector<std::string> deaths; //record of all the causes of death this epoch
@@ -126,7 +133,7 @@ public:
 	int getLungWater() const;
     int getAgents() const;
 	int getHybrids() const;
-	int getSpiked() const;
+	int getSpiky() const;
 	int getAlive() const;
 	int getDead() const;
 	int getMutations();
@@ -149,16 +156,20 @@ public:
 
 
 	//reloadable "constants"
-	int MINFOOD;
-	float INITFOODDENSITY;
-	int INITFOOD;
+	int MIN_PLANT;
+	float INITPLANTDENSITY;
+	int INITPLANT;
 	float INITFRUITDENSITY;
 	int INITFRUIT;
+	float INITMEATDENSITY;
+	int INITMEAT;
+	float INITHAZARDDENSITY;
+	int INITHAZARD;
 
-	int NUMBOTS;
-	int ENOUGHBOTS;
-	int NOTENOUGHFREQ;
-	int TOOMANYBOTS;
+	int AGENTS_MIN_NOTCLOSED;
+	int AGENTS_MAX_SPAWN;
+	int AGENTSPAWN_FREQ;
+	int AGENTS_MAX_NOOXYGEN;
 
 	int REPORTS_PER_EPOCH;
 	int FRAMES_PER_EPOCH;
@@ -166,8 +177,10 @@ public:
 
 	int CONTINENTS;
 	float OCEANPERCENT;
+	bool SPAWN_LAKES;
 	bool DISABLE_LAND_SPAWN;
 	bool MOONLIT;
+	float MOONLIGHTMULT; //saved multiplier of the desired moonlight mult
 	bool DROUGHTS;
 	float DROUGHTMULT; //saved multiplier of the current epoch drought/overgrowth state
 	float DROUGHT_MIN;
@@ -201,8 +214,8 @@ public:
 	float OVERHEAL_REPFILL;
 //	float LEARNRATE;
 	float MAXDEVIATION;
-	float MUTCHANCE;
-	float MUTSIZE;
+	float DEFAULT_MUTCHANCE;
+	float DEFAULT_MUTSIZE;
 	float LIVE_MUTATE_CHANCE;
 	int MAXAGE;
 	int MAXWASTEFREQ;
@@ -268,11 +281,11 @@ private:
 	std::vector<std::string> tips;//list of tips to display every once in a while (more frequently at epoch=0)
 
     bool CLOSED; //if environment is closed, then no random bots or food are added per time interval
+	bool NO_TIPS; //if the config value is set true, no tips will be displayed
+	bool DEMO; //if demo mode active, we don't save report until it gets turned off, which happens automatically at Epoch 1. Also settings.cfg-controllable
 	bool DEBUG; //if debugging, collect additional data, print more feedback, and draw extra info
-	bool NOTIPS; //if the config value is set true, no tips will be displayed
 	bool AUTOSELECT; //if autoselecting, the agent which we are newly following gets selected
 	int SELECTION; //id of selected agent
-	int EXTREMOPHILE; //type of extremophile currently being seeked (see settings.h)
 
 	//Stats and acheivements
 	int STATherbivores; //count of the different stomach types
@@ -284,7 +297,7 @@ private:
 	int STATalive; //count of alive, not total
 	int STATdead; //count of dead agents
 	int STATlivemutations; //count of live mutations occured
-	int STATspiked; //count of spikey agents
+	int STATspiky; //count of spikey agents
 	int STAThybrids; //count of hybrid (sexually produced) babies
 	int STATbestherbi; //best generation of the different stomach types and land types
 	int STATbestfrugi;
@@ -293,7 +306,7 @@ private:
 	int STATbestamphibious;
 	int STATbestaquatic;
 	int STATbesthybrid; //best gen hybrid
-	int STATplants; //count of plant cells over 75%
+	int STATplants; //count of plant cells over 50%
 	int STATfruits; //count of fruit cells over 50%
 	int STATmeats; //count of meat cells over 50%
 	int STAThazards; //count of hazard cells over 50%
@@ -305,7 +318,7 @@ private:
 
 	bool STATuseracted; //true if the user took control of an agent
 	bool STATfirstspecies; //true if we have had at least one agent with a generation =5 during a report
-	bool STATfirstpopulation; //true if we had a population count of > ENOUGHBOTS
+	bool STATfirstpopulation; //true if we had a population count of > AGENTS_MAX_SPAWN
 	bool STATfirstglobal; //true if we had max gens >= 5 for terran and aquatic
 	bool STATstrongspecies; //true if we had a max gen count of > 500
 	bool STATstrongspecies2; //true if we had a max gen count of > 1000
