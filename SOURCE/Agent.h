@@ -130,7 +130,7 @@ public:
 	Agent reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY);
 	void resetRepCounter(float MEANRADIUS, float REP_PER_BABY);
 
-	void liveMutate();//float METAMR, float METAMR2);
+	void liveMutate(int MUTMULT= 1);
 
 	//random agent creation tweakers
 	void setHerbivore();

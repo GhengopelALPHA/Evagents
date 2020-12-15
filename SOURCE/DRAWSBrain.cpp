@@ -23,9 +23,9 @@ DRAWSBox::DRAWSBox(int maxid)
 	}
 
 	seed= 0;
-	kp= cap(abs(randn(1.0,0.5)));
+	kp= randf(0,1);
 	gw= randf(-2,2);
-	bias= randf(-2,2);
+	bias= randf(-5,5);
 
 	out= 0;
 	oldout= 0;
@@ -79,8 +79,8 @@ void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 				int type = abox->type[k];
 				float val= boxes[idx].out;
 
-				if(type==2){ //switch conn. If its own value is >0.5, it freezes all later inputs to the box and finalizes sum, otherwise it's skipped
-					if(val>0.5){
+				if(type==2){ //switch conn. If the input*w is >0.5, it freezes all later inputs to the box and finalizes sum, otherwise it's skipped
+					if(val*abox->w[k]>0.5){
 						break;
 						continue;
 					}
@@ -90,7 +90,7 @@ void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 				if(type==1){ //change sensitive conn compares to old value, and gets magnified by *10 (arbitrary)
 					//we do this AFTER type==2 because switch conn just checks the normal val
 					val-= boxes[idx].oldout;
-					val*=10;
+					val*=100;
 				}
 
 				//multiply by weight and add to the accumulation
@@ -124,7 +124,7 @@ void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 		//jump has different responce because we've made it into a change sensitive output
 		int sourcebox= boxes.size()-1-j;
 
-		if (j==Output::JUMP) out[j]= cap(10*(boxes[sourcebox].out-boxes[sourcebox].oldout));
+		if (j==Output::JUMP) out[j]= cap(100*(boxes[sourcebox].out-boxes[sourcebox].oldout));
 		else out[j]= boxes[sourcebox].out;
 	}
 }
@@ -408,7 +408,7 @@ std::vector<int> DRAWSBrain::traceBack(int outback)
 			if (std::binary_search (diddos.begin(), diddos.end(), boxes[nowtrace].id[k])) continue;
 			
 			//check if the connection is strong enough to count
-			if(fabs(boxes[nowtrace].w[k])>tries*conf::BRAIN_TRACESTRENGTH) {//'tries' comes in to enforce getting the intended overall trace strength
+			if(fabs(boxes[nowtrace].w[k])>conf::BRAIN_TRACESTRENGTH) {
 				
 				//next, see if it references an input.
 				if(boxes[nowtrace].id[k]<Input::INPUT_SIZE) {

@@ -1,0 +1,123 @@
+settings.cfg
+This file will be regenerated with default values if missing (regeneration is not necessary for the program to work)
+Modify any value in this file to change constants in Evagents.
+All changes will require a reset or relaunch to take effect
+
+Any lines that the program can't recognize are silently ignored, and anything that is changed is reported by the program.
+Please note the sim only takes the last entry of a flag's value if there are duplicates. Also, can you find the hidden config flags?...
+
+Remember to RIGHT-CLICK and select LOAD CONFIG, or relaunch the program after modification!!!
+
+V= 0.050000 			//Version number this file was created in. If different than program's, will ask user to exit, or it will overwrite.
+
+NO_TIPS= 1 			//if true (=1), prevents tips from being displayed. This value is whatever was set in program when this file was saved
+NO_DEMO= 1 			//if true (=1), this will prevent demo mode from running at start. Default= 1 when writing a new config
+SPAWN_LAKES= 1 			//if true (=1), and if terrain generation forms too much or too little land, the generator takes a moment to put in lakes (or islands)
+DISABLE_LAND_SPAWN= 1 		//true-false flag for disabling agents from spawning on land. 0= land spawn allowed, 1= not allowed. Is GUI-controllable. This value is whatever was set in program when this file was saved
+MOONLIT= 0 			//true-false flag for letting agents see other agents at night. 0= no eyesight, 1= see agents at half light. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved
+MOONLIGHTMULT= 0.100000 		//the amount of minimum light MOONLIT provides. If set to 1, daylight cycles are not processed at all and the world becomes bathed in eternal sunlight. 0.25 default
+DROUGHTS= 1 			//true-false flag for if the drought/overgrowth mechanic is enabled. 0= constant normal growth, 1= variable. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved
+DROUGHT_MIN= 0.600000 		//minimum multiplier value of droughts, below which it gets pushed back toward 1.0
+DROUGHT_MAX= 1.400000 		//maximum multiplier value of droughts (overgrowth), above which it gets pushed back toward 1.0
+MUTEVENTS= 1 			//true-false flag for if the mutation event mechanic is enabled. 0= constant mutation rates, 1= variable. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved
+MUTEVENT_MAX= 3 		//integer max possible multiplier for mutation event mechanic. =1 effectively disables. =0 enables 50% chance of no live mutations epoch. Negative values increase this chance (-1 => 66%, -2 => 75%, etc), thereby decreasing the chance of any live mutation epochs at all. Useful if you want to increase base mutation rates.
+
+MINFOOD= 2000 			//Minimum number of food cells which must have food during simulation. 0= off
+INITFOODDENSITY= 0.800000 	//initial density of full food cells. Is a decimal percentage of the world cells. Use 'INITFOOD= #' to set a number
+//INITFOOD= 0 			//remove '//' from before the flag to enable, overrides INITFOODDENSITY, is a raw # of cells which must have food at init
+INITFRUITDENSITY= 0.400000 	//initial density of full fruit cells. Is a decimal percentage of the world cells.
+//INITFRUIT= 0 			//remove '//' from before the flag to enable, overrides INITFRUITDENSITY, is a raw # of cells which must have fruit at init
+INITMEATDENSITY= 0.001000 	//initial density of full meat cells. Is a decimal percentage of the world cells. Use 'INITMEAT= #' to set a number
+//INITMEAT= 0 			//remove '//' from before the flag to enable, overrides INITMEATDENSITY, is a raw # of cells which must have meat at init
+INITHAZARDDENSITY= 0.003000 	//initial density of full hazard cells. Is a decimal percentage of the world cells.
+//INITHAZARD= 0 		//remove '//' from before the flag to enable, overrides INITHAZARDDENSITY, is a raw # of cells which must have hazard at init
+AGENTS_MIN_NOTCLOSED= 50 	//minimum number of agents. Random agents will get spawned in until this number is reached.
+AGENTS_MAX_SPAWN= 400 		//if more agents than this number exist (live agents), random spawns no longer occur
+AGENTSPAWN_FREQ= 75 		//how often does a random agent get spawned while below ENOUGHAGENTS? Higher values are less frequent
+AGENTS_MAX_NOOXYGEN= 2500 	//number of agents at which the full HEALTHLOSS_NOOXYGEN is applied
+
+REPORTS_PER_EPOCH= 200 		//number of times to record data per epoch. 0 for off
+FRAMES_PER_EPOCH= 200000 	//number of frames before epoch is incremented by 1
+FRAMES_PER_DAY= 4000 		//number of frames it takes for the daylight cycle to go completely around the map
+
+CONTINENTS= 2 			//number of 'continents' generated on the land layer. Not guaranteed to be accurate
+OCEANPERCENT= 0.600000 		//decimal ratio of terrain layer which will be ocean. Approximately
+GRAVITYACCEL= 0.010000 		//how fast an agent will 'fall' after jumping. 0= jump disabled, 0.1+ = super-gravity
+BUMP_PRESSURE= 0.100000 	//the restoring force between two colliding agents. 0= no reaction (disables TOOCLOSE and all collisions). I'd avoid negative values if I were you...
+GRAB_PRESSURE= 0.100000 	//the restoring force between and agent and its grab target. 0= no reaction (disables grab function), negative values push agents away
+BRAINSIZE= 160 			//number boxes in every agent brain. Sim will NEVER make brains smaller than # Inputs + # Outputs. Saved per world, loaded worlds will override this value
+
+BOTSPEED= 1.000000 		//fastest possible speed of agents. This effects so much of the sim I dont advise changing it
+BOOSTSIZEMULT= 2.000000 	//how much speed boost do agents get when boost is active?
+BOOSTEXAUSTMULT= 4.000000 	//how much exhaustion from brain outputs is multiplied by when boost is active?
+SOUNDPITCHRANGE= 0.100000 	//range below hearhigh and above hearlow within which external sounds fade in. Would not recommend extreme values near or beyond [0,0.5]
+FOODTRANSFER= 0.000000 		//how much health is transferred between two agents trading food per tick? =0 disables all generosity
+BASEEXHAUSTION= -6.000000 	//base value of exhaustion. When negative, is essentially the sum amount of output allowed before healthloss. Would not recommend >=0 values
+EXHAUSTION_MULT= 0.500000 	//multiplier applied to outputsum + BASEEXHAUSTION
+MEANRADIUS= 10.000000 		//"average" agent radius, range [0.2*this,2.2*this) (only applies to random agents, no limits on mutations). This effects SOOOO much stuff, and I would not recommend setting negative unless you like crashing programs.
+SPIKESPEED= 0.010000 		//how quickly can the spike be extended? Does not apply to retraction, which is instant
+FRESHKILLTIME= 50 		//number of ticks after a spike, collision, or bite that an agent will still drop full meat
+TENDERAGE= 10 			//age (in 1/10ths) of agents where full meat, hazard, and collision damage is finally given. These multipliers are reduced via *age/TENDERAGE. 0= off
+MINMOMHEALTH= 0.250000 		//minimum amount of health required for an agent to have a child
+MIN_INTAKE_HEALTH_RATIO= 0.500000 //minimum metabolism ratio of intake always sent to health. 0= no restrictions (agent metabolism has full control), 1= 100% health, no babies ever. default= 0.5
+REP_PER_BABY= 4.000000 		//amount of food required to be consumed for an agent to reproduce, per baby
+OVERHEAL_REPFILL= 0 		//true-false flag for letting agents redirect overfill health (>2) to repcounter. 1= conserves matter, 0= extra intake is destroyed, punishing overeating
+MAXDEVIATION= 10.000000 	//maximum difference in species ID a crossover reproducing agent will be willing to tolerate
+DEFAULT_MUTCHANCE= 0.130000 	//the default chance of mutations occurring (note that various mutations modify this value up or down)
+DEFAULT_MUTSIZE= 0.018000 	//the default magnitude of mutations (note that various mutations modify this value up or down)
+LIVE_MUTATE_CHANCE= 0.000100 	//chance, per tick, that a given agent will be mutated alive. Not typically harmful. Can be increased by mutation events if enabled.
+MAXAGE= 10000 			//Age at which the full HEALTHLOSS_AGING amount is applied to an agent
+MAXWASTEFREQ= 200 		//max waste frequency allowed for agents. Agents can select [1,this]. Default= 200, 1= no agent control allowed, 0= program crash
+
+DIST= 400.000000 		//how far the senses can detect other agents or cells
+SPIKELENGTH= 30.000000 		//full spike length. Should not be more than DIST. 0 disables interaction
+TOOCLOSE= 10.000000 		//how much two agents can be overlapping before they take damage. 0 disables interaction
+FOOD_SHARING_DISTANCE= 60.000000 //how far away can food be shared between agents? Should not be more than DIST. 0 disables interaction
+SEXTING_DISTANCE= 60.000000 	//how far away can two agents sexually reproduce? Should not be more than DIST. 0 disables interaction
+GRABBING_DISTANCE= 40.000000 	//how far away can an agent grab another? Should not be more than DIST. 0 disables interaction
+
+HEALTHLOSS_WHEELS= 0.000000 	//How much health is lost for an agent driving at full speed
+HEALTHLOSS_BOOSTMULT= 2.000000 	//how much boost costs (set to 1 to nullify boost cost; its a multiplier)
+HEALTHLOSS_BADTEMP= 0.004600 	//how quickly health drains in non-preferred temperatures
+HEALTHLOSS_AGING= 0.000100 	//health lost at MAXAGE. Note that this damage is applied to all agents in proportion to their age.
+HEALTHLOSS_BRAINUSE= 0.000000 	//how much health is reduced for each box in the brain being active
+HEALTHLOSS_SPIKE_EXT= 0.000000 	//how much health an agent looses for extending spike
+HEALTHLOSS_BADTERRAIN= 0.022000 //how much health is lost if in totally opposite environment
+HEALTHLOSS_NOOXYGEN= 0.000200 	//how much agents are penalized when total agents = AGENTS_MAX_NOOXYGEN
+HEALTHLOSS_ASSEX= 0.250000 	//multiplier for radius/MEANRADIUS penalty on mother for asexual reproduction
+
+DAMAGE_FULLSPIKE= 4.000000 	//health multiplier of spike injury. Note: it is effected by spike length and relative velocity of the agents
+DAMAGE_COLLIDE= 3.000000 	//how much health is lost upon collision. Note that =0 does not disable the event (see TOOCLOSE above)
+DAMAGE_JAWSNAP= 3.000000 	//when jaws snap fully (0->1), this is the damage applied to agents in front
+
+STOMACH_EFF= 0.250000 		//the worst possible multiplier produced from having at least two stomach types at 1. =0.1 is harsh. =1 disables (always full efficiency)
+
+FOODINTAKE= 0.010000 		//how much plant food can feed an agent per tick?
+FOODDECAY= 0.000004 		//how much does food decay per tick? (negative values make it grow everywhere instead)
+FOODGROWTH= 0.000003 		//how much does food increase by on a cell with both plant and hazard? (fertilizer effect). =0 disables
+FOODWASTE= 0.002300 		//how much food disappears when an agent eats it?
+FOODADDFREQ= 250 		//how often does a random cell get set to full food randomly? Lower values are more frequent
+FOODSPREAD= 0.000120 		//probability of a plant cell being seeded to a nearby cell. 0.0002= VERY fast food growth
+FOODRANGE= 2 			//distance that a single cell of food can seed. Units in cells.
+
+FRUITINTAKE= 0.020000 		//how much fruit can feed an agent per tick?
+FRUITDECAY= 0.000003 		//how much fruit decays per tick? This is applied *2 if less than FRUITREQUIRE plant is in the cell
+FRUITWASTE= 0.002300 		//how much fruit disappears when an agent eats it?
+FRUITADDFREQ= 4 		//how often does a high-plant-food cell get set to full fruit? Higher values are less frequent (must have at least FRUITREQUIRE plant)
+FRUITREQUIRE= 0.100000 		//minimum plant food on same cell required for fruit to persist or populate
+
+MEATINTAKE= 0.100000 		//how much meat can feed an agent per tick?
+MEATDECAY= 0.000020 		//how much meat decays on a cell per tick? (negative values make it grow everywhere instead)
+MEATWASTE= 0.002300 		//how much meat disappears when an agent eats it?
+MEATVALUE= 1.000000 		//how much meat an agent's body is worth?
+
+HAZARDFREQ= 30 			//how often an instant hazard appears?
+HAZARDEVENT_MULT= 4.000000 	//multiplier for agents standing in a cell with a hazard event ongoing. multipied after HAZARDDAMAGE
+HAZARDDECAY= 0.000002 		//how much non-event hazard decays on a cell per tick? (negative values make it grow everywhere instead)
+HAZARDDEPOSIT= 0.000060 	//how much hazard is placed by an agent per tick? (Ideally. Agents can control the frequency and amount that they deposit, but in sum it should equal this per tick)
+HAZARDPOWER= 0.500000 		//power of the hazard layer value, applied before HAZARDDAMAGE. default= 0.5 (remember, hazard in range [0,1])
+HAZARDDAMAGE= 0.001000 		//how much health an agent looses while on a filled hazard cell per tick? (note that 9/10 of this is max waste damage)
+
+SUN_RED= 1.000000 		//???
+SUN_GRE= 1.000000 		//???
+SUN_BLU= 0.800000 		//???

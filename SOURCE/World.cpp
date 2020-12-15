@@ -44,6 +44,7 @@ World::~World()
 
 
 void World::setAudioEngine(ISoundEngine* a)
+//Control.cpp
 {
 	audio= a;
 	//audio call example: if(dosounds) audio->play2D("sounds/agents/chirp1.ogg");
@@ -51,6 +52,7 @@ void World::setAudioEngine(ISoundEngine* a)
 
 
 void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitch, float volume)
+//Control.cpp
 {
 	//try to play audio at location x,y if specified (if not, just play 2D audio), and with a specified pitch change multiple
 	if(DEBUG) printf("Trying to play sound '%s' ... ", soundFileName);
@@ -72,6 +74,7 @@ void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitc
 
 
 //void World::tryCullAudio(Controller* control)
+////Control.cpp
 //{
 //	audio->
 //	for(int a=0; a<audio->; a++) {
@@ -82,6 +85,14 @@ void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitc
 //		}
 //	}
 //}
+
+
+void World::setSeed(unsigned int seed)
+//Control.cpp
+{
+	if(SEED!=seed) srand(seed);
+	SEED= seed;
+}
 
 
 void World::reset()
@@ -349,13 +360,25 @@ void World::cellsLandMasses()
 					if(i==0 || j==0 || i==CW-1 || j==CH-1) watercount= 1; //edges get a helping hand (without this there are weird beaches)
 					for(int oi=max(0,i-1);oi<min(CW,i+2);oi++) {
 						for(int oj=max(0,j-1);oj<min(CH,j+2);oj++) {
-							//if(oi==i && oj==j) continue; //this works better commented out (looks smoother)
+
 							if(cells[Layer::ELEVATION][oi][oj]<Elevation::BEACH_MID && cells[Layer::ELEVATION][oi][oj]>=Elevation::DEEPWATER_LOW) 
 								watercount++;
 						}
 					}
 
-					if(watercount>=2) cells[Layer::ELEVATION][i][j]=Elevation::BEACH_MID;
+					if(watercount>=2) cells[Layer::ELEVATION][i][j]= Elevation::BEACH_MID;
+
+				} else if (cells[Layer::ELEVATION][i][j]==Elevation::DEEPWATER_LOW){
+					//if this is deep water, check nearby cells. If 1+ is land, turn into shallows
+					for(int oi=max(0,i-1);oi<min(CW,i+2);oi++) {
+						for(int oj=max(0,j-1);oj<min(CH,j+2);oj++) {
+
+							if(cells[Layer::ELEVATION][oi][oj]>=Elevation::BEACH_MID || 
+								(cells[Layer::ELEVATION][oi][oj]>=Elevation::SHALLOWWATER && randf(0,1)<0.008)) {
+								cells[Layer::ELEVATION][i][j]= Elevation::SHALLOWWATER;
+							}
+						}
+					}
 				}
 			}
 		}
@@ -374,31 +397,35 @@ void World::cellsLandMasses()
 	}
 	STATlandratio/= CW*CH;
 
-	/*if(SPAWN_LAKES){
+/*	if(SPAWN_LAKES){
 		if((1-STATlandratio)<OCEANPERCENT) { //if ocean percentage is less than expected, form lakes!
-			bool dolakes= true;
-			
-			while(dolakes){
-				int cx=randi(0,CW);
-				int cy=randi(0,CH);
-				if(cells[Layer::ELEVATION][cx][cy]<Elevation::BEACH_MID) continue;
-				
-				float lakeheight= cells[Layer::ELEVATION][cx][cy];
-				int makelake= true;
-				
-				while(makelake){
-					int ox= randi(cx-1,cx+2);
-					int oy= randi(cy-1,cy+2); //+2 to correct for randi [x,y)
-					if (ox<0) ox+= CW;
-					if (ox>CW-1) ox-= CW;
-					if (oy<0) oy+= CH;
-					if (oy>CH-1) oy-= CH;
-					if (cells[Layer::ELEVATION][ox][oy]<=height && randf(0,1)>OCEANPERCENT*0.5-0.25) {//chance to spread tied to desired ocean percentage
-						if(height<=Elevation::PLAINS){ //will not reduce level 0.6 and below, allowing us to create beaches (0.5) later
-							cells[Layer::ELEVATION][ox][oy]= height;
-						} else cells[Layer::ELEVATION][ox][oy]= randf(0,1)>conf::LOWER_ELEVATION_CHANCE ? height : height - 0.1;
-						//there's a chance we reduce the next terrain cell by 0.1 in elevation, to produce variation!
+			for(int i=5;i<CW-5;i++) {
+				for(int j=5;j<CH-5;j++) {
+					if(cells[Layer::ELEVATION][i][j]>Elevation::BEACH_MID && //if we're in the middle of a field of land cells
+						cells[Layer::ELEVATION][i-5][j]>Elevation::BEACH_MID &&
+						cells[Layer::ELEVATION][i+5][j]>Elevation::BEACH_MID &&
+						cells[Layer::ELEVATION][i][j-5]>Elevation::BEACH_MID &&
+						cells[Layer::ELEVATION][i][j+5]>Elevation::BEACH_MID &&
+						randf(0,1)<0.01) {
+							
+						int centerx= i;
+						int centery= j;
+
+						for(int n= 0; n<4; n++){
+							for(int oi=centerx-1;oi<centerx+2;oi++) {
+								for(int oj=centery-1;oj<centery+2;oj++) {
+									if(oi==centerx && oj==centery) continue;
+									cells[Layer::ELEVATION][oi][oj]= Elevation::SHALLOWWATER;
+								}
+							}
+
+							centerx= randi(centerx-1,centerx+2);
+							centery= randi(centery-1,centery+2); //+2 to correct for randi [x,y)
+						}
+						break; break;
 					}
+				}
+			}
 		}
 	}*/
 
@@ -434,11 +461,15 @@ void World::cellsRoundTerrain()
 			}
 
 			if(greatercount>mincounts) cells[Layer::ELEVATION][i][j]= cap(cells[Layer::ELEVATION][i][j]+0.1);
-			else if(lowercount>mincounts) cells[Layer::ELEVATION][i][j]= cap(cells[Layer::ELEVATION][i][j]-0.1);
+			else if(lowercount>mincounts) {
+				if(cells[Layer::ELEVATION][i][j]==Elevation::SHALLOWWATER) cells[Layer::ELEVATION][i][j]= cap(cells[Layer::ELEVATION][i][j]-0.2);
+				cells[Layer::ELEVATION][i][j]= cap(cells[Layer::ELEVATION][i][j]-0.1);
+			}
+
 			if(cells[Layer::ELEVATION][i][j]<Elevation::BEACH_MID && cells[Layer::ELEVATION][i][j]>Elevation::SHALLOWWATER)
 				cells[Layer::ELEVATION][i][j]=Elevation::BEACH_MID;
-			if(cells[Layer::ELEVATION][i][j]<Elevation::SHALLOWWATER)
-				cells[Layer::ELEVATION][i][j]=Elevation::DEEPWATER_LOW;
+			if(cells[Layer::ELEVATION][i][j]<Elevation::SHALLOWWATER && cells[Layer::ELEVATION][i][j]>Elevation::DEEPWATER_LOW)
+				cells[Layer::ELEVATION][i][j]=Elevation::SHALLOWWATER;
 		}
 	}
 
@@ -453,14 +484,6 @@ void World::update()
 	#if defined(_DEBUG)
 	if(DEBUG) printf("P");
 	#endif
-
-	//display tips
-	if(!NO_TIPS || DEBUG){
-		if(modcounter%conf::TIPS_PERIOD==conf::TIPS_DELAY && getEpoch()==0) {
-			if(getDay()<4) addEvent(tips[min((int)(modcounter/800),randi(0,tips.size()))].c_str(), EventColor::YELLOW);
-			else addEvent(tips[randi(0,tips.size())].c_str(), EventColor::YELLOW);
-		}
-	} else if (modcounter==conf::TIPS_DELAY && getEpoch()==0) addEvent("To re-enable tips, see settings.cfg", EventColor::YELLOW);
 
 	//update achievements, write report, record counts, display population events
 	if(!STATuseracted && pcontrol) { //outside of the report if statement b/c it can happen anytime
@@ -478,7 +501,7 @@ void World::update()
 	}
 
 	//start reporting process
-	if (REPORTS_PER_EPOCH>0 && modcounter%(FRAMES_PER_EPOCH/REPORTS_PER_EPOCH)==0) {
+	if (REPORTS_PER_EPOCH>0 && modcounter%(FRAMES_PER_EPOCH/REPORTS_PER_EPOCH)==0) { //if this code is adjusted, please search "ptr" in ReadWrite's load fuction
 		//first, collect all stats
 		findStats();
 
@@ -580,7 +603,7 @@ void World::update()
 
 		//adjust global mutation rate
 		if(MUTEVENTS){
-			MUTEVENTMULT= randf(0,1)<0.5 ? randi(min(1,MUTEVENT_MAX),max(1,MUTEVENT_MAX+1)) : 1;
+			MUTEVENTMULT= randf(0,1)<conf::MUTEVENT_CHANCE ? randi(min(1,MUTEVENT_MAX),max(1,MUTEVENT_MAX+1)) : 1;
 			if(MUTEVENTMULT<0) MUTEVENTMULT= 0;
 			if(MUTEVENTMULT==0) addEvent("No Mutation chance Epoch!?!", EventColor::LAVENDER);
 			else if(MUTEVENTMULT==2) addEvent("Double Mutation chance Epoch!", EventColor::LAVENDER);
@@ -593,26 +616,34 @@ void World::update()
 
 	//play music!
 	timenewsong--; //reduce our song delay timer
+	//ALERT FOR FUTURE: When we finally migrate to using Control, please convert this into time, not ticks!
 
-	if(dosounds){
+	if(dosounds && domusic){
+		//unpause music if it's paused
 		if(currentsong && currentsong->getIsPaused()) currentsong->setIsPaused(false);
 
+		//if we are ready for a new song, pick a new song
 		if(timenewsong==0 && !currentsong) {
 			int songindex= randi(0,8);
 			if(current_epoch==0 && isDemo() && modcounter<1000) songindex= 0; //always play the first song first in demo mode; it's our theme song!
 
-			//check our list of recently played song indexes to get a new index if needed
+			//check our list of recently played track indexes to get a new index if needed
 			for(int i=0; i<5; i++){
 				if(songindex==last5songs[i]) { songindex= randi(0,8); i= 0; }
 			}
 			
 			std::string songfile= conf::SONGS[songindex];
-			#if defined(_DEBUG)
-			printf("trying to play song: %s, index %i ", songfile.c_str(), songindex);
+
+			printf("Now playing track: %s", songfile.c_str());
+			#if defined(_DEBUG) printf(", index: %i", songindex);
 			#endif
+			printf("\n");
+
 			currentsong= audio->play2D(songfile.c_str(), false, false, true, ESM_NO_STREAMING);
 
 			if(currentsong){
+				currentsong->setVolume(0.7);
+
 				//finally, add our index to the list of recently played songs
 				for(int i=4; i>=0; i--){
 					if(last5songs[i]==-1) {
@@ -630,14 +661,13 @@ void World::update()
 				#endif
 			}
 		}
-		if(currentsong) currentsong->setVolume(0.7);
 
 	} else if (currentsong) {
-		currentsong->setVolume(currentsong->getVolume()*0.95); //fade music if we aren't allowed to play it
+		currentsong->setVolume(currentsong->getVolume()*0.92); //fade music if we aren't allowed to play it
 		if(currentsong->getVolume()<0.001) currentsong->setIsPaused(true);
 	}
 
-	if(timenewsong<-30000 || //time-out if it's been a long while since we started a song
+	if(timenewsong<-100000 || //time-out if it's been a long while since we started a song
 	(currentsong && (currentsong->isFinished() || //or if the song is finished now
 	(timenewsong<-10000 && !dosounds)))) { //or if we've been in fast mode & not doing sounds for a while
 		if(currentsong) currentsong->drop();
@@ -732,7 +762,7 @@ void World::update()
 			//light ops
 			//if we are moonlit and moonlight happens to be 1.0, then the light layer is useless. Set all values to 1 for rendering
 			cells[Layer::LIGHT][cx][cy]= (MOONLIT && MOONLIGHTMULT==1.0) ? 1.0 :
-				cap(0.5+sin((cx*2*M_PI)/CW-(modcounter+current_epoch*FRAMES_PER_EPOCH)*2*M_PI/FRAMES_PER_DAY));
+				cap(0.6+sin((cx*2*M_PI)/CW-(modcounter+current_epoch*FRAMES_PER_EPOCH)*2*M_PI/FRAMES_PER_DAY));
 			//end light
 		}
 	}
@@ -760,7 +790,7 @@ void World::update()
 		if(a->carcasscount>=0) a->carcasscount++;
 
 		//process jaw renderer
-		if(a->jawrend>0) a->jawrend-=1;
+		if(a->jawrend>0 && a->jawPosition==0 || a->jawrend==conf::JAWRENDERTIME) a->jawrend-=1;
 
 		//if alive...
 		if(a->health>0){
@@ -770,7 +800,7 @@ void World::update()
 			//Live mutations
 			for(int m=0; m<MUTEVENTMULT; m++) {
 				if(randf(0,1)<LIVE_MUTATE_CHANCE){
-					a->liveMutate();
+					a->liveMutate(MUTEVENTMULT);
 					if(a->id==SELECTION) addEvent("The Selected Agent Was Mutated!", EventColor::PURPLE);
 					STATlivemutations++;
 					if(DEBUG) printf("Live Mutation Event\n");
@@ -783,9 +813,9 @@ void World::update()
 			//update jaw
 			if(a->jawPosition>0) {
 				a->jawPosition*= -1; //jaw is an instantaneous source of damage. Reset to a negative number if positive
-				a->jawrend= 15; //set render timer
+				a->jawrend= conf::JAWRENDERTIME; //set render timer
 
-			//once negative, jaw resets to 0, slowly if near -1, faster once closer to 0
+			//once negative, jaw moves toward to 0, slowly if near -1, faster once closer to 0
 			} else if (a->jawPosition<0) a->jawPosition= min(0.0, a->jawPosition + 0.01*(2 + a->jawPosition));
 
 			//update center render mode. Asexual pulls toward 0, female sexual pulls toward 1, male sexual towards 2
@@ -801,7 +831,7 @@ void World::update()
 			//temp discomfort gets re-calculated mod%10, to simulate heat absorption/release
 			if (modcounter%10==0){
 				//calculate temperature at the agents spot. (based on distance from horizontal equator)
-				float dd= 2.0*abs(a->pos.y/conf::HEIGHT - 0.5);
+				float dd= calcTempAtCoord(a->pos.y);
 				a->discomfort= pow(abs(dd-a->temperature_preference),2);
 				if (a->discomfort<0.001) a->discomfort=0;
 			}
@@ -862,7 +892,7 @@ void World::update()
 	//DO NOT add causes of death after this!!! Health should be exactly 0 when leaving this function
 
 	for (int i=0; i<(int)agents.size(); i++) {
-		//process dead agents. first distribute meat
+		//process dead agents. first do some checks and post alerts as needed
 		if(agents[i].health<0) printf("Please check the code: an agent unexpectedly had negative health when it should have had exactly zero\n");
 		if (agents[i].health==0 && agents[i].carcasscount==0) { 
 			//world is only now picking up the fact that the agent died from the agent itself
@@ -870,16 +900,20 @@ void World::update()
 				printf("The Selected Agent was %s!\n", agents[i].death.c_str());
 				addEvent("The Selected Agent Died!");
 
+				//play audio clip of death. At position 0,0 (no position) if we had the agent selected, otherwise, use world coords
 				tryPlayAudio(conf::SFX_DEATH1, 0, 0, randn(1.0,0.05), 0.8);
 			} else tryPlayAudio(conf::SFX_DEATH1, agents[i].pos.x, agents[i].pos.y, randn(1.0,0.15));
-		
+
+			//next, distribute meat
 			int cx= (int) agents[i].pos.x/conf::CZ;
 			int cy= (int) agents[i].pos.y/conf::CZ;
 
 			float meat= cells[Layer::MEATS][cx][cy];
 			float agemult= 1.0;
 			float freshmult= 0.5; //if this agent wasnt freshly killed, default to 50%
-			float stomachmult= (4.0-3*agents[i].stomach[Stomach::MEAT])/4; //carnivores give 25%
+			float stomachmult= 1+(conf::CARNIVORE_MEAT_EFF-1)*sqrt(agents[i].stomach[Stomach::MEAT]); //carnivores give less, specified by CARNIVORE_MEAT_EFF
+			//this math re-aranged from x-(x-1)*sqrt(stomach[MEAT])/x, where "x" was the inverted efficiency value (was x=4, or efficiency of 0.25)
+
 			if(agents[i].age<TENDERAGE) agemult= (float)agents[i].age/TENDERAGE; //young killed agents should give very little resources until age 10
 			if(agents[i].freshkill>0) freshmult= 1.0; //agents which were spiked recently will give full meat
 
@@ -917,7 +951,7 @@ void World::update()
 		}
 	}
 
-	vector<std::pair <const char *,std::pair <int,int> > >::iterator item= events.begin();
+	vector<std::pair <std::string ,std::pair <int,int> > >::iterator item= events.begin();
 	while (item != events.end()) {
 		if (item->second.second<-conf::EVENTS_HALFLIFE) {
 			item= events.erase(item);
@@ -1119,7 +1153,7 @@ void World::setInputs()
 
 						if (diff1<fov) {
 							//we see a2 with this eye. Accumulate stats
-							float mul1= light*a->eye_see_agent_mod*(fabs(fov-diff1)/fov)*(1-d*d/DIST/DIST);/*(1-d/DIST)*/;
+							float mul1= light*a->eye_see_agent_mod*(fabs(fov-diff1)/fov)*(1-d*d/DIST/DIST);
 
 							if(r[q]<mul1*a2->real_red) r[q]= mul1*a2->real_red;
 							if(g[q]<mul1*a2->real_gre) g[q]= mul1*a2->real_gre;
@@ -1138,16 +1172,15 @@ void World::setInputs()
 				if (fabs(forwangle)>M_PI) diff4= 2*M_PI- fabs(forwangle);
 				diff4= fabs(diff4);
 				if (diff4<PI38) {
-					float newblood= a->blood_mod*((PI38-diff4)/PI38)*(1-d/DIST)*(1-agents[j].health/2); //remember: health is in [0,2]
+					float newblood= a->blood_mod*(fabs(PI38-diff4)/PI38)*(1-d/DIST)*(1-agents[j].health/2); //remember: health is in [0,2]
 					if(newblood>blood) blood= newblood;
 					//agents with high life dont bleed. low life makes them bleed more. dead agents bleed the maximum
 				}
 			}
 		}
 
-		//temperature varies from 0 to 1 across screen.
-		//it is 0 at equator (in middle), and 1 on edges. Agents can sense this range
-		float temp= (float)2.0*abs(a->pos.y/conf::HEIGHT - 0.5);
+		//temperature varies from 0 to 1 across screen vertically
+		float temp= calcTempAtCoord(a->pos.y);
 
 		for(int i=0;i<NUMEYES;i++){
 			a->in[Input::EYES+i*3]= cap(r[i]);
@@ -1197,13 +1230,12 @@ void World::processOutputs(bool prefire)
 	#pragma omp parallel for schedule(dynamic)
 	for (int i=0; i<(int)agents.size(); i++) {
 		Agent* a= &agents[i];
-		float exh= 1.0/(1.0+a->exhaustion); //exhaustion reduces agent output->physical action rates
 
 		if (a->health<=0) {
 			//dead agents continue to exist, come to a stop, and loose their voice, but skip everything else
-			float sp= (a->w1+a->w2)/2;
-			a->w1= 0.75*sp;
-			a->w2= 0.75*sp;
+			float sp= conf::DEADSLOWDOWN*(a->w1+a->w2)*0.5;
+			a->w1= sp;
+			a->w2= sp;
 
 			a->volume*= 0.2;
 			if(a->volume<0.0001) a->volume= 0;
@@ -1212,6 +1244,8 @@ void World::processOutputs(bool prefire)
 			a->boost= false; //no boosting
 			continue;
 		}
+
+		float exh= 1.0/(1.0+a->exhaustion); //exhaustion reduces agent output->physical action rates
 
 		if (a->jump<=0) { //if not jumping, then change wheel speeds. otherwise, we want to keep wheel speeds constant
 			if (pcontrol && a->id==SELECTION) {
@@ -1245,9 +1279,9 @@ void World::processOutputs(bool prefire)
 		a->grabangle+= 0.2*exh*(a->out[Output::GRAB_ANGLE]*2*M_PI-a->grabangle); //exhaustion effects angle move speed
 
 		//jump gets set to 2*((jump output) - 0.5) if itself is zero (the bot is on the ground) and if jump output is greater than 0.5
-		if(GRAVITYACCEL>0 && a->jump==0){
+		if(GRAVITYACCEL>0 && a->jump==0 && a->age>0){
 			float height= (a->out[Output::JUMP]*exh - 0.5)*2;
-			if (height>0 && a->age>0) a->jump= height;
+			if (height>0) a->jump= height;
 		}
 
 		//jaw *snap* mechanic
@@ -1822,35 +1856,34 @@ void World::setSelection(int type) {
 					int index= getClosestRelative(select);
 					if(index>=0) {
 						maxi= index;
-						printf("---> New relative selected.\n");
 					}
 				} else maxi= select;
 			}
 		} else if (type==Select::BEST_HERBIVORE){
-			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract
+			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract at half value
 			float maxindex= -1;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float index= agents[i].stomach[Stomach::PLANT] - agents[i].stomach[Stomach::MEAT] - agents[i].stomach[Stomach::FRUIT];
+				float index= agents[i].stomach[Stomach::PLANT] - 0.5*agents[i].stomach[Stomach::MEAT] - 0.5*agents[i].stomach[Stomach::FRUIT];
 				if (agents[i].health>0 && agents[i].gencount>0 && index>maxindex) {
 					maxindex= index;
 					maxi= i;
 				}
 			}
 		} else if (type==Select::BEST_FRUGIVORE){
-			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract
+			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract at half value
 			float maxindex= -1;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float index= agents[i].stomach[Stomach::FRUIT] - agents[i].stomach[Stomach::MEAT] - agents[i].stomach[Stomach::PLANT];
+				float index= agents[i].stomach[Stomach::FRUIT] - 0.5*agents[i].stomach[Stomach::MEAT] - 0.5*agents[i].stomach[Stomach::PLANT];
 				if (agents[i].health>0 && agents[i].gencount>0 && index>maxindex) {
 					maxindex= index;
 					maxi= i;
 				}
 			}
 		} else if (type==Select::BEST_CARNIVORE){
-			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract
+			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract at half value
 			float maxindex= -1;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float index= agents[i].stomach[Stomach::MEAT] - agents[i].stomach[Stomach::FRUIT] - agents[i].stomach[Stomach::PLANT];
+				float index= agents[i].stomach[Stomach::MEAT] - 0.5*agents[i].stomach[Stomach::FRUIT] - 0.5*agents[i].stomach[Stomach::PLANT];
 				if (agents[i].health>0 && agents[i].gencount>0 && index>maxindex) {
 					maxindex= index;
 					maxi= i;
@@ -1933,18 +1966,18 @@ int World::getClosestRelative(int idx) {
 			} else continue; //if you aren't related, you're off to a very bad start if we're trying to find relatives... skip!
 
 			if(agents[i].age<TENDERAGE) meta+= 3; //choose young agents at least
-			if(agents[idx].gencount+1==agents[i].gencount) { meta+= 5; bestrelative= "youngling"; } //choose children or nephews and nieces
-			else if(agents[idx].gencount==agents[i].gencount) { meta+= 3; bestrelative= "cousin"; } //at least choose cousins... 
-			else if(agents[idx].gencount==agents[i].gencount+1) { meta+= 2; bestrelative= "elder"; } //...or parents/aunts/uncles
-			if(agents[idx].age==agents[i].age) { meta+= 10; bestrelative= "sibling"; }
-			if(agents[idx].parentid==agents[i].id) { meta+= 4; bestrelative= "mother"; }
-			if(agents[idx].id==agents[i].parentid) { meta+= 8; bestrelative= "daughter"; }
+			if(agents[idx].gencount+1==agents[i].gencount) { meta+= 3; bestrelative= "youngling"; } //choose children or nephews and nieces
+			else if(agents[idx].gencount==agents[i].gencount) { meta+= 2; bestrelative= "cousin"; } //at least choose cousins... 
+			else if(agents[idx].gencount==agents[i].gencount+1) { meta+= 1; bestrelative= "elder"; } //...or parents/aunts/uncles
+			if(agents[idx].age==agents[i].age) { meta+= 10; bestrelative= "sibling"; } //...note this gets +12 b/c of cousin above
+			if(agents[idx].parentid==agents[i].id) { meta+= 16; bestrelative= "mother"; } //...note this gets +17 b/c of elder above
+			if(agents[idx].id==agents[i].parentid) { meta+= 17; bestrelative= "daughter"; } //...note this gets +20 b/c of youngling above
 
 			for(int j=0; j<Stomach::FOOD_TYPES; j++){ //penalize mis-matching stomach types harshly
-				meta-= 5*abs(agents[idx].stomach[j]-agents[i].stomach[j]); //diff of 0.2 scales to a -1 penalty, max possible= -15
+				meta-= ceilf(5*abs(agents[idx].stomach[j]-agents[i].stomach[j])); //diff of 0.2 scales to a -1 penalty, max possible= -15
 			}
-			meta-= abs(agents[idx].lungs-agents[i].lungs); //penalize mis-matching lung types, max possible= -1
-			meta-= abs(agents[idx].temperature_preference-agents[i].temperature_preference); //penalize mis-matching temp preference, max possible: -1
+			meta-= ceilf(5*abs(agents[idx].lungs-agents[i].lungs)); //penalize mis-matching lung types, max possible= -5
+			meta-= ceilf(5*abs(agents[idx].temperature_preference-agents[i].temperature_preference)); //penalize mis-matching temp preference, max possible: -5
 			
 			//if the meta counter is better than the best selection so far*, return our new target
 			//*note that it has to do better than MAXDEVIATION as a baseline because we want ONLY relatives, and if no matches, we return -1
@@ -1956,11 +1989,13 @@ int World::getClosestRelative(int idx) {
 	}
 
 	if(bestrelative!="") {
-		bestrelative= "Autoselected living " + bestrelative;
-		const char *temp= bestrelative.c_str();
-		addEvent(temp, EventColor::BLACK);
-	} else if (nidx!=-1) addEvent("Autoselected distant cousin", EventColor::BLACK);
-	else addEvent("No More Living Relatives!", EventColor::BLACK);
+		bestrelative= "Autoselected living "+bestrelative;
+		addEvent(bestrelative, EventColor::BLACK);
+		printf("---> New relative selected: %s\n", bestrelative);
+	} else {
+		addEvent("No More Living Relatives!", EventColor::BLACK);
+		printf("---> No More Living Relatives.\n");
+	}
 
 	//IMPORTANT: we may return -1 here; DO NOT USE FOR ARRAYS DIRECTLY
 	return nidx;
@@ -2062,7 +2097,7 @@ void World::getFollowLocation(float &xi, float &yi) {
 
 bool World::processMouse(int button, int state, int x, int y, float scale)
 {
-	//now returns true if an agent was selected manually
+	//now returns true if an agent was selected manually successfully
 	if(button==0 && state==1){
 		float mind= 1e10;
 		int mini= -1;
@@ -2139,6 +2174,21 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, float nx, float 
 	}
 }
 
+float World::calcTempAtCoord(float y)
+{
+	//calculate the temperature at a given world coordinate. Once climate change is implemented, we'll add that in too
+	//currently the function is 0 @ equator and 1 @ poles 
+	return cap(1 - 2.0*abs(y/conf::HEIGHT - 0.5));
+}
+
+
+float World::calcTempAtCoord(int worldcy)
+{
+	//calculate the temperature at a given world cell y-index
+	return calcTempAtCoord((float)worldcy*conf::CZ);
+}
+
+
 void World::reproduce(int i1, int i2)
 {
 	Agent mother= agents[i1]; //mother is reproducing agent. her health, her repcounter, and her base stats are divided/reset/used
@@ -2201,12 +2251,16 @@ void World::writeReport()
 	float randmutsize= 0;
 	float randtemppref= 0;
 	int randchildren= 0;
+	int randbrainsize= 0;
 
 	int randagent= randi(0,agents.size());
 	randgen= agents[randagent].gencount;
 	randspec= agents[randagent].species;
 	for (int i= 0; i<(int)agents[randagent].brain.boxes.size(); i++){
 		if (agents[randagent].brain.boxes[i].seed>randseed) randseed=agents[randagent].brain.boxes[i].seed;
+		for (int j= 0; j<CONNS; j++) {
+			if(agents[randagent].brain.boxes[i].w[j]!=0) randbrainsize++;
+		}
 	}
 	randradius= agents[randagent].radius;
 	randmetab= agents[randagent].metabolism;
@@ -2266,6 +2320,7 @@ void World::writeReport()
 	fclose(fr);
 }
 
+
 bool World::isClosed() const
 {
 	return CLOSED;
@@ -2303,6 +2358,116 @@ void World::setDemo(bool state)
 	DEMO= state;
 }
 
+void World::setControl(bool state)
+{
+	//reset left and right wheel controls 
+	pleft= 0;
+	pright= 0;
+
+	pcontrol= state;
+}
+
+bool World::isAutoselecting() const
+{
+	return AUTOSELECT;
+}
+
+void World::setAutoselect(bool state)
+{
+	AUTOSELECT= state;
+}
+
+void World::setDebug(bool state)
+{
+	DEBUG = state;
+}
+
+bool World::isDebug() const
+{
+	return DEBUG;
+}
+
+
+void World::findStats()
+{
+	//clear old stats
+	STATherbivores= 0;
+	STATfrugivores= 0;
+	STATcarnivores= 0;
+	STATterrans= 0;
+	STATamphibians= 0;
+	STATaquatic= 0;
+	STATalive= 0;
+	STATdead= 0; 
+	STATspiky= 0;
+	STAThybrids= 0;
+	STATbestherbi= 0;
+	STATbestfrugi= 0;
+	STATbestcarni= 0;
+	STATbestterran= 0;
+	STATbestamphibious= 0;
+	STATbestaquatic= 0;
+	STATbesthybrid= 0;
+	STATplants= 0;
+	STATfruits= 0;
+	STATmeats= 0;
+	STAThazards= 0;
+	STATallplant= 0;
+	STATallfruit= 0;
+	STATallmeat= 0;
+	STATallhazard= 0;
+
+	//agents
+	for (int i=0; i<(int)agents.size(); i++) {
+		if (agents[i].health>0) {
+			STATalive++;
+			
+			if (agents[i].isHerbivore()) {
+				STATherbivores++;
+				if (agents[i].gencount>STATbestherbi) STATbestherbi= agents[i].gencount;
+			} else if (agents[i].isFrugivore()) {
+				STATfrugivores++;
+				if (agents[i].gencount>STATbestfrugi) STATbestfrugi= agents[i].gencount;
+			} else if (agents[i].isCarnivore()) {
+				STATcarnivores++;
+				if (agents[i].gencount>STATbestcarni) STATbestcarni= agents[i].gencount;
+			}
+
+			if (agents[i].isTerrestrial()) {
+				STATterrans++;
+				if (agents[i].gencount>STATbestterran) STATbestterran= agents[i].gencount;
+			} else if (agents[i].isAquatic()) {
+				STATaquatic++;
+				if (agents[i].gencount>STATbestaquatic) STATbestaquatic= agents[i].gencount;
+			} else if (agents[i].isAmphibious()) {
+				STATamphibians++;
+				if (agents[i].gencount>STATbestamphibious) STATbestamphibious= agents[i].gencount;
+			}
+
+			if (agents[i].isSpikey(SPIKELENGTH)) STATspiky++;
+
+			if (agents[i].hybrid) {
+				STAThybrids++;
+				if (agents[i].gencount>STATbesthybrid) STATbesthybrid= agents[i].gencount;
+			}
+		}
+		else STATdead++;
+	}
+
+	//cell layers
+	for(int i=0;i<CW;i++) {
+		for(int j=0;j<CH;j++) {
+			if(cells[Layer::PLANTS][i][j]>=0.25) STATplants++;
+			if(cells[Layer::FRUITS][i][j]>=0.25) STATfruits++;
+			if(cells[Layer::MEATS][i][j]>=0.25) STATmeats++;
+			if(cells[Layer::HAZARDS][i][j]>=0.25) STAThazards++;
+			STATallplant+= cells[Layer::PLANTS][i][j];
+			STATallfruit+= cells[Layer::FRUITS][i][j];
+			STATallmeat+= cells[Layer::MEATS][i][j];
+			STATallhazard+= cells[Layer::HAZARDS][i][j];
+		}
+	}
+}
 
 int World::getHerbivores() const
 {
@@ -2412,87 +2577,6 @@ float World::getHazardSupp() const
 	return STATallhazard*HAZARDDAMAGE/2*50; //BUG? #hazard * HAZARDDAMAGE/1/1 health/hazard/tick * 1/2 agent/health != #agents killed per tick
 }
 
-void World::findStats()
-{
-	//clear old stats
-	STATherbivores= 0;
-	STATfrugivores= 0;
-	STATcarnivores= 0;
-	STATterrans= 0;
-	STATamphibians= 0;
-	STATaquatic= 0;
-	STATalive= 0;
-	STATdead= 0; 
-	STATspiky= 0;
-	STAThybrids= 0;
-	STATbestherbi= 0;
-	STATbestfrugi= 0;
-	STATbestcarni= 0;
-	STATbestterran= 0;
-	STATbestamphibious= 0;
-	STATbestaquatic= 0;
-	STATbesthybrid= 0;
-	STATplants= 0;
-	STATfruits= 0;
-	STATmeats= 0;
-	STAThazards= 0;
-	STATallplant= 0;
-	STATallfruit= 0;
-	STATallmeat= 0;
-	STATallhazard= 0;
-
-	//agents
-	for (int i=0; i<(int)agents.size(); i++) {
-		if (agents[i].health>0) {
-			STATalive++;
-			
-			if (agents[i].isHerbivore()) {
-				STATherbivores++;
-				if (agents[i].gencount>STATbestherbi) STATbestherbi= agents[i].gencount;
-			} else if (agents[i].isFrugivore()) {
-				STATfrugivores++;
-				if (agents[i].gencount>STATbestfrugi) STATbestfrugi= agents[i].gencount;
-			} else if (agents[i].isCarnivore()) {
-				STATcarnivores++;
-				if (agents[i].gencount>STATbestcarni) STATbestcarni= agents[i].gencount;
-			}
-
-			if (agents[i].isTerrestrial()) {
-				STATterrans++;
-				if (agents[i].gencount>STATbestterran) STATbestterran= agents[i].gencount;
-			} else if (agents[i].isAquatic()) {
-				STATaquatic++;
-				if (agents[i].gencount>STATbestaquatic) STATbestaquatic= agents[i].gencount;
-			} else if (agents[i].isAmphibious()) {
-				STATamphibians++;
-				if (agents[i].gencount>STATbestamphibious) STATbestamphibious= agents[i].gencount;
-			}
-
-			if (agents[i].isSpikey(SPIKELENGTH)) STATspiky++;
-
-			if (agents[i].hybrid) {
-				STAThybrids++;
-				if (agents[i].gencount>STATbesthybrid) STATbesthybrid= agents[i].gencount;
-			}
-		}
-		else STATdead++;
-	}
-
-	//cell layers
-	for(int i=0;i<CW;i++) {
-		for(int j=0;j<CH;j++) {
-			if(cells[Layer::PLANTS][i][j]>=0.5) STATplants++;
-			if(cells[Layer::FRUITS][i][j]>=0.5) STATfruits++;
-			if(cells[Layer::MEATS][i][j]>=0.5) STATmeats++;
-			if(cells[Layer::HAZARDS][i][j]>=0.5) STAThazards++;
-			STATallplant+= cells[Layer::PLANTS][i][j];
-			STATallfruit+= cells[Layer::FRUITS][i][j];
-			STATallmeat+= cells[Layer::MEATS][i][j];
-			STATallhazard+= cells[Layer::HAZARDS][i][j];
-		}
-	}
-}
-
 /*
 int World::getSelected() const //returns the ID of the selected agent
 {
@@ -2513,39 +2597,11 @@ int World::getDay() const
 	return (int)ceil((float)modcounter/(float)FRAMES_PER_DAY);
 }
 
-void World::setControl(bool state)
-{
-	//reset left and right wheel controls 
-	pleft= 0;
-	pright= 0;
 
-	pcontrol= state;
-}
-
-bool World::isAutoselecting() const
+void World::addEvent(std::string text, int type)
 {
-	return AUTOSELECT;
-}
-
-void World::setAutoselect(bool state)
-{
-	AUTOSELECT= state;
-}
-
-void World::setDebug(bool state)
-{
-	DEBUG = state;
-}
-
-bool World::isDebug() const
-{
-	return DEBUG;
-}
-
-void World::addEvent(const char * text, int type)
-{
-	//use EventColor:: namespace to access available colors
-	std::pair <const char *,std::pair <int,int> > data;
+	//use EventColor:: namespace to access available colors for the "type" input
+	std::pair <std::string ,std::pair <int,int> > data;
 	data.first= text;
 	data.second.first= type;
 	data.second.second= conf::EVENTS_HALFLIFE;
@@ -2686,22 +2742,22 @@ void World::init()
 //	if(!NO_TIPS){
 	tips.push_back("Left-click an agent to select it");
 	tips.push_back("Press 'f' to follow selected agent");
-	tips.push_back("Press 'q' to center map and graphs");
+	tips.push_back("Zoom with middle mouse click&drag");
+	tips.push_back("Also zoom with '>' & '<'");
+	tips.push_back("Dead agents are semi-transparent");
+	tips.push_back("Press 'q' to recenter map & graphs");
 	tips.push_back("Press 'spacebar' to pause");
 	tips.push_back("Press 'h' for detailed interface help");
-	tips.push_back("Zoom in with '>' to see more details");
-	tips.push_back("Zoom with middle mouse click&drag");
 	tips.push_back("Pan around with left click&drag");
-	tips.push_back("Dead agents are semi-transparent");
-	tips.push_back("Cycle layer views with 'k' & 'l'");
-	tips.push_back("Reselect all layers with 'o'");
-	tips.push_back("Overgrowth Epoch: more plants");
-	tips.push_back("Drought Epoch: less plant growth");
-	tips.push_back("Press 'h' for detailed interface help");
-//	tips.push_back("Press 'g' for graphics details");
-	tips.push_back("Press 'm' to activate fast mode");
 	tips.push_back("Demo prevents report.txt changes");
 	tips.push_back("Patience, Epoch 0 species are rare");
+	tips.push_back("These tips may repeat now");
+	tips.push_back("Cycle layer views with 'k' & 'l'");
+	tips.push_back("View all layers again with 'o'");
+	tips.push_back("Press 'h' for detailed interface help");
+//	tips.push_back("Press 'g' for graphics details");
+	tips.push_back("Press 'm' to toggle fast mode");
+	tips.push_back("Many dead in Epoch 0? It's normal");
 	tips.push_back("Select 'New World' to end Demo");
 	tips.push_back("Agents display splashes for events");
 	tips.push_back("Yellow spash = agent bit another");
@@ -2710,12 +2766,18 @@ void World::init()
 	tips.push_back("Green spash= asexually reproduced");
 	tips.push_back("Blue spash = sexually reproduced");
 	tips.push_back("Purple spash = mutation occured");
+	tips.push_back("Grey spash = agent was just born");
 	tips.push_back("Press 'm' to simulate at max speed");
+	tips.push_back("Overgrowth Epoch= more plants");
+	tips.push_back("Drought Epoch= less plant growth");
+	tips.push_back("Mutation x# Epoch= stronger mutations");
 	tips.push_back("Use settings.cfg to change sim rules");
 	tips.push_back("'report.txt' logs useful data");
 	tips.push_back("Epoch 0 is boring. Press 'm'!");
 	tips.push_back("The settings.cfg is FUN, isnt it?!");
+	tips.push_back("Many dead in Epoch 0? It's normal");
 	tips.push_back("Reports periodically saved to file");
+	tips.push_back("Settings.cfg file can change constants");
 	tips.push_back("Press 'm' to also disable Demo mode");
 	tips.push_back("See more options with right-click");
 	tips.push_back("Use settings.cfg to change constants");
@@ -2761,11 +2823,11 @@ void World::readConfig()
 					readConfig();
 					break;
 				}
-			}else if(strcmp(var, "SPAWN_LAKES=")==0){
-				sscanf(dataval, "%i", &i);
-				if(i!=(int)SPAWN_LAKES) printf("SPAWN_LAKES, ");
-				if(i==1) SPAWN_LAKES= true;
-				else SPAWN_LAKES= false;
+//			}else if(strcmp(var, "SPAWN_LAKES=")==0){
+//				sscanf(dataval, "%i", &i);
+//				if(i!=(int)SPAWN_LAKES) printf("SPAWN_LAKES, ");
+//				if(i==1) SPAWN_LAKES= true;
+//				else SPAWN_LAKES= false;
 			}else if(strcmp(var, "DISABLE_LAND_SPAWN=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=(int)DISABLE_LAND_SPAWN) printf("DISABLE_LAND_SPAWN, ");
@@ -3193,7 +3255,7 @@ void World::writeConfig()
 
 	FILE* cf= fopen("settings.cfg", "w");
 
-	fprintf(cf, "settings.cfg\nThis file will be regenerated with default values if missing (regeneration is not necessary for the program to work)\nModify any value in this file to change constants in Evagents.\nAll changes will require a reset or relaunch to take effect\n");
+	fprintf(cf, "settings.cfg\nThis file will be regenerated with default values if missing (regeneration is not necessary for the program to work)\nModify any value in this file to change constants in Evagents.\nAll changes will take effect after either a world reset, config reload, or app re-launch.\n");
 	fprintf(cf, "\n");
 	fprintf(cf, "Any lines that the program can't recognize are silently ignored, and anything that is changed is reported by the program.\nPlease note the sim only takes the last entry of a flag's value if there are duplicates. Also, can you find the hidden config flags?...\n");
 	fprintf(cf, "\n");
@@ -3203,10 +3265,10 @@ void World::writeConfig()
 	fprintf(cf, "\n");
 	fprintf(cf, "NO_TIPS= %i \t\t\t//if true (=1), prevents tips from being displayed. This value is whatever was set in program when this file was saved\n", NO_TIPS);
 	fprintf(cf, "NO_DEMO= %i \t\t\t//if true (=1), this will prevent demo mode from running at start. Default= 1 when writing a new config\n", 1);
-	fprintf(cf, "SPAWN_LAKES= %i \t\t\t//if true (=1), and if terrain generation forms too much or too little land, the generator takes a moment to put in lakes (or islands)\n", NO_TIPS);
+//	fprintf(cf, "SPAWN_LAKES= %i \t\t\t//if true (=1), and if terrain generation forms too much or too little land, the generator takes a moment to put in lakes (or islands)\n", NO_TIPS);
 	fprintf(cf, "DISABLE_LAND_SPAWN= %i \t\t//true-false flag for disabling agents from spawning on land. 0= land spawn allowed, 1= not allowed. Is GUI-controllable. This value is whatever was set in program when this file was saved\n", DISABLE_LAND_SPAWN);
 	fprintf(cf, "MOONLIT= %i \t\t\t//true-false flag for letting agents see other agents at night. 0= no eyesight, 1= see agents at half light. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", MOONLIT);
-	fprintf(cf, "MOONLIGHTMULT= %f \t\t//the amount of minimum light MOONLIT provides. If set to 1, daylight cycles are not processed at all and the world becomes bathed in eternal sunlight. 0.25 default\n", conf::MOONLIGHTMULT);
+	fprintf(cf, "MOONLIGHTMULT= %f \t\t//the amount of minimum light MOONLIT provides. If set to 1, daylight cycles are not processed at all and the world becomes bathed in eternal sunlight. 0.1 default\n", conf::MOONLIGHTMULT);
 	fprintf(cf, "DROUGHTS= %i \t\t\t//true-false flag for if the drought/overgrowth mechanic is enabled. 0= constant normal growth, 1= variable. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", DROUGHTS);
 	fprintf(cf, "DROUGHT_MIN= %f \t\t//minimum multiplier value of droughts, below which it gets pushed back toward 1.0\n", conf::DROUGHT_MIN);
 	fprintf(cf, "DROUGHT_MAX= %f \t\t//maximum multiplier value of droughts (overgrowth), above which it gets pushed back toward 1.0\n", conf::DROUGHT_MAX);

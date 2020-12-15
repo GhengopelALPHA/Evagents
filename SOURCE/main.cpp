@@ -25,14 +25,16 @@ GLView* GLVIEW = new GLView(0);
 
 int main(int argc, char **argv) {
 	unsigned int seed= time(0);
-	srand(seed);
 
 	printf("Evagents ");
 	#if defined(_DEBUG)
 	printf("DEBUG ");
+	srand(0);
 	#else
 	printf("Release ");
+	srand(seed);
 	#endif
+
 	printf( "v%3.2f\n\n", conf::VERSION );
 	printf( "OpenGL+GLUI, version: %3.2f\n", GLUI_Master.get_version() );
 	printf( "irrKlang Audio, version: %s\n", IRR_KLANG_VERSION );
@@ -48,6 +50,7 @@ int main(int argc, char **argv) {
 
 	World* world = new World();
 	GLVIEW->setWorld(world);
+	world->setSeed(seed);
 
 
 	//AUDIO SETUP

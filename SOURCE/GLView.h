@@ -113,7 +113,8 @@ private:
 	Color3f setColorSpecies(float species);
 	Color3f setColorCrossable(float species);
 	Color3f setColorGenerocity(float give);
-	Color3f setColorRepCount(float repcount);
+	Color3f setColorRepCount(float repcount, bool asexual);
+	Color3f setColorMutations(float rate, float size);
 
 	//3f cell color defs
 	Color3f setColorCellsAll(const float values[Layer::LAYERS]);
@@ -127,7 +128,7 @@ private:
 	Color3f setColorMeat(float val);
 	Color3f setColorHazard(float val);
 	Color3f setColorWaterHazard(float val);
-	Color3f setColorTemp(float val);
+	Color3f setColorTempCell(int val);
 	Color3f setColorLight(float val);
 
 	void popupReset(float x= -1, float y= -1);
@@ -152,6 +153,7 @@ private:
 	int live_mousemode; //what mode is the mouse using?
 	int live_worldclosed; //is the world closed?
 	int live_paused; //are we paused?
+	int live_playmusic; //is music allowed to play?
 	int live_fastmode; //are we drawing?
 	int live_skipdraw; //are we skipping some frames?
 	int live_agentsvis; //are we drawing agents? If so, what's the scheme? see namespace "Visuals" in settings.h for details

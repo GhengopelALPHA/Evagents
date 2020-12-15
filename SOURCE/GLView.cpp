@@ -168,14 +168,14 @@ GLView::~GLView()
 
 
 void GLView::gotoDefaultZoom()
+//Control.cpp
 {
 	//reset width height just this once
 	wWidth= glutGet(GLUT_WINDOW_WIDTH);
 	wHeight= glutGet(GLUT_WINDOW_HEIGHT);
 
 	//do some mathy things to zoom and translate correctly
-	float scaleA= 0;
-	scaleA= (float)wWidth;
+	float scaleA= (float)wWidth;
 	scaleA/= (conf::WIDTH+2200);
 	float scaleB= (float)wHeight/(conf::HEIGHT+150);
 	if(scaleA>scaleB) scalemult= scaleB;
@@ -187,8 +187,9 @@ void GLView::gotoDefaultZoom()
 
 
 void GLView::processLayerPreset()
-//method to update layer bools based on ui_layerpreset
+//Control.cpp
 {
+	//update layer bools based on current ui_layerpreset
 	for(int i=0; i<DisplayLayer::DISPLAYS; i++) {
 		live_layersvis[i]= i+1==ui_layerpreset ? 1 : 0;
 		if(ui_layerpreset==0) live_layersvis[i]= 1;
@@ -199,6 +200,7 @@ void GLView::processLayerPreset()
 
 
 void GLView::changeSize(int w, int h)
+//Control.cpp ???
 {
 	//Tell GLUT that were changing the projection, not the actual view
 	glMatrixMode(GL_PROJECTION);
@@ -216,6 +218,7 @@ void GLView::changeSize(int w, int h)
 }
 
 void GLView::processMouse(int button, int state, int x, int y)
+//Control.cpp
 {
 	if(world->isDebug()) printf("MOUSE EVENT: button=%i state=%i x=%i y=%i, scale=%f, mousedrag=%i, uiclicked= %i\n", 
 		button, state, x, y, scalemult, mousedrag, uiclicked);
@@ -249,6 +252,7 @@ void GLView::processMouse(int button, int state, int x, int y)
 }
 
 void GLView::processMouseActiveMotion(int x, int y)
+//Control.cpp
 {
 	if(world->isDebug()) printf("MOUSE MOTION x=%i y=%i, buttons: %i %i %i\n", x, y, downb[0], downb[1], downb[2]);
 	
@@ -279,6 +283,7 @@ void GLView::processMouseActiveMotion(int x, int y)
 }
 
 void GLView::processMousePassiveMotion(int x, int y)
+//Control.cpp
 {
 	//when mouse moved, update popup
 	if (world->modcounter%2==0 || live_paused) { //add a little delay with modcounter
@@ -296,7 +301,7 @@ void GLView::processMousePassiveMotion(int x, int y)
 void GLView::handlePopup(int x, int y)
 {
 	int layers= getLayerDisplayCount();
-	if(layers==1) { //want to eventually allow multiple layers up to 3, but for now, only display when viewing ONE layer
+	if(layers>0 && layers<DisplayLayer::DISPLAYS) { //only show popup if less than 
 		//convert mouse x,y to world x,y
 		int worldcx= (int)((((float)x-wWidth*0.5)/scalemult-xtranslate));
 		int worldcy= (int)((((float)y-wHeight*0.5)/scalemult-ytranslate));
@@ -310,26 +315,9 @@ void GLView::handlePopup(int x, int y)
 			if(world->isDebug()) printf("worldcx: %d, worldcy %d\n", worldcx, worldcy);
 			popupReset(x+12, y); //clear and set popup position near mouse
 
-			sprintf(line, "x: %d, y: %d", worldcx, worldcy);
+			sprintf(line, "Cell x: %d, y: %d", worldcx, worldcy);
 			popupAddLine(line);
 			
-//			for(int i=0; i<layers; i++){
-			if(live_layersvis[DisplayLayer::ELEVATION]) {	strcpy(line, "Height:"); layer= Layer::ELEVATION; }
-			else if(live_layersvis[DisplayLayer::PLANTS]) { strcpy(line, "Plant:"); layer= Layer::PLANTS; }
-			else if(live_layersvis[DisplayLayer::MEATS]) { strcpy(line, "Meat:");	layer= Layer::MEATS; }
-			else if(live_layersvis[DisplayLayer::FRUITS]){ strcpy(line, "Fruit:"); layer= Layer::FRUITS; }
-			else if(live_layersvis[DisplayLayer::HAZARDS]){ strcpy(line, "Waste:"); layer= Layer::HAZARDS; }
-			else if(live_layersvis[DisplayLayer::TEMP]){ strcpy(line, "Temperature:"); layer= -1;	}
-			else if(live_layersvis[DisplayLayer::LIGHT]){ strcpy(line, "Light Level:"); layer= Layer::LIGHT; }
-			
-			popupAddLine(line);
-
-			if(!live_layersvis[DisplayLayer::TEMP]) sprintf(line, "value: %.3f", world->cells[layer][worldcx][worldcy]);
-			//must handle temp layer different b/c not a real cell layer (for now)
-			else sprintf(line, "value: %.3f", 2.0*abs((float)worldcy*conf::CZ/conf::HEIGHT - 0.5));
-			popupAddLine(line);
-
-			//Special extra infos
 			if(live_layersvis[DisplayLayer::ELEVATION]) {
 				float landtype= ceilf(world->cells[layer][worldcx][worldcy]*10)*0.1;
 
@@ -342,13 +330,38 @@ void GLView::handlePopup(int x, int y)
 				else if(landtype==Elevation::HIGHLAND) strcpy(line, "Highland");
 				else if(landtype==Elevation::MOUNTAIN_HIGH) strcpy(line, "Mountain");
 				popupAddLine(line);
-			}
-				
-			if(live_layersvis[DisplayLayer::HAZARDS] && world->cells[layer][worldcx][worldcy]>0.9) {
-				strcpy(line, "LIGHTNING STRIKE!");
+
+				sprintf(line, "Height: %.2f", world->cells[Layer::ELEVATION][worldcx][worldcy]);
 				popupAddLine(line);
 			}
-//			}
+			if(live_layersvis[DisplayLayer::PLANTS]) {
+				sprintf(line, "Plant: %.4f", world->cells[Layer::PLANTS][worldcx][worldcy]);
+				popupAddLine(line);
+			}
+			if(live_layersvis[DisplayLayer::MEATS]) {
+				sprintf(line, "Meat: %.4f", world->cells[Layer::MEATS][worldcx][worldcy]);
+				popupAddLine(line);
+			}
+			if(live_layersvis[DisplayLayer::FRUITS]){
+				sprintf(line, "Fruit: %.4f", world->cells[Layer::FRUITS][worldcx][worldcy]);
+				popupAddLine(line);
+			}
+			if(live_layersvis[DisplayLayer::HAZARDS]){
+				sprintf(line, "Waste: %.4f", world->cells[Layer::HAZARDS][worldcx][worldcy]);
+				popupAddLine(line);
+				if(world->cells[Layer::HAZARDS][worldcx][worldcy]>0.9) {
+					strcpy(line, "LIGHTNING STRIKE!");
+					popupAddLine(line);
+				}
+			} 
+			if(live_layersvis[DisplayLayer::TEMP]){
+				sprintf(line, "Temp: %.3f", world->calcTempAtCoord(worldcy));
+				popupAddLine(line);
+			} 
+			if(live_layersvis[DisplayLayer::LIGHT]){
+				sprintf(line, "Light: %.3f", world->cells[Layer::LIGHT][worldcx][worldcy]);
+				popupAddLine(line);
+			}
 		}
 		else popupReset(); //reset if mouse outside world
 	}
@@ -356,16 +369,19 @@ void GLView::handlePopup(int x, int y)
 }
 
 void GLView::processNormalKeys(unsigned char key, int x, int y)
+//Control.cpp
 {
 	menu(key);	
 }
 
 void GLView::processSpecialKeys(int key, int x, int y)
+//Control.cpp
 {
 	menuSpecial(key);	
 }
 
 void GLView::processReleasedKeys(unsigned char key, int x, int y)
+//Control.cpp
 {
 	if (key=='e') {//e: User Brain Input [released]
 		world->selectedInput(0);
@@ -419,6 +435,7 @@ void GLView::processReleasedKeys(unsigned char key, int x, int y)
 }
 
 void GLView::menu(int key)
+//Control.cpp
 {
 	if (key==27 || key==32) { //[esc](27) or [spacebar](32) - pause
 		live_paused= !live_paused;
@@ -434,8 +451,9 @@ void GLView::menu(int key)
 	} else if (key==60) { //[<] - zoom-
 		scalemult -= 10*conf::ZOOM_SPEED;
 		if(scalemult<0.01) scalemult=0.01;
-	} else if (key==9) { //[tab] - press sets select mode to off
+	} else if (key==9) { //[tab] - press sets select mode to off, and sets cursor mode to default
 		live_selection= Select::NONE;
+		live_cursormode= 0;
 	} else if (key=='c') {
 		world->setClosed( !world->isClosed() );
 		live_worldclosed= (int) world->isClosed();
@@ -446,8 +464,8 @@ void GLView::menu(int key)
 	} else if (key=='f') {
 		live_follow= !live_follow; //toggle follow selected agent
 	} else if (key=='m') { //drawing
-		live_fastmode= !live_fastmode;
 		world->setDemo(false);
+		live_fastmode= !live_fastmode;
 	} else if (key=='n') { //dismiss visible world events
 		world->dismissNextEvents(conf::EVENTS_DISP);
 	} else if (key=='l' || key=='k' || key=='o') { //layer profile switch; l= "next", k= "previous", o= "reality!"
@@ -552,7 +570,7 @@ void GLView::menu(int key)
 		glutSetMenu(m_id);
 
 	} else if (key=='r') { //r key is now a defacto debugging key for whatever I need at the time
-		world->audio->play2D("sounds/agents/chirp1.ogg");
+		world->cellsRoundTerrain();
 
 	}else if (key==127) { //delete
 		world->selectedKill();
@@ -614,6 +632,7 @@ void GLView::menu(int key)
 }
 
 void GLView::menuSpecial(int key) // special control keys
+//Control.cpp
 {
 	if (key==GLUT_KEY_UP) {
 	   ytranslate+= 20/scalemult;
@@ -633,6 +652,7 @@ void GLView::menuSpecial(int key) // special control keys
 }
 
 void GLView::glCreateMenu()
+//Control.cpp ???
 {
 	//right-click context menu and submenus
 	sm1_id= glutCreateMenu(gl_menu); //configs & UI
@@ -678,11 +698,13 @@ void GLView::glCreateMenu()
 }
 
 void GLView::gluiCreateMenu()
+//Control.cpp (only if not immediately switching UI systems)
 {
 	//GLUI menu. Slimy, yet satisfying.
 	//must set our init live vars to something. Might as well do it here
 	live_worldclosed= 0;
 	live_paused= 0;
+	live_playmusic= 1;
 	live_fastmode= 0;
 	live_skipdraw= 1;
 	live_agentsvis= Visual::RGB;
@@ -723,7 +745,7 @@ void GLView::gluiCreateMenu()
 	Menu->add_checkbox_to_panel(rollout_world,"Disable Land Spawns",&live_landspawns);
 	Menu->add_checkbox_to_panel(rollout_world,"Moon Light",&live_moonlight);
 	Menu->add_checkbox_to_panel(rollout_world,"Mutation Events",&live_mutevents);
-	Menu->add_checkbox_to_panel(rollout_world,"Global Droughts",&live_droughts);
+	Menu->add_checkbox_to_panel(rollout_world,"Global Drought Events",&live_droughts);
 	Menu->add_spinner_to_panel(rollout_world,"Drought Mod:",GLUI_SPINNER_FLOAT,&live_droughtmult)->set_speed(0.1); //...this is weird
 
 	GLUI_Rollout *rollout_vis= new GLUI_Rollout(Menu,"Visuals");
@@ -828,6 +850,7 @@ void GLView::gluiCreateMenu()
 	Menu->add_button_to_panel(rollout_xyl, "Save Selected", RWOpen::BASICSAVEAGENT, glui_handleRW);
 	LoadAgentButton= Menu->add_button_to_panel(rollout_xyl, "Load Agent", RWOpen::BASICLOADAGENT, glui_handleRW);
 
+	Menu->add_checkbox("Play Music?",&live_playmusic);
 	Menu->add_checkbox("DEBUG",&live_debug);
 
 	//set to main graphics window
@@ -836,6 +859,7 @@ void GLView::gluiCreateMenu()
 
 
 void GLView::handleButtons(int action)
+//Control.cpp (only if not immediately switching UI systems)
 {
 	if (action==GUIButtons::TOGGLE_LAYERS) {
 		if(ui_layerpreset!=0) ui_layerpreset= 0;
@@ -851,6 +875,7 @@ void GLView::handleButtons(int action)
 //====================================== READ WRITE ===========================================//
 
 void GLView::handleRW(int action) //glui callback for saving/loading worlds
+//Control.cpp (only if not immediately switching UI systems)
 {
 	live_paused= 1; //pause world while we work
 
@@ -985,6 +1010,7 @@ void GLView::handleRW(int action) //glui callback for saving/loading worlds
 }
 
 void GLView::handleCloses(int action) //GLUI callback for handling window closing
+//Control.cpp (only if not immediately switching UI systems)
 {
 	live_paused= 0;
 
@@ -1172,8 +1198,9 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 }
 
 
-bool GLView::checkFileName(char name[32]){
-
+bool GLView::checkFileName(char name[32])
+//Control.cpp
+{
 	if (live_debug) printf("Filename: '%s'\n",name);
 	if (!name || name=="" || name==NULL || name[0]=='\0'){
 		printf("ERROR: empty filename; returning to program.\n");
@@ -1208,6 +1235,7 @@ bool GLView::checkFileName(char name[32]){
 */
 
 void GLView::trySaveWorld(bool force, bool autosave)
+//Control.cpp (only if not immediately switching UI systems)
 {
 	if(autosave) strcpy(filename, "AUTOSAVE");
 	else strcpy(filename, Filename->get_text());
@@ -1235,6 +1263,7 @@ void GLView::trySaveWorld(bool force, bool autosave)
 
 			fclose(ck);
 		} else {
+			if(ck) fclose(ck);
 			savehelper->saveWorld(world, xtranslate, ytranslate, filename);
 			lastsavedtime= currentTime;
 			if(!autosave) world->addEvent("Saved World", EventColor::CYAN);
@@ -1258,6 +1287,7 @@ void GLView::popupAddLine(std::string line)
 
 
 void GLView::createTile(UIElement &parent, int x, int y, int w, int h, std::string key, std::string title)
+//Control.cpp
 {
 	//create a tile as a child of a given parent
 	UIElement newtile(x,y,w,h,key,title);
@@ -1266,6 +1296,7 @@ void GLView::createTile(UIElement &parent, int x, int y, int w, int h, std::stri
 }
 
 void GLView::createTile(int x, int y, int w, int h, std::string key, std::string title)
+//Control.cpp
 {
 	//this creates a main tile with no parent (are you the parent?...)
 	UIElement newtile(x,y,w,h,key,title);
@@ -1273,6 +1304,7 @@ void GLView::createTile(int x, int y, int w, int h, std::string key, std::string
 }
 
 void GLView::createTile(UIElement &parent, int w, int h, std::string key, std::string title, bool d, bool r)
+//Control.cpp
 {
 	int x,y;
 	//this method is for creating new tiles as children of a given tile (must exist as tile, no NULLs like above) with special alignment rules
@@ -1293,6 +1325,7 @@ void GLView::createTile(UIElement &parent, int w, int h, std::string key, std::s
 
 
 void GLView::checkTileListClicked(std::vector<UIElement> tiles, int mx, int my, int state)
+//Control.cpp
 {
 	for(int ti= tiles.size()-1; ti>=0; ti--){ //iterate backwards to prioritize last-added buttons
 		if(!tiles[ti].shown) continue;
@@ -1321,6 +1354,7 @@ void GLView::checkTileListClicked(std::vector<UIElement> tiles, int mx, int my, 
 
 
 void GLView::processTiles()
+//Control.cpp
 {
 	for(int ti= 0; ti<maintiles.size(); ti++){
 		if(ti==MainTiles::SAD){
@@ -1350,6 +1384,7 @@ void GLView::processTiles()
 
 
 void GLView::countdownEvents()
+//Control.cpp
 {
 	//itterate event counters when drawing, once per frame regardless of skipdraw
 	int count= world->events.size();
@@ -1377,6 +1412,7 @@ int GLView::getAgentRes(bool ghost){
 
 
 void GLView::handleIdle()
+//Control.cpp
 {
 	//set proper window (we don't want to draw on nothing, now do we?!)
 	if (glutGetWindow() != win1) glutSetWindow(win1); 
@@ -1395,38 +1431,55 @@ void GLView::handleIdle()
 	world->DROUGHTS= (bool)live_droughts;
 	world->DROUGHTMULT= live_droughtmult;
 	world->MUTEVENTS= (bool)live_mutevents;
+	world->domusic= (bool)live_playmusic;
 	world->setDebug((bool) live_debug);
 
 	#if defined(_DEBUG)
 	if(world->isDebug()) printf("/");
 	#endif
 
-	if(world->modcounter==0 && world->getEpoch()==0){
-		//do some spare actions if this is the first tick of the game (Main Menu here???) or if we just reloaded
-		gotoDefaultZoom();
-		past_agentsvis= live_agentsvis;
+	if(world->getEpoch()==0){
+		if(world->modcounter==0){
+			//do some spare actions if this is the first tick of the game (Main Menu here???) or if we just reloaded
+			gotoDefaultZoom();
+			past_agentsvis= live_agentsvis;
 
-		//create the UI tiles 
-		//I don't like destroying and creating these live, but for reasons beyond me, initialization won't accept variables like glutGet()
-		int sadheight= 3*UID::BUFFER + ((int)ceil((float)SADHudOverview::HUDS*0.333333))*(UID::CHARHEIGHT + UID::BUFFER);
-		//The SAD requires a special height measurement based on the Hud construct, expanding it easily if more readouts are added
+			//create the UI tiles 
+			//I don't like destroying and creating these live, but for reasons beyond me, initialization won't accept variables like glutGet()
+			int sadheight= 3*UID::BUFFER + ((int)ceil((float)SADHudOverview::HUDS*0.333333))*(UID::CHARHEIGHT + UID::BUFFER);
+			//The SAD requires a special height measurement based on the Hud construct, expanding it easily if more readouts are added
 
-		maintiles.clear();
-		for(int i=0; i<MainTiles::TILES; i++){
-			if(i==MainTiles::SAD) {
-				createTile(wWidth-UID::SADWIDTH-UID::BUFFER, UID::BUFFER, UID::SADWIDTH, sadheight, "");
-				createTile(maintiles[MainTiles::SAD], 20, 20, "Follow", "F", true, false);
-				createTile(maintiles[MainTiles::SAD], 20, 20, "Damages", "C", false, true);
-				createTile(maintiles[MainTiles::SAD], 20, 20, "Intake", "I", false, true);
-			} else if(i==MainTiles::TOOLBOX) {
-				createTile(UID::BUFFER, 190, 50, 300, "", "Tools");
-				createTile(maintiles[MainTiles::TOOLBOX], UID::BUFFER+UID::TILEMARGIN, 215, 30, 30, "UnpinUI", "UI.");
-				createTile(maintiles[MainTiles::TOOLBOX], 30, 30, "test", "test", true, false);
-				
-				maintiles[MainTiles::TOOLBOX].hide();
+			maintiles.clear();
+			for(int i=0; i<MainTiles::TILES; i++){
+				if(i==MainTiles::SAD) {
+					createTile(wWidth-UID::SADWIDTH-UID::BUFFER, UID::BUFFER, UID::SADWIDTH, sadheight, "");
+					createTile(maintiles[MainTiles::SAD], 20, 20, "Follow", "F", true, false);
+					createTile(maintiles[MainTiles::SAD], 20, 20, "Damages", "D", false, true);
+					createTile(maintiles[MainTiles::SAD], 20, 20, "Intake", "I", false, true);
+				} else if(i==MainTiles::TOOLBOX) {
+					createTile(UID::BUFFER, 190, 50, 300, "", "Tools");
+					createTile(maintiles[MainTiles::TOOLBOX], UID::BUFFER+UID::TILEMARGIN, 215, 30, 30, "UnpinUI", "UI.");
+					createTile(maintiles[MainTiles::TOOLBOX], 30, 30, "test", "test", true, false);
+					
+					maintiles[MainTiles::TOOLBOX].hide();
+				}
 			}
 		}
 
+		//display tips
+		if(!live_fastmode){ //not while in fast mode
+			if(!world->NO_TIPS || world->isDebug()){ //and not if world says NO or is in debug mode
+				if(world->modcounter%conf::TIPS_PERIOD==conf::TIPS_DELAY) {
+					if(world->getDay()<7) {
+						//the first 7 game days show the first few tips from the array of tips
+						int rand_tip_end= randi(0,world->tips.size());
+						int min_tip= (int)(world->modcounter/conf::TIPS_PERIOD)<rand_tip_end ? (int)(world->modcounter/conf::TIPS_PERIOD) : rand_tip_end;
+						world->addEvent(world->tips[min_tip].c_str(), EventColor::YELLOW);
+					} 
+					else world->addEvent(world->tips[randi(0,world->tips.size())].c_str(), EventColor::YELLOW);
+				}
+			} else if (world->modcounter==conf::TIPS_DELAY) world->addEvent("To re-enable tips, see settings.cfg", EventColor::YELLOW);
+		}
 	}
 
 	modcounter++;
@@ -1437,6 +1490,7 @@ void GLView::handleIdle()
 	live_droughtmult= world->DROUGHTMULT;
 	live_oceanpercent= world->OCEANPERCENT;
 
+
 	//autosave world periodically, based on world time
 	if (live_autosave==1 && world->modcounter%(world->FRAMES_PER_DAY*10)==0){
 		trySaveWorld(true,true);
@@ -1445,7 +1499,7 @@ void GLView::handleIdle()
 	//Do some recordkeeping and let's intelligently prevent users from simulating nothing
 	if(world->getAgents()<=0 && live_worldclosed==1) {
 		live_worldclosed= 0;
-		if(live_autosave==1) live_autosave= 0; //I'm gonna guess you don't want to save the world anymore
+		live_autosave= 0; //I'm gonna guess you don't want to save the world anymore
 		world->addEvent("Disabled Closed world, nobody was home!", EventColor::MINT);
 	}
 
@@ -1453,8 +1507,8 @@ void GLView::handleIdle()
 	currentTime = glutGet(GLUT_ELAPSED_TIME);
 	frames++;
 	if ((currentTime - lastUpdate) >= 1000) {
-		char fastmode= live_fastmode ? '*' : ' ';
-		sprintf( buf, "Evagents   %cFPS: %d Alive: %d Herbi: %d Carni: %d Frugi: %d Epoch: %d Day %d",
+		char fastmode= live_fastmode ? '#' : ' ';
+		sprintf( buf, "Evagents  - %cFPS: %d Alive: %d Herbi: %d Carni: %d Frugi: %d Epoch: %d Day %d",
 			fastmode, frames, world->getAgents()-world->getDead(), world->getHerbivores(), world->getCarnivores(),
 			world->getFrugivores(), world->getEpoch(), world->getDay() );
 		glutSetWindowTitle( buf );
@@ -1470,7 +1524,7 @@ void GLView::handleIdle()
 		}
 		else { //we will decrease fps by waiting using clocks
 			clock_t endwait;
-			float mult=-0.005*(live_skipdraw-1); //negative b/c live_skipdraw is negative. ugly, ah well
+			float mult=-0.008*(live_skipdraw-1); //negative b/c live_skipdraw is negative. ugly, ah well
 			endwait = clock () + mult * CLOCKS_PER_SEC ;
 			while (clock() < endwait) {}
 			renderScene();
@@ -1478,6 +1532,8 @@ void GLView::handleIdle()
 	} else {
 		//world->audio->stopAllSounds(); DON'T do this, too jarring to cut off all sounds
 		world->dosounds= false;
+
+		world->setDemo(false);
 		//in fast mode, our sim forgets to check nearest relative and reset the selection
 		if(live_selection==Select::RELATIVE) world->setSelection(live_selection);
 		//but we don't want to do this for all selection types because it slows fast mode down
@@ -1599,7 +1655,7 @@ Color3f GLView::setColorHealth(float health)
 Color3f GLView::setColorStomach(const float stomach[Stomach::FOOD_TYPES])
 {
 	Color3f color;
-	color.red= cap(stomach[Stomach::MEAT]+stomach[Stomach::FRUIT]-pow(stomach[Stomach::PLANT],2));
+	color.red= cap(stomach[Stomach::MEAT]+stomach[Stomach::FRUIT]-pow(stomach[Stomach::PLANT],2)/2);
 	color.gre= cap(pow(stomach[Stomach::PLANT],2)/2+stomach[Stomach::FRUIT]-stomach[Stomach::MEAT]/2);
 	color.blu= stomach[Stomach::MEAT]*stomach[Stomach::PLANT]/2;
 	return color;
@@ -1678,27 +1734,50 @@ Color3f GLView::setColorGenerocity(float give)
 	Color3f color;
 	float val= cap(abs(give)/world->FOODTRANSFER)*2/3;
 	if(give>0) color.gre= val;
-	else color.red= val; 
+	else color.red= val;
+	if(abs(give)<0.0001) { color.blu= 0.5; color.gre= 0.25; }
 	return color;
 }
 
-Color3f GLView::setColorRepCount(float repcount)
+Color3f GLView::setColorRepCount(float repcount, bool asexual)
 {
 	Color3f color;
-	float val= powf(cap(1-repcount*0.1), 2);
-	color.blu= val;
+	float val= powf(cap(1-repcount*0.5), 2);
+	if(asexual) color.gre= val*0.5;
+	else color.blu= val;
 
 	int mod= 12;
 	if(repcount<1) mod= 3;
-	if(repcount<0) {
-		color.red= ((int)(-repcount*1000)%mod>=mod*0.5) ? 1.0 : 0;
-		color.gre= 1.0;
-	} else color.gre= ((int)(repcount*1000)%mod>=mod*0.5) ? val : 0;
+	if((int)(repcount*1000)%mod>=mod*0.5){
+		if(repcount<0) {
+			color.red= 1.0;
+			color.gre= 1.0;
+			color.blu= 1.0;
+		} else {
+			if(asexual) {
+				color.blu= val;
+				color.gre= val;
+			} else color.gre= val;
+		}
+	}
+
+	return color;
+}
+
+Color3f GLView::setColorMutations(float rate, float size)
+{
+	Color3f color;
+	//red= fast rate, blue= slow rate, dimmer= small size, brighter= larger size
+	float intensity= 0.25+10*size;
+	color.red= cap(2*rate*size);
+	color.gre= intensity;
+	color.blu= cap((0.5-2*rate)*size);
 
 	return color;
 }
 
 
+//Cell layer colors
 
 Color3f GLView::setColorTerrain(float val)
 {
@@ -1719,7 +1798,7 @@ Color3f GLView::setColorTerrain(float val)
 		color.red= 0.3;
 		color.gre= 0.4;
 		color.blu= 0.9;
-	} else { //dirt [0.2,0.9]
+	} else { //dirt
 		color.red= 0.25;
 		color.gre= 0.2;
 		color.blu= 0.1;
@@ -1765,7 +1844,7 @@ Color3f GLView::setColorWaterFruit(float val)
 
 Color3f GLView::setColorMeat(float val)
 {
-	Color3f color(val/2,0.0,0.0);
+	Color3f color(val*3/4,0.0,0.0);
 	return color;
 }
 
@@ -1791,10 +1870,9 @@ Color3f GLView::setColorWaterHazard(float val)
 	return color;
 }
 
-
-Color3f GLView::setColorTemp(float val)
+Color3f GLView::setColorTempCell(int val)
 {
-	float row= 1-cap(2*abs(val*conf::CZ/conf::HEIGHT - 0.5)-0.02);
+	float row= cap(world->calcTempAtCoord(val)-0.02);
 	Color3f color(row,(2-row)/2,(1-row)*(1-row)); //revert "row" to "val" to fix for cell-based temp layer
 	return color;
 }
@@ -1993,7 +2071,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						if(j==Output::RED) glColor3f(col,0,0);
 						else if (j==Output::GRE) glColor3f(0,col,0);
 						else if (j==Output::BLU) glColor3f(0,0,col);
-						else if (j==Output::JUMP) glColor3f(col,col,0);
+						//else if (j==Output::JUMP) glColor3f(col,col,0); removed due to being too attention-grabbing when nothing can happen due to exhaustion
 						else glColor3f(col,col,col);
 						glVertex3f(0+ss*j, yy, 0.0f);
 						glVertex3f(xx+ss*j, yy, 0.0f);
@@ -2370,7 +2448,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		Color3f crossablecolor= setColorCrossable(agent.species);
 		Color3f generocitycolor= setColorGenerocity(agent.dhealth);
 //		Color3f sexualitycolor= setColorSexuality(agent);
-		Color3f repcountcolor= setColorRepCount(agent.repcounter);
+		Color3f repcountcolor= setColorRepCount(agent.repcounter, agent.isAsexual());
 
 		//now colorize agents and other things
 		if (live_agentsvis==Visual::RGB){ //real rgb values
@@ -2484,11 +2562,11 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				Vector2f displace= agent.dpos - agent.pos;
 				for(int q=1;q<4;q++){
 					glBegin(GL_POLYGON);
-					glColor4f(red,gre,blu,dead*centeralpha*0.25);
+					glColor4f(red,gre,blu,dead*centeralpha*0.1);
 					glVertex3f(0,0,0);
 					glColor4f(red,gre,blu,0.25);
-					drawCircle(displace.x*(q*20), displace.y*(q*20), r);
-					glColor4f(red,gre,blu,dead*centeralpha*0.25);
+					drawCircle(cap(displace.x)*(q*10), cap(displace.y)*(q*10), r);
+					glColor4f(red,gre,blu,dead*centeralpha*0.1);
 					glVertex3f(0,0,0);
 					glEnd();
 				}
@@ -2540,6 +2618,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			//dont render jaws if zoomed too far out, but always render them on ghosts, and only if they've been active within the last few ticks
 			glColor4f(0.9,0.9,0,blur);
 			float mult= 1-powf(abs(agent.jawPosition),0.5);
+			if(agent.jawrend==conf::JAWRENDERTIME) mult= 1; //at the start of the timer the jaws are rendered open for aesthetic
 			glVertex3f(rad*cos(agent.angle), rad*sin(agent.angle), 0);
 			glVertex3f((10+rad)*cos(agent.angle+M_PI/8*mult), (10+rad)*sin(agent.angle+M_PI/8*mult), 0);
 			glVertex3f(rad*cos(agent.angle), rad*sin(agent.angle), 0);
@@ -2999,6 +3078,9 @@ void GLView::drawStatic()
 			if(world->MOONLIT && world->MOONLIGHTMULT==1.0) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Permanent Day", 1.0f, 1.0f, 0.3f);
 				currentline++;
+			} else if (!world->MOONLIT || world->MOONLIGHTMULT==0) {
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Moonless Nights", 0.6f, 0.6f, 0.6f);
+				currentline++;
 			}
 		}
 		
@@ -3114,7 +3196,7 @@ void GLView::drawStatic()
 		glVertex3f(ww-UID::BUFFER-UID::EVENTSWIDTH, euy+5+(3+eo)*ss+toastbase+move,0);
 		glEnd();
 
-		RenderStringBlack(ww-UID::EVENTSWIDTH, euy+10+2.5*ss+eo*ss+toastbase+move, GLUT_BITMAP_HELVETICA_12, world->events[eo].first, 1.0f, 1.0f, 1.0f, fade);
+		RenderStringBlack(ww-UID::EVENTSWIDTH, euy+10+2.5*ss+eo*ss+toastbase+move, GLUT_BITMAP_HELVETICA_12, world->events[eo].first.c_str(), 1.0f, 1.0f, 1.0f, fade);
 	}
 
 	if(world->events.size()>conf::EVENTS_DISP) {
@@ -3165,13 +3247,13 @@ void GLView::drawStatic()
 		glBegin(GL_QUADS);
 		glColor4f(0,0.4,0.6,0.65);
 		glVertex3f(popupxy[0],popupxy[1],0);
-		glVertex3f(popupxy[0],popupxy[1]+linecount*16,0);
-		glVertex3f(popupxy[0]+(maxlen+maxlen*maxlen/49+1)*5,popupxy[1]+linecount*16,0);
-		glVertex3f(popupxy[0]+(maxlen+maxlen*maxlen/49+1)*5,popupxy[1],0);
+		glVertex3f(popupxy[0],popupxy[1]+linecount*13+5,0);
+		glVertex3f(popupxy[0]+(maxlen+maxlen*maxlen/100+1)*5,popupxy[1]+linecount*13+5,0);
+		glVertex3f(popupxy[0]+(maxlen+maxlen*maxlen/100+1)*5,popupxy[1],0);
 		glEnd();
 
 		for(int l=0; l<popuptext.size(); l++) {
-			RenderString(popupxy[0]+5, popupxy[1]+14*(l+1), GLUT_BITMAP_HELVETICA_12, popuptext[l].c_str(), 0.8f, 1.0f, 1.0f);
+			RenderString(popupxy[0]+5, popupxy[1]+13*(l+1), GLUT_BITMAP_HELVETICA_12, popuptext[l].c_str(), 0.8f, 1.0f, 1.0f);
 		}
 	}
 
@@ -3477,6 +3559,8 @@ void GLView::renderAllTiles()
 
 			for(int u=0; u<SADHudOverview::HUDS; u++) {
 				bool drawbox= false;
+
+				bool isFixedTrait= false;
 				Color3f* textcolor= &defaulttextcolor;
 
 				int ux= tx2-5-(UID::BUFFER+UID::HUDSWIDTH)*(3-(int)(u%3));
@@ -3564,6 +3648,10 @@ void GLView::renderAllTiles()
 					else if(selected.give>conf::MAXSELFISH) sprintf(buf, "Autocentric");
 					else sprintf(buf, "Selfish");
 
+//				} else if(u==SADHudOverview::DHEALTH){
+//					if(selected.dhealth==0) sprintf(buf, "Delta H: 0");
+//					else sprintf(buf, "Delta H: %.2f", selected.dhealth);
+
 				} else if(u==SADHudOverview::SPIKE){
 					if(selected.health>0 && selected.isSpikey(world->SPIKELENGTH)){
 						float mw= selected.w1>selected.w2 ? selected.w1 : selected.w2;
@@ -3630,71 +3718,71 @@ void GLView::renderAllTiles()
 					else if(selected.isFrugivore()) sprintf(buf, "\"Frugivore\"");
 					else if(selected.isCarnivore()) sprintf(buf, "\"Carnivore\"");
 					else sprintf(buf, "\"Dead\"...");
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 					RenderStringBlack(ux, uy, GLUT_BITMAP_HELVETICA_12, buf, textcolor->red, textcolor->gre, textcolor->blu);
 					continue;
 
 				} else if(u==SADHudOverview::GENERATION){
 					sprintf(buf, "Gen: %d", selected.gencount);
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::TEMPPREF){
 					if(live_agentsvis==Visual::DISCOMFORT) drawbox= true;
-					if(selected.temperature_preference<0.3) sprintf(buf, "Tropical(%.3f)", selected.temperature_preference);
-					else if (selected.temperature_preference>0.7) sprintf(buf, "Arctic(%.3f)", selected.temperature_preference);
+					if(selected.temperature_preference>0.7) sprintf(buf, "Tropical(%.3f)", selected.temperature_preference);
+					else if (selected.temperature_preference<0.3) sprintf(buf, "Arctic(%.3f)", selected.temperature_preference);
 					else sprintf(buf, "Temperate(%.2f)", selected.temperature_preference);
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::LUNGS){
 					if(live_agentsvis==Visual::LUNGS) drawbox= true;
 					if(selected.isAquatic()) sprintf(buf, "Aquatic(%.3f)", selected.lungs);
 					else if (selected.isTerrestrial()) sprintf(buf, "Terran(%.3f)", selected.lungs);
 					else sprintf(buf, "Amphibian(%.2f)", selected.lungs);
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::SIZE){
 					sprintf(buf, "Radius: %.2f", selected.radius);	
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::MUTCHANCE){
 					sprintf(buf, "Mut-rate: %.3f", selected.MUTCHANCE);
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 				} else if(u==SADHudOverview::MUTSIZE){ 
 					sprintf(buf, "Mut-size: %.3f", selected.MUTSIZE);
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::CHAMOVID){
 					sprintf(buf, "Camo: %.3f", selected.chamovid);
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 				
 				} else if(u==SADHudOverview::METABOLISM){
 					if(live_agentsvis==Visual::METABOLISM) drawbox= true;
 					sprintf(buf, "Metab: %.2f", selected.metabolism);
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::HYBRID){
 					if(selected.hybrid) sprintf(buf, "Is Hybrid");
 					else if(selected.gencount==0) sprintf(buf, "Was Spawned");
 					else sprintf(buf, "Was Budded");
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::STRENGTH){
 					if(selected.strength>0.7) sprintf(buf, "Strong!");
 					else if(selected.strength>0.3) sprintf(buf, "Not Weak");
 					else sprintf(buf, "Weak!");
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::NUMBABIES){
 					sprintf(buf, "Num Babies: %d", selected.numbabies);
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::SPECIESID){
 					if(live_agentsvis==Visual::STOMACH) drawbox= true;
 					sprintf(buf, "Gene: %d", selected.species);
-					textcolor= &traittextcolor;
+					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::DEATH && selected.health==0){
-					//technically is a stat, but every agent only ever gets just one
+					//technically is an unchanging stat, but every agent only ever gets just one, so let's keep it bright
 					sprintf(buf, selected.death.c_str());
 
 				} else sprintf(buf, "");
@@ -3702,7 +3790,11 @@ void GLView::renderAllTiles()
 				//render box around our stat that we're visualizing to help user follow along
 
 				//Render text
-				RenderString(ux, uy, GLUT_BITMAP_HELVETICA_12, buf, textcolor->red, textcolor->gre, textcolor->blu);
+				if(isFixedTrait) {
+					textcolor= &traittextcolor;
+					RenderStringBlack(ux, uy, GLUT_BITMAP_HELVETICA_12, buf, textcolor->red, textcolor->gre, textcolor->blu);
+				} else
+					RenderString(ux, uy, GLUT_BITMAP_HELVETICA_12, buf, textcolor->red, textcolor->gre, textcolor->blu);
 			}
 
 
@@ -3741,7 +3833,7 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 
 		Color3f meat= live_layersvis[DisplayLayer::MEATS] ? setColorMeat(values[Layer::MEATS]) : setColorHeight(0);
 
-		Color3f temp= live_layersvis[DisplayLayer::TEMP] ? setColorTemp((float)y) : setColorHeight(0); //special for temp: until cell-based, convert y coord and process
+		Color3f temp= live_layersvis[DisplayLayer::TEMP] ? setColorTempCell(y) : setColorHeight(0); //special for temp: until cell-based, convert y coord and process
 
 		if(layers>1) { //if more than one layer selected, some layers display VERY differently
 			//set terrain to use terrain instead of just elevation
@@ -3759,7 +3851,7 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 			if(layers==2) {
 				if(live_layersvis[DisplayLayer::LIGHT] && !live_layersvis[DisplayLayer::ELEVATION]) {
 					terrain= setColorHeight(0.5); // this allows "light" to be "seen"
-					temp.red*= 0.65; temp.gre*= 0.65; temp.blu*= 0.65;
+					temp.red*= 0.45; temp.gre*= 0.45; temp.blu*= 0.45;
 				}
 								
 			} else { temp.red*= 0.15; temp.gre*= 0.15; temp.blu*= 0.15; }
@@ -3821,7 +3913,7 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 			if(live_layersvis[DisplayLayer::MEATS] && values[Layer::MEATS]>0.03 && scalemult>0.1){
 				float meat= values[Layer::MEATS];
 				cellcolor= setColorMeat(1.0); //meat on this layer is always bright red, but translucence is applied
-				glColor4f(cellcolor.red*light.red, cellcolor.gre*light.gre, cellcolor.blu*(0.9*light.blu+0.1), meat*0.8);
+				glColor4f(cellcolor.red*light.red, cellcolor.gre*light.gre, cellcolor.blu*(0.9*light.blu+0.1), meat*0.6+0.1);
 				float meatsz= 0.25*meat+0.15;
 
 				glVertex3f(x*conf::CZ+0.5*conf::CZ,y*conf::CZ+0.5*conf::CZ+meatsz*conf::CZ,0);
@@ -3870,6 +3962,7 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 }
 
 void GLView::setWorld(World* w)
+//Control.cpp ???
 {
 	world = w;
 }

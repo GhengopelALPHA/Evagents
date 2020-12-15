@@ -18,9 +18,9 @@ public:
 
 	ISoundEngine* audio; //audio engine, provided by irrKlang. See http://www.ambiera.com/irrklang for details
 	bool dosounds; //are we currently allowed to start new sounds?
+	bool domusic; //are we allowed to start new music?
 	void setAudioEngine(ISoundEngine* a);
 	void tryPlayAudio(const char* soundFileName, float x= 0, float y= 0, float pitch= 1.0, float volume= 1.0);
-	bool dosongs; //are we allowed to start new music?
 	int last5songs[5]; //tracker for last 5 songs based on index that we played, to prevent recent repeats
 	ISound* currentsong;
 	int timenewsong; //timer. Gets set when a song ends, and when it hits 0, a new song starts
@@ -29,6 +29,8 @@ public:
 	void readConfig();
 	void writeConfig();
 
+	//setup functions
+	void setSeed(unsigned int seed);
     void reset();
 	void sanitize();
 	void spawn();
@@ -116,12 +118,15 @@ public:
 	bool addLoadedAgent(float x, float y);
 	void addAgents(int num, int set_stomach=-1, bool set_lungs=true, float nx=-1, float ny=-1);
 
+	float calcTempAtCoord(float y); //calculate the temperature at any y-coord
+	float calcTempAtCoord(int worldcy); //calculate temp at coord, using cell coord
+
 	std::vector<std::string> deaths; //record of all the causes of death this epoch
 
 	std::vector<float> selectedSounds; //a list of all the sounds heard by the agent. the int-value /100 is the volume, the float-value is the tone. Visual only
 
-	std::vector<std::pair <const char *,std::pair <int,int> > > events; //short-term record of events happening in the sim. includes text, type, and counter
-	void addEvent(const char * text, int type= 0); //adds event to the event list. max of ~40 characters
+	std::vector<std::pair <std::string ,std::pair <int,int> > > events; //short-term record of events happening in the sim. includes text, type, and counter
+	void addEvent(std::string text, int type= 0); //adds event to the event list. max of ~40 characters
 	void dismissNextEvents(int count= 1); //dismisses next [count] events (starts their disappearing act, doesn't delete them!)
 
 	//helper functions to give us counts of agents and cells
@@ -175,6 +180,7 @@ public:
 	int FRAMES_PER_EPOCH;
 	int FRAMES_PER_DAY;
 
+	bool NO_TIPS; //if the config value is set true, no tips will be displayed
 	int CONTINENTS;
 	float OCEANPERCENT;
 	bool SPAWN_LAKES;
@@ -268,6 +274,8 @@ public:
 	float HAZARDDEPOSIT;
 	float HAZARDDAMAGE;
 	float HAZARDPOWER;
+
+	std::vector<std::string> tips;//list of tips to display every once in a while (more frequently at epoch=0)
     
 private:
     void writeReport();
@@ -278,10 +286,8 @@ private:
 	void cellsLandMasses();
 	void findStats(); //finds the world's current stats (population counts, best gens, etc)
 
-	std::vector<std::string> tips;//list of tips to display every once in a while (more frequently at epoch=0)
-
+	unsigned int SEED; //THE random seed for the entire sim.
     bool CLOSED; //if environment is closed, then no random bots or food are added per time interval
-	bool NO_TIPS; //if the config value is set true, no tips will be displayed
 	bool DEMO; //if demo mode active, we don't save report until it gets turned off, which happens automatically at Epoch 1. Also settings.cfg-controllable
 	bool DEBUG; //if debugging, collect additional data, print more feedback, and draw extra info
 	bool AUTOSELECT; //if autoselecting, the agent which we are newly following gets selected

@@ -435,7 +435,7 @@ namespace conf {
 	const int WWIDTH = 1100;  //initial window width and height
 	const int WHEIGHT = 700;
 
-	const float VERSION= 0.05; //current program settings version. ++0.01 IF CHANGES MADE AND PROGRAM UPDATED
+	const float VERSION= 0.06; //current program settings version. ++0.01 IF CHANGES MADE AND PROGRAM UPDATED
 
 	//sound file defines
 	const char SFX_CHIRP1[]= "sounds/agents/chirp1.ogg";
@@ -481,7 +481,7 @@ namespace conf {
 	const float INITMEATDENSITY= 0.001; //(.cfg)
 	const float INITHAZARDDENSITY= 0.003; //(.cfg)
 
-	const int AGENTS_MIN_NOTCLOSED= 30; //(.cfg)
+	const int AGENTS_MIN_NOTCLOSED= 50; //(.cfg)
 	const int AGENTS_MAX_SPAWN= 400; //(.cfg)
 	const int AGENTSPAWN_FREQ= 75; //(.cfg)
 	const int AGENTS_MAX_NOOXYGEN= 2500; //(.cfg)
@@ -498,10 +498,11 @@ namespace conf {
 	const float DROUGHT_STDDEV= 0.15; // The standard deviation of changes to the DROUGHTMULT
 	const int DROUGHT_WEIGHT= 2; // the weight multiple of the current DROUGHTMULT when averaged (1.0 has a weight of 1)
 	const float DROUGHT_NOTIFY= 0.2; //+/- this value from 1.0 of drought shows notifications
-	const float DROUGHT_MIN= 0.6; //(.cfg & save)
-	const float DROUGHT_MAX= 1.4; //(.cfg & save)
+	const float DROUGHT_MIN= 0.7; //(.cfg & save)
+	const float DROUGHT_MAX= 1.5; //(.cfg & save)
 	const bool MUTEVENTS= true; //(.cfg, save, & GUI)
 	const int MUTEVENT_MAX= 3; //(.cfg)
+	const float MUTEVENT_CHANCE= 0.25; //chance of a mutation event that has a multiple other than 1
 	const float SOUNDPITCHRANGE= 0.1; //(.cfg)
 	const float OVERHEAL_REPFILL= 0; //(.cfg)
 
@@ -514,12 +515,14 @@ namespace conf {
 	const float BOOSTEXAUSTMULT= 4.0; //(.cfg)
 	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
 	const int CARCASSFRAMES= 400; //number of frames before dead agents are removed after meat= 0
+	const float DEADSLOWDOWN= 0.8; //slowdown multiplier of agent speed when they die
 	const int BLINKTIME= 8; //it's really a little thing... how many ticks the agent eyes blink for. Purely aesthetic
 	const int BLINKDELAY= 105; //blink delay time. In ticks
+	const int JAWRENDERTIME= 25; //time allowed for jaw to be rendered after a bite starts
 
 	const float FOODTRANSFER= 0.1; //(.cfg)
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
-	const float BASEEXHAUSTION= -5; //(.cfg)
+	const float BASEEXHAUSTION= -6; //(.cfg)
 	const float EXHAUSTION_MULT= 0.5; //(.cfg)
 	const float MEANRADIUS=10.0; //(.cfg)
 	const float SPIKESPEED= 0.01; //(.cfg)
@@ -532,10 +535,10 @@ namespace conf {
 	const float REPCOUNTER_MIN= 15; //minimum value the Repcounter may be set to
 	const float MAXDEVIATION= 10; //(.cfg)
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
-	const float META_MUTCHANCE= 0.005; //what is the std dev in MUTCHANCE and 2 on reproduction? lol
-	const float META_MUTSIZE= 0.0008;
+	const float META_MUTCHANCE= 0.01; //what is the std dev in MUTCHANCE and 2 on reproduction? lol
+	const float META_MUTSIZE= 0.001;
 	const float DEFAULT_MUTCHANCE= 0.13; //(.cfg)
-	const float DEFAULT_MUTSIZE= 0.015; //(.cfg)
+	const float DEFAULT_MUTSIZE= 0.018; //(.cfg)
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
 	const int MAXAGE=10000; //(.cfg)
 	const int MAXWASTEFREQ= 200; //(.cfg)
@@ -543,10 +546,11 @@ namespace conf {
 	//distances
 	const float DIST= 400; //(.cfg)
 	const float SPIKELENGTH=30; //(.cfg)
-	const float TOOCLOSE=10; //(.cfg)
+	const float TOOCLOSE=8; //(.cfg)
 	const float FOOD_SHARING_DISTANCE= 60; //(.cfg)
 	const float SEXTING_DISTANCE= 60; //(.cfg)
 	const float GRABBING_DISTANCE= 40; //(.cfg)
+//	const float BLOOD_SENSE_DISTANCE= 50; //(.cfg)
 
 	//Health losses
 	const float HEALTHLOSS_WHEELS = 0.0; //(.cfg)
@@ -583,7 +587,7 @@ namespace conf {
 	const int BRAINSIZE= 160; //(.cfg)
 	const float LEARNRATE= 0.001; // CHANGE TO LEARN FROM USER INPUT
 	const bool ENABLE_LEARNING= true; //(.cfg & GUI)
-	const float BRAIN_DIRECTINPUTS= 0.1; //probability of random brain conns on average which will connect directly to inputs
+	const float BRAIN_DIRECTINPUTS= 0.2; //probability of random brain conns on average which will connect directly to inputs
 	const float BRAIN_DEADCONNS= 0.35; //probability of random brain conns which are "dead" (that is, weight = 0)
 	const float BRAIN_CHANGECONNS= 0.05; //probablility of random brain conns which are change sensitive
 	const float BRAIN_MEMCONNS= 0.01; //probablility of random brain conns which are memory type
@@ -593,9 +597,10 @@ namespace conf {
 
 	//LAYERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LAYERS
 	const float STOMACH_EFF= 0.25; //(.cfg)
+	const float CARNIVORE_MEAT_EFF= 0.05; //worst efficiency possible from full carnivores. The carivore stomach is sqrt-ed for even harsher punishment
 
 	const char FOOD_TEXT[]= "Plant Food";
-	const float FOODINTAKE= 0.0090; //(.cfg)
+	const float FOODINTAKE= 0.01; //(.cfg)
 	const float FOODDECAY = 0.000004; //(.cfg)
 	const float FOODGROWTH= 0.000003; //(.cfg)
 	const float FOODWASTE= 0.0023;//0.0007; //(.cfg)
@@ -613,9 +618,9 @@ namespace conf {
 	//Fruit is a quick and easy alternative to plants. Also partially randomly populated, harkening back to ScriptBots origins
 
 	const char MEAT_TEXT[]= "Meat Food";
-	const float MEATINTAKE= 0.095; //(.cfg)
+	const float MEATINTAKE= 0.1; //(.cfg)
 	const float MEATDECAY= 0.00002;//0.00001; //(.cfg)
-	const float MEATWASTE= 0.0023; //0.002; //(.cfg)
+	const float MEATWASTE= 0.008; //0.0023; //(.cfg)
 	const float MEATVALUE= 1.0; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)
 
@@ -623,7 +628,7 @@ namespace conf {
 	const float HAZARDEVENT_MULT= 4.0; //(.cfg)
 	const float HAZARDDECAY= 0.000002; //(.cfg)
 	const float HAZARDDEPOSIT= 0.00006; //(.cfg)
-	const float HAZARDDAMAGE= 0.0025;//0.0032; //(.cfg)
+	const float HAZARDDAMAGE= 0.001;//0.0032; //(.cfg)
 	const float HAZARDPOWER= 0.5; //(.cfg)
 	}
 

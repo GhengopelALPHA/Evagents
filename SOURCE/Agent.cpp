@@ -24,9 +24,9 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	chamovid= cap(randf(-0.25,0.5));
 	lungs= randf(0,1);
 	metabolism= randf(0.25,0.75);
-	temperature_preference= cap(randn(2.0*abs(pos.y/conf::HEIGHT - 0.5),0.05));
+	temperature_preference= cap(randn(2.0*abs(pos.y/conf::HEIGHT - 0.5),0.03));
 	species= randi(-conf::AGENTS_MIN_NOTCLOSED*200,conf::AGENTS_MIN_NOTCLOSED*200); //related to AGENTS_MIN_NOTCLOSED because it's a good relationship
-	sexprojectbias= randf(-1,1);
+	sexprojectbias= randf(-1,0); //purposefully excluding "male" biases (0,1), which are allowed, but for random spawn agents are detrimental
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) stomach[i]= 0;
 	float budget= 1.5; //
 	int overtype;
@@ -38,7 +38,7 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	}
 	//senses and sense-ability
 	//eyes
-	eye_see_agent_mod= randf(0.6, 4);
+	eye_see_agent_mod= randf(0.1, 3);
 	eyefov.resize(NUMEYES, 0);
 	eyedir.resize(NUMEYES, 0);
 	for(int i=0;i<NUMEYES;i++) {
@@ -422,9 +422,9 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	if (randf(0,1)<MR*2) a2.gene_blu= cap(randn(a2.gene_blu, MR2));
 	if (randf(0,1)<MR/2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2/2), -1.0, 1.0);
 
-	if (randf(0,1)<MR) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTCHANCE));
-	if (randf(0,1)<MR) a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
-	//we dont really want mutrates to get to zero; thats too stable. so take absolute randn instead.
+	a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTCHANCE));
+	a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
+	//we dont really want mutrates to get to zero; thats too stable. always mutate, and take the absolute randn instead.
 
 	if (randf(0,1)<MR) a2.clockf1= randn(a2.clockf1, MR2);
 	if (a2.clockf1<2) a2.clockf1= 2;
@@ -496,12 +496,12 @@ void Agent::resetRepCounter(float MEANRADIUS, float REP_PER_BABY)
 	this->repcounter= this->maxrepcounter;
 }
 
-void Agent::liveMutate()
+void Agent::liveMutate(int MUTMULT)
 {
 	initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0.5,0,1.0);
 	
-	float MR= this->MUTCHANCE;
-	float MR2= this->MUTSIZE;
+	float MR= this->MUTCHANCE*MUTMULT;
+	float MR2= this->MUTSIZE*MUTMULT;
 	for(int i= 0; i<5; i++){
 		this->brain.liveMutate(MR, MR2, this->out);
 	}
@@ -510,8 +510,8 @@ void Agent::liveMutate()
 	if (randf(0,1)<MR) this->metabolism= cap(randn(this->metabolism, MR2/5));
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*2) this->stomach[i]= cap(randn(this->stomach[i], MR2*2));
 	//METAMUTERATE used for chance because this is supposed to represent background mutation chances
-	if (randf(0,1)<conf::META_MUTCHANCE/10) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTCHANCE*25));
-	if (randf(0,1)<conf::META_MUTCHANCE/10) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE*100));
+	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTSIZE));
+	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE));
 	if (randf(0,1)<MR) this->clockf1= randn(this->clockf1, MR2/2);
 	if (this->clockf1<2) this->clockf1= 2;
 	if (randf(0,1)<MR) this->clockf2= randn(this->clockf2, MR2/2);
@@ -618,8 +618,8 @@ bool Agent::isTinyEye(int eyenumber) const
 
 bool Agent::isAsexual() const
 {
-	if(sexproject>0.5) return false;
-	return true;
+	if(sexproject<=0.5) return true;
+	return false;
 }
 
 bool Agent::isMale() const

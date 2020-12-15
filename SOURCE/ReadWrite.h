@@ -13,7 +13,7 @@ public:
 	void loadSettings(const char *filename); //load text settings file
 
 	void saveAgent(Agent *a, FILE *file); //save a single agent
-	void loadAgents(World *world, FILE *file, bool loadexact= true); //load all agents from file and add them to world
+	void loadAgents(World *world, FILE *file, float fileversion, bool loadexact= true); //load all agents from file and add them to world
 
 	void loadAgentFile(World *world, const char *address); //load agent from text file
 	

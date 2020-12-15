@@ -150,7 +150,7 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "</a>\n"); //end of agent
 }
 
-void ReadWrite::loadAgents(World *world, FILE *file, bool loadexact)
+void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loadexact)
 {
 	//NOTE: this method REQUIRES "file" to be opened and closed outside
 	//loadexact is flag for loading agent EXACTLY is same pos, same health, exhaustion, etc, if set to false we give it random spawn settings for non-genes
@@ -282,6 +282,7 @@ void ReadWrite::loadAgents(World *world, FILE *file, bool loadexact)
 			}else if(strcmp(var, "temppref=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.temperature_preference= f;
+				if(fileversion<0.055) xa.temperature_preference= 1-f; //invert temp preference number from version 0.05 or before
 			}else if(strcmp(var, "lungs=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.lungs= f;
@@ -395,7 +396,8 @@ void ReadWrite::loadAgentFile(World *world, const char *address)
 
 	FILE* fl = fopen(address, "r");
 	if(fl){
-		loadAgents(world, fl, false);
+		loadAgents(world, fl, conf::VERSION, false);
+		//note, for now, version numbers are not saved in agent files, so we force the default version number just to avoid trouble.
 	}
 	fclose(fl);
 }
@@ -548,6 +550,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 
 	bool t1= false; //triggers for keeping track of where exactly we are
 
+	float fileversion= 0; //version 0.05+ upgrade tool
 	int cellmult= 1; //version 0.04 upgrade tool
 	int i; //integer buffer
 	float f; //float buffer
@@ -582,12 +585,13 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					//version number
 					sscanf(dataval, "%f", &f);
 					if(f!=conf::VERSION) {
-						printf("ALERT: Version Number different! Issues may occur!\n");
-						if(f<=0.03) {
+						printf("ALERT: Version Number different! Expected V= %.2f, found V= %.2f\n", conf::VERSION, f);
+						if(f<0.04) {
 							printf("ALERT: version number < 0.04 detected! Multiplying all cell values by 2!\n");
 							cellmult= 2;
-						}
+						} else if (f<0.06) printf("ALERT: version number < 0.06 detected! Agent temp preferences will be automatically inverted!\n");
 					}
+					fileversion= f;
 				}else if(strcmp(var, "BRAINSIZE=")==0){
 					sscanf(dataval, "%i", &i);
 					world->BRAINSIZE= i;
@@ -673,6 +677,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					//mod count
 					sscanf(dataval, "%i", &i);
 					world->modcounter= i;
+					world->ptr= floor((float)i*world->REPORTS_PER_EPOCH/world->FRAMES_PER_EPOCH); //fix for loading saves breaking the epoch alignment of the data graph
 				}else if(strcmp(var, "CLOSED=")==0){
 					//closed state
 					sscanf(dataval, "%i", &i);
@@ -697,7 +702,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 				}else if(strcmp(var, "<a>")==0){
 					//agent tag activates agent reading mode
 					//version 0.05: this is no longer a mode, but rather a whole another method. Should function identically
-					loadAgents(world, fl); //when we leave here, should be EOF					
+					loadAgents(world, fl, fileversion); //when we leave here, should be EOF					
 				}
 			}else if(mode==1){ //mode @ 1 = cell
 				if(strcmp(var, "</c>")==0){
