@@ -175,8 +175,7 @@ void GLView::gotoDefaultZoom()
 	wHeight= glutGet(GLUT_WINDOW_HEIGHT);
 
 	//do some mathy things to zoom and translate correctly
-	float scaleA= (float)wWidth;
-	scaleA/= (conf::WIDTH+2200);
+	float scaleA= (float)wWidth/(conf::WIDTH+2200);
 	float scaleB= (float)wHeight/(conf::HEIGHT+150);
 	if(scaleA>scaleB) scalemult= scaleB;
 	else scalemult= scaleA;
@@ -204,17 +203,32 @@ void GLView::changeSize(int w, int h)
 {
 	//Tell GLUT that were changing the projection, not the actual view
 	glMatrixMode(GL_PROJECTION);
+
 	//Reset the coordinate system
 	glLoadIdentity();
+
 	//resize viewport to new size
 	glViewport(0, 0, w, h);
+
 	//reconcile projection (required to keep everything that's visible, visible)
 	glOrtho(0,w,h,0,0,1);
+
 	//revert to normal view opperations
 	glMatrixMode(GL_MODELVIEW);
+
 	//retreive new Window w, h
 	wWidth= glutGet(GLUT_WINDOW_WIDTH);
 	wHeight= glutGet(GLUT_WINDOW_HEIGHT);
+
+	//fix up some other stuff.
+	scale4ksupport= (float)wWidth/(conf::WIDTH+2200)+0.01;
+
+	//update UI elements and make sure they are still in view
+	for(int i=0; i<maintiles.size(); i++){
+		if(i==MainTiles::SAD){
+			maintiles[i].moveElement(wWidth-UID::SADWIDTH-UID::BUFFER, UID::BUFFER);
+		}
+	}
 }
 
 void GLView::processMouse(int button, int state, int x, int y)
@@ -387,45 +401,79 @@ void GLView::processReleasedKeys(unsigned char key, int x, int y)
 		world->selectedInput(0);
 	} else if (key=='h') { //interface help
 		//MAKE SURE ALL UI CHANGES CATELOGUED HERE
+		world->addEvent("UI INTERFACE HELP:", EventColor::CYAN);
 		world->addEvent("Left-click an agent to select it", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("Press 'f' to follow selection", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("Pan with left-mouse drag or ", EventColor::CYAN);
 		world->addEvent("  use the arrow keys", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("Zoom with middle-mouse drag or ", EventColor::CYAN);
 		world->addEvent("  use the '<'/'>' keys", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("Press 'spacebar' to pause game", EventColor::CYAN);
+		world->addEvent("  and to freeze these toasts", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("Press 'm' to skip rendering,", EventColor::CYAN);
 		world->addEvent("  which makes sim MUCH faster!", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("Press 'n' to dismiss these toasts", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("Right-click opens more options", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'0' selects random alive agent", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'shift+0' selects random agent", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'1' selects oldest agent", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'2' selects best generation", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'3' selects best herbivore", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'4' selects best frugivore", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'5' selects best carnivore", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'6' selects healthiest agent", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'7' selects most energetic", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'8' selects most childbaring", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'9' selects most aggressive", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 //		world->addEvent("'' selects relatives continually", EventColor::CYAN);
 		world->addEvent("'page up' selects relative, 1st,", EventColor::CYAN);
 		world->addEvent("  speciesID+1, then any in range", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'page dn' selects relative, 1st,", EventColor::CYAN);
 		world->addEvent("  speciesID-1, then any in range", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'wasd' controls selected agent", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'end' prints traits of selected agent", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'e' activates a brain input", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'+' speeds simulation. '-' slows", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'l' & 'k' cycle layer view modes", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'o' sets layer view to Reality!", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'z' & 'x' cycle agent view", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("'c' toggles spawns (closed world)", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent("Debug mode is required for:", EventColor::RED);
 		world->addEvent(" Press 'delete' to kill selected", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent(" '/' heals the selected agent", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent(" '|' reproduces selected agent", EventColor::CYAN);
+		world->addEvent("", EventColor::CYAN);
 		world->addEvent(" '~' mutates selected agent", EventColor::CYAN);
 	} else if (key==9) { //[tab] - release tab toggles to manual selection mode
 		live_selection= Select::MANUAL;
@@ -450,7 +498,7 @@ void GLView::menu(int key)
 		scalemult += 10*conf::ZOOM_SPEED;
 	} else if (key==60) { //[<] - zoom-
 		scalemult -= 10*conf::ZOOM_SPEED;
-		if(scalemult<0.01) scalemult=0.01;
+		if(scalemult<0.03) scalemult=0.03;
 	} else if (key==9) { //[tab] - press sets select mode to off, and sets cursor mode to default
 		live_selection= Select::NONE;
 		live_cursormode= 0;
@@ -732,8 +780,8 @@ void GLView::gluiCreateMenu()
 	Menu->add_checkbox("Enable Autosaves",&live_autosave);
 
 	GLUI_Panel *panel_speed= new GLUI_Panel(Menu,"Speed Control");
-	Menu->add_checkbox_to_panel(panel_speed,"Fast Mode",&live_fastmode);
 	Menu->add_spinner_to_panel(panel_speed,"Speed:",GLUI_SPINNER_INT,&live_skipdraw);
+	Menu->add_checkbox_to_panel(panel_speed,"Fast Mode",&live_fastmode);
 
 	GLUI_Rollout *rollout_world= new GLUI_Rollout(Menu,"World Options",false);
 
@@ -2509,7 +2557,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		float centeralpha= cap(agent.centerrender);
 		float centercmult= agent.centerrender>1.0 ? -0.5*agent.centerrender+1.25 : 0.5*agent.centerrender+0.25;
 		// when we're zoomed out far away, do some things differently, but not to the ghost (selected agent display)
-		if( scalemult <= 0.1 && !ghost) {
+		if( scalemult <= scale4ksupport && !ghost) {
 			rad= 2.2/scalemult; //this makes agents a standard size when zoomed out REALLY far, but not on the ghost
 
 		}
@@ -3244,12 +3292,27 @@ void GLView::drawStatic()
 			if(popuptext[l].size()>maxlen) maxlen= popuptext[l].size();
 		}
 
+		float popuplen= (maxlen+(float)(maxlen*maxlen)/100+1)*5-8;
+		float popupheight= (float)linecount*13+6;
+
 		glBegin(GL_QUADS);
 		glColor4f(0,0.4,0.6,0.65);
 		glVertex3f(popupxy[0],popupxy[1],0);
-		glVertex3f(popupxy[0],popupxy[1]+linecount*13+5,0);
-		glVertex3f(popupxy[0]+(maxlen+maxlen*maxlen/100+1)*5,popupxy[1]+linecount*13+5,0);
-		glVertex3f(popupxy[0]+(maxlen+maxlen*maxlen/100+1)*5,popupxy[1],0);
+		glVertex3f(popupxy[0],popupxy[1]+popupheight,0);
+		glVertex3f(popupxy[0]+popuplen,popupxy[1]+popupheight,0);
+		glVertex3f(popupxy[0]+popuplen,popupxy[1],0);
+		glEnd();
+
+		glBegin(GL_LINES);
+		glColor3f(0,0,0);
+		glVertex3f(popupxy[0],popupxy[1],0);
+		glVertex3f(popupxy[0],popupxy[1]+popupheight,0);
+		glVertex3f(popupxy[0],popupxy[1]+popupheight,0);
+		glVertex3f(popupxy[0]+popuplen,popupxy[1]+popupheight,0);
+		glVertex3f(popupxy[0]+popuplen,popupxy[1]+popupheight,0);
+		glVertex3f(popupxy[0]+popuplen,popupxy[1],0);
+		glVertex3f(popupxy[0]+popuplen,popupxy[1],0);
+		glVertex3f(popupxy[0],popupxy[1],0);
 		glEnd();
 
 		for(int l=0; l<popuptext.size(); l++) {
@@ -3688,7 +3751,7 @@ void GLView::renderAllTiles()
 
 				} else if(u==SADHudOverview::WASTE){
 					if(selected.out[Output::WASTE_RATE]<0.05) sprintf(buf, "Has the Runs");
-					else if(selected.out[Output::WASTE_RATE]<0.3) sprintf(buf, "Incontenent");
+					else if(selected.out[Output::WASTE_RATE]<0.3) sprintf(buf, "Incontinent");
 					else if(selected.out[Output::WASTE_RATE]>0.7) sprintf(buf, "Waste Prudent");
 					else sprintf(buf, "Avg Waste Rate");
 

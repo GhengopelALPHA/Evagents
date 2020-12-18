@@ -334,11 +334,13 @@ void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 		if(randf(0,1)>fabs(abox->w[rc])) abox->w[rc]= 0; //the closer the weight is to 0, the more likely it withers
 	}
 
-	if (randf(0,1)*seedfactor<MR*10) {
-		//jiggle weight
-		int rc= randi(0, CONNS);
-		abox->w[rc]+= randn(0, MR2*10);
-	}
+	//if (randf(0,1)*seedfactor<MR*10) {
+
+	//jiggle weight - This event is now guarenteed for every live mutation event
+	int rc= randi(0, CONNS);
+	abox->w[rc]+= randn(0, MR2);
+
+	//}
 }
 
 DRAWSBrain DRAWSBrain::crossover(const DRAWSBrain& other)

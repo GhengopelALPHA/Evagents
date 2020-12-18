@@ -215,6 +215,8 @@ private:
 	int ui_sadmode; //what rendering mode are we using for the Selected Agent Display? 0= off (text only), 1= normal agent view, 2= damage pie chart
 	bool ui_movetiles; //are we allowing tiles to be moved?
 	std::vector<UIElement> maintiles; //list of interactive tile buttons! WIP
+
+	float scale4ksupport; //because reasons, we are tracking the scalemult that allows all agents to show a default size...
 };
 
 #endif // GLVIEW_H

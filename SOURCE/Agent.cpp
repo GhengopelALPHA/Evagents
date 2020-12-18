@@ -416,14 +416,14 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	if (randf(0,1)<MR*10) a2.radius= randn(a2.radius, MR2*15);
 	if (a2.radius<1) a2.radius= 1;
 	if (randf(0,1)<MR*2) a2.strength= cap(randn(a2.strength, MR2));
-	if (randf(0,1)<MR) a2.chamovid= cap(randn(a2.chamovid, MR2/2));
-	if (randf(0,1)<MR*2) a2.gene_red= cap(randn(a2.gene_red, MR2));
-	if (randf(0,1)<MR*2) a2.gene_gre= cap(randn(a2.gene_gre, MR2));
-	if (randf(0,1)<MR*2) a2.gene_blu= cap(randn(a2.gene_blu, MR2));
+	if (randf(0,1)<MR*2) a2.chamovid= cap(randn(a2.chamovid, MR2));
+	if (randf(0,1)<MR*3) a2.gene_red= cap(randn(a2.gene_red, MR2*2));
+	if (randf(0,1)<MR*3) a2.gene_gre= cap(randn(a2.gene_gre, MR2*2));
+	if (randf(0,1)<MR*3) a2.gene_blu= cap(randn(a2.gene_blu, MR2*2));
 	if (randf(0,1)<MR/2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2/2), -1.0, 1.0);
 
-	a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTCHANCE));
-	a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
+	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTSIZE*2));
+	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
 	//we dont really want mutrates to get to zero; thats too stable. always mutate, and take the absolute randn instead.
 
 	if (randf(0,1)<MR) a2.clockf1= randn(a2.clockf1, MR2);
@@ -502,7 +502,7 @@ void Agent::liveMutate(int MUTMULT)
 	
 	float MR= this->MUTCHANCE*MUTMULT;
 	float MR2= this->MUTSIZE*MUTMULT;
-	for(int i= 0; i<5; i++){
+	for(int i= 0; i<randi(1,6); i++){ //mutate between 1 and 5 brain boxes
 		this->brain.liveMutate(MR, MR2, this->out);
 	}
 
@@ -510,7 +510,7 @@ void Agent::liveMutate(int MUTMULT)
 	if (randf(0,1)<MR) this->metabolism= cap(randn(this->metabolism, MR2/5));
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*2) this->stomach[i]= cap(randn(this->stomach[i], MR2*2));
 	//METAMUTERATE used for chance because this is supposed to represent background mutation chances
-	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTSIZE));
+	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTSIZE*2));
 	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE));
 	if (randf(0,1)<MR) this->clockf1= randn(this->clockf1, MR2/2);
 	if (this->clockf1<2) this->clockf1= 2;

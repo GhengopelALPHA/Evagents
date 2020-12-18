@@ -535,9 +535,9 @@ namespace conf {
 	const float REPCOUNTER_MIN= 15; //minimum value the Repcounter may be set to
 	const float MAXDEVIATION= 10; //(.cfg)
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
-	const float META_MUTCHANCE= 0.01; //what is the std dev in MUTCHANCE and 2 on reproduction? lol
-	const float META_MUTSIZE= 0.001;
-	const float DEFAULT_MUTCHANCE= 0.13; //(.cfg)
+	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
+	const float META_MUTSIZE= 0.002;
+	const float DEFAULT_MUTCHANCE= 0.11; //(.cfg)
 	const float DEFAULT_MUTSIZE= 0.018; //(.cfg)
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
 	const int MAXAGE=10000; //(.cfg)
@@ -596,8 +596,8 @@ namespace conf {
 //	const float BRAIN_ANDCONNS= 0.2; //probability of random brain conns that multiply in instead of add.
 
 	//LAYERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LAYERS
-	const float STOMACH_EFF= 0.25; //(.cfg)
-	const float CARNIVORE_MEAT_EFF= 0.05; //worst efficiency possible from full carnivores. The carivore stomach is sqrt-ed for even harsher punishment
+	const float STOMACH_EFF= 0.125; //(.cfg)
+	const float CARNIVORE_MEAT_EFF= 0.125; //0.05; //highest meat mult possible from full carnivores. The carivore stomach is sqrt-ed for even harsher punishment
 
 	const char FOOD_TEXT[]= "Plant Food";
 	const float FOODINTAKE= 0.01; //(.cfg)

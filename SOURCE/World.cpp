@@ -134,7 +134,7 @@ void World::reset()
 	}
 
 	if(BRAINSIZE<(Input::INPUT_SIZE+Output::OUTPUT_SIZE)) {
-		printf("BRAINSIZE config value was too small.\n It has been reset to min allowed (Inputs+Outputs)\n");
+		printf("BRAINSIZE config value was too small. It has been reset to min allowed (Inputs+Outputs)\n");
 		BRAINSIZE= Input::INPUT_SIZE+Output::OUTPUT_SIZE;
 	}
 
@@ -156,7 +156,7 @@ void World::reset()
 		fclose(fr);
 	}
 
-	ptr= 0; //bug: when world is loaded, this causes the ingame graph to be "desynced" relative to when it was saved
+	ptr= 0;
 	for(int q=0;q<conf::RECORD_SIZE;q++) {
 		numHerbivore[q]= 0;
 		numCarnivore[q]= 0;
@@ -436,7 +436,7 @@ void World::cellsLandMasses()
 	//briefly allow land spawn for Init ONLY! See update() for long-term
 	if(DISABLE_LAND_SPAWN && STATlandratio>0.75){
 		DISABLE_LAND_SPAWN= false;
-		printf("Enabled Land Init Spawns due to high land:water ratio.\n");
+		printf("ALERT: Enabled Land Init Spawns due to high land:water ratio.\n");
 	}
 }
 
@@ -635,7 +635,8 @@ void World::update()
 			std::string songfile= conf::SONGS[songindex];
 
 			printf("Now playing track: %s", songfile.c_str());
-			#if defined(_DEBUG) printf(", index: %i", songindex);
+			#if defined(_DEBUG) 
+				printf(", index: %i", songindex);
 			#endif
 			printf("\n");
 
@@ -1969,7 +1970,7 @@ int World::getClosestRelative(int idx) {
 			if(agents[idx].gencount+1==agents[i].gencount) { meta+= 3; bestrelative= "youngling"; } //choose children or nephews and nieces
 			else if(agents[idx].gencount==agents[i].gencount) { meta+= 2; bestrelative= "cousin"; } //at least choose cousins... 
 			else if(agents[idx].gencount==agents[i].gencount+1) { meta+= 1; bestrelative= "elder"; } //...or parents/aunts/uncles
-			if(agents[idx].age==agents[i].age) { meta+= 10; bestrelative= "sibling"; } //...note this gets +12 b/c of cousin above
+			if(agents[idx].parentid==agents[i].parentid) { meta+= 10; bestrelative= "sibling"; } //...note this gets +12 b/c of cousin above
 			if(agents[idx].parentid==agents[i].id) { meta+= 16; bestrelative= "mother"; } //...note this gets +17 b/c of elder above
 			if(agents[idx].id==agents[i].parentid) { meta+= 17; bestrelative= "daughter"; } //...note this gets +20 b/c of youngling above
 
@@ -2622,6 +2623,7 @@ void World::dismissNextEvents(int count)
 
 void World::init()
 {
+	printf("...starting up...\n");
 	//ALL .cfg constants must be initially declared in world.h and defined here.
 	NO_TIPS= false;
 	SPAWN_LAKES= conf::SPAWN_LAKES;
@@ -2743,20 +2745,21 @@ void World::init()
 	tips.push_back("Left-click an agent to select it");
 	tips.push_back("Press 'f' to follow selected agent");
 	tips.push_back("Zoom with middle mouse click&drag");
-	tips.push_back("Also zoom with '>' & '<'");
-	tips.push_back("Dead agents are semi-transparent");
+	tips.push_back("Pan around with left click&drag");
+	tips.push_back("Dead agents make 8bit death sound");
 	tips.push_back("Press 'q' to recenter map & graphs");
 	tips.push_back("Press 'spacebar' to pause");
 	tips.push_back("Press 'h' for detailed interface help");
-	tips.push_back("Pan around with left click&drag");
 	tips.push_back("Demo prevents report.txt changes");
 	tips.push_back("Patience, Epoch 0 species are rare");
+	tips.push_back("Agent 'whiskers' are eye orientations");
 	tips.push_back("These tips may repeat now");
 	tips.push_back("Cycle layer views with 'k' & 'l'");
+	tips.push_back("Also zoom with '>' & '<'");
 	tips.push_back("View all layers again with 'o'");
 	tips.push_back("Press 'h' for detailed interface help");
 //	tips.push_back("Press 'g' for graphics details");
-	tips.push_back("Press 'm' to toggle fast mode");
+	tips.push_back("Press 'm' to toggle Fast Mode");
 	tips.push_back("Many dead in Epoch 0? It's normal");
 	tips.push_back("Select 'New World' to end Demo");
 	tips.push_back("Agents display splashes for events");
@@ -2775,10 +2778,10 @@ void World::init()
 	tips.push_back("'report.txt' logs useful data");
 	tips.push_back("Epoch 0 is boring. Press 'm'!");
 	tips.push_back("The settings.cfg is FUN, isnt it?!");
-	tips.push_back("Many dead in Epoch 0? It's normal");
+	tips.push_back("Hide dead with a UI option");
 	tips.push_back("Reports periodically saved to file");
 	tips.push_back("Settings.cfg file can change constants");
-	tips.push_back("Press 'm' to also disable Demo mode");
+	tips.push_back("Press 'm' to also disable Demo Mode");
 	tips.push_back("See more options with right-click");
 	tips.push_back("Use settings.cfg to change constants");
 	tips.push_back("Contribute on Github!");
@@ -2795,21 +2798,24 @@ void World::init()
 void World::readConfig()
 {
 	//get world constants from config file, settings.cfg
-	char line[64], *pos;
-	char var[16];
-	char dataval[16];
+	char line[256], *pos;
+	char var[32];
+	char dataval[32];
 	int i; //integer buffer
 	float f; //float buffer
 
 	//first check version number
+	printf("...looking for settings.cfg...\n");
+
 	FILE* cf = fopen("settings.cfg", "r");
 	if(cf){
 		addEvent("settings.cfg detected & loaded", EventColor::CYAN);
-		printf("tweaking the following constants: ");
+		printf("...tweaking the following constants: ");
 		while(!feof(cf)){
 			fgets(line, sizeof(line), cf);
 			pos= strtok(line,"\n");
 			sscanf(line, "%s%s", var, dataval);
+			if(DEBUG) printf("%s\n", var);
 
 			if(strcmp(var, "V=")==0){ //strcmp= 0 when the arguements equal
 				sscanf(dataval, "%f", &f);
@@ -2840,8 +2846,8 @@ void World::readConfig()
 				else NO_TIPS= false;
 			}else if(strcmp(var, "NO_DEMO=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=((int)DEMO-1)) printf("DEMO (NO_DEMO), ");
-				if(i==1) DEMO= false; //DEMO vs NODEMO: setting is reversed, and we IGNORE it if it's 0 (otherwise we would get weird unintended behavior when loading/saving)
+				if(i!=(1-(int)DEMO)) printf("DEMO (NO_DEMO), ");
+				if(i==1) DEMO= false; //DEMO vs NO_DEMO: setting is reversed, and we IGNORE it if it's 0 (otherwise we would get weird unintended behavior when loading/saving)
 				//else DEMO= true;
 			}else if(strcmp(var, "MOONLIT=")==0){
 				sscanf(dataval, "%i", &i);
@@ -2960,8 +2966,13 @@ void World::readConfig()
 				GRAB_PRESSURE= f;
 			}else if(strcmp(var, "BRAINSIZE=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=BRAINSIZE) printf("BRAINSIZE, ");
-				BRAINSIZE= i;
+				if(i!=BRAINSIZE) {
+					if(modcounter!=0) printf("\nALERT: changing brain size is not allowed when the simulation is in progress!\n");
+					else {
+						printf("BRAINSIZE, ");
+						BRAINSIZE= i;
+					}
+				}
 			}else if(strcmp(var, "BOTSPEED=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=BOTSPEED) printf("BOTSPEED, ");
@@ -3233,7 +3244,7 @@ void World::readConfig()
 			}
 		}
 		if(cf){
-			printf("and done!\n");
+			printf("and done!...\n");
 			fclose(cf);
 		}
 
@@ -3241,7 +3252,6 @@ void World::readConfig()
 		#if defined(_DEBUG)
 		printf("_DEBUG: settings.cfg did not exist and suppressing creation in debug.\n");
 		#else
-		printf("settings.cfg did not exist! Its ok, I gave you a new one to tinker with\n");
 		writeConfig();
 		#endif
 	}
@@ -3251,7 +3261,7 @@ void World::writeConfig()
 {
 	//called if settings.cfg is missing or version number of program is greater
 	//happens after initializing and skips loading of config
-	printf("encoding new config file..");
+	printf("...regenerating settings.cfg...\n");
 
 	FILE* cf= fopen("settings.cfg", "w");
 
@@ -3263,7 +3273,7 @@ void World::writeConfig()
 	fprintf(cf, "\n\n");
 	fprintf(cf, "V= %f \t\t\t//Version number this file was created in. If different than program's, will ask user to exit, or it will overwrite.\n", conf::VERSION);
 	fprintf(cf, "\n");
-	fprintf(cf, "NO_TIPS= %i \t\t\t//if true (=1), prevents tips from being displayed. This value is whatever was set in program when this file was saved\n", NO_TIPS);
+	fprintf(cf, "NO_TIPS= %i \t\t\t//if true (=1), prevents tips from being displayed. Default= 1 when writing a new config\n", 1);
 	fprintf(cf, "NO_DEMO= %i \t\t\t//if true (=1), this will prevent demo mode from running at start. Default= 1 when writing a new config\n", 1);
 //	fprintf(cf, "SPAWN_LAKES= %i \t\t\t//if true (=1), and if terrain generation forms too much or too little land, the generator takes a moment to put in lakes (or islands)\n", NO_TIPS);
 	fprintf(cf, "DISABLE_LAND_SPAWN= %i \t\t//true-false flag for disabling agents from spawning on land. 0= land spawn allowed, 1= not allowed. Is GUI-controllable. This value is whatever was set in program when this file was saved\n", DISABLE_LAND_SPAWN);
@@ -3377,6 +3387,4 @@ void World::writeConfig()
 	fprintf(cf, "SUN_BLU= %f \t\t//???\n", SUN_BLU);
 	if(STATallachieved) fprintf(cf, "FUN= 1\n");
 	fclose(cf);
-
-	printf(". done!\n");
 }
