@@ -514,7 +514,8 @@ namespace conf {
 	const float BOOSTSIZEMULT= 2.0; //(.cfg)
 	const float BOOSTEXAUSTMULT= 4.0; //(.cfg)
 	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
-	const int CARCASSFRAMES= 400; //number of frames before dead agents are removed after meat= 0
+	const int CORPSE_FRAMES= 400; //(.cfg)
+	const float CORPSE_MEAT_MIN= 0.25; //(.cfg)
 	const float DEADSLOWDOWN= 0.8; //slowdown multiplier of agent speed when they die
 	const int BLINKTIME= 8; //it's really a little thing... how many ticks the agent eyes blink for. Purely aesthetic
 	const int BLINKDELAY= 105; //blink delay time. In ticks
@@ -536,9 +537,9 @@ namespace conf {
 	const float MAXDEVIATION= 10; //(.cfg)
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
 	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
-	const float META_MUTSIZE= 0.002;
+	const float META_MUTSIZE= 0.001;
 	const float DEFAULT_MUTCHANCE= 0.11; //(.cfg)
-	const float DEFAULT_MUTSIZE= 0.018; //(.cfg)
+	const float DEFAULT_MUTSIZE= 0.015; //(.cfg)
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
 	const int MAXAGE=10000; //(.cfg)
 	const int MAXWASTEFREQ= 200; //(.cfg)

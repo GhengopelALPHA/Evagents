@@ -138,6 +138,8 @@ void World::reset()
 		BRAINSIZE= Input::INPUT_SIZE+Output::OUTPUT_SIZE;
 	}
 
+	NEAREST= max(max(max(FOOD_SHARING_DISTANCE, SEXTING_DISTANCE), GRABBING_DISTANCE), SPIKELENGTH+MEANRADIUS*3);
+
 	sanitize(); //clear all agents 
 
 	//handle layers
@@ -928,7 +930,7 @@ void World::update()
 
 	vector<Agent>::iterator iter= agents.begin();
 	while (iter != agents.end()) {
-		if (iter->health <=0 && iter->carcasscount >= conf::CARCASSFRAMES) {
+		if (iter->health <=0 && iter->carcasscount >= conf::CORPSE_FRAMES) {
 			if(iter->id == SELECTION) addEvent("The Selected Agent has decayed", EventColor::BROWN);
 			iter= agents.erase(iter);
 		} else {
@@ -1476,7 +1478,7 @@ void World::processInteractions()
 		} else {
 			//agent is dead. Just check for meat and refresh corpse counter if meat amount is high enough
 			float meat= cells[Layer::MEATS][scx][scy];
-			if(meat>0.25) a->carcasscount= 1; //1 because 0 triggers meat dropping... it's a mess, I'm sorry
+			if(meat>CORPSE_MEAT_MIN) a->carcasscount= 1; //1 because 0 triggers meat dropping... it's a mess, I'm sorry
 		}
 
 	}
@@ -1490,18 +1492,17 @@ void World::processInteractions()
 	if (modcounter%2==0) { //we dont need to do this TOO often. can save efficiency here since this is n^2 op in #agents
 
 		//first, we'll determine for all agents if they are near enough to another agent to warrent processing them
-		float highestdist= max(max(max(FOOD_SHARING_DISTANCE, SEXTING_DISTANCE), GRABBING_DISTANCE), SPIKELENGTH+MEANRADIUS*3);
-		//SEXTING_DISTANCE can be replaced here - it's not used here
 		for (int i=0; i<(int)agents.size(); i++) {
 			agents[i].near= false;
 			agents[i].dhealth= 0; //better place for this now, since modcounter%2
 			if (agents[i].health<=0) continue; //skip dead agents
 
 			for (int j=0; j<i; j++) {
-				if (agents[i].pos.x<agents[j].pos.x-highestdist
-					|| agents[i].pos.x>agents[j].pos.x+highestdist
-					|| agents[i].pos.y>agents[j].pos.y+highestdist
-					|| agents[i].pos.y<agents[j].pos.y-highestdist) continue;
+				//note: NEAREST is calculated upon config load/reload
+				if (agents[i].pos.x<agents[j].pos.x-NEAREST
+					|| agents[i].pos.x>agents[j].pos.x+NEAREST
+					|| agents[i].pos.y>agents[j].pos.y+NEAREST
+					|| agents[i].pos.y<agents[j].pos.y-NEAREST) continue;
 				else if (agents[j].health<=0) {
 					if(agents[i].isGrabbing() && agents[i].grabID==agents[j].id) agents[i].grabID= -1;
 					continue;
@@ -2022,7 +2023,7 @@ void World::selectedKill() {
 	//kill (delete) selected agent
 	int sidx= getSelectedAgent();
 	if(sidx>=0){
-		if(agents[sidx].health<=0) agents[sidx].carcasscount= conf::CARCASSFRAMES;
+		if(agents[sidx].health<=0) agents[sidx].carcasscount= conf::CORPSE_FRAMES;
 		else agents[sidx].addDamage(conf::DEATH_USER, 9001);
 	}
 }
@@ -2659,6 +2660,8 @@ void World::init()
     BOTSPEED= conf::BOTSPEED;
     BOOSTSIZEMULT= conf::BOOSTSIZEMULT;
 	BOOSTEXAUSTMULT= conf::BOOSTEXAUSTMULT;
+	CORPSE_FRAMES= conf::CORPSE_FRAMES;
+	CORPSE_MEAT_MIN= conf::CORPSE_MEAT_MIN;
 	SOUNDPITCHRANGE= conf::SOUNDPITCHRANGE;
 
     FOODTRANSFER= conf::FOODTRANSFER;
@@ -2754,6 +2757,7 @@ void World::init()
 	tips.push_back("Patience, Epoch 0 species are rare");
 	tips.push_back("Agent 'whiskers' are eye orientations");
 	tips.push_back("These tips may repeat now");
+	tips.push_back("Autosave happens every 10 sim-days");
 	tips.push_back("Cycle layer views with 'k' & 'l'");
 	tips.push_back("Also zoom with '>' & '<'");
 	tips.push_back("View all layers again with 'o'");
@@ -2985,6 +2989,14 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=BOOSTEXAUSTMULT) printf("BOOSTEXAUSTMULT, ");
 				BOOSTEXAUSTMULT= f;
+			}else if(strcmp(var, "CORPSE_FRAMES=")==0){
+				sscanf(dataval, "%i", &i);
+				if(i!=CORPSE_FRAMES) printf("CORPSE_FRAMES, ");
+				CORPSE_FRAMES= i;
+			}else if(strcmp(var, "CORPSE_MEAT_MIN=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=CORPSE_MEAT_MIN) printf("CORPSE_MEAT_MIN, ");
+				CORPSE_MEAT_MIN= f;
 			}else if(strcmp(var, "SOUNDPITCHRANGE=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=SOUNDPITCHRANGE) printf("SOUNDPITCHRANGE, ");
@@ -3308,30 +3320,31 @@ void World::writeConfig()
 	fprintf(cf, "GRAVITYACCEL= %f \t\t//how fast an agent will 'fall' after jumping. 0= jump disabled, 0.1+ = super-gravity\n", conf::GRAVITYACCEL);
 	fprintf(cf, "BUMP_PRESSURE= %f \t//the restoring force between two colliding agents. 0= no reaction (disables TOOCLOSE and all collisions). I'd avoid negative values if I were you...\n", conf::BUMP_PRESSURE);
 	fprintf(cf, "GRAB_PRESSURE= %f \t//the restoring force between and agent and its grab target. 0= no reaction (disables grab function), negative values push agents away\n", conf::GRAB_PRESSURE);
-	fprintf(cf, "BRAINSIZE= %i \t\t\t//number boxes in every agent brain. Sim will NEVER make brains smaller than # Inputs + # Outputs. Saved per world, loaded worlds will override this value\n", conf::BRAINSIZE);
+	fprintf(cf, "SOUNDPITCHRANGE= %f \t//range below hearhigh and above hearlow within which external sounds fade in. Would not recommend extreme values near or beyond [0,0.5]\n", conf::SOUNDPITCHRANGE);
 	fprintf(cf, "\n");
+	fprintf(cf, "BRAINSIZE= %i \t\t\t//number boxes in every agent brain. Sim will NEVER make brains smaller than # Inputs + # Outputs. Saved per world, loaded worlds will override this value. You cannot change this value for worlds already in progress; use New World options or restart app\n", conf::BRAINSIZE);
 	fprintf(cf, "BOTSPEED= %f \t\t//fastest possible speed of agents. This effects so much of the sim I dont advise changing it\n", conf::BOTSPEED);
+	fprintf(cf, "MEANRADIUS= %f \t\t//\"average\" agent radius, range [0.2*this,2.2*this) (only applies to random agents, no limits on mutations). This effects SOOOO much stuff, and I would not recommend setting negative unless you like crashing programs.\n", conf::MEANRADIUS);
 	fprintf(cf, "BOOSTSIZEMULT= %f \t//how much speed boost do agents get when boost is active?\n", conf::BOOSTSIZEMULT);
 	fprintf(cf, "BOOSTEXAUSTMULT= %f \t//how much exhaustion from brain outputs is multiplied by when boost is active?\n", conf::BOOSTEXAUSTMULT);
-	fprintf(cf, "SOUNDPITCHRANGE= %f \t//range below hearhigh and above hearlow within which external sounds fade in. Would not recommend extreme values near or beyond [0,0.5]\n", conf::SOUNDPITCHRANGE);
-	fprintf(cf, "FOODTRANSFER= %f \t\t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::FOODTRANSFER);
 	fprintf(cf, "BASEEXHAUSTION= %f \t//base value of exhaustion. When negative, is essentially the sum amount of output allowed before healthloss. Would not recommend >=0 values\n", conf::BASEEXHAUSTION);
 	fprintf(cf, "EXHAUSTION_MULT= %f \t//multiplier applied to outputsum + BASEEXHAUSTION\n", conf::EXHAUSTION_MULT);
 	fprintf(cf, "MEANRADIUS= %f \t\t//\"average\" agent radius, range [0.2*this,2.2*this) (only applies to random agents, no limits on mutations). This effects SOOOO much stuff, and I would not recommend setting negative unless you like crashing programs.\n", conf::MEANRADIUS);
+	fprintf(cf, "MAXWASTEFREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. Default= 200, 1= no agent control allowed, 0= program crash\n", conf::MAXWASTEFREQ);
+	fprintf(cf, "FOODTRANSFER= %f \t\t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::FOODTRANSFER);
 	fprintf(cf, "SPIKESPEED= %f \t\t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKESPEED);
-	fprintf(cf, "FRESHKILLTIME= %i \t\t//number of ticks after a spike, collision, or bite that an agent will still drop full meat\n", conf::FRESHKILLTIME);
+	fprintf(cf, "\n");
 	fprintf(cf, "TENDERAGE= %i \t\t\t//age (in 1/10ths) of agents where full meat, hazard, and collision damage is finally given. These multipliers are reduced via *age/TENDERAGE. 0= off\n", conf::TENDERAGE);
 	fprintf(cf, "MINMOMHEALTH= %f \t\t//minimum amount of health required for an agent to have a child\n", conf::MINMOMHEALTH);
 	fprintf(cf, "MIN_INTAKE_HEALTH_RATIO= %f //minimum metabolism ratio of intake always sent to health. 0= no restrictions (agent metabolism has full control), 1= 100%% health, no babies ever. default= 0.5\n", conf::MIN_INTAKE_HEALTH_RATIO);
 	fprintf(cf, "REP_PER_BABY= %f \t\t//amount of food required to be consumed for an agent to reproduce, per baby\n", conf::REP_PER_BABY);
 	fprintf(cf, "OVERHEAL_REPFILL= %i \t\t//true-false flag for letting agents redirect overfill health (>2) to repcounter. 1= conserves matter, 0= extra intake is destroyed, punishing overeating\n", conf::OVERHEAL_REPFILL);
 //	fprintf(cf,	"LEARNRATE= %f\n", conf::LEARNRATE);
+	fprintf(cf, "\n");
 	fprintf(cf, "MAXDEVIATION= %f \t//maximum difference in species ID a crossover reproducing agent will be willing to tolerate\n", conf::MAXDEVIATION);
 	fprintf(cf, "DEFAULT_MUTCHANCE= %f \t//the default chance of mutations occurring (note that various mutations modify this value up or down)\n", conf::DEFAULT_MUTCHANCE);
 	fprintf(cf, "DEFAULT_MUTSIZE= %f \t//the default magnitude of mutations (note that various mutations modify this value up or down)\n", conf::DEFAULT_MUTSIZE);
 	fprintf(cf, "LIVE_MUTATE_CHANCE= %f \t//chance, per tick, that a given agent will be mutated alive. Not typically harmful. Can be increased by mutation events if enabled.\n", conf::LIVE_MUTATE_CHANCE);
-	fprintf(cf, "MAXAGE= %i \t\t\t//Age at which the full HEALTHLOSS_AGING amount is applied to an agent\n", conf::MAXAGE);
-	fprintf(cf, "MAXWASTEFREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. Default= 200, 1= no agent control allowed, 0= program crash\n", conf::MAXWASTEFREQ);
 	fprintf(cf, "\n");
 	fprintf(cf, "DIST= %f \t\t//how far the senses can detect other agents or cells\n", conf::DIST);
 	fprintf(cf, "SPIKELENGTH= %f \t\t//full spike length. Should not be more than DIST. 0 disables interaction\n", conf::SPIKELENGTH);
@@ -3340,10 +3353,15 @@ void World::writeConfig()
 	fprintf(cf, "SEXTING_DISTANCE= %f \t//how far away can two agents sexually reproduce? Should not be more than DIST. 0 disables interaction\n", conf::SEXTING_DISTANCE);
 	fprintf(cf, "GRABBING_DISTANCE= %f \t//how far away can an agent grab another? Should not be more than DIST. 0 disables interaction\n", conf::GRABBING_DISTANCE);
 	fprintf(cf, "\n");
+	fprintf(cf, "FRESHKILLTIME= %i \t\t//number of ticks after a spike, collision, or bite that an agent will still drop full meat\n", conf::FRESHKILLTIME);
+	fprintf(cf, "CORPSE_FRAMES= %i \t//number of frames before dead agents are removed after meat= CORPSE_MEAT_MIN\n", conf::CORPSE_FRAMES);
+	fprintf(cf, "CORPSE_MEAT_MIN= %f \t//minimum amount of meat on cell under dead agent before the agent starts counting down from CORPSE_FRAMES\n", conf::CORPSE_MEAT_MIN);
+	fprintf(cf, "\n");
+	fprintf(cf, "MAXAGE= %i \t\t\t//Age at which the full HEALTHLOSS_AGING amount is applied to an agent\n", conf::MAXAGE);
+	fprintf(cf, "HEALTHLOSS_AGING= %f \t//health lost at MAXAGE. Note that this damage is applied to all agents in proportion to their age.\n", conf::HEALTHLOSS_AGING);
 	fprintf(cf, "HEALTHLOSS_WHEELS= %f \t//How much health is lost for an agent driving at full speed\n", conf::HEALTHLOSS_WHEELS);
 	fprintf(cf, "HEALTHLOSS_BOOSTMULT= %f \t//how much boost costs (set to 1 to nullify boost cost; its a multiplier)\n", conf::HEALTHLOSS_BOOSTMULT);
 	fprintf(cf, "HEALTHLOSS_BADTEMP= %f \t//how quickly health drains in non-preferred temperatures\n", conf::HEALTHLOSS_BADTEMP);
-	fprintf(cf, "HEALTHLOSS_AGING= %f \t//health lost at MAXAGE. Note that this damage is applied to all agents in proportion to their age.\n", conf::HEALTHLOSS_AGING);
 	fprintf(cf, "HEALTHLOSS_BRAINUSE= %f \t//how much health is reduced for each box in the brain being active\n", conf::HEALTHLOSS_BRAINUSE);
 	fprintf(cf, "HEALTHLOSS_SPIKE_EXT= %f \t//how much health an agent looses for extending spike\n", conf::HEALTHLOSS_SPIKE_EXT);
 	fprintf(cf, "HEALTHLOSS_BADTERRAIN= %f //how much health is lost if in totally opposite environment\n", conf::HEALTHLOSS_BADTERRAIN);

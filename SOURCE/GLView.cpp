@@ -761,7 +761,10 @@ void GLView::gluiCreateMenu()
 	live_profilevis= Profile::NONE;
 	live_selection= Select::MANUAL;
 	live_follow= 0;
-	live_autosave= 0;
+	live_autosave= 1;
+	#if defined(_DEBUG)
+		live_autosave= 0;
+	#endif
 	live_debug= world->isDebug();
 	live_grid= 0;
 	live_hidedead= 0;
@@ -1385,7 +1388,7 @@ void GLView::checkTileListClicked(std::vector<UIElement> tiles, int mx, int my, 
 
 			if(tiles[ti].clickable && state==1){ //if clickable, process actions
 				if(tiles[ti].key=="Follow") { 
-					if(!live_follow) live_follow= true;
+					live_follow= 1-live_follow;
 					ui_sadmode= 1;
 				}
 				else if(tiles[ti].key=="Damages" && ui_sadmode!=2) ui_sadmode= 2;
