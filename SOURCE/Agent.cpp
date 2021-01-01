@@ -13,7 +13,7 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	angle= randf(-M_PI,M_PI);
 
 	//genes
-	MUTCHANCE= abs(MUTARATE1+randf(-conf::META_MUTCHANCE,conf::META_MUTCHANCE)*10); //chance of mutations.
+	MUTCHANCE= abs(MUTARATE1+randf(-conf::META_MUTCHANCE,conf::META_MUTCHANCE)); //chance of mutations.
 	MUTSIZE= abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10); //size of mutations
 	parentid= 0;
 	radius= randf(MEANRADIUS*0.2,MEANRADIUS*2.2);
@@ -411,7 +411,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	if (a2.numbabies<1) a2.numbabies= 1; //technically, 0 babies is perfectly logical, but in this sim it is pointless, so it's disallowed
 	a2.resetRepCounter(MEANRADIUS, REP_PER_BABY);
 	if (randf(0,1)<MR) a2.metabolism= cap(randn(a2.metabolism, MR2*3));
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*4) a2.stomach[i]= cap(randn(a2.stomach[i], MR2*7)); //*10 was a bit much
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*4) a2.stomach[i]= cap(randn(a2.stomach[i], MR2*6)); //*10 was a bit much
 	if (randf(0,1)<MR*20) a2.species+= (int) (randn(0, 0.5+MR2*50));
 	if (randf(0,1)<MR*10) a2.radius= randn(a2.radius, MR2*15);
 	if (a2.radius<1) a2.radius= 1;
@@ -422,7 +422,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	if (randf(0,1)<MR*3) a2.gene_blu= cap(randn(a2.gene_blu, MR2*2));
 	if (randf(0,1)<MR/2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2/2), -1.0, 1.0);
 
-	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTSIZE*3));
+	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTSIZE*10));
 	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
 	//we dont really want mutrates to get to zero; thats too stable. always mutate, and take the absolute randn instead.
 
@@ -509,9 +509,8 @@ void Agent::liveMutate(int MUTMULT)
 	//change other mutable traits here
 	if (randf(0,1)<MR) this->metabolism= cap(randn(this->metabolism, MR2/5));
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*2) this->stomach[i]= cap(randn(this->stomach[i], MR2*2));
-	//METAMUTERATE used for chance because this is supposed to represent background mutation chances
-	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTSIZE*3));
-	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE));
+	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTSIZE*5)); //these sizes are half of reproduction mutation
+	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE/2));
 	if (randf(0,1)<MR) this->clockf1= randn(this->clockf1, MR2/2);
 	if (this->clockf1<2) this->clockf1= 2;
 	if (randf(0,1)<MR) this->clockf2= randn(this->clockf2, MR2/2);

@@ -491,6 +491,11 @@ namespace conf {
 	const float LOWER_ELEVATION_CHANCE= 0.08; //what's the chance that the terrain will drop a level instead of stay the same when "spreading"?
 	const float OCEANPERCENT= 0.6; //(.cfg)
 	const bool SPAWN_LAKES= true; //(.cfg)
+	const float GRAVITYACCEL= 0.01; //(.cfg)
+	const float BUMP_PRESSURE= 0.1; //(.cfg)
+	const float GRAB_PRESSURE= 0.1; //(.cfg)
+	const float SOUNDPITCHRANGE= 0.1; //(.cfg)
+
 	const bool DISABLE_LAND_SPAWN= true; //(.cfg & GUI)
 	const bool MOONLIT= true; //(.cfg, save, & GUI)
 	const float MOONLIGHTMULT= 0.1; //(.cfg & save)
@@ -498,42 +503,52 @@ namespace conf {
 	const float DROUGHT_STDDEV= 0.15; // The standard deviation of changes to the DROUGHTMULT
 	const int DROUGHT_WEIGHT= 2; // the weight multiple of the current DROUGHTMULT when averaged (1.0 has a weight of 1)
 	const float DROUGHT_NOTIFY= 0.2; //+/- this value from 1.0 of drought shows notifications
-	const float DROUGHT_MIN= 0.7; //(.cfg & save)
+	const float DROUGHT_MIN= 0.6; //(.cfg & save)
 	const float DROUGHT_MAX= 1.5; //(.cfg & save)
 	const bool MUTEVENTS= true; //(.cfg, save, & GUI)
 	const int MUTEVENT_MAX= 3; //(.cfg)
 	const float MUTEVENT_CHANCE= 0.25; //chance of a mutation event that has a multiple other than 1
-	const float SOUNDPITCHRANGE= 0.1; //(.cfg)
-	const float OVERHEAL_REPFILL= 0; //(.cfg)
 
 	//BOTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ BOTS
-	const float GRAVITYACCEL= 0.01; //(.cfg)
-	const float BUMP_PRESSURE= 0.1; //(.cfg)
-	const float GRAB_PRESSURE= 0.1; //(.cfg)
+
+	//brain settings
+	const int BRAINSIZE= 160; //(.cfg)
+	const float LEARNRATE= 0.001; // CHANGE TO LEARN FROM USER INPUT
+	const bool ENABLE_LEARNING= true; //
+	const float BRAIN_DIRECTINPUTS= 0.2; //probability of random brain conns on average which will connect directly to inputs
+	const float BRAIN_DEADCONNS= 0.35; //probability of random brain conns which are "dead" (that is, weight = 0)
+	const float BRAIN_CHANGECONNS= 0.05; //probablility of random brain conns which are change sensitive
+	const float BRAIN_MEMCONNS= 0.01; //probablility of random brain conns which are memory type
+	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
+//	const float BRAIN_MIRRORCONNS= 0.05; //
+//	const float BRAIN_ANDCONNS= 0.2; //probability of random brain conns that multiply in instead of add.
+
+	//general settings
 	const float BOTSPEED= 1.0; //(.cfg)
+	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
+	const float MEANRADIUS=10.0; //(.cfg)
 	const float BOOSTSIZEMULT= 2.0; //(.cfg)
 	const float BOOSTEXAUSTMULT= 4.0; //(.cfg)
-	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
-	const int CORPSE_FRAMES= 400; //(.cfg)
-	const float CORPSE_MEAT_MIN= 0.25; //(.cfg)
-	const float DEADSLOWDOWN= 0.8; //slowdown multiplier of agent speed when they die
+	const float BASEEXHAUSTION= -6; //(.cfg)
+	const float EXHAUSTION_MULT= 0.5; //(.cfg)
+	const int MAXWASTEFREQ= 200; //(.cfg)
+	const float FOODTRANSFER= 0.1; //(.cfg)
+	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
+	const float SPIKESPEED= 0.01; //(.cfg)
+	const float VELOCITYSPIKEMIN= 0.2; //minimum velocity difference between two agents in the positive direction to be spiked by the other
 	const int BLINKTIME= 8; //it's really a little thing... how many ticks the agent eyes blink for. Purely aesthetic
 	const int BLINKDELAY= 105; //blink delay time. In ticks
 	const int JAWRENDERTIME= 25; //time allowed for jaw to be rendered after a bite starts
 
-	const float FOODTRANSFER= 0.1; //(.cfg)
-	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
-	const float BASEEXHAUSTION= -6; //(.cfg)
-	const float EXHAUSTION_MULT= 0.5; //(.cfg)
-	const float MEANRADIUS=10.0; //(.cfg)
-	const float SPIKESPEED= 0.01; //(.cfg)
-	const float VELOCITYSPIKEMIN= 0.2; //minimum velocity difference between two agents in the positive direction to be spiked by the other
-	const int FRESHKILLTIME= 50; //(.cfg)
+	//reproduction
 	const int TENDERAGE= 10; //(.cfg)
 	const float MINMOMHEALTH=0.25; //(.cfg)
 	const float MIN_INTAKE_HEALTH_RATIO= 0.5; //(.cfg)
 	const float REP_PER_BABY= 4; //(.cfg)
 	const float REPCOUNTER_MIN= 15; //minimum value the Repcounter may be set to
+	const float OVERHEAL_REPFILL= 0; //(.cfg)
+
+	//mutations
 	const float MAXDEVIATION= 10; //(.cfg)
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
 	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
@@ -541,8 +556,6 @@ namespace conf {
 	const float DEFAULT_MUTCHANCE= 0.11; //(.cfg)
 	const float DEFAULT_MUTSIZE= 0.015; //(.cfg)
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
-	const int MAXAGE=10000; //(.cfg)
-	const int MAXWASTEFREQ= 200; //(.cfg)
 
 	//distances
 	const float DIST= 400; //(.cfg)
@@ -553,11 +566,18 @@ namespace conf {
 	const float GRABBING_DISTANCE= 40; //(.cfg)
 //	const float BLOOD_SENSE_DISTANCE= 50; //(.cfg)
 
+	//deathly things
+	const int FRESHKILLTIME= 50; //(.cfg)
+	const int CORPSE_FRAMES= 400; //(.cfg)
+	const float CORPSE_MEAT_MIN= 0.25; //(.cfg)
+	const float DEADSLOWDOWN= 0.8; //slowdown multiplier of agent speed when they die
+
 	//Health losses
+	const int MAXAGE=10000; //(.cfg)
+	const float HEALTHLOSS_AGING = 0.0001; //(.cfg)
 	const float HEALTHLOSS_WHEELS = 0.0; //(.cfg)
 	const float HEALTHLOSS_BOOSTMULT= 2.0; //(.cfg)
 	const float HEALTHLOSS_BADTEMP = 0.0046; //(.cfg)
-	const float HEALTHLOSS_AGING = 0.0001; //(.cfg)
 	const float HEALTHLOSS_BRAINUSE= 0.0; //(.cfg)
 	const float HEALTHLOSS_SPIKE_EXT= 0.0; //(.cfg)
 	const float HEALTHLOSS_BADTERRAIN= 0.022; //(.cfg)
@@ -568,7 +588,7 @@ namespace conf {
 	const float DAMAGE_COLLIDE= 3.0; //(.cfg)
 	const float DAMAGE_JAWSNAP= 3.0; //(.cfg)
 
-	//Death causes strings. Typically preceeded by "Killed by ", but this is just all damage sources in text form
+	//Death cause strings. Typically preceeded by "Killed by ", but this is just all damage sources in text form
 	//please note: there are two "sections" sepparated by a single space. In reporting, this is used for uniquely identifying death causes
 	//The number of these should match exactly the above sources of health loss and damage, plus generosity transfer and user kill, minus boostmult and wheels (natural)
 	const char DEATH_SPIKERAISE[]= "Spike Raising";
@@ -584,17 +604,6 @@ namespace conf {
 	const char DEATH_USER[]= "God (you)";
 	const char DEATH_ASEXUAL[]= "Child Birth";
 
-	//brain settings
-	const int BRAINSIZE= 160; //(.cfg)
-	const float LEARNRATE= 0.001; // CHANGE TO LEARN FROM USER INPUT
-	const bool ENABLE_LEARNING= true; //(.cfg & GUI)
-	const float BRAIN_DIRECTINPUTS= 0.2; //probability of random brain conns on average which will connect directly to inputs
-	const float BRAIN_DEADCONNS= 0.35; //probability of random brain conns which are "dead" (that is, weight = 0)
-	const float BRAIN_CHANGECONNS= 0.05; //probablility of random brain conns which are change sensitive
-	const float BRAIN_MEMCONNS= 0.01; //probablility of random brain conns which are memory type
-	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
-//	const float BRAIN_MIRRORCONNS= 0.05; //
-//	const float BRAIN_ANDCONNS= 0.2; //probability of random brain conns that multiply in instead of add.
 
 	//LAYERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LAYERS
 	const float STOMACH_EFF= 0.125; //(.cfg)

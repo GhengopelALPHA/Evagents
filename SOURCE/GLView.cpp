@@ -1733,9 +1733,9 @@ Color3f GLView::setColorMetabolism(float metabolism)
 Color3f GLView::setColorTone(float tone)
 {
 	Color3f color;
-	color.red= cap(1-1.5*tone);
-	color.gre= cap(2*tone);//1-fabs(tone-0.5)*2;
-	color.blu= cap(2*tone-1);
+	color.red= tone<0.8 ? cap(1.5-2.5*tone) : cap(-4.5+5*tone);
+	color.gre= tone<0.5 ? cap(4*tone) : cap(1.5-tone);//1-fabs(tone-0.5)*2;
+	color.blu= cap(2*tone-0.75);
 	return color;
 }
 
@@ -1823,6 +1823,21 @@ Color3f GLView::setColorMutations(float rate, float size)
 	color.red= cap(2*rate*size);
 	color.gre= intensity;
 	color.blu= cap((0.5-2*rate)*size);
+
+	return color;
+}
+
+Color3f GLView::setColorStrength(float strength)
+{
+	Color3f color;
+	if(strength>=0.5){ 
+		color.red= sqrt(cap(+3-5*strength));
+		color.gre= sqrt(cap(-5+5*strength));
+	} else {
+		color.red= sqrt(cap(1-5*strength));
+		color.gre= sqrt(cap(-1+5*strength));
+	}
+	color.blu= sqrt(cap(-3+5*strength));
 
 	return color;
 }
@@ -2506,59 +2521,38 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			red= agent.real_red; gre= agent.real_gre; blu= agent.real_blu;
 
 		} else if (live_agentsvis==Visual::STOMACH){
-			red= stomachcolor.red;
-			gre= stomachcolor.gre;
-			blu= stomachcolor.blu;
+			red= stomachcolor.red; gre= stomachcolor.gre; blu= stomachcolor.blu;
 		
 		} else if (live_agentsvis==Visual::DISCOMFORT){
-			red= discomfortcolor.red;
-			gre= discomfortcolor.gre;
-			blu= discomfortcolor.blu;
+			red= discomfortcolor.red; gre= discomfortcolor.gre; blu= discomfortcolor.blu;
 
 		} else if (live_agentsvis==Visual::VOLUME) {
-			red= agent.volume;
-			gre= agent.volume;
-			blu= agent.volume;
+			red= agent.volume; gre= agent.volume; blu= agent.volume;
 
 		} else if (live_agentsvis==Visual::SPECIES){ 
-			red= speciescolor.red;
-			gre= speciescolor.gre;
-			blu= speciescolor.blu;
+			red= speciescolor.red; gre= speciescolor.gre; blu= speciescolor.blu;
 		
 		} else if (live_agentsvis==Visual::CROSSABLE){ //crossover-compatable to selection
-			red= crossablecolor.red;
-			gre= crossablecolor.gre;
-			blu= crossablecolor.blu;
+			red= crossablecolor.red; gre= crossablecolor.gre; blu= crossablecolor.blu;
 
 		} else if (live_agentsvis==Visual::HEALTH) {
-			red= healthcolor.red;
-			gre= healthcolor.gre;
-			//blu= healthcolor.blu;
+			red= healthcolor.red; gre= healthcolor.gre; //blu= healthcolor.blu;
 
 		} else if (live_agentsvis==Visual::REPCOUNTER) {
-			red= repcountcolor.red;
-			gre= repcountcolor.gre;
-			blu= repcountcolor.blu;
+			red= repcountcolor.red; gre= repcountcolor.gre; blu= repcountcolor.blu;
 
 		} else if (live_agentsvis==Visual::METABOLISM){
-			red= metabcolor.red;
-			gre= metabcolor.gre;
-			blu= metabcolor.blu;
+			red= metabcolor.red; gre= metabcolor.gre; blu= metabcolor.blu;
 		
 		} else if (live_agentsvis==Visual::LUNGS){
-			red= lungcolor.red;
-			gre= lungcolor.gre;
-			blu= lungcolor.blu;
+			red= lungcolor.red; gre= lungcolor.gre; blu= lungcolor.blu;
 
-//		} else if (live_agentsvis==Visual::REPMODE){
-//			red= lungcolor.red;
-//			gre= lungcolor.gre;
-//			blu= lungcolor.blu;
 		}
 
-		
+		//the center gets its own alpha and darkness multiplier. For now, tied to reproduction mode (asexual, sexual F, or sexual M). See centerrender def
 		float centeralpha= cap(agent.centerrender);
 		float centercmult= agent.centerrender>1.0 ? -0.5*agent.centerrender+1.25 : 0.5*agent.centerrender+0.25;
+
 		// when we're zoomed out far away, do some things differently, but not to the ghost (selected agent display)
 		if( scalemult <= scale4ksupport && !ghost) {
 			rad= 2.2/scalemult; //this makes agents a standard size when zoomed out REALLY far, but not on the ghost
@@ -2570,12 +2564,14 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			centercmult= 1;
 		}
 		
-		float dead= agent.health==0 ? conf::RENDER_DEAD_ALPHA : 1; //mult for dead agents, to display more transparent parts
+		//mult for dead agents, to display more uniform & transparent parts
+		float dead= agent.health==0 ? conf::RENDER_DEAD_ALPHA : 1;
 
 
 		//we are now ready to start drawing
 		if (scalemult > .3 || ghost) { //dont render eyes, ears, or boost if zoomed out, but always render them on ghosts
-			//draw eyes
+
+			//draw eye lines
 			for(int q=0;q<NUMEYES;q++) {
 				if(agent.isTiny() && !agent.isTinyEye(q)) break; //skip extra eyes for tinies
 				float aa= agent.angle+agent.eyedir[q];
@@ -2609,6 +2605,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			}
 
 			//boost blur
+			//this needs a rework if we're going to keep agent transparency a thing (used for asexual mode indicator)
 			if (agent.boost){
 				Vector2f displace= agent.dpos - agent.pos;
 				for(int q=1;q<4;q++){
@@ -2647,6 +2644,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			}
 		}
 		
+
 		//body
 		glBegin(GL_POLYGON); 
 		glColor4f(red*centercmult,gre*centercmult,blu*centercmult,dead*centeralpha);
@@ -2656,6 +2654,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		glColor4f(red*centercmult,gre*centercmult,blu*centercmult,dead*centeralpha);
 		glVertex3f(0,0,0);
 		glEnd();
+
 
 		//start drawing a bunch of lines
 		glBegin(GL_LINES);
@@ -2698,21 +2697,27 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 
 
 		//sound waves!
-		glBegin(GL_LINES);
 		if(live_agentsvis==Visual::VOLUME && !ghost && agent.volume>conf::RENDER_MINVOLUME){
+			if(scalemult > 1) glLineWidth(3);
+			else if(scalemult > .3) glLineWidth(2);
+
+			
 			float volume= agent.volume;
-			float count= agent.tone*11+1;
+			float count= agent.tone*15+1;
+
 			for (int l=0; l<=(int)count; l++){
-				float dist= world->DIST*(l/count) + 2*(world->modcounter%(int)((world->DIST)/2));
+				float dist= world->DIST*(l/count) + (world->modcounter%(int)(world->DIST));
 				if (dist>world->DIST) dist-= world->DIST;
 				//this dist func works in 3 parts: first, we give it a displacement based on the l-th ring / count
 				//then, we take modcounter, and divide it by half of distance (???), then multiply the remainder by 2
 				//finally, if the dist is too large, wrap it down by subtracting DIST
-				glColor4f(tonecolor.red, tonecolor.gre, tonecolor.blu, cap((1-dist/world->DIST)*(volume-conf::RENDER_MINVOLUME)));
+				glBegin(GL_LINES);
+				glColor4f(tonecolor.red, tonecolor.gre, tonecolor.blu, cap((conf::RENDER_MINVOLUME+volume-dist/world->DIST)));
 				drawOutlineRes(0, 0, dist, (int)ceil(scalemult)+2);
+				glEnd();
 			}
+			glLineWidth(1);
 		}
-		glEnd();
 
 		//some final stuff to render over top of the body but only when zoomed in or on the ghost
 		if(scalemult > .1 || ghost){
@@ -4015,10 +4020,10 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 					float fruitposx= x*conf::CZ+conf::CZ*0.5+2*point.x*i;
 					float fruitposy= y*conf::CZ+conf::CZ*0.5+2*point.y*i;
 					glColor4f(cellcolor.red*light.red, cellcolor.gre*light.gre, cellcolor.blu*light.blu, 1);
-					glVertex3f(fruitposx,fruitposy+1,0);
-					glVertex3f(fruitposx+1,fruitposy,0);
-					glVertex3f(fruitposx,fruitposy-1,0);
-					glVertex3f(fruitposx-1,fruitposy,0);
+					glVertex3f(fruitposx,fruitposy+1.5,0);
+					glVertex3f(fruitposx+1.5,fruitposy,0);
+					glVertex3f(fruitposx,fruitposy-1.5,0);
+					glVertex3f(fruitposx-1.5,fruitposy,0);
 				}
 			}
 		}

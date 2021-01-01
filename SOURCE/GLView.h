@@ -115,6 +115,7 @@ private:
 	Color3f setColorGenerocity(float give);
 	Color3f setColorRepCount(float repcount, bool asexual);
 	Color3f setColorMutations(float rate, float size);
+	Color3f setColorStrength(float strength);
 
 	//3f cell color defs
 	Color3f setColorCellsAll(const float values[Layer::LAYERS]);

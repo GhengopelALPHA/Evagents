@@ -1993,7 +1993,7 @@ int World::getClosestRelative(int idx) {
 	if(bestrelative!="") {
 		bestrelative= "Autoselected living "+bestrelative;
 		addEvent(bestrelative, EventColor::BLACK);
-		printf("---> New relative selected: %s\n", bestrelative);
+		printf("---> New relative selected: %s\n", bestrelative.c_str());
 	} else {
 		addEvent("No More Living Relatives!", EventColor::BLACK);
 		printf("---> No More Living Relatives.\n");
