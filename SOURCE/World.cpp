@@ -300,7 +300,7 @@ void World::cellsLandMasses()
 			//50% of the land spawns are type "Hill", = 0.7
 
 			//if told to, find midpoint between last cell and this one, and place water, dividing the CONTINENTS!
-			if(setcoast) cells[Layer::ELEVATION][(int)((cx+lastcx)/2)][(int)((cy+lastcy)/2)]= randf(0,1)>0.5 ? Elevation::SHALLOWWATER : Elevation::DEEPWATER_LOW;
+			if(setcoast) cells[Layer::ELEVATION][(int)((cx+lastcx)*0.5)][(int)((cy+lastcy)*0.5)]= randf(0,1)>0.5 ? Elevation::SHALLOWWATER : Elevation::DEEPWATER_LOW;
 
 			lastcx= cx;
 			lastcy= cy;
@@ -708,6 +708,8 @@ void World::update()
 		}
 	}
 
+	float invCW= 1/(float)CW;
+	float daytime= (modcounter+current_epoch*FRAMES_PER_EPOCH)*2*M_PI/FRAMES_PER_DAY;
 	#pragma omp parallel for schedule(dynamic)
 	for(int cx=0; cx<(int)CW;cx++){
 		for(int cy=0; cy<(int)CH;cy++){
@@ -765,7 +767,8 @@ void World::update()
 			//light ops
 			//if we are moonlit and moonlight happens to be 1.0, then the light layer is useless. Set all values to 1 for rendering
 			cells[Layer::LIGHT][cx][cy]= (MOONLIT && MOONLIGHTMULT==1.0) ? 1.0 :
-				cap(0.6+sin((cx*2*M_PI)/CW-(modcounter+current_epoch*FRAMES_PER_EPOCH)*2*M_PI/FRAMES_PER_DAY));
+				cap(0.6+sin((cx*2*M_PI)*invCW - daytime));
+			  //cap(0.6+sin((cx*2*M_PI)/CW-(modcounter+current_epoch*FRAMES_PER_EPOCH)*2*M_PI/FRAMES_PER_DAY));
 			//end light
 		}
 	}
@@ -825,7 +828,7 @@ void World::update()
 			if(a->isAsexual()) a->centerrender-= 0.01*(a->centerrender);
 			else if(a->isMale()) a->centerrender-= 0.01*(a->centerrender-2);
 			else a->centerrender-= 0.01*(a->centerrender-1);
-			a->centerrender= cap(a->centerrender/2)*2; //duck the counter under a cap to allow range [0,2]
+			a->centerrender= cap(a->centerrender*0.5)*2; //duck the counter under a cap to allow range [0,2]
 
 			//exhaustion gets increased
 			float boostmult= a->boost ? BOOSTEXAUSTMULT : 1;
@@ -996,9 +999,9 @@ void World::setInputs()
 		//SOUND SMELL EYES
 		float light= (MOONLIT) ? max(MOONLIGHTMULT, cells[Layer::LIGHT][scx][scy]) : cells[Layer::LIGHT][scx][scy]; //grab min light level for conditions
 
-		vector<float> r(NUMEYES,0.25*light);
-		vector<float> g(NUMEYES,0.25*light);
-		vector<float> b(NUMEYES,0.25*light);
+		vector<float> r(NUMEYES,conf::LIGHT_AMBIENT_PERCENT*light);
+		vector<float> g(NUMEYES,conf::LIGHT_AMBIENT_PERCENT*light);
+		vector<float> b(NUMEYES,conf::LIGHT_AMBIENT_PERCENT*light);
 					   
 		float smellsum=0;
 
@@ -1021,14 +1024,14 @@ void World::setInputs()
 				fruit+= cells[Layer::FRUITS][scx][scy];
 				meat+= cells[Layer::MEATS][scx][scy];
 				hazard+= cells[Layer::HAZARDS][scx][scy];
-				water+= cells[Layer::ELEVATION][scx][scy]<=Elevation::BEACH_MID ? 1 : 0; // all water smells the same
+				water+= cells[Layer::ELEVATION][scx][scy]<=Elevation::BEACH_MID ? 1 : 0; // all water (and beach) smells the same
 			}
 		}
-		float dimmensions= (maxx-minx)*(maxy-miny);
-		fruit*= a->smell_mod/dimmensions;
-		meat*= a->smell_mod/dimmensions;
-		hazard*= a->smell_mod/dimmensions;
-		water*= a->smell_mod/dimmensions;
+		float dimmensions= 1/((maxx-minx)*(maxy-miny));
+		fruit*= a->smell_mod*dimmensions;
+		meat*= a->smell_mod*dimmensions;
+		hazard*= a->smell_mod*dimmensions;
+		water*= a->smell_mod*dimmensions;
 
 
 				/* CELL EYESIGHT CODE
@@ -1087,6 +1090,8 @@ void World::setInputs()
 
 			if (d<DIST) {
 
+				float invDIST= 1/DIST;
+
 				//smell: adds up all agents inside DIST
 				smellsum+= a->smell_mod;
 
@@ -1112,7 +1117,7 @@ void World::setInputs()
 
 						//package up this sound source if user is watching
 						if(getSelectedID()==a->id){
-							int volfact= (int)(a->hear_mod*(1-eardist/DIST)*ovolume*100);
+							int volfact= (int)(a->hear_mod*(1-eardist*invDIST)*ovolume*100);
 							float finalfact= otone + volfact;
 							selectedSounds.push_back(finalfact);
 						}
@@ -1124,7 +1129,8 @@ void World::setInputs()
 							selectedSounds[selectedSounds.size()-1]+= 100;
 						}
 						float tonemult= cap(min((a->hearhigh[q] - otone)/SOUNDPITCHRANGE,(otone - a->hearlow[q])/SOUNDPITCHRANGE));
-						hearsum[q]+= a->hear_mod*(1-eardist/DIST)*ovolume*tonemult;
+						//sounds within SOUNDPITCHRANGE of a low or high hearing range edge get scaled down, by the distance to that edge
+						hearsum[q]+= a->hear_mod*(1-eardist*invDIST)*ovolume*tonemult;
 
 						if(a->isTiny()) break; //small agents only get one ear input
 					}
@@ -1136,11 +1142,9 @@ void World::setInputs()
 				//we will skip all eyesight if our agent is in the dark (light==0)
 				if(light!=0){
 					for(int q=0;q<NUMEYES;q++){
-						if(a->isTiny() && !a->isTinyEye(q)){ //small agents have half-count of eyes, the rest get set to constant 1 input
-							r[q]= 1.0;
-							g[q]= 1.0;
-							b[q]= 1.0;
+						if(a->isTiny() && !a->isTinyEye(q)){ //small agents have half-count of eyes, the rest just keep the ambient light values they got
 							continue;
+							//careful about trying to do anything else in here; it depends on if the agent is within DIST of another
 						}
 
 						float aa = a->angle + a->eyedir[q];//get eye's absolute (world) angle, with origin at agent a
@@ -1156,7 +1160,7 @@ void World::setInputs()
 
 						if (diff1<fov) {
 							//we see a2 with this eye. Accumulate stats
-							float mul1= light*a->eye_see_agent_mod*(fabs(fov-diff1)/fov)*(1-d*d/DIST/DIST);
+							float mul1= light*a->eye_see_agent_mod*(fabs(fov-diff1)/fov)*(1-d*d*invDIST*invDIST);
 
 							if(r[q]<mul1*a2->real_red) r[q]= mul1*a2->real_red;
 							if(g[q]<mul1*a2->real_gre) g[q]= mul1*a2->real_gre;
@@ -1175,7 +1179,7 @@ void World::setInputs()
 				if (fabs(forwangle)>M_PI) diff4= 2*M_PI- fabs(forwangle);
 				diff4= fabs(diff4);
 				if (diff4<PI38) {
-					float newblood= a->blood_mod*(fabs(PI38-diff4)/PI38)*(1-d/DIST)*(1-agents[j].health/2); //remember: health is in [0,2]
+					float newblood= a->blood_mod*(fabs(PI38-diff4)/PI38)*(1-d*invDIST)*(1-agents[j].health/2); //remember: health is in [0,2]
 					if(newblood>blood) blood= newblood;
 					//agents with high life dont bleed. low life makes them bleed more. dead agents bleed the maximum
 				}
@@ -1319,6 +1323,7 @@ void World::processOutputs(bool prefire)
 
 	//move bots if this is not a prefire. A prefire is needed when loading, as all the values above need refreshing, but we shouldn't move yet
 	if(!prefire){
+		float invMEANRADIUS= 1/MEANRADIUS;
 		#pragma omp parallel for schedule(dynamic)
 		for (int i=0; i<(int)agents.size(); i++) {
 			Agent* a= &agents[i];
@@ -1326,7 +1331,7 @@ void World::processOutputs(bool prefire)
 			a->jump-= GRAVITYACCEL;
 			if(a->jump<-1) a->jump= 0; //-1 because we will be nice and give a "recharge" time between jumps
 
-			float basewheel= powf(a->radius/MEANRADIUS,0.25);
+			float basewheel= powf(a->radius*invMEANRADIUS,0.25);
 			if (a->encumbered) basewheel*= conf::ENCUMBEREDMULT;
 			if (a->boost) basewheel*= BOOSTSIZEMULT;
 
@@ -1536,7 +1541,7 @@ void World::processInteractions()
 				float sumrad= a->radius+a2->radius;
 
 				//---HEALTH GIVING---//
-				if (FOOD_SHARING_DISTANCE>0 && FOODTRANSFER!=0 && !a->isSelfish(conf::MAXSELFISH) && a2->health<2) {
+				if (FOOD_SHARING_DISTANCE>0 && FOODTRANSFER!=0 && !a->isSelfish(conf::MAXSELFISH) && a2->health+FOODTRANSFER<2) {
 					//all non-selfish agents allow health trading
 
 					float rd= a->isGiving() ? FOOD_SHARING_DISTANCE : sumrad+1;
@@ -1551,7 +1556,7 @@ void World::processInteractions()
 						a->addDamage(conf::DEATH_GENEROUSITY, healthrate);
 						a2->dhealth += healthrate; //only for drawing
 						a->dhealth -= healthrate;
-						if (a2->health>2) a2->health= 2;
+						//if (a2->health>2) a2->health= 2;
 					}
 				}
 

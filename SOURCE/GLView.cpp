@@ -475,7 +475,7 @@ void GLView::processReleasedKeys(unsigned char key, int x, int y)
 		world->addEvent(" '|' reproduces selected agent", EventColor::CYAN);
 		world->addEvent("", EventColor::CYAN);
 		world->addEvent(" '~' mutates selected agent", EventColor::CYAN);
-	} else if (key==9) { //[tab] - release tab toggles to manual selection mode
+	} else if (key==9) { //[tab] - tab toggles to manual selection mode
 		live_selection= Select::MANUAL;
 	}//else if (key=='g') { //graphics details
 		//MAKE SURE ALL GRAPHICS CHANGES CATELOGUED HERE
@@ -762,9 +762,6 @@ void GLView::gluiCreateMenu()
 	live_selection= Select::MANUAL;
 	live_follow= 0;
 	live_autosave= 1;
-	#if defined(_DEBUG)
-		live_autosave= 0;
-	#endif
 	live_debug= world->isDebug();
 	live_grid= 0;
 	live_hidedead= 0;
@@ -776,6 +773,11 @@ void GLView::gluiCreateMenu()
 	live_mutevents= (int)world->MUTEVENTS;
 	live_cursormode= 0;
 	char text[32]= "";
+
+	#if defined(_DEBUG) //disable some extra features in debug environment
+		live_autosave= 0;
+		live_playmusic= 0;
+	#endif
 
 	//create GLUI and add the options, be sure to connect them all to their real vals later
 	Menu = GLUI_Master.create_glui("Menu",0,1,1);
@@ -1558,8 +1560,8 @@ void GLView::handleIdle()
 	currentTime = glutGet(GLUT_ELAPSED_TIME);
 	frames++;
 	if ((currentTime - lastUpdate) >= 1000) {
-		char fastmode= live_fastmode ? '#' : ' ';
-		sprintf( buf, "Evagents  - %cFPS: %d Alive: %d Herbi: %d Carni: %d Frugi: %d Epoch: %d Day %d",
+		char fastmode= live_fastmode ? 'T' : 'F';
+		sprintf( buf, "Evagents - %cPS: %d Alive: %d Herbi: %d Carni: %d Frugi: %d Epoch: %d Day %d",
 			fastmode, frames, world->getAgents()-world->getDead(), world->getHerbivores(), world->getCarnivores(),
 			world->getFrugivores(), world->getEpoch(), world->getDay() );
 		glutSetWindowTitle( buf );
@@ -1733,9 +1735,14 @@ Color3f GLView::setColorMetabolism(float metabolism)
 Color3f GLView::setColorTone(float tone)
 {
 	Color3f color;
-	color.red= tone<0.8 ? cap(1.5-2.5*tone) : cap(-4.5+5*tone);
-	color.gre= tone<0.5 ? cap(4*tone) : cap(1.5-tone);//1-fabs(tone-0.5)*2;
-	color.blu= cap(2*tone-0.75);
+	color.red= tone<0.8 ? cap(1.6-3*tone) : cap(-3.5+4*tone); //best put these into an online graphing calculator...
+	color.gre= tone<0.5 ? cap(5*tone-0.2) : cap(2.925-3*tone);
+	color.blu= cap(4*tone-1.75);
+	if(tone>0.45 && tone<0.55) {
+		color.red*= 10*fabs(tone-0.5)+0.5;
+		color.gre*= 5*fabs(tone-0.5)+0.75;
+		color.blu*= 10*fabs(tone-0.5)+0.5;
+	} else if (tone<0.1) color.red*= 2.5*(tone)+0.75;
 	return color;
 }
 
@@ -1783,10 +1790,10 @@ Color3f GLView::setColorCrossable(float species)
 Color3f GLView::setColorGenerocity(float give)
 {
 	Color3f color;
-	float val= cap(abs(give)/world->FOODTRANSFER)*2/3;
+	float val= cap(abs(give)*10/world->FOODTRANSFER)*2/3;
 	if(give>0) color.gre= val;
 	else color.red= val;
-	if(abs(give)<0.0001) { color.blu= 0.5; color.gre= 0.25; }
+	if(abs(give)<0.0005) { color.blu= 0.5; color.gre= 0.25; }
 	return color;
 }
 
@@ -2216,16 +2223,24 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glEnd();
 
 					for(int q=0;q<NUMEYES;q++){
+						float eyex= 165-agent.eyedir[q]/2/M_PI*150;
+						float eyer= 1+agent.eyefov[q]/M_PI*20;
 						glBegin(GL_POLYGON);
 						glColor3f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3]);
-						drawCircle(165-agent.eyedir[q]/2/M_PI*150,20,agent.eyefov[q]/M_PI*20);
+						drawCircle(eyex, 20, eyer);
+						glEnd();
+
+						glBegin(GL_LINES);
+						glColor3f(0.75,0.75,0.75);
+						drawOutlineRes(eyex, 20, eyer, 3);
 						glEnd();
 					}
 
 					glBegin(GL_LINES);
-					glColor3f(0.5,0.5,0.5);
+					glColor3f(0.25,0.25,0.25);
 					glVertex3f(0, 40, 0);
 					glVertex3f(180, 40, 0);
+					glColor3f(agent.real_red,agent.real_gre,agent.real_blu);
 					glVertex3f(180, 0, 0);
 					glVertex3f(0, 0, 0);
 
@@ -2248,22 +2263,43 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					
 					//each ear gets its hearing zone plotted
 					for(int q=0;q<NUMEARS;q++) {
-						glColor4f(1-(q/(NUMEARS-1)),q/(NUMEARS-1),0,0.10+0.10*(1-q/(NUMEARS-1)));
-						if(agent.hearlow[q]+world->SOUNDPITCHRANGE*2<agent.hearhigh[q]){
-							glVertex3f(2+176*cap(agent.hearlow[q]+world->SOUNDPITCHRANGE), 2, 0);
-							glVertex3f(2+176*cap(agent.hearlow[q]+world->SOUNDPITCHRANGE), 78, 0);
-							glVertex3f(2+176*cap(agent.hearhigh[q]-world->SOUNDPITCHRANGE), 78, 0);
-							glVertex3f(2+176*cap(agent.hearhigh[q]-world->SOUNDPITCHRANGE), 2, 0);
-						}
+						float qval= (float)q/(NUMEARS-1);
+						float qblue= 1-qval<qval ? (1-qval)*2 : qval*2;
+						glColor4f(1-qval, qval, qblue, 0.15);
 
-						glVertex3f(2+176*agent.hearlow[q], 2, 0);
-						glVertex3f(2+176*agent.hearlow[q], 78, 0);
-						glVertex3f(2+176*agent.hearhigh[q], 78, 0);
-						glVertex3f(2+176*agent.hearhigh[q], 2, 0);
+						//Draw a trapezoid indicating the full range the ear hears, including the limbs
+						float displace= (agent.hearhigh[q]-agent.hearlow[q])*0.5;
+						if(displace>world->SOUNDPITCHRANGE) displace= world->SOUNDPITCHRANGE;
+						float heightratio= 1-cap(displace/world->SOUNDPITCHRANGE); //when displace= the SOUNDPITCHRANGE, 
+
+						glVertex3f(2+176*cap(agent.hearlow[q]+displace), 2+78*heightratio, 0); //top-left	 L  _______  H			L   H
+						glVertex3f(2+176*cap(agent.hearlow[q]), 78, 0); //	bottom-left						   /|     |\*			  |
+						glVertex3f(2+176*cap(agent.hearhigh[q]), 78, 0); //bottom-right						  / |h    | \* but also  /|\*
+						glVertex3f(2+176*cap(agent.hearhigh[q]-displace), 2+78*heightratio, 0); // top-right /_d|_____|__\*			/d|_\*
+					
+						if(agent.hearlow[q]+displace*2 < agent.hearhigh[q]) {
+							//draw a box that indicates the zone that this ear hears at full volume
+							glVertex3f(2+176*cap(agent.hearlow[q]+displace), 2, 0);
+							glVertex3f(2+176*cap(agent.hearlow[q]+displace), 78, 0);
+							glVertex3f(2+176*cap(agent.hearhigh[q]-displace), 78, 0);
+							glVertex3f(2+176*cap(agent.hearhigh[q]-displace), 2, 0);
+						} 
+
+						if(agent.isTiny()) break; //only one ear for tiny agents
+						
 					}
-					glEnd();
+					glEnd();					
 
+					//now show our own sound, colored by tone
+					glLineWidth(3);
 					glBegin(GL_LINES);
+					glColor3f(tonecolor.red, tonecolor.gre, tonecolor.blu);
+					glVertex3f(2+176*agent.tone, 78, 0);
+					glVertex3f(2+176*agent.tone, 78-76*agent.volume, 0);
+					glEnd();
+					glLineWidth(1);
+
+					glBegin(GL_LINES); //finally, show all the sounds the agent is in range of hearing
 					for(int e=0;e<world->selectedSounds.size();e++) {
 						//unpackage each sound entry
 						float volume= (int)world->selectedSounds[e];
@@ -2272,7 +2308,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 
 						float fiz= 1;
 						if(volume>=1) volume= cap(volume-1.0);
-						else fiz= 0.4;
+						else fiz= 0.3;
 
 						if(tone==0.25) glColor4f(0.0,0.8,0.0,fiz); //this is the wheel sounds of other agents
 						else glColor4f(0.7,0.7,0.7,fiz);
@@ -2287,16 +2323,6 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						}
 					}
 					glEnd();
-
-					//now show our own sound, colored by tone
-					glLineWidth(3);
-					glBegin(GL_LINES);
-					glColor4f(tonecolor.red, tonecolor.gre, tonecolor.blu, 0.5);
-					glVertex3f(2+176*agent.tone, 78, 0);
-					glVertex3f(2+176*agent.tone, 78-76*agent.volume, 0);
-					glEnd();
-					glLineWidth(1);
-
 				}
 			}
 			glTranslatef(90,-24-0.5*r,0); //return to agent location for later stuff
@@ -2370,6 +2396,31 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			glColor3f(generocitycolor.red, generocitycolor.gre, generocitycolor.blu);
 			drawCircle(0, 0, rp*mag);
 			glEnd();
+		}
+
+		//sound waves!
+		if(live_agentsvis==Visual::VOLUME && !ghost && agent.volume>conf::RENDER_MINVOLUME){
+
+			if(scalemult > 1) glLineWidth(3);
+			else if(scalemult > .3) glLineWidth(2);
+			
+			float volume= agent.volume;
+			float count= agent.tone*15+1;
+
+			for (int l=0; l<=(int)count; l++){
+				float dist= world->DIST*(l/count) + 2*(world->modcounter%(int)(world->DIST/2));
+				if (dist>world->DIST) dist-= world->DIST;
+				float distfratio= dist/world->DIST;
+				//this dist func works in 3 parts: first, we give it a displacement based on the l-th ring / count
+				//then, we take modcounter, and divide it by the distance, giving us a proportion of the radius
+				//The weird *2 and /2 bits are to increase the speed of the waves. Leave them
+				//finally, if the dist is too large, wrap it down by subtracting DIST. And we take a ratio value too to use later
+				glBegin(GL_LINES);
+				glColor4f(tonecolor.red, tonecolor.gre, tonecolor.blu, cap((conf::RENDER_MINVOLUME+1.2*volume-distfratio)));
+				drawOutlineRes(0, 0, dist, (int)(ceil(2*scalemult)+1+5*distfratio));
+				glEnd();
+			}
+			glLineWidth(1);
 		}
 
 		if(scalemult > .3 && !ghost) {//hide extra visual data if really far away
@@ -2597,11 +2648,12 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				glVertex3f(r*cos(aa), r*sin(aa),0);
 				//color ears differently if we are set on the sound profile or debug
 				if(live_profilevis==Profile::SOUND || world->isDebug()) glColor4f(1-(q/(NUMEARS-1)),q/(NUMEARS-1),0,0.75*dead);
-				else glColor4f(0.6,0.6,0,0.5*dead);				
+				else glColor4f(agent.real_red,agent.real_gre,agent.real_blu,0.5*dead);				
 				drawCircle(r*cos(aa), r*sin(aa), 2*agent.hear_mod);
 				glColor4f(0,0,0,0.5);
 				glVertex3f(r*cos(aa), r*sin(aa),0);
 				glEnd();
+				if(agent.isTiny()) break; //tiny agents have only one ear
 			}
 
 			//boost blur
@@ -2696,29 +2748,6 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		glEnd();
 
 
-		//sound waves!
-		if(live_agentsvis==Visual::VOLUME && !ghost && agent.volume>conf::RENDER_MINVOLUME){
-			if(scalemult > 1) glLineWidth(3);
-			else if(scalemult > .3) glLineWidth(2);
-
-			
-			float volume= agent.volume;
-			float count= agent.tone*15+1;
-
-			for (int l=0; l<=(int)count; l++){
-				float dist= world->DIST*(l/count) + (world->modcounter%(int)(world->DIST));
-				if (dist>world->DIST) dist-= world->DIST;
-				//this dist func works in 3 parts: first, we give it a displacement based on the l-th ring / count
-				//then, we take modcounter, and divide it by half of distance (???), then multiply the remainder by 2
-				//finally, if the dist is too large, wrap it down by subtracting DIST
-				glBegin(GL_LINES);
-				glColor4f(tonecolor.red, tonecolor.gre, tonecolor.blu, cap((conf::RENDER_MINVOLUME+volume-dist/world->DIST)));
-				drawOutlineRes(0, 0, dist, (int)ceil(scalemult)+2);
-				glEnd();
-			}
-			glLineWidth(1);
-		}
-
 		//some final stuff to render over top of the body but only when zoomed in or on the ghost
 		if(scalemult > .1 || ghost){
 
@@ -2756,67 +2785,67 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 
 			glPopMatrix();*/
 
-			//blood sense patch
-			if (agent.blood_mod>0.25){
-				float count= floorf(agent.blood_mod*4);
-				float aa= 0.015;
-				float ca= agent.angle - aa*count/2;
-				//color coresponds to intensity of the input detected, opacity scaled to level of blood_mod over 0.25
-				float alpha= cap(0.5*agent.blood_mod-0.25);
-				Color3f bloodcolor= setColorMeat(agent.in[Input::BLOOD]+0.5);
-				
-				//the blood sense patch is drawn as multiple circles overlapping. Higher the blood_mult trait, the wider the patch
-				for(int q=0;q<count;q++) {
+			if(scalemult > .3 || ghost) { //render some extra stuff when we're really close
+				//blood sense patch
+				if (agent.blood_mod>0.25){
+					float count= floorf(agent.blood_mod*4);
+					float aa= 0.015;
+					float ca= agent.angle - aa*count/2;
+					//color coresponds to intensity of the input detected, opacity scaled to level of blood_mod over 0.25
+					float alpha= cap(0.5*agent.blood_mod-0.25);
+					Color3f bloodcolor= setColorMeat(agent.in[Input::BLOOD]+0.5);
+					
+					//the blood sense patch is drawn as multiple circles overlapping. Higher the blood_mult trait, the wider the patch
+					for(int q=0;q<count;q++) {
+						glBegin(GL_POLYGON);
+						glColor4f(bloodcolor.red, bloodcolor.gre, bloodcolor.blu, alpha);
+						drawCircle((r*7/8-1)*cos(ca), (r*7/8-1)*sin(ca), 0.3);
+						glEnd();
+						ca+= aa;
+					}
+				}
+
+				//draw cute little dots for eyes
+				for(int q=0;q<NUMEYES;q++) {
+					if(agent.isTiny() && !agent.isTinyEye(q)) break;
+					if(	(world->modcounter+agent.id)%conf::BLINKDELAY>=q*10 && 
+						(world->modcounter+agent.id)%conf::BLINKDELAY<q*10+conf::BLINKTIME && 
+						agent.health>0) continue; //blink eyes ocasionally... DAWWWWWW
+
 					glBegin(GL_POLYGON);
-					glColor4f(bloodcolor.red, bloodcolor.gre, bloodcolor.blu, alpha);
-					drawCircle((r*7/8-1)*cos(ca), (r*7/8-1)*sin(ca), 0.3);
+					glColor4f(0,0,0,1.0);
+					float ca= agent.angle+agent.eyedir[q];
+					//the eyes are small and tiny if the agent has a low eye mod. otherwise they are big and buggie
+					float eyesize= capm(agent.eye_see_agent_mod/2,0.1,1);
+					drawCircle((r-2+eyesize)*cos(ca), (r-2+eyesize)*sin(ca), eyesize);
 					glEnd();
-					ca+= aa;
+				}
+
+				//render grab target line if we have one
+				if(world->GRAB_PRESSURE!=0 && agent.isGrabbing() && agent.health>0 && agent.grabID!=-1 && !ghost){
+					glLineWidth(3);
+					glBegin(GL_LINES);
+
+					//agent->agent directed grab vis
+					float time= (float)(currentTime)/1000;
+					float mid= time - floor(time);
+					glColor4f(0,0.85,0.85,1.0);
+					glVertex3f(0,0,0);
+					glColor4f(0,0.25,0.25,1.0);
+					glVertex3f((1-mid)*agent.grabx, (1-mid)*agent.graby, 0);
+					glVertex3f((1-mid)*agent.grabx, (1-mid)*agent.graby, 0);
+					glColor4f(0,0.85,0.85,1.0);
+					glVertex3f(agent.grabx, agent.graby, 0);
+
+					glEnd();
+					glLineWidth(1);
 				}
 			}
-
-			//draw cute little dots for eyes
-			for(int q=0;q<NUMEYES;q++) {
-				if(agent.isTiny() && !agent.isTinyEye(q)) break;
-				if(	(world->modcounter+agent.id)%conf::BLINKDELAY>=q*10 && 
-					(world->modcounter+agent.id)%conf::BLINKDELAY<q*10+conf::BLINKTIME && 
-					agent.health>0) continue; //blink eyes ocasionally... DAWWWWWW
-
-				glBegin(GL_POLYGON);
-				glColor4f(0,0,0,1.0);
-				float ca= agent.angle+agent.eyedir[q];
-				//the eyes are small and tiny if the agent has a low eye mod. otherwise they are big and buggie
-				float eyesize= capm(agent.eye_see_agent_mod/2,0.1,1);
-				drawCircle((r-2+eyesize)*cos(ca), (r-2+eyesize)*sin(ca), eyesize);
-				glEnd();
-			}
 		}
 
-		if (scalemult > .3 || ghost) { //render some extra stuff when we're really close
-			//render grab target line if we have one
-			if(world->GRAB_PRESSURE!=0 && agent.isGrabbing() && agent.health>0 && agent.grabID!=-1 && !ghost){
-				glLineWidth(3);
-				glBegin(GL_LINES);
-
-				//agent->agent directed grab vis
-				float time= (float)(currentTime)/1000;
-				float mid= time - floor(time);
-				glColor4f(0,0.85,0.85,1.0);
-				glVertex3f(0,0,0);
-				glColor4f(0,0.25,0.25,1.0);
-				glVertex3f((1-mid)*agent.grabx, (1-mid)*agent.graby, 0);
-				glVertex3f((1-mid)*agent.grabx, (1-mid)*agent.graby, 0);
-				glColor4f(0,0.85,0.85,1.0);
-				glVertex3f(agent.grabx, agent.graby, 0);
-
-				glEnd();
-				glLineWidth(1);
-			}
-		}
-
-		//some final final debug stuff that is shown even on ghosts:
+		//some final final debug stuff that is also shown even on ghosts:
 		if(world->isDebug() || ghost){
-			//wheels and wheel speeds
+			//wheels and wheel speed indicators, color coded: magenta for right, lime for left
 			float wheelangle= agent.angle+ M_PI/2;
 			glBegin(GL_LINES);
 			glColor3f(1,0,1);
@@ -4002,7 +4031,7 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 				glVertex3f(x*conf::CZ+0.5*conf::CZ-meatsz*conf::CZ,y*conf::CZ+0.5*conf::CZ,0);
 			}
 
-			if(live_layersvis[DisplayLayer::FRUITS] && values[Layer::FRUITS]>0.1 && scalemult>0.1){
+			if(live_layersvis[DisplayLayer::FRUITS] && values[Layer::FRUITS]>0.1 && scalemult>0.3){
 				float GR= 89.0/55;
 				for(int i= 1; i<values[Layer::FRUITS]*10; i++){
 					cellcolor= setColorFruit(1.6);

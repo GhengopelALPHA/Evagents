@@ -257,20 +257,20 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			abox->bias+= randn(0, MR2*5);
 		}
 
-		if (randf(0,1)*seedfactor<MR*2) {
+		if (randf(0,1)*seedfactor<MR*3) {
 			//jiggle dampening
 			abox->kp+= randn(0, MR2*0.5);
 			abox->kp= cap(abs(abox->kp));
 		}
 
-		if (randf(0,1)*seedfactor<MR*3) {
+		if (randf(0,1)*seedfactor<MR*5) {
 			//wither connection
 			int rc= randi(0, CONNS);
 			if(randf(0,1)>fabs(abox->w[rc])) abox->w[rc]= 0; //the closer the weight is to 0, the more likely it withers
 //		  a2.mutations.push_back("connection withered\n");
 		}
 
-		if (randf(0,1)*seedfactor<MR*5) {
+		if (randf(0,1)*seedfactor<MR*10) {
 			//jiggle weight
 			int rc= randi(0, CONNS);
 			abox->w[rc]+= randn(0, MR2*5);

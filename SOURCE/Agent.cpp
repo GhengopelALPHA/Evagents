@@ -422,7 +422,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	if (randf(0,1)<MR*3) a2.gene_blu= cap(randn(a2.gene_blu, MR2*2));
 	if (randf(0,1)<MR/2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2/2), -1.0, 1.0);
 
-	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTSIZE*10));
+	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTSIZE*50));
 	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
 	//we dont really want mutrates to get to zero; thats too stable. always mutate, and take the absolute randn instead.
 
@@ -492,7 +492,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 
 void Agent::resetRepCounter(float MEANRADIUS, float REP_PER_BABY)
 {
-	this->maxrepcounter= max(conf::REPCOUNTER_MIN, REP_PER_BABY*this->numbabies*sqrt(this->radius/MEANRADIUS));
+	this->maxrepcounter= max(conf::REPCOUNTER_MIN, REP_PER_BABY*this->numbabies*sqrt(this->radius/MEANRADIUS)); //division and sqrt...
 	this->repcounter= this->maxrepcounter;
 }
 
@@ -509,7 +509,7 @@ void Agent::liveMutate(int MUTMULT)
 	//change other mutable traits here
 	if (randf(0,1)<MR) this->metabolism= cap(randn(this->metabolism, MR2/5));
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*2) this->stomach[i]= cap(randn(this->stomach[i], MR2*2));
-	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTSIZE*5)); //these sizes are half of reproduction mutation
+	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTSIZE*25)); //these sizes are half of reproduction mutation
 	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE/2));
 	if (randf(0,1)<MR) this->clockf1= randn(this->clockf1, MR2/2);
 	if (this->clockf1<2) this->clockf1= 2;

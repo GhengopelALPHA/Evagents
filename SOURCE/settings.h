@@ -481,20 +481,22 @@ namespace conf {
 	const float INITMEATDENSITY= 0.001; //(.cfg)
 	const float INITHAZARDDENSITY= 0.003; //(.cfg)
 
-	const int AGENTS_MIN_NOTCLOSED= 50; //(.cfg)
-	const int AGENTS_MAX_SPAWN= 400; //(.cfg)
-	const int AGENTSPAWN_FREQ= 75; //(.cfg)
-	const int AGENTS_MAX_NOOXYGEN= 2500; //(.cfg)
-
 	const int CONTINENTS= 2; //(.cfg)
 	const int CONTINENT_SPREAD= 20; //how many cells each continent "seed" will, at max, spread from another
 	const float LOWER_ELEVATION_CHANCE= 0.08; //what's the chance that the terrain will drop a level instead of stay the same when "spreading"?
 	const float OCEANPERCENT= 0.6; //(.cfg)
 	const bool SPAWN_LAKES= true; //(.cfg)
+
+	const int AGENTS_MIN_NOTCLOSED= 50; //(.cfg)
+	const int AGENTS_MAX_SPAWN= 400; //(.cfg)
+	const int AGENTSPAWN_FREQ= 75; //(.cfg)
+	const int AGENTS_MAX_NOOXYGEN= 2500; //(.cfg)
+
 	const float GRAVITYACCEL= 0.01; //(.cfg)
 	const float BUMP_PRESSURE= 0.1; //(.cfg)
 	const float GRAB_PRESSURE= 0.1; //(.cfg)
 	const float SOUNDPITCHRANGE= 0.1; //(.cfg)
+	const float LIGHT_AMBIENT_PERCENT= 0.25; //multiplier of the natural light level that eyes will always see. Be cautious with this.
 
 	const bool DISABLE_LAND_SPAWN= true; //(.cfg & GUI)
 	const bool MOONLIT= true; //(.cfg, save, & GUI)
@@ -551,8 +553,8 @@ namespace conf {
 	//mutations
 	const float MAXDEVIATION= 10; //(.cfg)
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
-	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
-	const float META_MUTSIZE= 0.001;
+	const float META_MUTCHANCE= 0.2; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
+	const float META_MUTSIZE= 0.0015;
 	const float DEFAULT_MUTCHANCE= 0.11; //(.cfg)
 	const float DEFAULT_MUTSIZE= 0.015; //(.cfg)
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
@@ -606,7 +608,7 @@ namespace conf {
 
 
 	//LAYERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LAYERS
-	const float STOMACH_EFF= 0.125; //(.cfg)
+	const float STOMACH_EFF= 0.25; //(.cfg)
 	const float CARNIVORE_MEAT_EFF= 0.125; //0.05; //highest meat mult possible from full carnivores. The carivore stomach is sqrt-ed for even harsher punishment
 
 	const char FOOD_TEXT[]= "Plant Food";
