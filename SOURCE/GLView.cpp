@@ -2265,7 +2265,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					for(int q=0;q<NUMEARS;q++) {
 						float qval= (float)q/(NUMEARS-1);
 						float qblue= 1-qval<qval ? (1-qval)*2 : qval*2;
-						glColor4f(1-qval, qval, qblue, 0.15);
+						glColor4f(1-qval, qval, qblue, 0.15-0.05*qval); 
 
 						//Draw a trapezoid indicating the full range the ear hears, including the limbs
 						float displace= (agent.hearhigh[q]-agent.hearlow[q])*0.5;

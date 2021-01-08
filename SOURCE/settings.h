@@ -553,7 +553,7 @@ namespace conf {
 	//mutations
 	const float MAXDEVIATION= 10; //(.cfg)
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
-	const float META_MUTCHANCE= 0.2; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
+	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
 	const float META_MUTSIZE= 0.0015;
 	const float DEFAULT_MUTCHANCE= 0.11; //(.cfg)
 	const float DEFAULT_MUTSIZE= 0.015; //(.cfg)
@@ -608,7 +608,7 @@ namespace conf {
 
 
 	//LAYERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LAYERS
-	const float STOMACH_EFF= 0.25; //(.cfg)
+	const float STOMACH_EFF= 0.2; //(.cfg)
 	const float CARNIVORE_MEAT_EFF= 0.125; //0.05; //highest meat mult possible from full carnivores. The carivore stomach is sqrt-ed for even harsher punishment
 
 	const char FOOD_TEXT[]= "Plant Food";

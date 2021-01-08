@@ -1027,7 +1027,7 @@ void World::setInputs()
 				water+= cells[Layer::ELEVATION][scx][scy]<=Elevation::BEACH_MID ? 1 : 0; // all water (and beach) smells the same
 			}
 		}
-		float dimmensions= 1/((maxx-minx)*(maxy-miny));
+		float dimmensions= 1/((float)(maxx-minx)*(maxy-miny));
 		fruit*= a->smell_mod*dimmensions;
 		meat*= a->smell_mod*dimmensions;
 		hazard*= a->smell_mod*dimmensions;
@@ -1130,10 +1130,11 @@ void World::setInputs()
 						}
 						float tonemult= cap(min((a->hearhigh[q] - otone)/SOUNDPITCHRANGE,(otone - a->hearlow[q])/SOUNDPITCHRANGE));
 						//sounds within SOUNDPITCHRANGE of a low or high hearing range edge get scaled down, by the distance to that edge
-						hearsum[q]+= a->hear_mod*(1-eardist*invDIST)*ovolume*tonemult;
 
-						if(a->isTiny()) break; //small agents only get one ear input
+						hearsum[q]+= a->hear_mod*(1-eardist*invDIST)*ovolume*tonemult;
 					}
+
+					if(a->isTiny()) break; //small agents only get one ear input
 				}
 
 				float ang= (a2->pos- a->pos).get_angle(); //current angle between bots, with origin at agent a
