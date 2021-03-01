@@ -198,7 +198,7 @@ public:
 	float BUMP_PRESSURE;
 	float GRAB_PRESSURE;
 	int BRAINSIZE;
-	float BOTSPEED;
+	float WHEEL_SPEED;
 	float BOOSTSIZEMULT;
 	float BOOSTEXAUSTMULT;
 	int CORPSE_FRAMES;

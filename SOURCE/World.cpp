@@ -1093,7 +1093,7 @@ void World::setInputs()
 				float invDIST= 1/DIST;
 
 				//smell: adds up all agents inside DIST
-				smellsum+= a->smell_mod;
+				smellsum+= 0.1*a->smell_mod;
 
 				//sound and hearing: adds up vocalization and other emissions from agents inside DIST
 				for (int q=0;q<NUMEARS;q++){
@@ -1332,29 +1332,34 @@ void World::processOutputs(bool prefire)
 			a->jump-= GRAVITYACCEL;
 			if(a->jump<-1) a->jump= 0; //-1 because we will be nice and give a "recharge" time between jumps
 
-			float basewheel= powf(a->radius*invMEANRADIUS,0.25);
+			//first calculate the exact wheel scalar multipliers
+			float basewheel= powf(a->radius*invMEANRADIUS,0.25); //wheel speed depends on the size of the agent: smaller agents move slower
 			if (a->encumbered) basewheel*= conf::ENCUMBEREDMULT;
-			if (a->boost) basewheel*= BOOSTSIZEMULT;
+			else if (a->boost) basewheel*= BOOSTSIZEMULT;
+			basewheel*= WHEEL_SPEED;
 
 			float BW1= basewheel*a->w1;
 			float BW2= basewheel*a->w2;
 
-			//move bots
-			Vector2f v1(BOTSPEED, 0);
-			v1.rotate(a->angle + M_PI/2);
+			//next, generate left direction vector
+			Vector2f vleft(1, 0);
+			vleft.rotate(a->angle + M_PI/2);
 
-			Vector2f vv1= v1;
-			Vector2f vv2= -v1;
-			vv1.rotate(-BW1);
-			vv2.rotate(BW2);
-			a->pos= a->pos+(vv1 - v1)+(vv2 + v1);
+			//right and left wheel vectors get assigned
+			Vector2f vwheelleft= vleft;
+			Vector2f vwheelright= -vleft;
+
+			//the vectors get rotated by the amount (???) and then merged into position (???)
+			vwheelleft.rotate(-BW1*M_PI);
+			vwheelright.rotate(BW2*M_PI);
+			a->pos+= (vwheelleft - vleft)+(vwheelright + vleft);
 
 			//angle bots
 			if (a->jump<=0) {
 				a->angle += BW2-BW1;
 			}
-			if (a->angle<-M_PI) a->angle= M_PI - (-M_PI-a->angle);
-			if (a->angle>M_PI) a->angle= -M_PI + (a->angle-M_PI);
+			if (a->angle<-M_PI) a->angle= a->angle + 2*M_PI;
+			if (a->angle>M_PI) a->angle= a->angle - 2*M_PI;
 
 			//wrap around the map
 			a->borderRectify();
@@ -2663,7 +2668,7 @@ void World::init()
     BUMP_PRESSURE= conf::BUMP_PRESSURE;
 	GRAB_PRESSURE= conf::GRAB_PRESSURE;
 	BRAINSIZE= conf::BRAINSIZE;
-    BOTSPEED= conf::BOTSPEED;
+    WHEEL_SPEED= conf::WHEEL_SPEED;
     BOOSTSIZEMULT= conf::BOOSTSIZEMULT;
 	BOOSTEXAUSTMULT= conf::BOOSTEXAUSTMULT;
 	CORPSE_FRAMES= conf::CORPSE_FRAMES;
@@ -2983,10 +2988,10 @@ void World::readConfig()
 						BRAINSIZE= i;
 					}
 				}
-			}else if(strcmp(var, "BOTSPEED=")==0){
+			}else if(strcmp(var, "WHEEL_SPEED=")==0 || strcmp(var, "BOTSPEED=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=BOTSPEED) printf("BOTSPEED, ");
-				BOTSPEED= f;
+				if(f!=WHEEL_SPEED) printf("WHEEL_SPEED, ");
+				WHEEL_SPEED= f;
 			}else if(strcmp(var, "BOOSTSIZEMULT=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=BOOSTSIZEMULT) printf("BOOSTSIZEMULT, ");
@@ -3329,7 +3334,7 @@ void World::writeConfig()
 	fprintf(cf, "SOUNDPITCHRANGE= %f \t//range below hearhigh and above hearlow within which external sounds fade in. Would not recommend extreme values near or beyond [0,0.5]\n", conf::SOUNDPITCHRANGE);
 	fprintf(cf, "\n");
 	fprintf(cf, "BRAINSIZE= %i \t\t\t//number boxes in every agent brain. Sim will NEVER make brains smaller than # Inputs + # Outputs. Saved per world, loaded worlds will override this value. You cannot change this value for worlds already in progress; use New World options or restart app\n", conf::BRAINSIZE);
-	fprintf(cf, "BOTSPEED= %f \t\t//fastest possible speed of agents. This effects so much of the sim I dont advise changing it\n", conf::BOTSPEED);
+	fprintf(cf, "WHEEL_SPEED= %f \t\t//fastest possible speed of agents. This effects so much of the sim I dont advise changing it\n", conf::WHEEL_SPEED);
 	fprintf(cf, "MEANRADIUS= %f \t\t//\"average\" agent radius, range [0.2*this,2.2*this) (only applies to random agents, no limits on mutations). This effects SOOOO much stuff, and I would not recommend setting negative unless you like crashing programs.\n", conf::MEANRADIUS);
 	fprintf(cf, "BOOSTSIZEMULT= %f \t//how much speed boost do agents get when boost is active?\n", conf::BOOSTSIZEMULT);
 	fprintf(cf, "BOOSTEXAUSTMULT= %f \t//how much exhaustion from brain outputs is multiplied by when boost is active?\n", conf::BOOSTEXAUSTMULT);

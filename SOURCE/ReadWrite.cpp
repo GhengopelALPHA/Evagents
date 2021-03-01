@@ -451,6 +451,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 			float hazard= world->cells[Layer::HAZARDS][cx][cy];
 			float fruit= world->cells[Layer::FRUITS][cx][cy];
 			float land= world->cells[Layer::ELEVATION][cx][cy];
+			if(food+meat+hazard+fruit+land<=0) continue;
 			fprintf(fs, "<c>\n"); //signals the writting of a cell
 			fprintf(fs, "cx= %i\n", cx);
 			fprintf(fs, "cy= %i\n", cy);
@@ -708,7 +709,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 				if(strcmp(var, "</c>")==0){
 					//end_cell tag is checked for first, because of else condition
 					mode= 0;
-					if (!t1) printf("loaded cells.\n"); //report status
+					if (!t1) printf("loading cells.\n"); //report status
 					t1= true;
 				}else if(strcmp(var, "cx=")==0){
 					sscanf(dataval, "%i", &i);

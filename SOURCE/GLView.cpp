@@ -1157,6 +1157,8 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 				if (sidx>=0){
 					Agent *a= &world->agents[sidx];
 					savehelper->saveAgent(a, sa);
+					std::string selectedsaved= "Agent saved as " + filename;
+					world->addEvent(selectedsaved, EventColor::CYAN);
 				}
 				fclose(sa);
 //			}
@@ -2095,6 +2097,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 				float ss=16;
 
 				if(live_profilevis==Profile::INOUT || live_profilevis==Profile::BRAIN){
+					glTranslatef(-120,0,0); //translate x more to make room. Remember to translate back by inverse amount at the end of this block
+
 					//Draw inputs and outputs in in/out mode AND brain mode
 					glBegin(GL_QUADS);
 					for (int j=0;j<Input::INPUT_SIZE;j++) {
@@ -2187,6 +2191,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					}
 					yy+=ss*2;
 					glEnd();
+
+					glTranslatef(120,0,0); //translate back for brain displays (see top of this block)
 				}
 
 				//Draw one of the profilers based on the mode we have selected
@@ -2665,7 +2671,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					glColor4f(red,gre,blu,dead*centeralpha*0.1);
 					glVertex3f(0,0,0);
 					glColor4f(red,gre,blu,0.25);
-					drawCircle(cap(displace.x)*(q*10), cap(displace.y)*(q*10), r);
+					drawCircle(capm(displace.x, -1, 1)*(q*10), capm(displace.y, -1, 1)*(q*10), r);
 					glColor4f(red,gre,blu,dead*centeralpha*0.1);
 					glVertex3f(0,0,0);
 					glEnd();

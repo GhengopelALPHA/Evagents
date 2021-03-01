@@ -420,11 +420,12 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	if (randf(0,1)<MR*3) a2.gene_red= cap(randn(a2.gene_red, MR2*2));
 	if (randf(0,1)<MR*3) a2.gene_gre= cap(randn(a2.gene_gre, MR2*2));
 	if (randf(0,1)<MR*3) a2.gene_blu= cap(randn(a2.gene_blu, MR2*2));
-	if (randf(0,1)<MR/2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2/2), -1.0, 1.0);
+	if (randf(0,1)<MR) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2*2), -1.0, 1.0);
 
-	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTSIZE*10));
+	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE+conf::META_MUTCHANCE_ADD, conf::META_MUTSIZE*6));
 	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
-	//we dont really want mutrates to get to zero; thats too stable, take the absolute randn instead.
+	//we dont really want mutrates to get to zero; thats too stable, take the absolute randn instead. for CHANCE, we add a bit to prevent getting to 0
+	//if we didn't add a bit, the peak of the bell curve tends toward 0 statisticly speaking, not just evolutionarily. We add this bit to fight statistics
 
 	if (randf(0,1)<MR) a2.clockf1= randn(a2.clockf1, MR2);
 	if (a2.clockf1<2) a2.clockf1= 2;
@@ -509,8 +510,8 @@ void Agent::liveMutate(int MUTMULT)
 	//change other mutable traits here
 	if (randf(0,1)<MR) this->metabolism= cap(randn(this->metabolism, MR2/5));
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*2) this->stomach[i]= cap(randn(this->stomach[i], MR2*2));
-	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTSIZE*5)); //these sizes are half of reproduction mutation
-	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE/2));
+	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE+conf::META_MUTCHANCE_ADD, conf::META_MUTSIZE*3)); 
+	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE/2)); //these sizes are half of reproduction mutation
 	if (randf(0,1)<MR) this->clockf1= randn(this->clockf1, MR2/2);
 	if (this->clockf1<2) this->clockf1= 2;
 	if (randf(0,1)<MR) this->clockf2= randn(this->clockf2, MR2/2);

@@ -334,10 +334,10 @@ enum {
 	CLOCK3,
 	HEARING1,
 	HEARING2,
-	BOT_SMELL,
 	BLOOD,
 	TEMP,
 	PLAYER,
+	BOT_SMELL,
 	FRUIT_SMELL,
 	MEAT_SMELL,
 	HAZARD_SMELL,
@@ -526,7 +526,8 @@ namespace conf {
 //	const float BRAIN_ANDCONNS= 0.2; //probability of random brain conns that multiply in instead of add.
 
 	//general settings
-	const float BOTSPEED= 1.0; //(.cfg)
+	const float WHEEL_SPEED= 0.6; //(.cfg)
+	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
 	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
 	const float MEANRADIUS=10.0; //(.cfg)
 	const float BOOSTSIZEMULT= 2.0; //(.cfg)
@@ -555,6 +556,7 @@ namespace conf {
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
 	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
 	const float META_MUTSIZE= 0.0015;
+	const float META_MUTCHANCE_ADD= 0.0003; //this amount of mutation chance gets added BEFORE randn, so the peak of the bell curve is closer to this value
 	const float DEFAULT_MUTCHANCE= 0.11; //(.cfg)
 	const float DEFAULT_MUTSIZE= 0.015; //(.cfg)
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
