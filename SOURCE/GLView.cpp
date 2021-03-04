@@ -1157,7 +1157,8 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 				if (sidx>=0){
 					Agent *a= &world->agents[sidx];
 					savehelper->saveAgent(a, sa);
-					std::string selectedsaved= "Agent saved as " + filename;
+					std::string selectedsaved= "Agent saved as ";
+					selectedsaved.append(filename);
 					world->addEvent(selectedsaved, EventColor::CYAN);
 				}
 				fclose(sa);

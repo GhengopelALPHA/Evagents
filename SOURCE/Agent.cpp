@@ -24,7 +24,7 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	chamovid= cap(randf(-0.25,0.5));
 	lungs= randf(0,1);
 	metabolism= randf(0.25,0.75);
-	temperature_preference= cap(randn(2.0*abs(pos.y/conf::HEIGHT - 0.5),0.03));
+	temperature_preference= cap(randn(1-2.0*abs(pos.y/conf::HEIGHT - 0.5),0.03));
 	species= randi(-conf::AGENTS_MIN_NOTCLOSED*200,conf::AGENTS_MIN_NOTCLOSED*200); //related to AGENTS_MIN_NOTCLOSED because it's a good relationship
 	sexprojectbias= randf(-1,0); //purposefully excluding "male" biases (0,1), which are allowed, but for random spawn agents are detrimental
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) stomach[i]= 0;
