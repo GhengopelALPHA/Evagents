@@ -84,8 +84,9 @@ void RenderString(float x, float y, void *font, const char* string, float r, flo
 
 void RenderStringBlack(float x, float y, void *font, const char* string, float r, float g, float b, float a= 1.0)
 {
-	//render a pair of strings, one black-colored dropshadow beforehand
-	RenderString(x+1, y+1, font, string, 0, 0, 0);
+	//render 3 strings, 2 black-colored dropshadows beforehand
+	RenderString(x+1, y+1, font, string, 0, 0, 0, a);
+	RenderString(x, y+1, font, string, 0, 0, 0, a);
 	RenderString(x, y, font, string, r,g,b,a);
 }
 
@@ -369,8 +370,14 @@ void GLView::handlePopup(int x, int y)
 				}
 			} 
 			if(live_layersvis[DisplayLayer::TEMP]){
-				sprintf(line, "Temp: %.3f", world->calcTempAtCoord(worldcy));
+				float temp= world->calcTempAtCoord(worldcy);
+				sprintf(line, "Temp: %.1f", temp*100);
 				popupAddLine(line);
+				if(temp>0.8) popupAddLine("Hadean");
+				else if(temp>0.6) popupAddLine("Tropical");
+				else if(temp<0.2) popupAddLine("Arctic");
+				else if(temp<0.4) popupAddLine("Cool");
+				else popupAddLine("Temperate");
 			} 
 			if(live_layersvis[DisplayLayer::LIGHT]){
 				sprintf(line, "Light: %.3f", world->cells[Layer::LIGHT][worldcx][worldcy]);
@@ -667,6 +674,8 @@ void GLView::menu(int key)
 		live_landspawns= (int)(world->DISABLE_LAND_SPAWN);
 		live_moonlight= (int)(world->MOONLIT);
 		live_droughts= (int)(world->DROUGHTS);
+		live_climate= (int)(world->CLIMATE);
+		live_climateintensity= world->CLIMATE_INTENSITY;
 		live_mutevents= (int)(world->MUTEVENTS);
 	} else if (key==1011) { //sanitize world (delete agents)
 		world->sanitize();
@@ -771,6 +780,9 @@ void GLView::gluiCreateMenu()
 	live_droughts= (int)world->DROUGHTS;
 	live_droughtmult= world->DROUGHTMULT;
 	live_mutevents= (int)world->MUTEVENTS;
+	live_climate= (int)world->CLIMATE;
+	live_climatebias= world->CLIMATEBIAS;
+	live_climateintensity= world->CLIMATE_INTENSITY;
 	live_cursormode= 0;
 	char text[32]= "";
 
@@ -788,7 +800,7 @@ void GLView::gluiCreateMenu()
 	Menu->add_spinner_to_panel(panel_speed,"Speed:",GLUI_SPINNER_INT,&live_skipdraw);
 	Menu->add_checkbox_to_panel(panel_speed,"Fast Mode",&live_fastmode);
 
-	GLUI_Rollout *rollout_world= new GLUI_Rollout(Menu,"World Options",false);
+	rollout_world= new GLUI_Rollout(Menu,"World Options",false);
 
 	Menu->add_button_to_panel(rollout_world,"Load World", RWOpen::STARTLOAD, glui_handleRW);
 	Menu->add_button_to_panel(rollout_world,"Save World", RWOpen::BASICSAVE, glui_handleRW);
@@ -797,9 +809,12 @@ void GLView::gluiCreateMenu()
 	Menu->add_checkbox_to_panel(rollout_world,"Disable Spawns",&live_worldclosed);
 	Menu->add_checkbox_to_panel(rollout_world,"Disable Land Spawns",&live_landspawns);
 	Menu->add_checkbox_to_panel(rollout_world,"Moon Light",&live_moonlight);
-	Menu->add_checkbox_to_panel(rollout_world,"Mutation Events",&live_mutevents);
+	Menu->add_checkbox_to_panel(rollout_world,"Climate Change",&live_climate);
+	Menu->add_spinner_to_panel(rollout_world,"Climate Bias:",GLUI_SPINNER_FLOAT,&live_climatebias)->set_float_limits(0.0,1.0); //...this is weird
+	Menu->add_spinner_to_panel(rollout_world,"Climate intensity:",GLUI_SPINNER_FLOAT,&live_climateintensity)->set_speed(0.01);
 	Menu->add_checkbox_to_panel(rollout_world,"Global Drought Events",&live_droughts);
-	Menu->add_spinner_to_panel(rollout_world,"Drought Mod:",GLUI_SPINNER_FLOAT,&live_droughtmult)->set_speed(0.1); //...this is weird
+	Menu->add_spinner_to_panel(rollout_world,"Drought Mod:",GLUI_SPINNER_FLOAT,&live_droughtmult)->set_speed(0.1);
+	Menu->add_checkbox_to_panel(rollout_world,"Mutation Events",&live_mutevents);
 
 	GLUI_Rollout *rollout_vis= new GLUI_Rollout(Menu,"Visuals");
 
@@ -1073,17 +1088,17 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 		
 		if (checkFileName(filename)) {
 			//file name is valid, but is it a valid file???
-			char address[64];
-			strcpy(address,"saves\\");
-			strcat(address,filename);
-			strcat(address,".SAV");
+			std::string address;
+			address= "saves\\";
+			address.append(filename);
+			address.append(R::WORLD_SAVE_EXT);
 
 			FILE *fl;
-			fl= fopen(address, "r");
+			fl= fopen(address.c_str(), "r");
 			if(!fl) { //file doesn't exist. Alert the user
 				Alert = GLUI_Master.create_glui("Alert",0,50,50);
 
-				sprintf(buf,"No file could be found with the name \"%s.SAV\".", filename);
+				sprintf(buf,"No file could be found with the name \"%s%s\".\n", filename, R::WORLD_SAVE_EXT.c_str());
 				printf("%s", buf);
 
 				new GLUI_StaticText(Alert,"");
@@ -1108,6 +1123,9 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 				live_droughts= (int)world->DROUGHTS;
 				live_droughtmult= world->DROUGHTMULT;
 				live_mutevents= (int)world->MUTEVENTS;
+				live_climate= (int)world->CLIMATE;
+				live_climatebias= world->CLIMATEBIAS;
+				live_climateintensity= world->CLIMATE_INTENSITY;
 			}
 		}
 		Loader->hide();
@@ -1133,10 +1151,10 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 
 		if (checkFileName(filename)) {
 			//check the filename given to see if it exists yet
-			char address[32];
-			strcpy(address,"saved_agents\\");
-			strcat(address,filename);
-			strcat(address, ".AGT");
+			std::string address;
+			address= "saved_agents\\";
+			address.append(filename);
+			address.append(R::AGENT_SAVE_EXT);
 
 //			FILE* ck = fopen(address, "r");
 //			if(ck){
@@ -1152,12 +1170,14 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 //				fclose(ck);
 //			} else {
 //				fclose(ck);
-				FILE* sa = fopen(address, "w");
+				FILE* sa = fopen(address.c_str(), "w");
 				int sidx= world->getSelectedAgent();
 				if (sidx>=0){
 					Agent *a= &world->agents[sidx];
 					savehelper->saveAgent(a, sa);
-					std::string selectedsaved= "Agent saved as " + filename;
+					std::string selectedsaved= "Agent saved as \"";
+					selectedsaved.append(filename);
+					selectedsaved.append("\"");
 					world->addEvent(selectedsaved, EventColor::CYAN);
 				}
 				fclose(sa);
@@ -1169,13 +1189,13 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 				
 		if (checkFileName(filename)) {
 			//file name is valid, but is it a valid file???
-			char address[32];
-			strcpy(address,"saved_agents\\");
-			strcat(address,filename);
-			strcat(address,".AGT");
+			std::string address;
+			address= "saved_agents\\";
+			address.append(filename);
+			address.append(R::AGENT_SAVE_EXT);
 
 			FILE *fl;
-			fl= fopen(address, "r");
+			fl= fopen(address.c_str(), "r");
 			if(!fl) { //file doesn't exist. Alert the user
 				Alert = GLUI_Master.create_glui("Alert",0,50,50);
 
@@ -1192,7 +1212,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 			} else {
 				fclose(fl); //we are technically going to open the file again in savehelper... oh well
 
-				savehelper->loadAgentFile(world, address);
+				savehelper->loadAgentFile(world, address.c_str());
 
 				live_cursormode= 1; //activate agent placement mode
 				LoadAgentButton->set_name("UNLOAD Agent");
@@ -1215,13 +1235,13 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 		strcpy(filename,Browser->get_file());
 		
 		if (checkFileName(filename)) { //file name is valid, but is it a valid file???
-			char address[32];
-			strcpy(address,"saved_agents\\");
-			strcat(address,filename);
-			strcat(address,".AGT");
+			std::string address;
+			address= "saved_agents\\";
+			address.append(filename);
+			address.append(R::AGENT_SAVE_EXT);
 
 			FILE *fl;
-			fl= fopen(address, "r");
+			fl= fopen(address.c_str(), "r");
 			if(!fl) { //file doesn't exist. Alert the user
 				Alert = GLUI_Master.create_glui("Alert",0,50,50);
 
@@ -1238,7 +1258,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 			} else {
 				fclose(fl); //we are technically going to open the file again in savehelper... oh well
 
-				savehelper->loadAgentFile(world, address);
+				savehelper->loadAgentFile(world, address.c_str());
 			}
 		}
 		Loader->hide();
@@ -1297,12 +1317,12 @@ void GLView::trySaveWorld(bool force, bool autosave)
 
 	if (checkFileName(filename)) {
 		//check the filename given to see if it exists yet
-		char address[32];
-		strcpy(address,"saves\\");
-		strcat(address,filename);
-		strcat(address,".SAV");
+		std::string address;
+		address= "saves\\";
+		address.append(filename);
+		address.append(R::WORLD_SAVE_EXT);
 
-		FILE* ck = fopen(address, "r");
+		FILE* ck = fopen(address.c_str(), "r");
 		if(ck && !force){
 			if (live_debug) printf("WARNING: %s already exists!\n", filename);
 
@@ -1321,8 +1341,14 @@ void GLView::trySaveWorld(bool force, bool autosave)
 			if(ck) fclose(ck);
 			savehelper->saveWorld(world, xtranslate, ytranslate, filename);
 			lastsavedtime= currentTime;
-			if(!autosave) world->addEvent("Saved World", EventColor::CYAN);
-			else if (!force) world->addEvent("Saved World (overwritten)", EventColor::CYAN);
+			if(!autosave){
+				if (!force) {
+					std::string selectedsaved= "World saved as \"";
+					selectedsaved.append(filename);
+					selectedsaved.append("\"");
+					world->addEvent(selectedsaved, EventColor::CYAN);
+				} else world->addEvent("Saved World (overwritten)", EventColor::CYAN);
+			}
 		}
 	}
 }
@@ -1486,6 +1512,9 @@ void GLView::handleIdle()
 	world->DROUGHTS= (bool)live_droughts;
 	world->DROUGHTMULT= live_droughtmult;
 	world->MUTEVENTS= (bool)live_mutevents;
+	world->CLIMATE= (bool)live_climate;
+	world->CLIMATEBIAS= live_climatebias;
+	world->CLIMATE_INTENSITY= live_climateintensity;
 	world->domusic= (bool)live_playmusic;
 	world->setDebug((bool) live_debug);
 
@@ -1541,10 +1570,12 @@ void GLView::handleIdle()
 	if (!live_paused) world->update();
 
 	//pull back some variables which can change in-game that also have GUI selections
-	live_landspawns= (int)world->DISABLE_LAND_SPAWN;
-	live_droughtmult= world->DROUGHTMULT;
-	live_oceanpercent= world->OCEANPERCENT;
-
+	if(rollout_world->is_open || world->modcounter==0) {
+		live_landspawns= (int)world->DISABLE_LAND_SPAWN;
+		live_droughtmult= world->DROUGHTMULT;
+		live_climatebias= world->CLIMATEBIAS;
+		live_oceanpercent= world->OCEANPERCENT;
+	}
 
 	//autosave world periodically, based on world time
 	if (live_autosave==1 && world->modcounter%(world->FRAMES_PER_DAY*10)==0){
@@ -1567,6 +1598,7 @@ void GLView::handleIdle()
 			fastmode, frames, world->getAgents()-world->getDead(), world->getHerbivores(), world->getCarnivores(),
 			world->getFrugivores(), world->getEpoch(), world->getDay() );
 		glutSetWindowTitle( buf );
+		world->timenewsong--; //reduce our song delay timer
 		frames = 0;
 		lastUpdate = currentTime;
 	}
@@ -1702,8 +1734,8 @@ void GLView::renderScene()
 Color3f GLView::setColorHealth(float health)
 {
 	Color3f color;
-	color.red= ((int)(health*1000)%2==0) ? (1.0-health/2) : 0;
-	color.gre= health<=0.1 ? health : sqrt(health/2);
+	color.red= ((int)(health*1000)%2==0) ? (1.0-health/conf::HEALTH_CAP) : 0;
+	color.gre= health<=0.1 ? health : sqrt(health/conf::HEALTH_CAP);
 	return color;
 }
 
@@ -1719,9 +1751,9 @@ Color3f GLView::setColorStomach(const float stomach[Stomach::FOOD_TYPES])
 Color3f GLView::setColorTempPref(float discomfort)
 {
 	Color3f color;
-	color.red= sqrt(cap(discomfort*2));
-	color.gre= discomfort==0 ? 0.75 : (1.75-discomfort)/4;
-	color.blu= powf(1-discomfort,3);
+	color.red= sqrt(cap(8*discomfort));
+	color.gre= discomfort==0 ? 1.0 : cap(0.75-2*discomfort);
+	color.blu= discomfort==0 ? 1.0 : cap((2-3*discomfort)/4);
 	return color;
 }
 
@@ -1777,12 +1809,12 @@ Color3f GLView::setColorCrossable(float species)
 			color.red= 0.2;
 			color.gre= 0.9;
 			color.blu= 0.9;
-		} else if (deviation<=world->MAXDEVIATION) {
-			//reproducable relatives: navy blue
+		} else if (deviation<=world->agents[world->getSelectedAgent()].kinrange) {
+			//female-only reproducable relatives: navy blue
 			color.red= 0;
 			color.gre= 0;
-		} else if (deviation<=3*world->MAXDEVIATION) {
-			//un-reproducable relatives: purple
+		} else if (deviation<=3*conf::MAXDEVIATION) {
+			//possible relatives: purple
 			color.gre= 0.4;
 		}
 	}
@@ -1947,8 +1979,16 @@ Color3f GLView::setColorWaterHazard(float val)
 
 Color3f GLView::setColorTempCell(int val)
 {
-	float row= cap(world->calcTempAtCoord(val)-0.02);
-	Color3f color(row,(2-row)/2,(1-row)*(1-row)); //revert "row" to "val" to fix for cell-based temp layer
+	float temp= cap(world->calcTempAtCoord(val)-0.02);
+	Color3f color(sqrt(cap(1.3*temp-0.2)), cap(1.2*(1-1.1*temp)), pow(1-temp,3)); //revert "temp" to "val" to fix for cell-based temp layer
+	if(temp>0.3) {
+		float blu_gre= cap(2.5*temp-0.9);
+		color.red= cap(color.red + cap(2.5*temp-1.25));
+		if(temp>0.6) {
+			color.gre= cap(color.gre + cap(1.8-2*temp));
+		} else color.gre= cap(color.gre + blu_gre);
+		color.blu= cap(color.blu - blu_gre);
+	}
 	return color;
 }
 
@@ -2443,8 +2483,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			glVertex3f(xo,yo+42,0);
 
 			glColor3f(0,0.8,0);
-			glVertex3f(xo,yo+21*(2-agent.health),0);
-			glVertex3f(xo+5,yo+21*(2-agent.health),0);
+			glVertex3f(xo,yo+21*(conf::HEALTH_CAP-agent.health),0);
+			glVertex3f(xo+5,yo+21*(conf::HEALTH_CAP-agent.health),0);
 			glColor3f(0,0.6,0);
 			glVertex3f(xo+5,yo+42,0);
 			glVertex3f(xo,yo+42,0);
@@ -3173,6 +3213,14 @@ void GLView::drawStatic()
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Moonless Nights", 0.6f, 0.6f, 0.6f);
 				currentline++;
 			}
+		} else if (line==StaticDisplay::CLIMATE) {
+			if(world->isIceAge()) {
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Ice Age", 0.3f, 0.9f, 0.9f);
+				currentline++;
+			} else if(world->isHadean()) {
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Hadean Age", 1.0f, 0.55f, 0.15f);
+				currentline++;
+			}
 		}
 		
 		//we do not include debug here yet. see below 
@@ -3714,9 +3762,9 @@ void GLView::renderAllTiles()
 					} else if (u==SADHudOverview::HEALTH){ //health indicator, ux=ww-300, uy=25
 						glColor3f(0,0.8,0);
 						glVertex3f(ux,uy-UID::CHARHEIGHT,0);
-						glVertex3f(selected.health/2.0*UID::HUDSWIDTH+ux,uy-UID::CHARHEIGHT,0);
+						glVertex3f(selected.health/conf::HEALTH_CAP*UID::HUDSWIDTH+ux,uy-UID::CHARHEIGHT,0);
 						glColor3f(0,0.6,0);
-						glVertex3f(selected.health/2.0*UID::HUDSWIDTH+ux,uy,0);
+						glVertex3f(selected.health/conf::HEALTH_CAP*UID::HUDSWIDTH+ux,uy,0);
 						glVertex3f(ux,uy,0);
 					} else if (u==SADHudOverview::EXHAUSTION){ //Exhaustion/energy indicator ux=ww-100, uy=25
 						float exh= 2/(1+exp(world->EXHAUSTION_MULT*selected.exhaustion));
@@ -3736,9 +3784,10 @@ void GLView::renderAllTiles()
 				//VOLITILE TRAITS:
 				if(u==SADHudOverview::HEALTH){
 					if(live_agentsvis==Visual::HEALTH) drawbox= true;
-					sprintf(buf, "Health: %.2f/2", selected.health);
+					sprintf(buf, "Health: %.2f/%.0f", selected.health, conf::HEALTH_CAP);
 
 				} else if(u==SADHudOverview::REPCOUNTER){
+					if(live_agentsvis==Visual::REPCOUNTER) drawbox= true;
 					sprintf(buf, "Child: %.2f/%.0f", selected.repcounter, selected.maxrepcounter);
 				
 				} else if(u==SADHudOverview::EXHAUSTION){
@@ -3763,7 +3812,7 @@ void GLView::renderAllTiles()
 						float mw= selected.w1>selected.w2 ? selected.w1 : selected.w2;
 						if(mw<0) mw= 0;
 						float val= world->DAMAGE_FULLSPIKE*selected.spikeLength*mw;
-						if(val>2) sprintf(buf, "Spike: Deadly!");//health
+						if(val>conf::HEALTH_CAP) sprintf(buf, "Spike: Deadly!");//health
 						else if(val==0) sprintf(buf, "Spike: 0 h");
 						else sprintf(buf, "Spike: ~%.2f h", val);
 					} else sprintf(buf, "Not Spikey");
@@ -3825,8 +3874,6 @@ void GLView::renderAllTiles()
 					else if(selected.isCarnivore()) sprintf(buf, "\"Carnivore\"");
 					else sprintf(buf, "\"Dead\"...");
 					isFixedTrait= true;
-					RenderStringBlack(ux, uy, GLUT_BITMAP_HELVETICA_12, buf, textcolor->red, textcolor->gre, textcolor->blu);
-					continue;
 
 				} else if(u==SADHudOverview::GENERATION){
 					sprintf(buf, "Gen: %d", selected.gencount);
@@ -3834,9 +3881,11 @@ void GLView::renderAllTiles()
 
 				} else if(u==SADHudOverview::TEMPPREF){
 					if(live_agentsvis==Visual::DISCOMFORT) drawbox= true;
-					if(selected.temperature_preference>0.7) sprintf(buf, "Tropical(%.3f)", selected.temperature_preference);
-					else if (selected.temperature_preference<0.3) sprintf(buf, "Arctic(%.3f)", selected.temperature_preference);
-					else sprintf(buf, "Temperate(%.2f)", selected.temperature_preference);
+					if(selected.temperature_preference>0.8) sprintf(buf, "Hadean(%.1f)", selected.temperature_preference*100);
+					else if(selected.temperature_preference>0.6)sprintf(buf, "Tropical(%.1f)", selected.temperature_preference*100);
+					else if (selected.temperature_preference<0.2) sprintf(buf, "Arctic(%.1f)", selected.temperature_preference*100);
+					else if (selected.temperature_preference<0.4) sprintf(buf, "Cool(%.1f)", selected.temperature_preference*100);
+					else sprintf(buf, "Temperate(%.1f)", selected.temperature_preference*100);
 					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::LUNGS){
@@ -3883,8 +3932,13 @@ void GLView::renderAllTiles()
 					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::SPECIESID){
-					if(live_agentsvis==Visual::STOMACH) drawbox= true;
+					if(live_agentsvis==Visual::SPECIES) drawbox= true;
 					sprintf(buf, "Gene: %d", selected.species);
+					isFixedTrait= true;
+
+				} else if(u==SADHudOverview::KINRANGE){
+					if(live_agentsvis==Visual::CROSSABLE) drawbox= true;
+					sprintf(buf, "Kin Range: %d", selected.kinrange);
 					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::DEATH && selected.health==0){
@@ -3894,6 +3948,20 @@ void GLView::renderAllTiles()
 				} else sprintf(buf, "");
 
 				//render box around our stat that we're visualizing to help user follow along
+				if(drawbox) {
+					glBegin(GL_LINES);
+					glColor3f(0.7,0.7,0.75);
+					glVertex3f(ux-2,uy+2,0);
+					glVertex3f(ux+2+UID::HUDSWIDTH,uy+2,0);
+					glVertex3f(ux+2+UID::HUDSWIDTH,uy+2,0);
+					glVertex3f(ux+2+UID::HUDSWIDTH,uy-2-UID::CHARHEIGHT,0);
+					glVertex3f(ux+2+UID::HUDSWIDTH,uy-2-UID::CHARHEIGHT,0);
+					glVertex3f(ux-2,uy-2-UID::CHARHEIGHT,0);
+					glVertex3f(ux-2,uy-2-UID::CHARHEIGHT,0);
+					glVertex3f(ux-2,uy+2,0);
+					glEnd();
+					drawbox= false;
+				}
 
 				//Render text
 				if(isFixedTrait) {
@@ -3957,7 +4025,10 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 			if(layers==2) {
 				if(live_layersvis[DisplayLayer::LIGHT] && !live_layersvis[DisplayLayer::ELEVATION]) {
 					terrain= setColorHeight(0.5); // this allows "light" to be "seen"
+				}
+				if(live_layersvis[DisplayLayer::TEMP]) {
 					temp.red*= 0.45; temp.gre*= 0.45; temp.blu*= 0.45;
+					if(live_layersvis[DisplayLayer::ELEVATION]) terrain= setColorHeight(values[Layer::ELEVATION]/4+0.25);
 				}
 								
 			} else { temp.red*= 0.15; temp.gre*= 0.15; temp.blu*= 0.15; }

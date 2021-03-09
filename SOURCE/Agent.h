@@ -62,6 +62,7 @@ public:
 	int age; //how old is the agent, in 1/10ths
 	int freshkill; //were you just stabbed/collided with? if so, how long ago?
 	int species; //if two bots are of significantly different species, then they can't crossover
+	int kinrange; //range from the species ID that this agent will actively reproduce with
 	int gencount; //generation counter
 	float repcounter; //when repcounter gets to 0, this bot reproduces
 	float exhaustion; //sum of this agent's outputs over time, reduced by a constant. If this gets too high, the agent suffers
@@ -136,9 +137,13 @@ public:
 	void setHerbivore();
 	void setCarnivore();
 	void setFrugivore();
+	void setRandomStomach();
 	void setPos(float x, float y);
 	void setPosRandom(float maxx, float maxy);
 	void borderRectify();
+
+	void setIdealTempPref(float temp= -1);
+	void setIdealLungs(float target);
 
 	bool isHerbivore() const;
 	bool isCarnivore() const;

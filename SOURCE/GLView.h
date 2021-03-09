@@ -172,6 +172,9 @@ private:
 	int live_droughts; //are droughts and overgrowth periods enabled?
 	float live_droughtmult; //value of the drought modifier
 	int live_mutevents; //are variable rate mutation events enabled?
+	int live_climate; //are climate changes enabled?
+	float live_climatebias; //current climate bias
+	float live_climateintensity; //how extreme are climate changes? Effects both bias and mult
 	int live_cursormode; //what mode are we on with the cursor? 0= select mode, 1= place mode
 	int live_debug; //are we debugging?
 
@@ -187,6 +190,7 @@ private:
 	GLUI_FileBrowser * Browser;
 	std::string file_name;
 	GLUI * Loader;
+	GLUI_Rollout * rollout_world;
 	GLUI_Button * LoadAgentButton;
 	GLUI * Saver;
 	GLUI * Alert;

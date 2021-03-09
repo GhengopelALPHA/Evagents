@@ -12,14 +12,14 @@
 
 //defines for GUI button handles. Order changes nothing
 namespace GUIButtons{
-enum {
+const enum {
 	TOGGLE_LAYERS= 0,
 	TOGGLE_PLACEAGENTS
 };};
 
 //defines for reading/writing GUI handles. Order changes nothing
 namespace RWOpen{
-enum {
+const enum {
 	STARTLOAD= 0,
 	NEWWORLD,
 	IGNOREOVERLOAD,
@@ -37,7 +37,7 @@ enum {
 
 //defines for reading/writing GUI handles. Order changes nothing
 namespace RWClose{
-enum {
+const enum {
 	BASICLOAD= 0,
 	BASICSAVE,
 	NEWWORLD,
@@ -57,7 +57,7 @@ enum {
 
 //defines for tile (buttons) data. Order changes nothing except my sanity
 namespace MainTiles{
-enum {
+const enum {
 	SAD= 0, //Selected Agent Display, our first tile! It has lots of sub-tiles that get made automatically
 	TOOLBOX,
 
@@ -79,20 +79,20 @@ namespace UID{
 
 
 namespace EventColor{
-enum {
+const enum {
 	WHITE= 0,	//type 0: white		- Selected agent event
 	RED,		//type 1: red		- Selected agent killed / population bad
 	GREEN,		//type 2: green		- population good
 	BLUE,		//type 3: blue		- Selected sexual reproduction
 	YELLOW,		//type 4: yellow	- tips / autoselect changed poorly
-	CYAN,		//type 5: cyan		- simulation notification and controls
+	CYAN,		//type 5: cyan		- simulation notification and controls, global ice age
 	PURPLE,		//type 6: purple	- Selected mutation event
 	BROWN,		//type 7: brown		- Selected decayed
 	NEON,		//type 8: neon		- Selected assexual reproduction
 	MINT,		//type 9: mint		- simulation start/restart/change
 	MULTICOLOR,	//type 10: multicolor -achievements
 	PINK,		//type 11: pink		- global change
-	ORANGE,		//type 12: orange	- Selected attacked
+	ORANGE,		//type 12: orange	- Selected attacked, global hadean or extreme climate
 	BLOOD,		//type 13: bloodred - selected bad
 	LAVENDER,	//type 14: lavender - global change (mutations)
 	LIME,		//type 15: lime		- global good
@@ -101,7 +101,7 @@ enum {
 
 //defines for mouse modes. Order changes nothing. NOT USED CURRENTLY
 namespace MouseMode{
-enum {
+const enum {
 	NONE= 0,
 	POPUPS, //show popups only
 	SELECT, //select agent only
@@ -115,7 +115,7 @@ enum {
 
 //defines for layer data. Making changes here changes cells[LAYERS][][] in World. Order does not matter (except in ReadWrite...)
 namespace Layer{
-enum {
+const enum {
 	//NOTE these are physical layers of data, as opposed to DisplayMode::, which handles drawing
 	ELEVATION= 0,
 	PLANTS,
@@ -143,7 +143,7 @@ namespace Elevation{
 
 //defines for layer display, but this is a list of toggle-ables. Changing order here changes cycle order and menu listing order.
 namespace DisplayLayer{
-enum {
+const enum {
 	ELEVATION,
 	PLANTS,
 	MEATS,
@@ -158,7 +158,7 @@ enum {
 
 //defines for agent visualization. Changing order here changes cycle order and menu-listing order
 namespace Visual{
-enum {
+const enum {
 	NONE= 0,
 	RGB,
 	STOMACH,
@@ -178,7 +178,7 @@ enum {
 
 //defines for selected agent visualization. Changing order here changes menu-listing order
 namespace Profile{
-enum {
+const enum {
 	NONE= 0,
 	INOUT,
 	BRAIN,
@@ -191,11 +191,12 @@ enum {
 
 //defines for the static display in the top-left corner. Changing order here changes listing order
 namespace StaticDisplay{
-enum {
+const enum {
 	PAUSED= 0,
 	DEMO,
 	CLOSED,
 	DAYCYCLES,
+	CLIMATE,
 	DROUGHT,
 	MUTATIONS,
 	FOLLOW,
@@ -209,7 +210,7 @@ enum {
 
 //defines for global agent stats display in the data region. Changing order here changes arrangement order
 namespace DataDisplay{
-enum {
+const enum {
 	blank1= 0,
 	ALIVE,
 	HERBIVORE,
@@ -240,7 +241,7 @@ enum {
 //keep in mind, it is displayed in 3 columns, so the 4th entry will be in the same column as the 1st,
 //5th with the 2nd, etc
 namespace SADHudOverview{
-enum {
+const enum {
 	HEALTH= 0,
 	REPCOUNTER,
 	EXHAUSTION,
@@ -252,25 +253,26 @@ enum {
 	SPECIESID,
 	STRENGTH,
 	HYBRID,
-	SIZE,
+	KINRANGE,
 	MOTION,
 	SEXPROJECT,
-	LUNGS,
-	WASTE,
+	SIZE,
 	GIVING,
-	TEMPPREF,
-	SPIKE,
+	WASTE,
+	LUNGS,
 	GRAB,
-	CHAMOVID,
-	BITE,
+	SPIKE,
+	TEMPPREF,
 	VOLUME,
+	BITE,
+	CHAMOVID,
 	TONE,
 	STAT_KILLED,
 	STAT_CHILDREN,
 	MUTCHANCE,
-	DEATH,
-	blank2,
 	MUTSIZE,
+	blank2,
+	DEATH,
 
 	//Don't add beyond this entry!
 	HUDS
@@ -281,7 +283,7 @@ enum {
 //5th with the 2nd, etc
 //these are STATS, so they can CHANGE!
 namespace SADHudStats{
-enum {
+const enum {
 	HEALTH= 0,
 	REPCOUNTER,
 	EXHAUSTION,
@@ -304,7 +306,7 @@ enum {
 
 //defines for selection code. Changing order here changes menu-listing order
 namespace Select {
-enum {
+const enum {
 	NONE= 0,
 	MANUAL,
 	OLDEST,
@@ -324,7 +326,7 @@ enum {
 
 //defines for brain input code. Changing order here changes input-to-brain order and visualization order
 namespace Input {
-enum {
+const enum {
 	EYES,
 	xEYES= EYES+NUMEYES*3-1, //I strongly recommend keeping EYES and xEYES together in this order
 	HEALTH,
@@ -349,7 +351,7 @@ enum {
 
 //defines for brain output code. Changing order here changes brain-to-output order (reversed) and visualization order
 namespace Output {
-enum {
+const enum {
 	LEFT_WHEEL_F= 0,
 	RIGHT_WHEEL_F,
 	LEFT_WHEEL_B,
@@ -376,7 +378,7 @@ enum {
 };};
 
 namespace Stomach {
-enum {
+const enum {
 	PLANT= 0,
 	MEAT,
 	FRUIT,
@@ -389,7 +391,7 @@ enum {
 //each gene also adds to the reproduction cost
 //GOAL is to make it so that each of these represents a "node" or organ, and maybe allow for node growths later (actual physical body parts)
 namespace Genetypes {
-enum {
+const enum {
 	ADD_STRUCT_NODE= 0, //UNUSED
 	MULT_MAXHEALTH, //UNUSED
 	ADD_INT_MAXAGE, //UNUSED
@@ -426,6 +428,11 @@ enum {
 	GENE_TYPES
 };};
 
+namespace R {
+	const std::string WORLD_SAVE_EXT= ".SAV";
+	const std::string AGENT_SAVE_EXT= ".AGT";
+};
+
 namespace conf {
 	
 	//DEFAULTS: All of what follows are defaults, and if settings.cfg exists, are subsituted with that file's values if VERSION #'s match
@@ -435,7 +442,7 @@ namespace conf {
 	const int WWIDTH = 1100;  //initial window width and height
 	const int WHEIGHT = 700;
 
-	const float VERSION= 0.06; //current program settings version. ++0.01 IF CHANGES MADE AND PROGRAM UPDATED
+	const float VERSION= 0.07; //current program settings version. ++0.01 IF CHANGES MADE AND PROGRAM UPDATED
 
 	//sound file defines
 	const char SFX_CHIRP1[]= "sounds/agents/chirp1.ogg";
@@ -449,14 +456,17 @@ namespace conf {
 
 	const std::string MAIN_SONG= "sounds/music/sleep no more - evanjones4.ogg";
 	const std::string ETHERAL_SONG= "sounds/music/pinecone-ambient-dark - evanjones4.ogg";
+	const std::string ENERGY_SONG= "sounds/music/endlessmotion - bensound.ogg";
 	const std::string BABY_SONG= "sounds/music/sad-heaven-piano-3 - psovod.ogg";
 	const std::string ADAPT_SONG= "sounds/music/sunny dream - kjartan-abel-com.ogg";
 	const std::string PERSIST_SONG= "sounds/music/ambient-03-08-19 - newagesoup.ogg";
-	const std::string ENERGY_SONG= "sounds/music/beat-mfo-3b7-35 - erh.ogg";
+	const std::string RHYTHM_SONG= "sounds/music/beat-mfo-3b7-35 - erh.ogg";
 	const std::string SLEEPY_SONG= "sounds/music/ambient-waves - erokia.ogg";
 	const std::string SHIMMER_SONG= "sounds/music/pinecone-ambient - evanjones4.ogg";
 	const std::string OVERGROWTH_SONG= "sounds/music/dunes - andrewkn.ogg";
-	const std::string SONGS[9]= {MAIN_SONG,ETHERAL_SONG,BABY_SONG,ADAPT_SONG,PERSIST_SONG,ENERGY_SONG,SLEEPY_SONG,SHIMMER_SONG,OVERGROWTH_SONG};
+	const std::string STALE_SONG= "sounds/music/msfxp6-198-stretched-piano-1 - erokia.ogg";
+	const std::string SONGS[11]= {MAIN_SONG,ETHERAL_SONG,ENERGY_SONG,BABY_SONG,ADAPT_SONG,PERSIST_SONG,RHYTHM_SONG,
+		SLEEPY_SONG,SHIMMER_SONG,OVERGROWTH_SONG,STALE_SONG};
 
 	const float SNAP_SPEED = 0.2; //how fast snapping to an object of interest is; 1 is instant, 0.1 is smooth, 0 is pointless
 	const float ZOOM_SPEED = 0.002; //how fast zoom actions change the magnification
@@ -491,6 +501,7 @@ namespace conf {
 	const int AGENTS_MAX_SPAWN= 400; //(.cfg)
 	const int AGENTSPAWN_FREQ= 75; //(.cfg)
 	const int AGENTS_MAX_NOOXYGEN= 2500; //(.cfg)
+	const int SPECIESID_RANGE= 9000; //species ID range between (-this,this) that agents will spawn with. Note it is not capped
 
 	const float GRAVITYACCEL= 0.01; //(.cfg)
 	const float BUMP_PRESSURE= 0.1; //(.cfg)
@@ -510,6 +521,9 @@ namespace conf {
 	const bool MUTEVENTS= true; //(.cfg, save, & GUI)
 	const int MUTEVENT_MAX= 3; //(.cfg)
 	const float MUTEVENT_CHANCE= 0.25; //chance of a mutation event that has a multiple other than 1
+	const bool CLIMATE= true; //(.cfg, save, & GUI)
+	const float CLIMATE_INTENSITY= 0.005; //(.cfg & GUI)
+	const float CLIMATE_MULT_AVERAGE= 0.5; //value that the world's climate mult tries to average back towards
 
 	//BOTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ BOTS
 
@@ -552,11 +566,10 @@ namespace conf {
 	const float OVERHEAL_REPFILL= 0; //(.cfg)
 
 	//mutations
-	const float MAXDEVIATION= 10; //(.cfg)
+	const float MAXDEVIATION= 10; // no longer used, kept for loading legacy worlds
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
 	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
 	const float META_MUTSIZE= 0.0015;
-	const float META_MUTCHANCE_ADD= 0.0003; //this amount of mutation chance gets added BEFORE randn, so the peak of the bell curve is closer to this value
 	const float DEFAULT_MUTCHANCE= 0.11; //(.cfg)
 	const float DEFAULT_MUTSIZE= 0.015; //(.cfg)
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
@@ -570,7 +583,8 @@ namespace conf {
 	const float GRABBING_DISTANCE= 40; //(.cfg)
 //	const float BLOOD_SENSE_DISTANCE= 50; //(.cfg)
 
-	//deathly things
+	//life and death things
+	const float HEALTH_CAP= 2.0; //max health value of agents
 	const int FRESHKILLTIME= 50; //(.cfg)
 	const int CORPSE_FRAMES= 400; //(.cfg)
 	const float CORPSE_MEAT_MIN= 0.25; //(.cfg)
@@ -581,7 +595,7 @@ namespace conf {
 	const float HEALTHLOSS_AGING = 0.0001; //(.cfg)
 	const float HEALTHLOSS_WHEELS = 0.0; //(.cfg)
 	const float HEALTHLOSS_BOOSTMULT= 2.0; //(.cfg)
-	const float HEALTHLOSS_BADTEMP = 0.0046; //(.cfg)
+	const float HEALTHLOSS_BADTEMP = 0.006; //(.cfg)
 	const float HEALTHLOSS_BRAINUSE= 0.0; //(.cfg)
 	const float HEALTHLOSS_SPIKE_EXT= 0.0; //(.cfg)
 	const float HEALTHLOSS_BADTERRAIN= 0.022; //(.cfg)

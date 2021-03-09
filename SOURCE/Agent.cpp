@@ -17,25 +17,19 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	MUTSIZE= abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10); //size of mutations
 	parentid= 0;
 	radius= randf(MEANRADIUS*0.2,MEANRADIUS*2.2);
-	numbabies= randi(1,6);
+	numbabies= randi(1,7);
 	gene_red= randf(0,1);
 	gene_gre= randf(0,1);
 	gene_blu= randf(0,1);
 	chamovid= cap(randf(-0.25,0.5));
 	lungs= randf(0,1);
 	metabolism= randf(0.25,0.75);
-	temperature_preference= cap(randn(2.0*abs(pos.y/conf::HEIGHT - 0.5),0.03));
-	species= randi(-conf::AGENTS_MIN_NOTCLOSED*200,conf::AGENTS_MIN_NOTCLOSED*200); //related to AGENTS_MIN_NOTCLOSED because it's a good relationship
+	setIdealTempPref();
+	species= randi(-conf::SPECIESID_RANGE,conf::SPECIESID_RANGE);
+	kinrange= randi(1,conf::SPECIESID_RANGE/10);
 	sexprojectbias= randf(-1,0); //purposefully excluding "male" biases (0,1), which are allowed, but for random spawn agents are detrimental
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) stomach[i]= 0;
-	float budget= 1.5; //
-	int overtype;
-	while(budget>0){
-		overtype= randi(0,Stomach::FOOD_TYPES);
-		float budget_minus= randf(0,budget*1.25);
-		stomach[overtype]= cap(stomach[overtype] + budget_minus);
-		budget-= budget_minus;
-	}
+	setRandomStomach();
+
 	//senses and sense-ability
 	//eyes
 	eye_see_agent_mod= randf(0.1, 3);
@@ -163,6 +157,7 @@ void Agent::printSelf()
 	else printf("PRESENTLY NOT NEAR (not interaction-processed)\n");
 	printf("freshkill: %i\n", freshkill);
 	printf("species id: %i\n", species);
+	printf("kin_range: %i\n", kinrange);
 	printf("num_babies: %f\n", numbabies);
 	printf("maxrepcounter: %f\n", maxrepcounter);
 	printf("sexprojectbias: %f\n", sexprojectbias);
@@ -375,6 +370,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	a2.metabolism= randf(0,1)<0.5 ? this->metabolism : that.metabolism;
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) a2.stomach[i]= randf(0,1)<0.5 ? this->stomach[i]: that.stomach[i];
 	a2.species= randf(0,1)<0.5 ? this->species : that.species;
+	a2.kinrange= randf(0,1)<0.5 ? this->kinrange : that.kinrange;
 	a2.radius= randf(0,1)<0.5 ? this->radius : that.radius;
 	a2.strength= randf(0,1)<0.5 ? this->strength : that.strength;
 	a2.chamovid= randf(0,1)<0.5 ? this->chamovid : that.chamovid;
@@ -413,6 +409,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	if (randf(0,1)<MR) a2.metabolism= cap(randn(a2.metabolism, MR2*3));
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*4) a2.stomach[i]= cap(randn(a2.stomach[i], MR2*6)); //*10 was a bit much
 	if (randf(0,1)<MR*20) a2.species+= (int) (randn(0, 0.5+MR2*50));
+	if (randf(0,1)<MR*10) a2.kinrange= (int) abs(randn(a2.kinrange, 10+MR2*(a2.kinrange+1)));
 	if (randf(0,1)<MR*10) a2.radius= randn(a2.radius, MR2*15);
 	if (a2.radius<1) a2.radius= 1;
 	if (randf(0,1)<MR*2) a2.strength= cap(randn(a2.strength, MR2));
@@ -422,10 +419,11 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	if (randf(0,1)<MR*3) a2.gene_blu= cap(randn(a2.gene_blu, MR2*2));
 	if (randf(0,1)<MR) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2*2), -1.0, 1.0);
 
-	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE+conf::META_MUTCHANCE_ADD, conf::META_MUTSIZE*6));
+	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTSIZE*6));
 	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
 	//we dont really want mutrates to get to zero; thats too stable, take the absolute randn instead. for CHANCE, we add a bit to prevent getting to 0
 	//if we didn't add a bit, the peak of the bell curve tends toward 0 statisticly speaking, not just evolutionarily. We add this bit to fight statistics
+	//We should probably add more instability to the environment to render this correction factor useless, as that's the reason 0* mutation is being selected
 
 	if (randf(0,1)<MR) a2.clockf1= randn(a2.clockf1, MR2);
 	if (a2.clockf1<2) a2.clockf1= 2;
@@ -510,8 +508,8 @@ void Agent::liveMutate(int MUTMULT)
 	//change other mutable traits here
 	if (randf(0,1)<MR) this->metabolism= cap(randn(this->metabolism, MR2/5));
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*2) this->stomach[i]= cap(randn(this->stomach[i], MR2*2));
-	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE+conf::META_MUTCHANCE_ADD, conf::META_MUTSIZE*3)); 
-	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE/2)); //these sizes are half of reproduction mutation
+	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTSIZE*20)); 
+	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE/2));
 	if (randf(0,1)<MR) this->clockf1= randn(this->clockf1, MR2/2);
 	if (this->clockf1<2) this->clockf1= 2;
 	if (randf(0,1)<MR) this->clockf2= randn(this->clockf2, MR2/2);
@@ -540,6 +538,19 @@ void Agent::setFrugivore()
 	this->stomach[Stomach::FRUIT]= randf(0.5, 1);
 }
 
+void Agent::setRandomStomach()
+{
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) stomach[i]= 0;
+	float budget= 1.5; //give ourselves a budget that's over 100%
+	int overtype;
+	while(budget>0){ 
+		overtype= randi(0,Stomach::FOOD_TYPES); //pick a random food type
+		float budget_minus= randf(0,budget*1.25); //take a value that could be more than our budget (but will be capped)
+		stomach[overtype]= cap(stomach[overtype] + budget_minus);
+		budget-= budget_minus; //set stomach of type selected and reduce budget, allowing both variety and specialized stomachs
+	}
+}
+
 void Agent::setPos(float x, float y)
 {
 	this->pos.x= x;
@@ -560,6 +571,17 @@ void Agent::borderRectify()
 	if (this->pos.x>=conf::WIDTH)  this->pos.x= this->pos.x - conf::WIDTH*((int)((this->pos.x-conf::WIDTH)/conf::WIDTH)+1);
 	if (this->pos.y<0)			  this->pos.y= this->pos.y + conf::HEIGHT*((int)((0-this->pos.y)/conf::HEIGHT)+1);
 	if (this->pos.y>=conf::HEIGHT) this->pos.y= this->pos.y - conf::HEIGHT*((int)((this->pos.y-conf::HEIGHT)/conf::HEIGHT)+1);
+}
+
+void Agent::setIdealTempPref(float temp)
+{
+	if(temp==-1) temperature_preference= cap(randn(1-2.0*abs(pos.y/conf::HEIGHT - 0.5),0.03)); //logic may need to move when global climate comes in
+	else temperature_preference= randn(temp, 0.03);
+}
+
+void Agent::setIdealLungs(float target)
+{
+	lungs= cap(randn(target,0.10));
 }
 
 bool Agent::isHerbivore() const

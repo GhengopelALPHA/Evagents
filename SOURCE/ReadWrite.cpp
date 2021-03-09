@@ -84,6 +84,7 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "exhaustion= %f\n", a->exhaustion);
 	fprintf(file, "carcasscount= %i\n", a->carcasscount);
 	fprintf(file, "species= %i\n", a->species);
+	fprintf(file, "kinrange= %i\n", a->kinrange);
 	fprintf(file, "radius= %f\n", a->radius);
 	fprintf(file, "spike= %f\n", a->spikeLength);
 	fprintf(file, "jump= %f\n", a->jump);
@@ -179,6 +180,9 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 		if(mode==2){
 			if(strcmp(var, "</a>")==0){
 				//end agent tag is checked for, and when found, copies agent xa to the world
+				//first, check a few compatability issues for old saves:
+				if(fileversion<0.065) xa.kinrange= conf::MAXDEVIATION;
+
 				if(loadexact) world->addAgent(xa);
 				else world->loadedagent= xa; //if we are loading a single agent, push it to buffer
 
@@ -227,6 +231,9 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "species=")==0){
 				sscanf(dataval, "%i", &i);
 				xa.species= i;
+			}else if(strcmp(var, "kinrange=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.kinrange= i;
 			}else if(strcmp(var, "radius=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.radius= f;
@@ -392,7 +399,7 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 void ReadWrite::loadAgentFile(World *world, const char *address)
 {
 	//Some Notes: When this method is called, it's assumed that address is not blank or null
-//	strcat(address,".AGT");
+//	strcat(address,R::AGENT_SAVE_EXT);
 
 	FILE* fl = fopen(address, "r");
 	if(fl){
@@ -406,20 +413,20 @@ void ReadWrite::loadAgentFile(World *world, const char *address)
 void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *filename)
 {
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
-	char addressSAV[64];
-	char addressREP[64];
+	std::string addressSAV;
+	std::string addressREP;
 	printf("Filename '%s' given. Saving...\n", filename);
 
 	//set up our save file and report file addresses
-	strcpy(addressSAV,"saves\\");
-	strcat(addressSAV,filename);
-	strcpy(addressREP, addressSAV);
-	strcat(addressREP,"_report.txt");
+	addressSAV= "saves\\";
+	addressSAV.append(filename);
+	addressREP= addressSAV;
+	addressREP.append("_report.txt");
 
-	strcat(addressSAV,".SAV");
+	addressSAV.append(R::WORLD_SAVE_EXT);
 
 	//open save file, write over any previous, checking for the presence of the file has been relocated to GLView.cpp to allow GUI interactions
-	FILE* fs = fopen(addressSAV, "w");
+	FILE* fs = fopen(addressSAV.c_str(), "w");
 	
 	//start with saving world settings to compare with current
 	fprintf(fs,"<world>\n");
@@ -438,6 +445,9 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 	fprintf(fs,"DROUGHTMULT= %f\n", world->DROUGHTMULT);
 	fprintf(fs,"MUTEVENTS= %i\n", world->MUTEVENTS);
 	fprintf(fs,"MUTEVENTMULT= %i\n", world->MUTEVENTMULT);
+	fprintf(fs,"CLIMATE= %i\n", world->CLIMATE);
+	fprintf(fs,"CLIMATEBIAS= %f\n", world->CLIMATEBIAS);
+	fprintf(fs,"CLIMATEMULT= %f\n", world->CLIMATEMULT);
 	fprintf(fs,"CLOSED= %i\n", world->isClosed());
 	//if creating more GUI settings to save, please be sure to add them to two sections in GLView. Search ".cfg/.sav"
 	fprintf(fs,"epoch= %i\n", world->current_epoch);
@@ -480,7 +490,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 
 		//first, check if the last epoch in the saved report matches or is one less than the first one in the current report
 		FILE* fr = fopen("report.txt", "r"); 
-		FILE* ft = fopen(addressREP, "r"); 
+		FILE* ft = fopen(addressREP.c_str(), "r"); 
 		bool append= false;
 		char text[8]; //for checking
 		int epoch= 0;
@@ -519,7 +529,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 			printf("No old report.txt found. Continuing normally.\n");
 		}
 		
-		ft = append ? fopen(addressREP, "a") : fopen(addressREP, "w");
+		ft = append ? fopen(addressREP.c_str(), "a") : fopen(addressREP.c_str(), "w");
 		if(fr){
 			if(world->isDebug()) printf("Copying report.txt to save file\n");
 			while(!feof(fr)){
@@ -541,7 +551,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, const char *filename)
 {
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
-	char address[32];
+	std::string address;
 	char line[64], *pos;
 	char var[16];
 	char dataval[16];
@@ -556,14 +566,14 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 	int i; //integer buffer
 	float f; //float buffer
 
-	strcpy(address,"saves\\");
-	strcat(address,filename);
-	strcat(address,".SAV");
+	address= "saves\\";
+	address.append(filename);
+	address.append(R::WORLD_SAVE_EXT);
 
 	FILE *fl;
-	fl= fopen(address, "r");
+	fl= fopen(address.c_str(), "r");
 	if(fl){
-		printf("file '%s' exists! loading.\n", address);
+		printf("file '%s' exists! loading.\n", address.c_str());
 		//real quick: don't keep user control active from last world
 		world->pcontrol= false;
 		//also disable demo mode
@@ -590,7 +600,14 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 						if(f<0.04) {
 							printf("ALERT: version number < 0.04 detected! Multiplying all cell values by 2!\n");
 							cellmult= 2;
-						} else if (f<0.06) printf("ALERT: version number < 0.06 detected! Agent temp preferences will be automatically inverted!\n");
+						} if (f<0.06) {
+							printf("ALERT: version number < 0.06 detected! Agent temp preferences will be automatically inverted!\n");
+						} if (f<0.07) {
+							const char* climatestatus= world->CLIMATE ? "ENABLED" : "DISABLED";
+							printf("ALERT: version number < 0.07 detected! World temperature variables are being corrected and Global Climate change is %s!\n", climatestatus);
+							world->CLIMATEBIAS= 0.5;
+							world->CLIMATEMULT= 1; //these settings ensure global climate matches what was used in versions less than 0.07
+						}
 					}
 					fileversion= f;
 				}else if(strcmp(var, "BRAINSIZE=")==0){
@@ -656,6 +673,16 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 				}else if(strcmp(var, "MUTEVENTMULT=")==0){
 					sscanf(dataval, "%i", &i);
 					world->MUTEVENTMULT= i;
+				}else if(strcmp(var, "CLIMATE=")==0){
+					sscanf(dataval, "%i", &i);
+					if(i>=1) world->CLIMATE= true;
+					else world->CLIMATE= false;
+				}else if(strcmp(var, "CLIMATEBIAS=")==0){
+					sscanf(dataval, "%f", &f);
+					world->CLIMATEBIAS= f;
+				}else if(strcmp(var, "CLIMATEMULT=")==0){
+					sscanf(dataval, "%f", &f);
+					world->CLIMATEMULT= f;
 //				}else if(strcmp(var, "connections=")==0){
 					//conns count; NOT CURRENTLY USED
 //				}else if(strcmp(var, "width=")==0){

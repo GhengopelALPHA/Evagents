@@ -10,19 +10,6 @@ inline float randf(float a, float b){return ((b-a)*((float)rand()/RAND_MAX))+a;}
 //uniform random int in [a,b)
 inline int randi(int a, int b){return (rand()%(b-a))+a;}
 
-//pseudo random int by Middle-square method in [0,10)
-inline int randp(int seed){
-	int result= 0;
-	if(seed<=2) seed= (seed+1)*(seed+2);
-	while(seed<100000) seed= seed*seed; //take input up to 6 digits if not already
-	seed= seed*seed/10;
-	for (int i = 0; i < 2; i++) {
-		result+= (seed%10)*powf(10.0,i);
-		seed/= 10;
-	}
-	return result;
-}
-
 //normalvariate random N(mu, sigma)
 inline double randn(double mu, double sigma) {
 	static bool deviateAvailable=false;	//	flag

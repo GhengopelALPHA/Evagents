@@ -40,10 +40,10 @@ public:
 	//world status
     bool isClosed() const;
     void setClosed(bool close);
-	
 	bool isDrought() const;
 	bool isOvergrowth() const;
-
+	bool isIceAge() const;
+	bool isHadean() const;
 	bool isDemo() const;
 	void setDemo(bool state);
 
@@ -81,6 +81,8 @@ public:
 
 	int getEpoch() const;
 	int getDay() const;
+	float getLowTemp();
+	float getHighTemp();
     
     //mouse interaction
 	bool processMouse(int button, int state, int x, int y, float scale);
@@ -116,7 +118,7 @@ public:
 
 	void addAgent(Agent &agent);
 	bool addLoadedAgent(float x, float y);
-	void addAgents(int num, int set_stomach=-1, bool set_lungs=true, float nx=-1, float ny=-1);
+	void addAgents(int num, int set_stomach=-1, bool set_lungs=true, bool set_temp_pref=true, float nx=-1, float ny=-1);
 
 	float calcTempAtCoord(float y); //calculate the temperature at any y-coord
 	float calcTempAtCoord(int worldcy); //calculate temp at coord, using cell coord
@@ -194,6 +196,10 @@ public:
 	bool MUTEVENTS;
 	int MUTEVENTMULT; //saved multiplier of the current epoch mutation chance & count multiplier (min always 1)
 	int MUTEVENT_MAX;
+	bool CLIMATE;
+	float CLIMATEBIAS; //saved bias of the current epoch climate state. This can push the entire planet towards 0 or 1 temperature
+	float CLIMATEMULT; //saved multiplier of the current epoch climate state. This can blend the poles and equator closer to CLIMATEBIAS
+	float CLIMATE_INTENSITY;
 	float GRAVITYACCEL;
 	float BUMP_PRESSURE;
 	float GRAB_PRESSURE;
@@ -331,6 +337,7 @@ private:
 	bool STATfirstglobal; //true if we had max gens >= 5 for terran and aquatic
 	bool STATstrongspecies; //true if we had a max gen count of > 500
 	bool STATstrongspecies2; //true if we had a max gen count of > 1000
+	bool STATwildspecies; //true if we had a speciesID > the default range value
 	bool STATallachieved; //true if all the above are true
 };
 

@@ -20,13 +20,16 @@ World::World() :
 		SELECTION(-1),
 		DROUGHTMULT(1.0),
 		MUTEVENTMULT(1),
+		CLIMATEBIAS(0.5),
+		CLIMATEMULT(0.5),
 		pcontrol(false),
 		pright(0),
 		pleft(0),
 		dosounds(true),
-		timenewsong(350),
+		timenewsong(10),
 		currentsong(0)
 {
+	last5songs[0]= -1;
 	//inititalize happens only once when launching program (like right now!)
 	init();	
 	//reset happens any time we have to clear the world or change variables (now, or when loading a save or starting a new world)
@@ -179,6 +182,7 @@ void World::reset()
 	STATfirstglobal= false;
 	STATstrongspecies= false;
 	STATstrongspecies2= false;
+	STATwildspecies= false;
 	STATallachieved= false;
 
 	//reset live mutation count
@@ -255,9 +259,24 @@ void World::spawn()
 	//spawn land masses
 	cellsLandMasses();
 
+	//change climate settings
+	if(CLIMATE) {
+		printf("...(un)freezing glaciers...\n");
+		CLIMATEBIAS= randf(0.25,0.75);
+		CLIMATEMULT= randf(0.4,0.9);
+		#if defined(_DEBUG)
+			printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
+		#endif
+		if(CLIMATEMULT<0.75) {
+			if(CLIMATEMULT<0.25) addEvent("Uniform Temperature generated", EventColor::ORANGE);
+			if(CLIMATEBIAS<0.35) addEvent("Cool world generated", EventColor::CYAN);
+			else if(CLIMATEBIAS>0.65) addEvent("Warm world generated", EventColor::ORANGE);
+		} else addEvent("Extreme Temperature generated", EventColor::ORANGE);
+	}
+
 	//add init agents
 	printf("...programming agents...\n");
-	addAgents(100, -2, true); //-2 creates both herbivores and frugivores alternately
+	addAgents(100, -2); //-2 creates both herbivores and frugivores alternately
 	findStats(); //without this, selecting "New World" in the GUI would infiniloop program somewhere... I'm too tired to figure out where
 }
 
@@ -296,8 +315,8 @@ void World::cellsLandMasses()
 			int cx=randi(lowcx,highcx);
 			int cy=randi(lowcy,highcy);
 
-			cells[Layer::ELEVATION][cx][cy]= i%2==0 ? Elevation::MOUNTAIN_HIGH : Elevation::HILL;
-			//50% of the land spawns are type "Hill", = 0.7
+			cells[Layer::ELEVATION][cx][cy]= (i%2==0 && i<=10) ? Elevation::MOUNTAIN_HIGH : Elevation::HILL;
+			//50% of the land spawns are type "Hill", = 0.7, UNLESS we spawned over 10 points already (5 mountains)
 
 			//if told to, find midpoint between last cell and this one, and place water, dividing the CONTINENTS!
 			if(setcoast) cells[Layer::ELEVATION][(int)((cx+lastcx)*0.5)][(int)((cy+lastcy)*0.5)]= randf(0,1)>0.5 ? Elevation::SHALLOWWATER : Elevation::DEEPWATER_LOW;
@@ -307,7 +326,7 @@ void World::cellsLandMasses()
 		}
 	}
 
-	for (int i=0;i<1.85*(sqrt((float)CW*CH)/1000*pow((float)2.5,3*OCEANPERCENT)*(CONTINENTS+1)) ;i++) {
+	for (int i=0;i<3.0*(sqrt((float)CW*CH)/1000*pow((float)(CONTINENTS+2),3*OCEANPERCENT)) ;i++) {
 		//spawn oceans (water= 0)
 		int cx=randi(0,CW);
 		int cy=randi(0,CH);
@@ -344,7 +363,7 @@ void World::cellsLandMasses()
 					if (oy<0) oy+= CH;
 					if (oy>CH-1) oy-= CH;
 					if (cells[Layer::ELEVATION][ox][oy]==-1 && randf(0,1)<OCEANPERCENT*2*(1-2*height)) cells[Layer::ELEVATION][ox][oy]= height;
-					//ok so, 1-3*height comes in here because we want shallow ocean to spread slower than deep ocean so there's less of it
+					//1-2*height comes in here because we want shallow ocean to spread slower than deep ocean so there's less of it and it will get rounded
 				}
 			}
 		}
@@ -534,8 +553,18 @@ void World::update()
 			if(!STATstrongspecies2 && max(STATbestherbi,max(STATbestfrugi,STATbestcarni))>=1000) {
 				addEvent("First to Generation 1000!", EventColor::MULTICOLOR);
 				STATstrongspecies2= true;}
+			if(!STATwildspecies && STATstrongspecies) {
+				int wildest= 0;
+				for(int i=0; i<agents.size(); i++){
+					if(abs(agents[i].species)>abs(wildest)) wildest= agents[i].species;
+				}
+				if(abs(wildest)>conf::SPECIESID_RANGE){
+					addEvent("It\'s over 9000!", EventColor::MULTICOLOR);
+					STATwildspecies= true;
+				}
+			}
 			if(STATallachieved && FUN==true) FUN= false;
-			if(!STATallachieved && STATuseracted && STATfirstspecies && STATfirstpopulation && STATfirstglobal && STATstrongspecies && STATstrongspecies2){
+			if(!STATallachieved && STATuseracted && STATfirstspecies && STATfirstpopulation && STATfirstglobal && STATstrongspecies && STATstrongspecies2 && STATwildspecies){
 				addEvent("All Achievements Achieved!", EventColor::MULTICOLOR);
 				STATallachieved= true;
 				FUN= true;}
@@ -588,6 +617,28 @@ void World::update()
 		deaths.clear();
 	} else if (modcounter%12==0) findStats(); //ocasionally collect stats regardless
 
+	//adjust global climate
+	if(modcounter%(5*FRAMES_PER_DAY)==0) {
+		if(CLIMATE){
+			int epochmult= modcounter>=FRAMES_PER_EPOCH ? 30 : 1;
+			CLIMATEBIAS= cap(randn(CLIMATEBIAS, CLIMATE_INTENSITY*epochmult)); //simple cap of bias - we can get stuck at the extremes 
+			CLIMATEMULT= cap(abs(randn(CLIMATEMULT, 2*CLIMATE_INTENSITY*epochmult)));
+			//more complicated behavior of the mult - take abs randn and cap it
+			if(modcounter%(int)(FRAMES_PER_EPOCH/4)==0) CLIMATEMULT= 0.5*(conf::CLIMATE_MULT_AVERAGE + CLIMATEMULT);
+			//average the climate mult towards 0.5 occasionally
+
+			if(epochmult!=1) {
+				if(isHadean()) addEvent("Global Hadean Age started", EventColor::ORANGE);
+				else if(isIceAge()) addEvent("Global Ice Age started", EventColor::CYAN);
+				//if(CLIMATEMULT>0.75) addEvent("Global Temp Differential", EventColor::YELLOW);
+				//else if(CLIMATEMULT<0.25) addEvent("Global Uniform Temp", EventColor::YELLOW);
+			}
+
+			#if defined(_DEBUG)
+				if(DEBUG) printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
+			#endif
+		}
+	}
 
 	if (modcounter>=FRAMES_PER_EPOCH) {
 		modcounter=0;
@@ -617,21 +668,22 @@ void World::update()
 	}
 
 	//play music!
-	timenewsong--; //reduce our song delay timer
-	//ALERT FOR FUTURE: When we finally migrate to using Control, please convert this into time, not ticks!
-
 	if(dosounds && domusic){
 		//unpause music if it's paused
-		if(currentsong && currentsong->getIsPaused()) currentsong->setIsPaused(false);
+		if(currentsong) {
+			if(currentsong->getIsPaused()) currentsong->setIsPaused(false);
+			if(currentsong->getVolume()<0.01) currentsong->stop();
+		}
 
 		//if we are ready for a new song, pick a new song
 		if(timenewsong==0 && !currentsong) {
 			int songindex= randi(0,8);
-			if(current_epoch==0 && isDemo() && modcounter<1000) songindex= 0; //always play the first song first in demo mode; it's our theme song!
+			if(current_epoch==0 && isDemo() && last5songs[0]==-1)
+				songindex= 0; //always play the first song first in demo mode; it's our theme song!
 
 			//check our list of recently played track indexes to get a new index if needed
 			for(int i=0; i<5; i++){
-				if(songindex==last5songs[i]) { songindex= randi(0,8); i= 0; }
+				if(songindex==last5songs[i]) { songindex= randi(0,11); i= 0; }
 			}
 			
 			std::string songfile= conf::SONGS[songindex];
@@ -670,16 +722,17 @@ void World::update()
 		if(currentsong->getVolume()<0.001) currentsong->setIsPaused(true);
 	}
 
-	if(timenewsong<-100000 || //time-out if it's been a long while since we started a song
-	(currentsong && (currentsong->isFinished() || //or if the song is finished now
-	(timenewsong<-10000 && !dosounds)))) { //or if we've been in fast mode & not doing sounds for a while
-		if(currentsong) currentsong->drop();
-		currentsong= 0;
-		timenewsong= randi(1000+ceil(modcounter*0.1),5000+ceil(modcounter*0.1));
-		#if defined(_DEBUG)
-		printf("setting ticks to next song: %i\n", timenewsong);
-		#endif
-	}
+	if(domusic){
+		if(timenewsong<-300 || //time-out if it's been a long while since we started a song
+		(currentsong && currentsong->isFinished())) { //or if the song is finished now
+			if(currentsong) currentsong->drop();
+			currentsong= 0;
+			timenewsong= randi(15+ceil(modcounter*0.001),50+ceil(modcounter*0.001));
+			#if defined(_DEBUG)
+				printf("setting seconds to next song: %i\n", timenewsong);
+			#endif
+		}
+	} else timenewsong= 10;
 
 	//random seeds/spawns
 	if ((modcounter%FOODADDFREQ==0 && !CLOSED) || getFood()<MIN_PLANT) {
@@ -807,7 +860,7 @@ void World::update()
 			for(int m=0; m<MUTEVENTMULT; m++) {
 				if(randf(0,1)<LIVE_MUTATE_CHANCE){
 					a->liveMutate(MUTEVENTMULT);
-					if(a->id==SELECTION) addEvent("The Selected Agent Was Mutated!", EventColor::PURPLE);
+					if(a->id==SELECTION) addEvent("The Selected Agent Was Mutated!", EventColor::PURPLE); //control.cpp - want this to be supressed when in fast mode
 					STATlivemutations++;
 					if(DEBUG) printf("Live Mutation Event\n");
 				}
@@ -838,8 +891,8 @@ void World::update()
 			if (modcounter%10==0){
 				//calculate temperature at the agents spot. (based on distance from horizontal equator)
 				float dd= calcTempAtCoord(a->pos.y);
-				a->discomfort= pow(abs(dd-a->temperature_preference),2);
-				if (a->discomfort<0.001) a->discomfort=0;
+				a->discomfort= abs(dd-a->temperature_preference);
+				if (a->discomfort<0.01) a->discomfort= 0;
 			}
 		}
 	}
@@ -864,7 +917,7 @@ void World::update()
 						if(i==j || agents[j].isAsexual() || agents[j].repcounter>0) continue;
 						float d= (agents[i].pos-agents[j].pos).length();
 						float deviation= abs(agents[i].species - agents[j].species); //species deviation check
-						if (d<=SEXTING_DISTANCE && deviation<=MAXDEVIATION) {
+						if (d<=SEXTING_DISTANCE && deviation<=agents[i].kinrange) { //uses mother's kinrange
 							//this adds agent[i].numbabies to world, with two parents
 							if(DEBUG) printf("Attempting to have children...");
 							reproduce(i, j); //reproduce resets mother's rep counter, not father's
@@ -947,12 +1000,12 @@ void World::update()
 		//make sure environment is always populated with at least AGENTS_MIN_NOTCLOSED bots
 		if (alive<AGENTS_MIN_NOTCLOSED) {
 			if(DEBUG) printf("Attempting agent conservation program...");
-			addAgents(AGENTS_MIN_NOTCLOSED-alive);
+			addAgents(AGENTS_MIN_NOTCLOSED-alive,-1);
 			if(DEBUG) printf(" Success!\n");
 		}
 		if (alive<AGENTS_MAX_SPAWN && modcounter%AGENTSPAWN_FREQ==0 && randf(0,1)<0.5) {
 			if(DEBUG) printf("Attempting random spawn...");
-			addAgents(1,-1,true); //every now and then add random bot in if population too low
+			addAgents(1,-1); //every now and then add random bot in if population too low
 			if(DEBUG) printf(" Success!\n");
 		}
 	}
@@ -994,7 +1047,7 @@ void World::setInputs()
 		int scy= (int)(a->pos.y/conf::CZ);//, 0, conf::HEIGHT/conf::CZ);
 		
 		//HEALTH
-		a->in[Input::HEALTH]= cap(a->health/2); //divide by 2 since health is in [0,2]
+		a->in[Input::HEALTH]= cap(a->health/conf::HEALTH_CAP); //if we start using mutable health maximums, use that instead of HEALTH_CAP
 
 		//SOUND SMELL EYES
 		float light= (MOONLIT) ? max(MOONLIGHTMULT, cells[Layer::LIGHT][scx][scy]) : cells[Layer::LIGHT][scx][scy]; //grab min light level for conditions
@@ -1180,7 +1233,7 @@ void World::setInputs()
 				if (fabs(forwangle)>M_PI) diff4= 2*M_PI- fabs(forwangle);
 				diff4= fabs(diff4);
 				if (diff4<PI38) {
-					float newblood= a->blood_mod*(fabs(PI38-diff4)/PI38)*(1-d*invDIST)*(1-agents[j].health/2); //remember: health is in [0,2]
+					float newblood= a->blood_mod*(fabs(PI38-diff4)/PI38)*(1-d*invDIST)*(1-agents[j].health/conf::HEALTH_CAP);
 					if(newblood>blood) blood= newblood;
 					//agents with high life dont bleed. low life makes them bleed more. dead agents bleed the maximum
 				}
@@ -1389,8 +1442,8 @@ void World::processInteractions()
 		Vector2f source(randr, 0);
 		source.rotate(randf(-M_PI,M_PI));
 
-		int scx= (int) (a->pos.x + source.x)/conf::CZ;
-		int scy= (int) (a->pos.y + source.y)/conf::CZ;
+		int scx= (int) capm(a->pos.x + source.x, 0, conf::WIDTH)/conf::CZ;
+		int scy= (int) capm(a->pos.y + source.y, 0, conf::HEIGHT)/conf::CZ;
 
 		if(agents[i].health>0){
 			if (a->jump<=0){ //no interaction with these cells if jumping
@@ -1432,7 +1485,8 @@ void World::processInteractions()
 				//Fruit food
 				float fruit= cells[Layer::FRUITS][scx][scy];
 				if (fruit>0) { //agent eats fruit
-					float fruittake= min(fruit,FRUITWASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*speedmult);
+					float fruittake= min(fruit,FRUITWASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*speedmult*speedmult);
+					//unique for fruit - double speed penalty
 					cells[Layer::FRUITS][scx][scy]-= fruittake;
 					intake+= FRUITINTAKE*fruittake/FRUITWASTE;
 					a->addIntake(conf::FRUIT_TEXT, fruittake);
@@ -1482,9 +1536,9 @@ void World::processInteractions()
 				if(HEALTHLOSS_BADTERRAIN!=0) a->addDamage(conf::DEATH_BADTERRAIN, HEALTHLOSS_BADTERRAIN*dd);
 			}
 
-			if (a->health>2){ //if health has been increased over the cap, limit
-				if(OVERHEAL_REPFILL!=0) a->repcounter -= (a->health-2)*OVERHEAL_REPFILL; //if enabled, allow overflow to first fill the repcounter
-				a->health= 2;
+			if (a->health>conf::HEALTH_CAP){ //if health has been increased over the cap, limit
+				if(OVERHEAL_REPFILL!=0) a->repcounter -= (a->health-conf::HEALTH_CAP)*OVERHEAL_REPFILL; //if enabled, allow overflow to first fill the repcounter
+				a->health= conf::HEALTH_CAP;
 			}
 		} else {
 			//agent is dead. Just check for meat and refresh corpse counter if meat amount is high enough
@@ -1548,12 +1602,13 @@ void World::processInteractions()
 
 				//---HEALTH GIVING---//
 				if (FOOD_SHARING_DISTANCE>0 && FOODTRANSFER!=0 && !a->isSelfish(conf::MAXSELFISH) && a2->health+FOODTRANSFER<2) {
-					//all non-selfish agents allow health trading
+					//all non-selfish agents allow health trading to anyone within their kin range
+					float deviation= abs(a->species - a2->species);
 
 					float rd= a->isGiving() ? FOOD_SHARING_DISTANCE : sumrad+1;
 					//rd is the max range allowed to agent j. If generous, range allowed, otherwise bots must basically touch
 
-					if (d<=rd) {
+					if (d<=rd && deviation<a->kinrange) {
 						//initiate transfer
 						float healthrate= a->isGiving() ? FOODTRANSFER*a->give : FOODTRANSFER*2*a->give;
 						if(d<=sumrad+1 && a->isGiving()) healthrate= FOODTRANSFER;
@@ -1562,7 +1617,6 @@ void World::processInteractions()
 						a->addDamage(conf::DEATH_GENEROUSITY, healthrate);
 						a2->dhealth += healthrate; //only for drawing
 						a->dhealth -= healthrate;
-						//if (a2->health>2) a2->health= 2;
 					}
 				}
 
@@ -1920,14 +1974,14 @@ bool World::setSelectionRelative(int posneg)
 		//get selected species id
 		int species= agents[sid].species;
 		int bestidx= sid;
-		int bestdd= MAXDEVIATION;
+		int bestdd= agents[sid].kinrange;
 
-		//for each agent, check if its alive, not exactly like us, within maxdeviation, and a positive difference in speciesID
+		//for each agent, check if its alive, not exactly like us, within kin range, and a positive difference in speciesID
 		for(int i=0; i<agents.size(); i++){
 			if(agents[i].health<=0 || agents[i].species==species) continue;
 
 			int dd= posneg*(agents[i].species - species);
-			if(dd>MAXDEVIATION || dd<0) continue;
+			if(dd>agents[sid].kinrange || dd<0) continue;
 
 			if(dd<bestdd){ //if its the best so far, pick it
 				bestdd= dd;
@@ -1973,9 +2027,9 @@ int World::getClosestRelative(int idx) {
 		for (int i=0; i<(int)agents.size(); i++) {
 			if(idx==i) continue;
 
-			if(abs(agents[idx].species-agents[i].species)<MAXDEVIATION && agents[i].health>0){
-				//choose an alive agent that is within maxdeviation; closer the better
-				meta= 1+MAXDEVIATION-abs(agents[idx].species-agents[i].species);
+			if(abs(agents[idx].species-agents[i].species)<agents[i].kinrange && agents[i].health>0){
+				//choose an alive agent that is within kin range; closer the better
+				meta= 1+agents[i].kinrange-abs(agents[idx].species-agents[i].species);
 			} else continue; //if you aren't related, you're off to a very bad start if we're trying to find relatives... skip!
 
 			if(agents[i].age<TENDERAGE) meta+= 3; //choose young agents at least
@@ -2024,7 +2078,7 @@ void World::selectedHeal() {
 	//heal selected agent
 	int sidx= getSelectedAgent();
 	if(sidx>=0){
-		agents[sidx].health= 2.0;
+		agents[sidx].health= conf::HEALTH_CAP;
 		agents[sidx].carcasscount= -1;
 	}
 }
@@ -2150,10 +2204,13 @@ bool World::addLoadedAgent(float x, float y)
 	return true;
 }
 
-void World::addAgents(int num, int set_stomach, bool set_lungs, float nx, float ny)
+void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pref, float nx, float ny)
 {
 	for (int i=0;i<num;i++) {
+		int scx= 0,scy= 0;
 		Agent a(BRAINSIZE, MEANRADIUS, REP_PER_BABY, DEFAULT_MUTCHANCE, DEFAULT_MUTSIZE);
+		scx= (int) a.pos.x/conf::CZ;
+		scy= (int) a.pos.y/conf::CZ;
 
 		if (set_stomach==Stomach::PLANT) a.setHerbivore(); //if told to predetermine stomach type
 		else if (set_stomach==Stomach::MEAT) a.setCarnivore();
@@ -2161,26 +2218,37 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, float nx, float 
 		else if (set_stomach==-2) i%2==0 ? a.setHerbivore() : a.setFrugivore();
 		else if (getEpoch()==0 && a.isCarnivore()) randf(0,1)<0.5 ? a.setHerbivore() : a.setFrugivore(); //epoch 0 has no carnivores forced
 		
-		int scx= 0,scy= 0,count=0;
-		while(DISABLE_LAND_SPAWN){
-			scx= (int) a.pos.x/conf::CZ;
-			scy= (int) a.pos.y/conf::CZ;
-			if(cells[Layer::ELEVATION][scx][scy]<Elevation::BEACH_MID) break;
-			a.setPosRandom(conf::WIDTH, conf::HEIGHT);
-			count++;
-			if(STATlandratio==1.0 || count>1000000) {
-				printf("ALERT: spawn failed to find a suitable water cell. Enabling land spawn!");
-				DISABLE_LAND_SPAWN= false;
+		if (nx!=-1 && ny!=-1){ //if custom location given
+			a.pos.x= nx;
+			a.pos.y= ny;
+
+		} else {
+			for(int count= 0; count<100000; count++){
+				if(count>0){
+					a.setPosRandom(conf::WIDTH, conf::HEIGHT);
+					scx= (int) a.pos.x/conf::CZ;
+					scy= (int) a.pos.y/conf::CZ;
+				}
+
+				//add various spawn-blocking conditions here
+				if(DISABLE_LAND_SPAWN && cells[Layer::ELEVATION][scx][scy]>=Elevation::BEACH_MID) continue;
+				else break;
+
+				if(STATlandratio==1.0) {
+					printf("ALERT: spawn failed to find a suitable water cell. Enabling land spawn!");
+					DISABLE_LAND_SPAWN= false;
+					break;
+				}
 			}
 		}
 
-		if (nx!=-1 || ny!=-1){ //if custom location given
-			a.pos.x= nx;
-			a.pos.y= ny;
+		//these flags's functions depend on location
+		if (set_lungs){ //if told to fix lungs for agent's position
+			a.setIdealLungs(cells[Layer::ELEVATION][scx][scy]);
 		}
 
-		if (set_lungs){ //if told to fix lungs for agent's position
-			a.lungs= cap(randn((float)cells[Layer::ELEVATION][scx][scy],0.2));
+		if (set_temp_pref) {
+			a.setIdealTempPref(calcTempAtCoord(a.pos.y));
 		}
 
 		addAgent(a);
@@ -2189,9 +2257,9 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, float nx, float 
 
 float World::calcTempAtCoord(float y)
 {
-	//calculate the temperature at a given world coordinate. Once climate change is implemented, we'll add that in too
-	//currently the function is 0 @ equator and 1 @ poles 
-	return cap(1 - 2.0*abs(y/conf::HEIGHT - 0.5));
+	//calculate the temperature at a given world coordinate
+	//currently the function is 0 @ equator and 1 @ poles
+	return cap((1 - 2.0*abs(y/conf::HEIGHT - 0.5))*CLIMATEMULT + CLIMATEBIAS*(1-CLIMATEMULT));
 }
 
 
@@ -2256,7 +2324,8 @@ void World::writeReport()
 	printf("Writing Report, Epoch: %i, Day: %i\n", getEpoch(), getDay());
 	//save all kinds of nice data stuff
 	int randgen= 0;
-	int randspec= 0;
+	int randspecies= 0;
+	int randkinrange= 0;
 	int randseed= 0;
 	float randradius= 0;
 	float randmetab= 0;
@@ -2268,7 +2337,8 @@ void World::writeReport()
 
 	int randagent= randi(0,agents.size());
 	randgen= agents[randagent].gencount;
-	randspec= agents[randagent].species;
+	randspecies= agents[randagent].species;
+	randkinrange= agents[randagent].kinrange;
 	for (int i= 0; i<(int)agents[randagent].brain.boxes.size(); i++){
 		if (agents[randagent].brain.boxes[i].seed>randseed) randseed=agents[randagent].brain.boxes[i].seed;
 		for (int j= 0; j<CONNS; j++) {
@@ -2309,8 +2379,8 @@ void World::writeReport()
 	fprintf(fr, "Epoch:\t%i\tDay:\t%i\t#Agents:\t%i\t",
 		getEpoch(), getDay(), getAlive());
 	//print world stats: world settings
-	fprintf(fr, "Growth*:\t%f\tMutation*:\t%i\t",
-		DROUGHTMULT, MUTEVENTMULT);
+	fprintf(fr, "Growth*:\t%f\tMutation*:\t%i\tLowTemp:\t%f\tHighTemp:\t%f\t",
+		DROUGHTMULT, MUTEVENTMULT, getLowTemp(), getHighTemp());
 	//print world stats: agent specifics
 	fprintf(fr, "#Herbi:\t%i\t#Frugi:\t%i\t#Carni:\t%i\t#Terra:\t%i\t#Amphib:\t%i\t#Aqua:\t%i\t#Hybrids:\t%i\t#Spikes:\t%i\t",
 		getHerbivores(), getFrugivores(), getCarnivores(), getLungLand(), getLungAmph(), getLungWater(), getHybrids(), getSpiky());
@@ -2318,8 +2388,8 @@ void World::writeReport()
 	fprintf(fr, "#Plant:\t%i\t#Meat:\t%i\t#Hazard:\t%i\t#Fruit:\t%i\t",
 		getFood(), getMeat(), getHazards(), getFruit());
 	//print random selections: Genome, brain seeds, [[[generation]]]
-	fprintf(fr, "RGenome:\t%i\tRSeed:\t%i\tRGen:\t%i\tRRadius:\t%f\tRMetab:\t%f\tRTempP:\t%f\tRChildren:\t%i\t",
-		randspec, randseed, randgen, randradius, randmetab, randtemppref, randchildren);
+	fprintf(fr, "RGenome:\t%i\tRKinRange:\t%i\tRSeed:\t%i\tRGen:\t%i\tRRadius:\t%f\tRMetab:\t%f\tRTempP:\t%f\tRChildren:\t%i\t",
+		randspecies, randkinrange, randseed, randgen, randradius, randmetab, randtemppref, randchildren);
 	//print generations: Top Gen counts
 	fprintf(fr, "TopHGen:\t%i\tTopFGen:\t%i\tTopCGen:\t%i\tTopLGen:\t%i\tTopAGen:\t%i\tTopWGen:\t%i\t",
 		STATbestherbi, STATbestfrugi, STATbestcarni, STATbestterran, STATbestamphibious, STATbestaquatic);
@@ -2353,6 +2423,18 @@ bool World::isDrought() const
 bool World::isOvergrowth() const
 {
 	if(DROUGHTMULT>1.0+conf::DROUGHT_NOTIFY) return true;
+	return false;
+}
+
+bool World::isIceAge() const
+{
+	if(CLIMATEBIAS<0.25) return true;
+	return false;
+}
+
+bool World::isHadean() const
+{
+	if(CLIMATEBIAS>0.75) return true;
 	return false;
 }
 
@@ -2610,6 +2692,16 @@ int World::getDay() const
 	return (int)ceil((float)modcounter/(float)FRAMES_PER_DAY);
 }
 
+float World::getLowTemp()
+{
+	return calcTempAtCoord(0);
+}
+
+float World::getHighTemp()
+{
+	return calcTempAtCoord((float)(conf::HEIGHT/2));
+}
+
 
 void World::addEvent(std::string text, int type)
 {
@@ -2647,6 +2739,8 @@ void World::init()
 	DROUGHT_MAX= conf::DROUGHT_MAX;
 	MUTEVENTS= conf::MUTEVENTS;
 	MUTEVENT_MAX= conf::MUTEVENT_MAX;
+	CLIMATE= conf::CLIMATE;
+	CLIMATE_INTENSITY= conf::CLIMATE_INTENSITY;
 
     MIN_PLANT= conf::MIN_PLANT;
     INITPLANTDENSITY= conf::INITPLANTDENSITY;
@@ -2895,6 +2989,15 @@ void World::readConfig()
 				sscanf(dataval, "%i", &i);
 				if(i!=MUTEVENT_MAX) printf("MUTEVENT_MAX, ");
 				MUTEVENT_MAX= i;
+			}else if(strcmp(var, "CLIMATE=")==0){
+				sscanf(dataval, "%i", &i);
+				if(i!=(int)CLIMATE) printf("CLIMATE, ");
+				if(i==1) CLIMATE= true;
+				else CLIMATE= false;
+			}else if(strcmp(var, "CLIMATE_INTENSITY=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=CLIMATE_INTENSITY) printf("CLIMATE_INTENSITY, ");
+				CLIMATE_INTENSITY= f;
 			}else if(strcmp(var, "MIN_FOOD=")==0 || strcmp(var, "MINFOOD=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=MIN_PLANT) printf("MIN_FOOD, ");
@@ -3307,6 +3410,8 @@ void World::writeConfig()
 	fprintf(cf, "DROUGHT_MAX= %f \t\t//maximum multiplier value of droughts (overgrowth), above which it gets pushed back toward 1.0\n", conf::DROUGHT_MAX);
 	fprintf(cf, "MUTEVENTS= %i \t\t\t//true-false flag for if the mutation event mechanic is enabled. 0= constant mutation rates, 1= variable. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", MUTEVENTS);
 	fprintf(cf, "MUTEVENT_MAX= %i \t\t//integer max possible multiplier for mutation event mechanic. =1 effectively disables. =0 enables 50%% chance of no live mutations epoch. Negative values increase this chance (-1 => 66%%, -2 => 75%%, etc), thereby decreasing the chance of any live mutation epochs at all. Useful if you want to increase base mutation rates.\n", conf::MUTEVENT_MAX);
+	fprintf(cf, "CLIMATE= %i \t\t\t//true-false flag for if the global climate mechanic is enabled. 0= temperature ranges are fixed at spawn, 1= variable temp over time. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", CLIMATE);
+	fprintf(cf, "CLIMATE_INTENSITY= %f \t//intensity multiplier of climate changes (effects both bias and mult). If this is too large (>1) climate will swing wildly. GUI-controlable, NOT saved with worlds. This value is whatever was set in program when this file was saved.\n", CLIMATE_INTENSITY);
 	fprintf(cf, "\n");
 	fprintf(cf, "MINFOOD= %i \t\t\t//Minimum number of food cells which must have food during simulation. 0= off\n", conf::MIN_PLANT);
 	fprintf(cf, "INITFOODDENSITY= %f \t//initial density of full food cells. Is a decimal percentage of the world cells. Use 'INITFOOD= #' to set a number\n", conf::INITPLANTDENSITY);
