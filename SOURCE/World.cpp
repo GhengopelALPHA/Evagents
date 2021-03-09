@@ -1389,8 +1389,8 @@ void World::processInteractions()
 		Vector2f source(randr, 0);
 		source.rotate(randf(-M_PI,M_PI));
 
-		int scx= (int) (a->pos.x + source.x)/conf::CZ;
-		int scy= (int) (a->pos.y + source.y)/conf::CZ;
+		int scx= (int) capm(a->pos.x + source.x, 0, conf::WIDTH)/conf::CZ;
+		int scy= (int) capm(a->pos.y + source.y, 0, conf::HEIGHT)/conf::CZ;
 
 		if(agents[i].health>0){
 			if (a->jump<=0){ //no interaction with these cells if jumping
