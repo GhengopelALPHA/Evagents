@@ -255,10 +255,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\SOURCE\Control.h"
-				>
-			</File>
-			<File
 				RelativePath=".\SOURCE\DRAWSBrain.h"
 				>
 			</File>

@@ -392,6 +392,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	a2.blood_mod= randf(0,1)<0.5 ? this->blood_mod : that.blood_mod;
 
 	a2.temperature_preference= randf(0,1)<0.5 ? this->temperature_preference : that.temperature_preference;
+	a2.discomfort= this->discomfort;
 	a2.lungs= randf(0,1)<0.5 ? this->lungs : that.lungs;
 	
 	a2.eardir= randf(0,1)<0.5 ? this->eardir : that.eardir;

@@ -894,7 +894,7 @@ void World::update()
 			if (modcounter%(int)ceil(10+2*a->radius)==0){
 				//calculate temperature at the agents spot. (based on distance from horizontal equator)
 				float dd= calcTempAtCoord(a->pos.y);
-				a->discomfort= abs(dd-a->temperature_preference);
+				a->discomfort+= 0.1*(abs(dd-a->temperature_preference) - a->discomfort);
 				if (a->discomfort<0.01) a->discomfort= 0;
 			}
 		}
