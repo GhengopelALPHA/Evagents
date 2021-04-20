@@ -73,7 +73,7 @@ public:
 	float discomfort; //what level of temperature discomfort this agent is currently experiencing [0,1]
 	bool encumbered; //is this agent experiencing any encumbering effects (childbearing, difficult terrain)?
 	int jawrend; //render counter for jaw. Past ~10 ticks of no jaw action, it is "retracted" visually
-	float centerrender; //alpha of the agent's center. This is changed slowly by current reproduction mode: asexual= 0, clear; sexual (F)= 0.5, (M)= 1.0
+	float centerrender; //alpha of the agent's center. This is changed slowly by current reproduction mode: asexual= 0, clear; sexual (F)= 1.0, (M)= 2.0
 	float indicator;
 	float ir, ig, ib; //indicator colors
 	bool near; //are we near any other bots? Used to "tree" the agent-agent code
@@ -159,6 +159,7 @@ public:
 	bool isGrabbing() const;
 	bool isGiving() const;
 	bool isSelfish(float MAXSELFISH) const;
+	bool isAirborne() const;
 };
 
 #endif // AGENT_H

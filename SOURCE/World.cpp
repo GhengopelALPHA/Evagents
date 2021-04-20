@@ -29,7 +29,6 @@ World::World() :
 		timenewsong(10),
 		currentsong(0)
 {
-	last5songs[0]= -1;
 	//inititalize happens only once when launching program (like right now!)
 	init();	
 	//reset happens any time we have to clear the world or change variables (now, or when loading a save or starting a new world)
@@ -620,22 +619,22 @@ void World::update()
 	//adjust global climate
 	if(modcounter%(5*FRAMES_PER_DAY)==0) {
 		if(CLIMATE){
-			int epochmult= modcounter>=FRAMES_PER_EPOCH ? 30 : 1;
+			int epochmult= modcounter>=FRAMES_PER_EPOCH ? 10 : 1;
 			CLIMATEBIAS= cap(randn(CLIMATEBIAS, CLIMATE_INTENSITY*epochmult)); //simple cap of bias - we can get stuck at the extremes 
 			CLIMATEMULT= cap(abs(randn(CLIMATEMULT, 2*CLIMATE_INTENSITY*epochmult)));
 			//more complicated behavior of the mult - take abs randn and cap it
-			if(modcounter%(int)(FRAMES_PER_EPOCH/4)==0) CLIMATEMULT= 0.5*(conf::CLIMATE_MULT_AVERAGE + CLIMATEMULT);
+			if(modcounter%(int)(FRAMES_PER_EPOCH/2)==0) CLIMATEMULT= 0.25*(CLIMATEMULT_AVERAGE + 3*CLIMATEMULT);
 			//average the climate mult towards 0.5 occasionally
 
 			if(epochmult!=1) {
-				if(isHadean()) addEvent("Global Hadean Age started", EventColor::ORANGE);
-				else if(isIceAge()) addEvent("Global Ice Age started", EventColor::CYAN);
-				//if(CLIMATEMULT>0.75) addEvent("Global Temp Differential", EventColor::YELLOW);
+				if(isHadean()) addEvent("Global Hadean Epoch!", EventColor::ORANGE);
+				else if(isIceAge()) addEvent("Global Ice Age Epoch!", EventColor::CYAN);
+				if(isExtreme()) addEvent("Global Temp Extremes", EventColor::ORANGE);
 				//else if(CLIMATEMULT<0.25) addEvent("Global Uniform Temp", EventColor::YELLOW);
 			}
 
 			#if defined(_DEBUG)
-				if(DEBUG) printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
+				printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
 			#endif
 		}
 	}
@@ -764,8 +763,9 @@ void World::update()
 	float invCW= 1/(float)CW;
 	float daytime= (modcounter+current_epoch*FRAMES_PER_EPOCH)*2*M_PI/FRAMES_PER_DAY;
 	#pragma omp parallel for schedule(dynamic)
-	for(int cx=0; cx<(int)CW;cx++){
-		for(int cy=0; cy<(int)CH;cy++){
+	for(int cy=0; cy<(int)CH;cy++){
+		float tempzone= CLIMATE_KILL_FLORA ? calcTempAtCoord(cy) : 0.5; //calculate the y-coord's temp once per row
+		for(int cx=0; cx<(int)CW;cx++){
 			float plant = cells[Layer::PLANTS][cx][cy];
 			float fruit = cells[Layer::FRUITS][cx][cy];
 			float meat = cells[Layer::MEATS][cx][cy];
@@ -773,27 +773,30 @@ void World::update()
 
 			//plant ops
 			if (plant>0) {
-				plant-= FOODDECAY; //food quantity is changed by FOODDECAY
+				float tempmult= CLIMATE_KILL_FLORA ? 2-cap(min(tempzone*2+0.5,2.5-2*tempzone)) : 1.0;
+				plant-= FOODDECAY*tempmult; //food quantity is changed by FOODDECAY, which is doubled in bad temperature regions (arctic and hadean)
 				if (hazard>0) {
 					plant+= FOODGROWTH*max(0.0f,DROUGHTMULT)*hazard; //food grows out of waste/hazard, limited by low DROUGHTMULT
 				}
-			}
-			if (randf(0,1)<FOODSPREAD*DROUGHTMULT && plant>=0.5) { //plant grows from itself
-				//food seeding
-				int ox= randi(cx-1-FOODRANGE,cx+2+FOODRANGE);
-				int oy= randi(cy-1-FOODRANGE,cy+2+FOODRANGE);
-				if (ox<0) ox+= CW;
-				if (ox>CW-1) ox-= CW;
-				if (oy<0) oy+= CH;
-				if (oy>CH-1) oy-= CH; //code up to this point ensures world edges are crossed and not skipped
-				if (cells[Layer::PLANTS][ox][oy]<=0.75) cells[Layer::PLANTS][ox][oy]+= 0.25;
+
+				if(CLIMATE_KILL_FLORA) tempmult= 2*cap(min(tempzone*2,2-2*tempzone)-0.25); //adjust the temp mult for plant spread
+				if (randf(0,1)<FOODSPREAD*DROUGHTMULT*tempmult && plant>=0.5) { //plant grows from itself
+					//food seeding
+					int ox= randi(cx-1-FOODRANGE,cx+2+FOODRANGE);
+					int oy= randi(cy-1-FOODRANGE,cy+2+FOODRANGE);
+					if (ox<0) ox+= CW;
+					if (ox>CW-1) ox-= CW;
+					if (oy<0) oy+= CH;
+					if (oy>CH-1) oy-= CH; //code up to this point ensures world edges are crossed and not skipped
+					if (cells[Layer::PLANTS][ox][oy]<=0.75) cells[Layer::PLANTS][ox][oy]+= 0.25;
+				}
 			}
 			cells[Layer::PLANTS][cx][cy]= cap(plant);
 			//end plant
 
 			//meat ops
 			if (meat>0) {
-				meat -= MEATDECAY;
+				meat -= MEATDECAY; //consider: meat decay effected by direct tempzone?
 			}
 			cells[Layer::MEATS][cx][cy]= cap(meat);
 			//end meat
@@ -887,8 +890,8 @@ void World::update()
 			float boostmult= a->boost ? BOOSTEXAUSTMULT : 1;
 			a->exhaustion= max((float)0,a->exhaustion + a->getOutputSum()*boostmult + BASEEXHAUSTION)*EXHAUSTION_MULT;
 
-			//temp discomfort gets re-calculated mod%10, to simulate heat absorption/release
-			if (modcounter%10==0){
+			//temp discomfort gets re-calculated intermittently based on size, to simulate heat absorption/release
+			if (modcounter%(int)ceil(10+2*a->radius)==0){
 				//calculate temperature at the agents spot. (based on distance from horizontal equator)
 				float dd= calcTempAtCoord(a->pos.y);
 				a->discomfort= abs(dd-a->temperature_preference);
@@ -1306,9 +1309,9 @@ void World::processOutputs(bool prefire)
 			continue;
 		}
 
-		float exh= 1.0/(1.0+a->exhaustion); //exhaustion reduces agent output->physical action rates
+		float exh= 1.0/(1.0+a->exhaustion); //*exh reduces agent output->physical action rates for high exhaustion values
 
-		if (a->jump<=0) { //if not jumping, then change wheel speeds. otherwise, we want to keep wheel speeds constant
+		if (!a->isAirborne()) { //if not jumping, then change wheel speeds. otherwise, we want to keep wheel speeds constant
 			if (pcontrol && a->id==SELECTION) {
 				a->w1= pright;
 				a->w2= pleft;
@@ -1316,13 +1319,14 @@ void World::processOutputs(bool prefire)
 				a->w1+= a->strength*(a->out[Output::LEFT_WHEEL_F] - a->out[Output::LEFT_WHEEL_B] - a->w1);
 				a->w2+= a->strength*(a->out[Output::RIGHT_WHEEL_F] - a->out[Output::RIGHT_WHEEL_B] - a->w2);
 			}
-			a->w1*= exh;
-			a->w2*= exh;
+			//apply exhaustion later, when moving agents
+//			a->w1*= exh;
+//			a->w2*= exh;
 		}
 		a->real_red+= 0.2*((1-a->chamovid)*a->gene_red + a->chamovid*a->out[Output::RED]-a->real_red);
 		a->real_gre+= 0.2*((1-a->chamovid)*a->gene_gre + a->chamovid*a->out[Output::GRE]-a->real_gre);
 		a->real_blu+= 0.2*((1-a->chamovid)*a->gene_blu + a->chamovid*a->out[Output::BLU]-a->real_blu);
-		if (a->jump<=0) a->boost= (a->out[Output::BOOST])>0.5; //if jump height is zero, boost can change. Also, exhaustion doesn't effect the boost toggle
+		if (!a->isAirborne()) a->boost= (a->out[Output::BOOST])>0.5; //if jump height is zero, boost can change. Also, exhaustion doesn't effect the boost toggle
 		a->volume= a->out[Output::VOLUME]*exh;
 		a->tone+= (a->out[Output::TONE]-a->tone)*exh; //exhaustion effects the change rate of tone
 		a->give= a->out[Output::GIVE]*exh;
@@ -1382,15 +1386,16 @@ void World::processOutputs(bool prefire)
 		for (int i=0; i<(int)agents.size(); i++) {
 			Agent* a= &agents[i];
 
-			a->jump-= GRAVITYACCEL;
-			if(a->jump<-1) a->jump= 0; //-1 because we will be nice and give a "recharge" time between jumps
+			if(a->jump>-1) a->jump-= GRAVITYACCEL; //-1 because we will be nice and give a "recharge" time between jumps
+			else a->jump= 0;
 
-			//first calculate the exact wheel scalar multipliers
-			float basewheel= powf(a->radius*invMEANRADIUS,0.25); //wheel speed depends on the size of the agent: smaller agents move slower
+			//first calculate the exact wheel scalar values
+			float basewheel= WHEEL_SPEED;
 			if (a->encumbered) basewheel*= conf::ENCUMBEREDMULT;
 			else if (a->boost) basewheel*= BOOSTSIZEMULT;
-			basewheel*= WHEEL_SPEED;
+			basewheel*= sqrt(a->radius*invMEANRADIUS); //wheel speed depends on the size of the agent: smaller agents move slower
 
+			basewheel/= (1.0+a->exhaustion); //apply exhaustion. Wheels are very sensitive
 			float BW1= basewheel*a->w1;
 			float BW2= basewheel*a->w2;
 
@@ -1408,7 +1413,7 @@ void World::processOutputs(bool prefire)
 			a->pos+= (vwheelleft - vleft)+(vwheelright + vleft);
 
 			//angle bots
-			if (a->jump<=0) {
+			if (!a->isAirborne()) {
 				a->angle += BW2-BW1;
 			}
 			if (a->angle<-M_PI) a->angle= a->angle + 2*M_PI;
@@ -1448,8 +1453,8 @@ void World::processInteractions()
 		if(agents[i].health>0){
 			if (a->jump<=0){ //no interaction with these cells if jumping
 				float intake= 0;
-				float speedmult= pow(1-max(abs(a->w1), abs(a->w2)),3) / (1.0+a->exhaustion);
-				//exhaustion reduces agent physical actions including all intake, applied to speed for code efficiency
+				float speedmult= pow(1-max(abs(a->w1), abs(a->w2)),3); //penalty for moving
+				speedmult/= (1.0+a->exhaustion); //exhaustion reduces agent physical actions including all intake
 
 				float invmult= 1-STOMACH_EFF;
 				float invplant=1-a->stomach[Stomach::PLANT]*invmult;
@@ -1485,8 +1490,8 @@ void World::processInteractions()
 				//Fruit food
 				float fruit= cells[Layer::FRUITS][scx][scy];
 				if (fruit>0) { //agent eats fruit
-					float fruittake= min(fruit,FRUITWASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*speedmult*speedmult);
-					//unique for fruit - double speed penalty
+					float fruittake= min(fruit,FRUITWASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*cap(speedmult-0.5)*2);
+					//unique for fruit - speed penalty is more extreme, being completely 0 until agents slow down <0.25
 					cells[Layer::FRUITS][scx][scy]-= fruittake;
 					intake+= FRUITINTAKE*fruittake/FRUITWASTE;
 					a->addIntake(conf::FRUIT_TEXT, fruittake);
@@ -1527,8 +1532,12 @@ void World::processInteractions()
 
 			//land/water (always interacted with)
 			float land= cells[Layer::ELEVATION][scx][scy];
-			if(a->jump>0){ //jumping while underwater allows one to breathe at lung value 0.5, aka the agent is "floating"
-				land= max(land, Elevation::BEACH_MID);
+			if(a->isAirborne()){
+				//aquatic jumpers get to breathe at their prefered lung value, IF the terrain they're in is deeper
+				//terrestrial jumpers get to breathe at 0.5 (beach) if they are in anything deeper
+				//jumping while underwater allows one to breathe at their desired lung value if aquatic and too deep, or 0.5 if terrestrial,
+				//meaning land creatures can "float" when they jump. Amphibians have best of both worlds
+				land= max(land, min(Elevation::BEACH_MID, a->lungs));
 			}
 			float dd= pow(land - a->lungs,2);
 			if (dd>=0.01){ //a difference of 0.01 or less between lung and land type lets us skip taking damage
@@ -1621,7 +1630,7 @@ void World::processInteractions()
 				}
 
 				//---COLLISIONS---///
-				if (BUMP_PRESSURE>0 && d<sumrad && a->jump<=0 && a2->jump<=0) {
+				if (BUMP_PRESSURE>0 && d<sumrad && !a->isAirborne() && !a2->isAirborne()) {
 					//if inside each others radii and neither are jumping, fix physics
 					float ov= (sumrad-d);
 					if (ov>0 && d>0.00001) {
@@ -1668,8 +1677,8 @@ void World::processInteractions()
 				} //end collision mechanics
 
 				//---SPIKING---//
-				//small spike doesn't count. If the target is jumping in midair, can't attack either
-				if(a->isSpikey(SPIKELENGTH) && d<=(a2->radius + SPIKELENGTH*a->spikeLength) && a2->jump<=0){
+				//small spike doesn't count. If the target is jumping in midair, can't attack them either
+				if(a->isSpikey(SPIKELENGTH) && d<=(a2->radius + SPIKELENGTH*a->spikeLength) && !a2->isAirborne()){
 					Vector2f v(1,0);
 					v.rotate(a->angle);
 					float diff= v.angle_between(a2->pos-a->pos);
@@ -1786,8 +1795,8 @@ void World::processInteractions()
 								a2->borderRectify();
 							}
 
-							//the graber gets rotated toward the grabbed agent by a ratio of their output strength, limited to 0.08 radian
-							a->angle+= capm(a->grabbing*diff, -0.08, 0.08);
+							//the graber gets rotated toward the grabbed agent by a ratio of their radii, limited to 0.08 radian
+							a->angle+= capm(a->grabbing*diff*a2->radius/a->radius, -0.08, 0.08);
 						}
 					} else if (a->grabID==a2->id) {
 						//grab distance exceeded, break the bond
@@ -1847,7 +1856,10 @@ void World::healthTick()
 	#endif
 }
 
-void World::setSelection(int type) {
+
+void World::setSelection(int type) 
+//Control.cpp?
+{
 	int maxi= -1;
 	//to find the desired selection, we must process all agents. Lets do this sparingly unless no-one is selected
 	if (SELECTION==-1 || modcounter%15==0){
@@ -1959,7 +1971,11 @@ void World::setSelection(int type) {
 		}
 			
 		if (maxi!=-1) {
-			if(agents[maxi].id!= SELECTION) setSelectedAgent(maxi);
+			if(agents[maxi].id!= SELECTION) {
+				setSelectedAgent(maxi);
+				if(type==Select::RELATIVE) tryPlayAudio(conf::SFX_UI_RELATIVESELECT);
+				//else PLAY SIMPLE WOOSH SFX
+			}
 		} else if (type!=Select::MANUAL) {
 			SELECTION= -1;
 		}
@@ -1967,6 +1983,7 @@ void World::setSelection(int type) {
 }
 
 bool World::setSelectionRelative(int posneg) 
+//Control.cpp???
 {
 	//returns bool because GLView would like to know if successful or not
 	int sid= getSelectedAgent();
@@ -2007,7 +2024,9 @@ void World::setSelectedAgent(int idx) {
 	setControl(false);
 }
 
-int World::getSelectedAgent() const {
+int World::getSelectedAgent() const
+//Control.cpp???
+{
 	//retrieve array index of selected agent, returns -1 if none
 	int idx= -1;
 	#pragma omp parallel for
@@ -2017,7 +2036,9 @@ int World::getSelectedAgent() const {
 	return idx;
 }
 
-int World::getClosestRelative(int idx) {
+int World::getClosestRelative(int idx) 
+//Control.cpp???
+{
 	//retrieve the index of the given agent's closest living relative. Takes age, gencount, stomach, lungs, and species id into account, returns -1 if none
 	int nidx= -1;
 	int meta, metamax= 1;
@@ -2154,7 +2175,9 @@ void World::selectedInput(bool state) {
 	}
 }
 
-void World::getFollowLocation(float &xi, float &yi) {
+void World::getFollowLocation(float &xi, float &yi) 
+//Control.cpp
+{
 	int sidx= getSelectedAgent();
 	if (sidx>=0){
 		xi= agents[sidx].pos.x;
@@ -2163,6 +2186,7 @@ void World::getFollowLocation(float &xi, float &yi) {
 }
 
 bool World::processMouse(int button, int state, int x, int y, float scale)
+//Control.cpp
 {
 	//now returns true if an agent was selected manually successfully
 	if(button==0 && state==1){
@@ -2255,20 +2279,6 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pr
 	}
 }
 
-float World::calcTempAtCoord(float y)
-{
-	//calculate the temperature at a given world coordinate
-	//currently the function is 0 @ equator and 1 @ poles
-	return cap((1 - 2.0*abs(y/conf::HEIGHT - 0.5))*CLIMATEMULT + CLIMATEBIAS*(1-CLIMATEMULT));
-}
-
-
-float World::calcTempAtCoord(int worldcy)
-{
-	//calculate the temperature at a given world cell y-index
-	return calcTempAtCoord((float)worldcy*conf::CZ);
-}
-
 
 void World::reproduce(int i1, int i2)
 {
@@ -2319,10 +2329,12 @@ void World::reproduce(int i1, int i2)
 }
 
 void World::writeReport()
+//Control.cpp???
 {
 	if(DEMO) return;
 	printf("Writing Report, Epoch: %i, Day: %i\n", getEpoch(), getDay());
 	//save all kinds of nice data stuff
+	int randspawned;
 	int randgen= 0;
 	int randspecies= 0;
 	int randkinrange= 0;
@@ -2336,6 +2348,7 @@ void World::writeReport()
 	int randbrainsize= 0;
 
 	int randagent= randi(0,agents.size());
+	randspawned= agents[randagent].gencount==0 ? 1 : 0;
 	randgen= agents[randagent].gencount;
 	randspecies= agents[randagent].species;
 	randkinrange= agents[randagent].kinrange;
@@ -2388,8 +2401,8 @@ void World::writeReport()
 	fprintf(fr, "#Plant:\t%i\t#Meat:\t%i\t#Hazard:\t%i\t#Fruit:\t%i\t",
 		getFood(), getMeat(), getHazards(), getFruit());
 	//print random selections: Genome, brain seeds, [[[generation]]]
-	fprintf(fr, "RGenome:\t%i\tRKinRange:\t%i\tRSeed:\t%i\tRGen:\t%i\tRRadius:\t%f\tRMetab:\t%f\tRTempP:\t%f\tRChildren:\t%i\t",
-		randspecies, randkinrange, randseed, randgen, randradius, randmetab, randtemppref, randchildren);
+	fprintf(fr, "RSpawned:\t%i\tRGenome:\t%i\tRKinRange:\t%i\tRSeed:\t%i\tRGen:\t%i\tRRadius:\t%f\tRMetab:\t%f\tRTempP:\t%f\tRMutChance:\t%f\tRMutSize:\t%f\tRChildren:\t%i\t",
+		randspawned, randspecies, randkinrange, randseed, randgen, randradius, randmetab, randtemppref, randmutchance, randmutsize, randchildren);
 	//print generations: Top Gen counts
 	fprintf(fr, "TopHGen:\t%i\tTopFGen:\t%i\tTopCGen:\t%i\tTopLGen:\t%i\tTopAGen:\t%i\tTopWGen:\t%i\t",
 		STATbestherbi, STATbestfrugi, STATbestcarni, STATbestterran, STATbestamphibious, STATbestaquatic);
@@ -2428,13 +2441,19 @@ bool World::isOvergrowth() const
 
 bool World::isIceAge() const
 {
-	if(CLIMATEBIAS<0.25) return true;
+	if(CLIMATEMULT<0.6 && CLIMATEBIAS<0.3) return true;
 	return false;
 }
 
 bool World::isHadean() const
 {
-	if(CLIMATEBIAS>0.75) return true;
+	if(CLIMATEMULT<0.6 && CLIMATEBIAS>0.7) return true;
+	return false;
+}
+
+bool World::isExtreme() const
+{
+	if(CLIMATEMULT>0.7) return true;
 	return false;
 }
 
@@ -2702,8 +2721,23 @@ float World::getHighTemp()
 	return calcTempAtCoord((float)(conf::HEIGHT/2));
 }
 
+float World::calcTempAtCoord(float y)
+{
+	//calculate the temperature at a given world coordinate
+	//currently the function is 0 @ equator and 1 @ poles
+	return cap((1 - 2.0*abs(y/conf::HEIGHT - 0.5))*CLIMATEMULT + CLIMATEBIAS*(1-CLIMATEMULT));
+}
+
+
+float World::calcTempAtCoord(int worldcy)
+{
+	//calculate the temperature at a given world cell y-index
+	return calcTempAtCoord((float)worldcy*conf::CZ);
+}
+
 
 void World::addEvent(std::string text, int type)
+//Control.cpp
 {
 	//use EventColor:: namespace to access available colors for the "type" input
 	std::pair <std::string ,std::pair <int,int> > data;
@@ -2714,6 +2748,7 @@ void World::addEvent(std::string text, int type)
 }
 
 void World::dismissNextEvents(int count)
+//Control.cpp
 {
 	int disevents= 0;
 	for(int e=0; e<events.size(); e++){
@@ -2728,6 +2763,8 @@ void World::dismissNextEvents(int count)
 void World::init()
 {
 	printf("...starting up...\n");
+	last5songs[0]= -1;
+
 	//ALL .cfg constants must be initially declared in world.h and defined here.
 	NO_TIPS= false;
 	SPAWN_LAKES= conf::SPAWN_LAKES;
@@ -2741,6 +2778,8 @@ void World::init()
 	MUTEVENT_MAX= conf::MUTEVENT_MAX;
 	CLIMATE= conf::CLIMATE;
 	CLIMATE_INTENSITY= conf::CLIMATE_INTENSITY;
+	CLIMATEMULT_AVERAGE= conf::CLIMATEMULT_AVERAGE;
+	CLIMATE_KILL_FLORA= true;
 
     MIN_PLANT= conf::MIN_PLANT;
     INITPLANTDENSITY= conf::INITPLANTDENSITY;
@@ -2998,6 +3037,15 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=CLIMATE_INTENSITY) printf("CLIMATE_INTENSITY, ");
 				CLIMATE_INTENSITY= f;
+			}else if(strcmp(var, "CLIMATEMULT_AVERAGE=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=CLIMATEMULT_AVERAGE) printf("CLIMATEMULT_AVERAGE, ");
+				CLIMATEMULT_AVERAGE= f;
+			}else if(strcmp(var, "CLIMATE_KILL_FLORA=")==0){
+				sscanf(dataval, "%i", &i);
+				if(i!=(int)CLIMATE_KILL_FLORA) printf("CLIMATE_KILL_FLORA, ");
+				if(i==1) CLIMATE_KILL_FLORA= true;
+				else CLIMATE_KILL_FLORA= false;
 			}else if(strcmp(var, "MIN_FOOD=")==0 || strcmp(var, "MINFOOD=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=MIN_PLANT) printf("MIN_FOOD, ");
@@ -3410,8 +3458,10 @@ void World::writeConfig()
 	fprintf(cf, "DROUGHT_MAX= %f \t\t//maximum multiplier value of droughts (overgrowth), above which it gets pushed back toward 1.0\n", conf::DROUGHT_MAX);
 	fprintf(cf, "MUTEVENTS= %i \t\t\t//true-false flag for if the mutation event mechanic is enabled. 0= constant mutation rates, 1= variable. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", MUTEVENTS);
 	fprintf(cf, "MUTEVENT_MAX= %i \t\t//integer max possible multiplier for mutation event mechanic. =1 effectively disables. =0 enables 50%% chance of no live mutations epoch. Negative values increase this chance (-1 => 66%%, -2 => 75%%, etc), thereby decreasing the chance of any live mutation epochs at all. Useful if you want to increase base mutation rates.\n", conf::MUTEVENT_MAX);
-	fprintf(cf, "CLIMATE= %i \t\t\t//true-false flag for if the global climate mechanic is enabled. 0= temperature ranges are fixed at spawn, 1= variable temp over time. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", CLIMATE);
-	fprintf(cf, "CLIMATE_INTENSITY= %f \t//intensity multiplier of climate changes (effects both bias and mult). If this is too large (>1) climate will swing wildly. GUI-controlable, NOT saved with worlds. This value is whatever was set in program when this file was saved.\n", CLIMATE_INTENSITY);
+	fprintf(cf, "CLIMATE= %i \t\t\t//true-false flag for if the global climate mechanic is enabled. 0= temperature ranges are locked in at spawn, 1= variable temp over time. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", CLIMATE);
+	fprintf(cf, "CLIMATE_INTENSITY= %f \t//intensity multiplier of climate changes (effects both bias and mult). If this is too large (>0.01) climate will swing wildly. GUI-controlable, NOT saved with worlds. This value is whatever was set in program when this file was saved.\n", CLIMATE_INTENSITY);
+	fprintf(cf, "CLIMATEMULT_AVERAGE= %f \t//the value that the climate multiplier gets pushed back towards every 0.5 epochs. Reminder: A CLIMATEMULT of 0 means uniform temp everywhere, =1 and no matter what the CLIMATEBIAS is, the full possible range of temperature exists. This value is whatever was set in program when this file was saved. Default= 0.5\n", CLIMATEMULT_AVERAGE);
+	fprintf(cf, "CLIMATE_KILL_FLORA= %i \t//true-false flag for if the global climate destroys plant life at the extremes. 0= temperature has no affect, 1= plant life dies at extreme temperatures (V0.06- behavior). Default= 1 when writing a new config\n", 1);
 	fprintf(cf, "\n");
 	fprintf(cf, "MINFOOD= %i \t\t\t//Minimum number of food cells which must have food during simulation. 0= off\n", conf::MIN_PLANT);
 	fprintf(cf, "INITFOODDENSITY= %f \t//initial density of full food cells. Is a decimal percentage of the world cells. Use 'INITFOOD= #' to set a number\n", conf::INITPLANTDENSITY);

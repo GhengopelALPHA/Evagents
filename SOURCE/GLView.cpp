@@ -547,7 +547,7 @@ void GLView::menu(int key)
 		if (live_agentsvis<Visual::NONE) live_agentsvis= Visual::VISUALS-1;
 
 		//produce notifications if agent visual changed via buttons
-		if(past_agentsvis!=live_agentsvis){
+/*		if(past_agentsvis!=live_agentsvis){
 			switch(live_agentsvis){
 				case Visual::CROSSABLE :	world->addEvent("Viewing Relatives", EventColor::CYAN);			break;
 				case Visual::DISCOMFORT :	world->addEvent("Viewing Temp Discomfort", EventColor::CYAN);	break;
@@ -675,7 +675,6 @@ void GLView::menu(int key)
 		live_moonlight= (int)(world->MOONLIT);
 		live_droughts= (int)(world->DROUGHTS);
 		live_climate= (int)(world->CLIMATE);
-		live_climateintensity= world->CLIMATE_INTENSITY;
 		live_mutevents= (int)(world->MUTEVENTS);
 	} else if (key==1011) { //sanitize world (delete agents)
 		world->sanitize();
@@ -782,7 +781,7 @@ void GLView::gluiCreateMenu()
 	live_mutevents= (int)world->MUTEVENTS;
 	live_climate= (int)world->CLIMATE;
 	live_climatebias= world->CLIMATEBIAS;
-	live_climateintensity= world->CLIMATE_INTENSITY;
+	live_climatemult= world->CLIMATEMULT;
 	live_cursormode= 0;
 	char text[32]= "";
 
@@ -797,10 +796,10 @@ void GLView::gluiCreateMenu()
 	Menu->add_checkbox("Enable Autosaves",&live_autosave);
 
 	GLUI_Panel *panel_speed= new GLUI_Panel(Menu,"Speed Control");
-	Menu->add_spinner_to_panel(panel_speed,"Speed:",GLUI_SPINNER_INT,&live_skipdraw);
+	Menu->add_spinner_to_panel(panel_speed,"Speed:",GLUI_SPINNER_INT,&live_skipdraw)->set_speed(0.3); //wait...
 	Menu->add_checkbox_to_panel(panel_speed,"Fast Mode",&live_fastmode);
 
-	rollout_world= new GLUI_Rollout(Menu,"World Options",false);
+	GLUI_Rollout *rollout_world= new GLUI_Rollout(Menu,"World Options",false);
 
 	Menu->add_button_to_panel(rollout_world,"Load World", RWOpen::STARTLOAD, glui_handleRW);
 	Menu->add_button_to_panel(rollout_world,"Save World", RWOpen::BASICSAVE, glui_handleRW);
@@ -810,10 +809,10 @@ void GLView::gluiCreateMenu()
 	Menu->add_checkbox_to_panel(rollout_world,"Disable Land Spawns",&live_landspawns);
 	Menu->add_checkbox_to_panel(rollout_world,"Moon Light",&live_moonlight);
 	Menu->add_checkbox_to_panel(rollout_world,"Climate Change",&live_climate);
-	Menu->add_spinner_to_panel(rollout_world,"Climate Bias:",GLUI_SPINNER_FLOAT,&live_climatebias)->set_float_limits(0.0,1.0); //...this is weird
-	Menu->add_spinner_to_panel(rollout_world,"Climate intensity:",GLUI_SPINNER_FLOAT,&live_climateintensity)->set_speed(0.01);
+	Menu->add_spinner_to_panel(rollout_world,"Climate Bias:",GLUI_SPINNER_FLOAT,&live_climatebias)->set_float_limits(0.0,1.0);
+	Menu->add_spinner_to_panel(rollout_world,"Climate Mult:",GLUI_SPINNER_FLOAT,&live_climatemult)->set_float_limits(0.0,1.0);
 	Menu->add_checkbox_to_panel(rollout_world,"Global Drought Events",&live_droughts);
-	Menu->add_spinner_to_panel(rollout_world,"Drought Mod:",GLUI_SPINNER_FLOAT,&live_droughtmult)->set_speed(0.1);
+	Menu->add_spinner_to_panel(rollout_world,"Drought Mod:",GLUI_SPINNER_FLOAT,&live_droughtmult)->set_speed(0.1); //...this is weird
 	Menu->add_checkbox_to_panel(rollout_world,"Mutation Events",&live_mutevents);
 
 	GLUI_Rollout *rollout_vis= new GLUI_Rollout(Menu,"Visuals");
@@ -1115,17 +1114,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 
 				lastsavedtime= currentTime; //reset last saved time; we have nothing before the load to save!
 
-				//.cfg/.sav make sure to put all saved world variables with GUI options here so they update properly!
-				live_worldclosed= (int)world->isClosed();
-				live_landspawns= (int)world->DISABLE_LAND_SPAWN;
-				live_moonlight= (int)world->MOONLIT;
-				live_oceanpercent= world->OCEANPERCENT;
-				live_droughts= (int)world->DROUGHTS;
-				live_droughtmult= world->DROUGHTMULT;
-				live_mutevents= (int)world->MUTEVENTS;
-				live_climate= (int)world->CLIMATE;
-				live_climatebias= world->CLIMATEBIAS;
-				live_climateintensity= world->CLIMATE_INTENSITY;
+				syncLiveWithWorld();
 			}
 		}
 		Loader->hide();
@@ -1140,6 +1129,8 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 		world->spawn();
 		lastsavedtime= currentTime;
 		printf("WORLD RESET!\n");
+		//this is getting annoying - so if the world changes any values that have a GUI, the GUI will not update. We have to force update here
+		syncLiveWithWorld();
 		Alert->hide();
 	} else if (action==RWClose::CANCELALERT) { //Alert cancel/continue
 		Alert->hide();
@@ -1492,6 +1483,21 @@ int GLView::getAgentRes(bool ghost){
 }
 
 
+void GLView::syncLiveWithWorld()
+{
+	//.cfg/.sav make sure to put all saved world variables with GUI options here so they update properly!
+	live_worldclosed= (int)world->isClosed();
+	live_landspawns= (int)world->DISABLE_LAND_SPAWN;
+	live_moonlight= (int)world->MOONLIT;
+	live_oceanpercent= world->OCEANPERCENT;
+	live_droughts= (int)world->DROUGHTS;
+	live_droughtmult= world->DROUGHTMULT;
+	live_mutevents= (int)world->MUTEVENTS;
+	live_climate= (int)world->CLIMATE;
+	live_climatebias= world->CLIMATEBIAS;
+	live_climatemult= world->CLIMATEMULT;
+}
+
 void GLView::handleIdle()
 //Control.cpp
 {
@@ -1514,7 +1520,7 @@ void GLView::handleIdle()
 	world->MUTEVENTS= (bool)live_mutevents;
 	world->CLIMATE= (bool)live_climate;
 	world->CLIMATEBIAS= live_climatebias;
-	world->CLIMATE_INTENSITY= live_climateintensity;
+	world->CLIMATEMULT= live_climatemult;
 	world->domusic= (bool)live_playmusic;
 	world->setDebug((bool) live_debug);
 
@@ -1570,12 +1576,7 @@ void GLView::handleIdle()
 	if (!live_paused) world->update();
 
 	//pull back some variables which can change in-game that also have GUI selections
-	if(rollout_world->is_open || world->modcounter==0) {
-		live_landspawns= (int)world->DISABLE_LAND_SPAWN;
-		live_droughtmult= world->DROUGHTMULT;
-		live_climatebias= world->CLIMATEBIAS;
-		live_oceanpercent= world->OCEANPERCENT;
-	}
+	syncLiveWithWorld();	
 
 	//autosave world periodically, based on world time
 	if (live_autosave==1 && world->modcounter%(world->FRAMES_PER_DAY*10)==0){
@@ -1593,11 +1594,18 @@ void GLView::handleIdle()
 	currentTime = glutGet(GLUT_ELAPSED_TIME);
 	frames++;
 	if ((currentTime - lastUpdate) >= 1000) {
-		char fastmode= live_fastmode ? 'T' : 'F';
+		char fastmode;
+		if(live_fastmode){
+			fastmode= 'T';
+			if(live_paused) frames= 0; //if we're paused and in fast mode, we're not exactly rendering any frames
+			//we technically are rendering if just paused tho, so this check should stay here
+		} else fastmode='F';
+
 		sprintf( buf, "Evagents - %cPS: %d Alive: %d Herbi: %d Carni: %d Frugi: %d Epoch: %d Day %d",
 			fastmode, frames, world->getAgents()-world->getDead(), world->getHerbivores(), world->getCarnivores(),
 			world->getFrugivores(), world->getEpoch(), world->getDay() );
 		glutSetWindowTitle( buf );
+
 		world->timenewsong--; //reduce our song delay timer
 		frames = 0;
 		lastUpdate = currentTime;
@@ -2580,6 +2588,9 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 	float rp= agent.radius+2.8;
 	float rad= r;
 
+	//jumping agents appear magnified
+	if (agent.jump>0) rad+= (agent.jump+1)*3;
+
 	glPushMatrix(); //switch to local position coordinates
 	glTranslatef(x,y,0);
 
@@ -2649,12 +2660,18 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		//the center gets its own alpha and darkness multiplier. For now, tied to reproduction mode (asexual, sexual F, or sexual M). See centerrender def
 		float centeralpha= cap(agent.centerrender);
 		float centercmult= agent.centerrender>1.0 ? -0.5*agent.centerrender+1.25 : 0.5*agent.centerrender+0.25;
+		if (agent.isTiny() && live_agentsvis!=Visual::RGB) {
+			//we can't see the difference on tiny agents, so reset them
+			centeralpha= 1.0;
+			centercmult= 1.0;
+		}
 
 		// when we're zoomed out far away, do some things differently, but not to the ghost (selected agent display)
 		if( scalemult <= scale4ksupport && !ghost) {
 			rad= 2.2/scalemult; //this makes agents a standard size when zoomed out REALLY far, but not on the ghost
 
 		}
+
 		if (agent.health<=0 || (scalemult <= 0.3 && !ghost)) {
 			//when zoomed out too far to want to see agent details, or if agent is dead (either ghost render or not), draw center as solid
 			centeralpha= 1; 
@@ -2772,6 +2789,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			glVertex3f(rad*cos(agent.angle), rad*sin(agent.angle), 0);
 			glVertex3f((10+rad)*cos(agent.angle-M_PI/8*mult), (10+rad)*sin(agent.angle-M_PI/8*mult), 0);
 		}
+		glEnd();
 
 		//outline
 		float out_red= 0,out_gre= 0,out_blu= 0;
@@ -2780,10 +2798,10 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			out_gre= 1.0;
 			out_blu= 1.0;
 		}
-		if (agent.jump>0) { //draw jumping as a tan outline no matter what
-			out_red= 0.7;
-			out_gre= 0.7;
+		if (agent.isAirborne()) { //draw jumping as a thick outline no matter what
+			glLineWidth(3);
 		}
+		glBegin(GL_LINES);
 
 		if (live_agentsvis!=Visual::HEALTH && agent.health<=0){ //draw outline as grey if dead, unless visualizing health
 			glColor4f(0.7,0.7,0.7,dead);
@@ -2792,6 +2810,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		} else glColor4f(cap(out_red*blur + (1-blur)*red), cap(out_gre*blur + (1-blur)*gre), cap(out_blu*blur + (1-blur)*blu), dead);
 		drawOutlineRes(0, 0, rad, getAgentRes(ghost));
 		glEnd();
+		glLineWidth(1);
 
 
 		//some final stuff to render over top of the body but only when zoomed in or on the ghost
@@ -2845,7 +2864,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					for(int q=0;q<count;q++) {
 						glBegin(GL_POLYGON);
 						glColor4f(bloodcolor.red, bloodcolor.gre, bloodcolor.blu, alpha);
-						drawCircle((r*7/8-1)*cos(ca), (r*7/8-1)*sin(ca), 0.3);
+						drawCircle((rad*7/8-1)*cos(ca), (rad*7/8-1)*sin(ca), 0.3);
 						glEnd();
 						ca+= aa;
 					}
@@ -2863,7 +2882,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					float ca= agent.angle+agent.eyedir[q];
 					//the eyes are small and tiny if the agent has a low eye mod. otherwise they are big and buggie
 					float eyesize= capm(agent.eye_see_agent_mod/2,0.1,1);
-					drawCircle((r-2+eyesize)*cos(ca), (r-2+eyesize)*sin(ca), eyesize);
+					drawCircle((rad-2+eyesize)*cos(ca), (rad-2+eyesize)*sin(ca), eyesize);
 					glEnd();
 				}
 
@@ -2912,6 +2931,15 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			glBegin(GL_POLYGON); 
 			drawCircle(agent.radius/2*cos(wheelangle), agent.radius/2*sin(wheelangle), 1);
 			glEnd();
+
+			if(!ghost) {
+				//draw velocity vector
+				glBegin(GL_LINES);
+				glColor3f(0,1,1);
+				glVertex3f(0,0,0);
+				glVertex3f(agent.dpos.x-agent.pos.x, agent.dpos.y-agent.pos.y, 0);
+				glEnd();
+			}
 		}
 	}
 	glPopMatrix(); //restore world coords
@@ -3182,10 +3210,10 @@ void GLView::drawStatic()
 			}
 		} else if(line==StaticDisplay::DROUGHT) {
 			if(world->isDrought()) {
-				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Current Drought", 1.0f, 1.0f, 0.0f);
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Drought Epoch", 1.0f, 1.0f, 0.0f);
 				currentline++;
 			} else if(world->isOvergrowth()) {
-				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Current Overgrowth", 0.0f, 0.65f, 0.25f);
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Overgrowth Epoch", 0.0f, 0.65f, 0.25f);
 				currentline++;
 			}
 		} else if (line==StaticDisplay::MUTATIONS) {
@@ -3215,10 +3243,13 @@ void GLView::drawStatic()
 			}
 		} else if (line==StaticDisplay::CLIMATE) {
 			if(world->isIceAge()) {
-				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Ice Age", 0.3f, 0.9f, 0.9f);
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Ice Age Epoch", 0.3f, 0.9f, 0.9f);
 				currentline++;
 			} else if(world->isHadean()) {
-				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Hadean Age", 1.0f, 0.55f, 0.15f);
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Hadean Epoch", 1.0f, 0.55f, 0.15f);
+				currentline++;
+			} else if(world->isExtreme()) {
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Extreme Climate", 1.0f, 0.75f, 0.4f);
 				currentline++;
 			}
 		}
@@ -3307,7 +3338,7 @@ void GLView::drawStatic()
 		float blu= 0;
 		int type= world->events[eo].second.first;
 		switch(type) {
-			case EventColor::WHITE : 	red= 0.8; gre= 0.8; blu= 0.8;	break; //type 0: white
+			case EventColor::WHITE : 	red= 0.9; gre= 0.9; blu= 0.8;	break; //type 0: white
 			case EventColor::RED : 		red= 0.8; gre= 0.1; blu= 0.1;	break; //type 1: red
 			case EventColor::GREEN : 	red= 0.1; gre= 0.6;				break; //type 2: green
 			case EventColor::BLUE : 	gre= 0.3; blu= 0.9;				break; //type 3: blue
@@ -3322,7 +3353,7 @@ void GLView::drawStatic()
 			case EventColor::ORANGE:	red= 0.9; gre= 0.6;				break; //type 12: orange
 			case EventColor::BLOOD :	red= 0.5;						break; //type 13: bloodred
 			case EventColor::LAVENDER :	red= 0.8; gre= 0.6;	blu= 1.0;	break; //type 14: lavender
-			case EventColor::LIME :		red= 0.6; gre= 1.0;	blu= 0.4;	break; //type 15: lime
+			case EventColor::LIME :		red= 0.5; gre= 1.0;	blu= 0.3;	break; //type 15: lime
 			case EventColor::BLACK : break;
 		}
 
@@ -3823,12 +3854,13 @@ void GLView::renderAllTiles()
 					else sprintf(buf, "Sexting (F)");
 
 				} else if(u==SADHudOverview::MOTION){
-					if(selected.jump>0) sprintf(buf, "Airborne!");
+					if(selected.isAirborne()) sprintf(buf, "Airborne!");
 					else if(selected.encumbered) sprintf(buf, "Encumbered");
 					else if(selected.boost) sprintf(buf, "Boosting");
+					else if(abs(selected.w1-selected.w2)>0.06) sprintf(buf, "Spinning...");
 					else if(abs(selected.w1)>0.1 || abs(selected.w2)>0.1) sprintf(buf, "Sprinting");
 					else if(abs(selected.w1)>0.03 || abs(selected.w2)>0.03) sprintf(buf, "Moving");
-					else if(selected.w1*selected.w2<-0.0009) sprintf(buf, "Spinning...");
+					else if(selected.health<=0) sprintf(buf, "Dead.");
 					else sprintf(buf, "Idle");
 
 				} else if(u==SADHudOverview::GRAB){
@@ -3872,7 +3904,7 @@ void GLView::renderAllTiles()
 					if(selected.isHerbivore()) sprintf(buf, "\"Herbivore\"");
 					else if(selected.isFrugivore()) sprintf(buf, "\"Frugivore\"");
 					else if(selected.isCarnivore()) sprintf(buf, "\"Carnivore\"");
-					else sprintf(buf, "\"Dead\"...");
+					else sprintf(buf, "\"???\"...");
 					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::GENERATION){
@@ -3907,6 +3939,7 @@ void GLView::renderAllTiles()
 					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::CHAMOVID){
+					if(live_agentsvis==Visual::RGB) drawbox= true;
 					sprintf(buf, "Camo: %.3f", selected.chamovid);
 					isFixedTrait= true;
 				
@@ -4031,7 +4064,16 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 					if(live_layersvis[DisplayLayer::ELEVATION]) terrain= setColorHeight(values[Layer::ELEVATION]/4+0.25);
 				}
 								
-			} else { temp.red*= 0.15; temp.gre*= 0.15; temp.blu*= 0.15; }
+			} else { 
+				temp.red*= 0.15; temp.gre*= 0.15; temp.blu*= 0.15;
+			}
+
+			if(live_layersvis[DisplayLayer::TEMP]){ //lower brightness of resource layers if also showing temp
+				plant.red*= 0.85; plant.gre*= 0.85; plant.blu*= 0.85;
+				fruit.red*= 0.85; fruit.gre*= 0.85; fruit.blu*= 0.85;
+				meat.red*= 0.85; meat.gre*= 0.85; meat.blu*= 0.85;
+				hazard.red*= 0.85; hazard.gre*= 0.85; hazard.blu*= 0.85;
+			}
 
 		} else if(live_layersvis[DisplayLayer::LIGHT]) terrain= setColorHeight(1); //if only light layer, set terrain to 1 so we show something
 
@@ -4051,11 +4093,11 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 			}
 
 			//who would have believed that the best place for audio playing based on visible terrain would have been within the cell-drawing code?...
-//			if(scalemult>0.3 && x%4==0 && y%4==0 && (world->modcounter+x*57+y*16)%600==0) {
-//				if(values[Layer::ELEVATION]<=Elevation::BEACH_MID*0.1) 
-//					world->tryPlayAudio(conf::SFX_BEACH1, 0.5f+x*conf::CZ, 0.5f+y*conf::CZ, 1.0, cap(scalemult-0.3));
+			if(scalemult>0.3 && x%8==0 && y%8==0 && (world->modcounter+x*53+y*19)%600==400) {
+				if(values[Layer::ELEVATION]<=Elevation::BEACH_MID*0.1) 
+					world->tryPlayAudio(conf::SFX_BEACH1, 0, 0, 1.0, cap(scalemult-0.3));
 				//else world->tryPlayAudio(conf::SFX_BEACH1, 0.5+x, 0.5+y, 1.0, cap(scalemult));
-//			}
+			}
 		}
 
 		//If we're displaying hazards and there's a hazard event, render it
@@ -4076,7 +4118,7 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 
 		glVertex3f(x*conf::CZ+gadjust,y*conf::CZ+gadjust,0);
 		glVertex3f(x*conf::CZ+conf::CZ-gadjust,y*conf::CZ+gadjust,0);
-		if (layers>1 && live_layersvis[DisplayLayer::ELEVATION] && live_waterfx){
+		if (layers>1 && !(layers<3 && live_layersvis[DisplayLayer::TEMP]) && live_layersvis[DisplayLayer::ELEVATION] && live_waterfx){
 			//if we're displaying Elevation & Water, switch colors for bottom half for water!
 			float waterwave= (values[Layer::ELEVATION]>=Elevation::BEACH_MID) ? 0 : 
 				0.03*sin((float)(currentTime-590*x*(x+y)+350*y*y*x)/250);

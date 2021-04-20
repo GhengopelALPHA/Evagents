@@ -407,7 +407,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	if (a2.numbabies<1) a2.numbabies= 1; //technically, 0 babies is perfectly logical, but in this sim it is pointless, so it's disallowed
 	a2.resetRepCounter(MEANRADIUS, REP_PER_BABY);
 	if (randf(0,1)<MR) a2.metabolism= cap(randn(a2.metabolism, MR2*3));
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*4) a2.stomach[i]= cap(randn(a2.stomach[i], MR2*6)); //*10 was a bit much
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*5) a2.stomach[i]= cap(randn(a2.stomach[i], MR2*7)); //*10 was a bit much
 	if (randf(0,1)<MR*20) a2.species+= (int) (randn(0, 0.5+MR2*50));
 	if (randf(0,1)<MR*10) a2.kinrange= (int) abs(randn(a2.kinrange, 10+MR2*(a2.kinrange+1)));
 	if (randf(0,1)<MR*10) a2.radius= randn(a2.radius, MR2*15);
@@ -500,14 +500,14 @@ void Agent::liveMutate(int MUTMULT)
 	initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0.5,0,1.0);
 	
 	float MR= this->MUTCHANCE*MUTMULT;
-	float MR2= this->MUTSIZE*MUTMULT;
+	float MR2= this->MUTSIZE;
 	for(int i= 0; i<randi(1,6); i++){ //mutate between 1 and 5 brain boxes
 		this->brain.liveMutate(MR, MR2, this->out);
 	}
 
 	//change other mutable traits here
 	if (randf(0,1)<MR) this->metabolism= cap(randn(this->metabolism, MR2/5));
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*2) this->stomach[i]= cap(randn(this->stomach[i], MR2*2));
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*2) this->stomach[i]= cap(randn(this->stomach[i], MR2));
 	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTSIZE*20)); 
 	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE/2));
 	if (randf(0,1)<MR) this->clockf1= randn(this->clockf1, MR2/2);
@@ -575,8 +575,8 @@ void Agent::borderRectify()
 
 void Agent::setIdealTempPref(float temp)
 {
-	if(temp==-1) temperature_preference= cap(randn(1-2.0*abs(pos.y/conf::HEIGHT - 0.5),0.03)); //logic may need to move when global climate comes in
-	else temperature_preference= randn(temp, 0.03);
+	if(temp==-1) temperature_preference= cap(randn(1-2.0*abs(pos.y/conf::HEIGHT - 0.5),0.02)); //logic may need to move when global climate comes in
+	else temperature_preference= randn(temp, 0.02);
 }
 
 void Agent::setIdealLungs(float target)
@@ -586,19 +586,19 @@ void Agent::setIdealLungs(float target)
 
 bool Agent::isHerbivore() const
 {
-	if (health>0 && stomach[Stomach::PLANT]>=stomach[Stomach::MEAT] && stomach[Stomach::PLANT]>=stomach[Stomach::FRUIT]) return true;
+	if (stomach[Stomach::PLANT]>=stomach[Stomach::MEAT] && stomach[Stomach::PLANT]>=stomach[Stomach::FRUIT]) return true;
 	return false;
 }
 
 bool Agent::isCarnivore() const
 {
-	if (health>0 && stomach[Stomach::MEAT]>=stomach[Stomach::PLANT] && stomach[Stomach::MEAT]>=stomach[Stomach::FRUIT]) return true;
+	if (stomach[Stomach::MEAT]>=stomach[Stomach::PLANT] && stomach[Stomach::MEAT]>=stomach[Stomach::FRUIT]) return true;
 	return false;
 }
 
 bool Agent::isFrugivore() const
 {
-	if (health>0 && stomach[Stomach::FRUIT]>=stomach[Stomach::PLANT] && stomach[Stomach::FRUIT]>=stomach[Stomach::MEAT]) return true;
+	if (stomach[Stomach::FRUIT]>=stomach[Stomach::PLANT] && stomach[Stomach::FRUIT]>=stomach[Stomach::MEAT]) return true;
 	return false;
 }
 
@@ -667,6 +667,13 @@ bool Agent::isSelfish(float MAXSELFISH) const
 	if(give<=MAXSELFISH) return true;
 	return false;
 }
+
+bool Agent::isAirborne() const
+{
+	if(jump>0) return true;
+	return false;
+}
+
 
 void Agent::addDamage(const char * sourcetext, float amount)
 {

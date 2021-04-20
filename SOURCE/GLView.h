@@ -150,6 +150,7 @@ private:
 	int getAgentRes(bool ghost= false); //get desired agent resolution
 	
 	World *world; //the WORLD
+	void syncLiveWithWorld(); //sync all important variables with their World counterparts, because they could have been changed by world
 	//live variable support via glui
 	int live_mousemode; //what mode is the mouse using?
 	int live_worldclosed; //is the world closed?
@@ -174,7 +175,7 @@ private:
 	int live_mutevents; //are variable rate mutation events enabled?
 	int live_climate; //are climate changes enabled?
 	float live_climatebias; //current climate bias
-	float live_climateintensity; //how extreme are climate changes? Effects both bias and mult
+	float live_climatemult; //how extreme are climate changes? Effects both bias and mult
 	int live_cursormode; //what mode are we on with the cursor? 0= select mode, 1= place mode
 	int live_debug; //are we debugging?
 
@@ -190,7 +191,6 @@ private:
 	GLUI_FileBrowser * Browser;
 	std::string file_name;
 	GLUI * Loader;
-	GLUI_Rollout * rollout_world;
 	GLUI_Button * LoadAgentButton;
 	GLUI * Saver;
 	GLUI * Alert;

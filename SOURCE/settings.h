@@ -199,8 +199,8 @@ const enum {
 	CLIMATE,
 	DROUGHT,
 	MUTATIONS,
-	FOLLOW,
 	AUTOSELECT,
+	FOLLOW,
 	USERCONTROL,
 //	DEBUG, //this is currently very... awkwardly set up. see GLView.cpp
 
@@ -454,6 +454,8 @@ namespace conf {
 
 	const char SFX_BEACH1[]= "sounds/environment/beach1.ogg";
 
+	const char SFX_UI_RELATIVESELECT[]= "sounds/interaction/selection1.ogg";
+
 	const std::string MAIN_SONG= "sounds/music/sleep no more - evanjones4.ogg";
 	const std::string ETHERAL_SONG= "sounds/music/pinecone-ambient-dark - evanjones4.ogg";
 	const std::string ENERGY_SONG= "sounds/music/endlessmotion - bensound.ogg";
@@ -503,7 +505,7 @@ namespace conf {
 	const int AGENTS_MAX_NOOXYGEN= 2500; //(.cfg)
 	const int SPECIESID_RANGE= 9000; //species ID range between (-this,this) that agents will spawn with. Note it is not capped
 
-	const float GRAVITYACCEL= 0.01; //(.cfg)
+	const float GRAVITYACCEL= 0.010; //(.cfg)
 	const float BUMP_PRESSURE= 0.1; //(.cfg)
 	const float GRAB_PRESSURE= 0.1; //(.cfg)
 	const float SOUNDPITCHRANGE= 0.1; //(.cfg)
@@ -513,7 +515,7 @@ namespace conf {
 	const bool MOONLIT= true; //(.cfg, save, & GUI)
 	const float MOONLIGHTMULT= 0.1; //(.cfg & save)
 	const bool DROUGHTS= true; //(.cfg, save, & GUI)
-	const float DROUGHT_STDDEV= 0.15; // The standard deviation of changes to the DROUGHTMULT
+	const float DROUGHT_STDDEV= 0.1; // The standard deviation of changes to the DROUGHTMULT
 	const int DROUGHT_WEIGHT= 2; // the weight multiple of the current DROUGHTMULT when averaged (1.0 has a weight of 1)
 	const float DROUGHT_NOTIFY= 0.2; //+/- this value from 1.0 of drought shows notifications
 	const float DROUGHT_MIN= 0.6; //(.cfg & save)
@@ -522,8 +524,8 @@ namespace conf {
 	const int MUTEVENT_MAX= 3; //(.cfg)
 	const float MUTEVENT_CHANCE= 0.25; //chance of a mutation event that has a multiple other than 1
 	const bool CLIMATE= true; //(.cfg, save, & GUI)
-	const float CLIMATE_INTENSITY= 0.005; //(.cfg & GUI)
-	const float CLIMATE_MULT_AVERAGE= 0.5; //value that the world's climate mult tries to average back towards
+	const float CLIMATE_INTENSITY= 0.007; //(.cfg & GUI)
+	const float CLIMATEMULT_AVERAGE= 0.5; //value that the world's climate mult tries to average back towards
 
 	//BOTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ BOTS
 
@@ -540,13 +542,13 @@ namespace conf {
 //	const float BRAIN_ANDCONNS= 0.2; //probability of random brain conns that multiply in instead of add.
 
 	//general settings
-	const float WHEEL_SPEED= 0.6; //(.cfg)
+	const float WHEEL_SPEED= 0.3; //(.cfg)
 	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
 	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
 	const float MEANRADIUS=10.0; //(.cfg)
 	const float BOOSTSIZEMULT= 2.0; //(.cfg)
 	const float BOOSTEXAUSTMULT= 4.0; //(.cfg)
-	const float BASEEXHAUSTION= -6; //(.cfg)
+	const float BASEEXHAUSTION= -7; //(.cfg)
 	const float EXHAUSTION_MULT= 0.5; //(.cfg)
 	const int MAXWASTEFREQ= 200; //(.cfg)
 	const float FOODTRANSFER= 0.1; //(.cfg)
@@ -568,10 +570,10 @@ namespace conf {
 	//mutations
 	const float MAXDEVIATION= 10; // no longer used, kept for loading legacy worlds
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
-	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
+	const float META_MUTCHANCE= 0.2; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
 	const float META_MUTSIZE= 0.0015;
 	const float DEFAULT_MUTCHANCE= 0.11; //(.cfg)
-	const float DEFAULT_MUTSIZE= 0.015; //(.cfg)
+	const float DEFAULT_MUTSIZE= 0.02; //(.cfg)
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
 
 	//distances
@@ -595,7 +597,7 @@ namespace conf {
 	const float HEALTHLOSS_AGING = 0.0001; //(.cfg)
 	const float HEALTHLOSS_WHEELS = 0.0; //(.cfg)
 	const float HEALTHLOSS_BOOSTMULT= 2.0; //(.cfg)
-	const float HEALTHLOSS_BADTEMP = 0.006; //(.cfg)
+	const float HEALTHLOSS_BADTEMP = 0.0055; //(.cfg)
 	const float HEALTHLOSS_BRAINUSE= 0.0; //(.cfg)
 	const float HEALTHLOSS_SPIKE_EXT= 0.0; //(.cfg)
 	const float HEALTHLOSS_BADTERRAIN= 0.022; //(.cfg)
@@ -632,7 +634,7 @@ namespace conf {
 	const float FOODDECAY = 0.000004; //(.cfg)
 	const float FOODGROWTH= 0.000003; //(.cfg)
 	const float FOODWASTE= 0.0023;//0.0007; //(.cfg)
-	const int FOODADDFREQ= 250; //(.cfg)
+	const int FOODADDFREQ= 225; //(.cfg)
 	const float FOODSPREAD= 0.00012; //(.cfg)
 	const int FOODRANGE= 2; //(.cfg)
 	//Plant food is the simplest and most plentiful form of nutrition, but it takes time to consume enough

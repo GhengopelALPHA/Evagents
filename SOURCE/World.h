@@ -44,6 +44,7 @@ public:
 	bool isOvergrowth() const;
 	bool isIceAge() const;
 	bool isHadean() const;
+	bool isExtreme() const;
 	bool isDemo() const;
 	void setDemo(bool state);
 
@@ -197,8 +198,10 @@ public:
 	int MUTEVENTMULT; //saved multiplier of the current epoch mutation chance & count multiplier (min always 1)
 	int MUTEVENT_MAX;
 	bool CLIMATE;
+	bool CLIMATE_KILL_FLORA;
 	float CLIMATEBIAS; //saved bias of the current epoch climate state. This can push the entire planet towards 0 or 1 temperature
 	float CLIMATEMULT; //saved multiplier of the current epoch climate state. This can blend the poles and equator closer to CLIMATEBIAS
+	float CLIMATEMULT_AVERAGE;
 	float CLIMATE_INTENSITY;
 	float GRAVITYACCEL;
 	float BUMP_PRESSURE;
