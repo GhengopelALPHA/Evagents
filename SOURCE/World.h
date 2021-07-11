@@ -65,7 +65,8 @@ public:
 	void setSelection(int type);
 	bool setSelectionRelative(int posneg);
 	void setSelectedAgent(int idx = -1);
-	int getSelectedAgent() const;
+	int getSelectedAgentIndex() const;
+	Agent* getSelectedAgent();
 	int getClosestRelative(int idx = -1);
 	void selectedHeal();
 	void selectedKill();
@@ -112,10 +113,13 @@ public:
 
 	void setInputs();
 	void brainsTick();  //takes in[] to out[] for every agent
+	void processCounters(); //handle most agent counter variables and do other stuff before processOutputs and healthTick
     void processOutputs(bool prefire= false); //prefire used to run post-load sim restoration before restart
+	void healthTick(); //process agent health
+	void processReproduction(); //handle all agent's reproduction needs
 	void processInteractions(); //does the final causes of death and interactions with cells and agents
-
-	void healthTick();
+	void processDeath(); //manage the distribution of meat, alerts, and death system functions
+	void processRandomSpawn(); //handle spawning of random agents; gotta keep the world filled!
 
 	void addAgent(Agent &agent);
 	bool addLoadedAgent(float x, float y);
@@ -162,6 +166,10 @@ public:
 	float cells[Layer::LAYERS][conf::WIDTH/conf::CZ][conf::HEIGHT/conf::CZ]; //[LAYER][CELL_X][CELL_Y]
 	std::vector<std::vector<float> > Tcells[Layer::LAYERS]; //test cell layer: array of 2-d vectors. Array portion is immutable layer data. 2-d size is adjustable
 
+	//public stats
+	int STAThighestgen; //highest and lowest generation (excluding gen 0 unless that's all there is)
+	int STATlowestgen;
+	float STATinvgenrange; //range of generation values, with high-gen forcast, inverted (1/this)
 
 	//reloadable "constants"
 	int MIN_PLANT;
@@ -198,7 +206,7 @@ public:
 	int MUTEVENTMULT; //saved multiplier of the current epoch mutation chance & count multiplier (min always 1)
 	int MUTEVENT_MAX;
 	bool CLIMATE;
-	bool CLIMATE_KILL_FLORA;
+	bool CLIMATE_AFFECT_FLORA;
 	float CLIMATEBIAS; //saved bias of the current epoch climate state. This can push the entire planet towards 0 or 1 temperature
 	float CLIMATEMULT; //saved multiplier of the current epoch climate state. This can blend the poles and equator closer to CLIMATEBIAS
 	float CLIMATEMULT_AVERAGE;
@@ -292,7 +300,7 @@ public:
 private:
     void writeReport();
 	    
-    void reproduce(int ai, int bi);
+	void reproduce(Agent* mother, Agent* father);
 
 	void cellsRandomFill(int layer, float amount, int number);
 	void cellsLandMasses();

@@ -251,6 +251,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\AgentEye.h"
+				>
+			</File>
+			<File
 				RelativePath=".\SOURCE\config.h"
 				>
 			</File>

@@ -40,7 +40,7 @@ public:
 
 	DRAWSBrain();
     DRAWSBrain(int numboxes);
-    DRAWSBrain(const DRAWSBrain &other);
+    DRAWSBrain(const DRAWSBrain* other);
     virtual DRAWSBrain& operator=(const DRAWSBrain& other);
 
     void tick(std::vector<float>& in, std::vector<float>& out);
@@ -48,7 +48,7 @@ public:
 	float getNonZeroWRatio() const;
     void initMutate(float MR, float MR2);
 	void liveMutate(float MR, float MR2, std::vector<float>& out);
-    DRAWSBrain crossover( const DRAWSBrain &other );
+    DRAWSBrain crossover( const DRAWSBrain* other );
 	std::vector<int> traceBack(int outback);
 
 

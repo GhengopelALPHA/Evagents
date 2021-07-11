@@ -12,6 +12,7 @@ DRAWSBox::DRAWSBox(int maxid)
 	//constructor
 	for (int i=0;i<CONNS;i++) {
 		if(randf(0,1)<conf::BRAIN_DEADCONNS) w[i]=0; //we want to simulate brain development over time, so set some conns to zero weight
+		else if(randf(0,1)<conf::BRAIN_MIRRORCONNS && i>0) w[i]= -w[randi(0,i)]; //some conns (>0) get set to mirror a previous conn
 		else w[i]= randn(0,2);
 		
 		if (randf(0,1)<conf::BRAIN_DIRECTINPUTS) id[i]= randi(0,Input::INPUT_SIZE); //connect a portion of the brain directly to input.
@@ -25,7 +26,7 @@ DRAWSBox::DRAWSBox(int maxid)
 	seed= 0;
 	kp= randf(0,1);
 	gw= randf(-2,2);
-	bias= randf(-5,5);
+	bias= randf(-3,3);
 
 	out= 0;
 	oldout= 0;
@@ -48,9 +49,9 @@ DRAWSBrain::DRAWSBrain(int numboxes)
 	}
 }
 
-DRAWSBrain::DRAWSBrain(const DRAWSBrain& other)
+DRAWSBrain::DRAWSBrain(const DRAWSBrain* other)
 {
-	boxes= other.boxes;
+	boxes= other->boxes;
 }
 
 DRAWSBrain& DRAWSBrain::operator=(const DRAWSBrain& other)
@@ -73,24 +74,21 @@ void DRAWSBrain::tick(vector< float >& in, vector< float >& out)
 			float acc= abox->bias; //start with bias of box
 
 			for (int k=0;k<CONNS;k++) { //for each possible connection...
-				if(abox->w[k]==0) continue; //help out processing by skipping if weight is exactly 0
+				if (abox->w[k]==0) continue; //help out processing by skipping if weight is exactly 0
 
 				int idx=abox->id[k];
 				int type = abox->type[k];
 				float val= boxes[idx].out;
 
-				if(type==2){ //switch conn. If the input*w is >0.5, it freezes all later inputs to the box and finalizes sum, otherwise it's skipped
+				if (type==1){ //change sensitive conn compares to old value, and gets magnified by *10 (arbitrary)
+					val-= boxes[idx].oldout;
+					val*=100;
+				} else if (type==2){ //switch conn. If the input*w is >0.5, it freezes all later inputs to the box and finalizes sum, otherwise it's skipped
 					if(val*abox->w[k]>0.5){
 						break;
 						continue;
 					}
 					continue;
-				}
-				
-				if(type==1){ //change sensitive conn compares to old value, and gets magnified by *10 (arbitrary)
-					//we do this AFTER type==2 because switch conn just checks the normal val
-					val-= boxes[idx].oldout;
-					val*=100;
 				}
 
 				//multiply by weight and add to the accumulation
@@ -159,7 +157,7 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 		float seedfactor= 0.01*abox->seed+1;
 
 		//start with rare mutations
-		if (randf(0,1)*seedfactor<MR/10) {
+		if (randf(0,1)*seedfactor<MR/20) {
 			//randomize synapse type
 			int rc= randi(0, CONNS);
 			abox->type[rc] = randi(0,2);
@@ -167,7 +165,7 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			abox->seed= 0;
 		}
 
-		if (randf(0,1)*seedfactor<MR/5) {
+		if (randf(0,1)*seedfactor<MR/10) {
 			//copy another box
 			int k= randi(0,boxes.size());
 			if(k!=j) {
@@ -182,10 +180,10 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			}
 		}
 
-		if (randf(0,1)*seedfactor<MR/5) {
+		if (randf(0,1)*seedfactor<MR/10) {
 			//branch box (sets a conn to reference a box which refers the same as another conn's box's references)
 			//eg: [j]
-			//    / \+create this conn
+			//    /  \+create this conn
 			//  [b1][bt]
 			//    \ /
 			//    [b2]
@@ -217,19 +215,20 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			}
 		}
 
-		if (randf(0,1)*seedfactor<MR/2) {
-			//randomize connection
+		if (randf(0,1)*seedfactor<MR/4) {
+			//randomize connection - Not truely random, only jiggles it to a 'nearby' box
 			int rc= randi(0, CONNS);
-			int ri= randi(0,boxes.size());
+			int ri= (int)capm(floorf(randn((float)abox->id[rc],conf::BRAIN_CONN_ID_MUTATION_STD_DEV)),0,boxes.size()-1);
 			abox->id[rc]= ri;
 //		  a2.mutations.push_back("connection randomized\n");
 			abox->seed= 0;
 		}
 
-		if (randf(0,1)*seedfactor<MR/2) {
+		if (randf(0,1)*seedfactor<MR/4) {
 			//swap two input sources
 			int rc1= randi(0, CONNS);
 			int rc2= randi(0, CONNS);
+			if(rc1==rc2) { rc1= 0; rc2= CONNS-1; } //default to first and last conns when they match
 			int temp= abox->id[rc1];
 			abox->id[rc1]= abox->id[rc2];
 			abox->id[rc2]= temp;
@@ -237,7 +236,7 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			abox->seed= 0;
 		}
 
-		if (randf(0,1)*seedfactor<MR) {
+		if (randf(0,1)*seedfactor<MR/2) {
 			//mirror an input weight
 			int rc1= randi(0, CONNS);
 			int rc2= randi(0, CONNS);
@@ -246,34 +245,34 @@ void DRAWSBrain::initMutate(float MR, float MR2)
 			abox->seed= 0;
 		}
 
-		// more likely changes here
-		if (randf(0,1)*seedfactor<MR*2) {
+		// more likely changes here, and these are weak enough that they don't reset seed
+		if (randf(0,1)*seedfactor<MR) {
 			//jiggle global weight
 			abox->gw+= randn(0, MR2);
 		}
 
-		if (randf(0,1)*seedfactor<MR*2) {
+		if (randf(0,1)*seedfactor<MR) {
 			//jiggle bias
 			abox->bias+= randn(0, MR2*5);
 		}
 
-		if (randf(0,1)*seedfactor<MR*3) {
+		if (randf(0,1)*seedfactor<MR*2) {
 			//jiggle dampening
 			abox->kp+= randn(0, MR2*0.5);
 			abox->kp= cap(abs(abox->kp));
 		}
 
-		if (randf(0,1)*seedfactor<MR*5) {
+		if (randf(0,1)*seedfactor<MR*3) {
 			//wither connection
 			int rc= randi(0, CONNS);
 			if(randf(0,1)>fabs(abox->w[rc])) abox->w[rc]= 0; //the closer the weight is to 0, the more likely it withers
 //		  a2.mutations.push_back("connection withered\n");
 		}
 
-		if (randf(0,1)*seedfactor<MR*10) {
+		if (randf(0,1)*seedfactor<MR*5) {
 			//jiggle weight
 			int rc= randi(0, CONNS);
-			abox->w[rc]+= randn(0, MR2*5);
+			abox->w[rc]+= randn(0, MR2/2);
 		}
 	}
 }
@@ -343,43 +342,31 @@ void DRAWSBrain::liveMutate(float MR, float MR2, vector<float>& out)
 	//}
 }
 
-DRAWSBrain DRAWSBrain::crossover(const DRAWSBrain& other)
+DRAWSBrain DRAWSBrain::crossover(const DRAWSBrain* other)
 {
-	DRAWSBrain newbrain(*this);
+	DRAWSBrain newbrain(this);
 	
 	#pragma omp parallel for
 	for (int i=Input::INPUT_SIZE; i<(int)newbrain.boxes.size(); i++){
-		if(i>=other.boxes.size()) continue; //hack: skip all the other brain's boxes if newbrain is smaller
+		if(i>=other->boxes.size()) continue; //hack: skip all the other brain's boxes if newbrain is smaller
 		//this brings me to an important question regarding brain mutations. How should we manage mis-matching brains?
 		//should we add new boxes from the larger, or forget them? If we add them, should they be added to the front? to the back?
 		//somewhere in the middle? There are issues with each "solution" that I'm not comfortable with.
 		int s1= this->boxes[i].seed;
-		int s2= other.boxes[i].seed;
+		int s2= other->boxes[i].seed;
 		//function which offers pobability of which parent to use, based on relative seed counters
 		float threshold= ((s1-s2)/(conf::BRAINSEEDHALFTOLERANCE+abs(s1-s2))+1)/2;
 
-		if(randf(0,1)<threshold){
-			newbrain.boxes[i].bias= this->boxes[i].bias;
-			newbrain.boxes[i].gw= this->boxes[i].gw;
-			newbrain.boxes[i].kp= this->boxes[i].kp;
-			newbrain.boxes[i].seed= this->boxes[i].seed + 1;
-//			this->boxes[i].seed += 1; //reward the copied box
-			for (int j=0; j<CONNS; j++){
-				newbrain.boxes[i].id[j] = this->boxes[i].id[j];
-				newbrain.boxes[i].w[j] = this->boxes[i].w[j];
-				newbrain.boxes[i].type[j] = this->boxes[i].type[j];
-			}
-		
-		} else {
-			newbrain.boxes[i].bias= other.boxes[i].bias;
-			newbrain.boxes[i].gw= other.boxes[i].gw;
-			newbrain.boxes[i].kp= other.boxes[i].kp;
-			newbrain.boxes[i].seed= other.boxes[i].seed + 1;
+		if(randf(0,1)>=threshold) { //no need to copy ->this in the else case because we already coppied it
+			newbrain.boxes[i].bias= other->boxes[i].bias;
+			newbrain.boxes[i].gw= other->boxes[i].gw;
+			newbrain.boxes[i].kp= other->boxes[i].kp;
+			newbrain.boxes[i].seed= other->boxes[i].seed + 1;
 //			other.boxes[i].seed += 1;
 			for (int j=0; j<CONNS; j++){
-				newbrain.boxes[i].id[j] = other.boxes[i].id[j];
-				newbrain.boxes[i].w[j] = other.boxes[i].w[j];
-				newbrain.boxes[i].type[j] = other.boxes[i].type[j];
+				newbrain.boxes[i].id[j] = other->boxes[i].id[j];
+				newbrain.boxes[i].w[j] = other->boxes[i].w[j];
+				newbrain.boxes[i].type[j] = other->boxes[i].type[j];
 			}
 		}
 	}

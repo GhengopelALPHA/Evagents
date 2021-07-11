@@ -13,8 +13,8 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	angle= randf(-M_PI,M_PI);
 
 	//genes
-	MUTCHANCE= abs(MUTARATE1+randf(-conf::META_MUTCHANCE,conf::META_MUTCHANCE)); //chance of mutations.
-	MUTSIZE= abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10); //size of mutations
+	MUTCHANCE= MUTARATE1; //abs(MUTARATE1+randf(-conf::META_MUTCHANCE,conf::META_MUTCHANCE)); //chance of mutations.
+	MUTSIZE= MUTARATE2; //abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10); //size of mutations
 	parentid= 0;
 	radius= randf(MEANRADIUS*0.2,MEANRADIUS*2.2);
 	numbabies= randi(1,7);
@@ -32,12 +32,18 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 
 	//senses and sense-ability
 	//eyes
-	eye_see_agent_mod= randf(0.1, 3);
+	eye_see_agent_mod= randf(0.3, 3);
 	eyefov.resize(NUMEYES, 0);
 	eyedir.resize(NUMEYES, 0);
 	for(int i=0;i<NUMEYES;i++) {
-		eyefov[i] = randf(0.001, 1.25);
-		eyedir[i] = randf(0, 2*M_PI);
+		if(i%2==0) { //init and every other eye gets unique values
+			eyedir[i] = randf(0, 2*M_PI);
+			eyefov[i] = randf(0.001, 1.25);
+		}
+		else { //every other eye mirrors the angle of the last, and copies the fov
+			eyedir[i]= 2*M_PI-eyedir[i-1];
+			eyefov[i] = eyefov[i-1];
+		}
 	}
 
 	//ears
@@ -46,7 +52,13 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	hearlow.resize(NUMEARS, 0);
 	hearhigh.resize(NUMEARS, 0);
 	for(int i=0;i<NUMEARS;i++) {
-		eardir[i]= randf(0, 2*M_PI);
+		if(i%NUMEARS==NUMEARS/2) { //every NUMEARS/2 ear is an mirrored position
+			eardir[i]= 2*M_PI-eardir[i-1];
+		} else if(i%2==0) { //init and every other ear gets unique position
+			eardir[i]= randf(0, 2*M_PI);
+		} else { //every other ear matches the last's position, leaving us with NUMEARS/2 sensors on either side of the agent
+			eardir[i]= eardir[i-1];
+		}
 		float temp1= randf(0,1);
 		float temp2= randf(0,1);
 		if(temp1>temp2){
@@ -57,6 +69,7 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 			hearhigh[i]= temp2;
 		}
 	}
+
 	clockf1= randf(5,100);
 	clockf2= randf(5,100);
 	clockf3= 5;
@@ -107,7 +120,7 @@ Agent::Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1
 	//stats
 	hybrid= false;
 	damages.clear();
-	death= "Killed by Unknown Factor!"; //default death message, just in case
+	death= "Killed by Unknown Factor!"; //default death message, just in case.
 	children= 0;
 	killed= 0;
 	hits= 0;
@@ -139,7 +152,7 @@ Agent::Agent(){
 
 void Agent::printSelf()
 {
-	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 	//print all Variables
 	//bot basics
 	printf("AGENT, ID: %i\n", id);
@@ -153,9 +166,11 @@ void Agent::printSelf()
 	printf("gene_red: %f\ngene_gre: %f\ngene_blu: %f\n", gene_red, gene_gre, gene_blu);
 
 	//triggers, counters, and layer interaction
+	printf("====== triggers, counters, and layer interaction ======\n");
 	if(near) printf("PRESENTLY NEAR\n");
 	else printf("PRESENTLY NOT NEAR (not interaction-processed)\n");
 	printf("freshkill: %i\n", freshkill);
+	printf("carcasscount: %i\n", carcasscount);
 	printf("species id: %i\n", species);
 	printf("kin_range: %i\n", kinrange);
 	printf("num_babies: %f\n", numbabies);
@@ -177,47 +192,49 @@ void Agent::printSelf()
 	else printf("not encumbered\n");
 
 	//senses
-//	float eye_see_agent_mod;
+	printf("======================= senses ========================\n");
+	printf("eye_see_agent_mod: %f\n", eye_see_agent_mod);
 //	std::vector<float> eyefov; //field of view for each eye
 //	std::vector<float> eyedir; //direction of each eye
-//	float hear_mod;
+	printf("hear_mod: %f\n", hear_mod);
 //	std::vector<float> eardir; //position of ears
 //	std::vector<float> hearlow; //low values of hearing ranges
 //	std::vector<float> hearhigh; //high values of hearing ranges
-//	float clockf1, clockf2, clockf3; //the frequencies of the three clocks of this bot
-//	float blood_mod;
-//	float smell_mod;
+	printf("clockf1: %f, clockf2: %f, clockf3: %f\n", clockf1, clockf2, clockf3);
+	printf("blood_mod: %f\n", blood_mod);
+	printf("smell_mod: %f\n", smell_mod);
 
 	//the brain
+	printf("====================== the brain ======================\n");
 	printf("brain mutations: %f\n", brainmutations);
 	for(int i=0; i<Output::OUTPUT_SIZE; i++){
 		switch(i){
-			case Output::BLU :			printf("blue");				break;
-			case Output::BOOST :		printf("boost");			break;
-			case Output::CLOCKF3 :		printf("clock3 freq.");		break;
-			case Output::GIVE :			printf("give");				break;
-			case Output::GRAB :			printf("grab");				break;
-			case Output::GRAB_ANGLE :	printf("grab angle");		break;
-			case Output::GRE :			printf("green");			break;
-			case Output::JAW :			printf("jaw");				break;
-			case Output::JUMP :			printf("jump");				break;
-			case Output::LEFT_WHEEL_B :	printf("left wheel (B)");	break;
-			case Output::LEFT_WHEEL_F :	printf("left wheel (F)");	break;
-			case Output::PROJECT :		printf("sexual proj.");		break;
-			case Output::RED :			printf("red");				break;
-			case Output::RIGHT_WHEEL_B : printf("right wheel (B)"); break;
-			case Output::RIGHT_WHEEL_F : printf("right wheel (F)"); break;
-			case Output::SPIKE :		printf("spike");			break;
-			case Output::STIMULANT :	printf("stimulant");		break;
-			case Output::TONE :			printf("voice tone");		break;
-			case Output::VOLUME :		printf("voice volume");		break;
-			case Output::WASTE_RATE :	printf("waste");			break;
+			case Output::BLU :			printf("- blue");				break;
+			case Output::BOOST :		printf("- boost");				break;
+			case Output::CLOCKF3 :		printf("- clock3 freq.");		break;
+			case Output::GIVE :			printf("- give");				break;
+			case Output::GRAB :			printf("- grab");				break;
+			case Output::GRAB_ANGLE :	printf("- grab angle");			break;
+			case Output::GRE :			printf("- green");				break;
+			case Output::JAW :			printf("- jaw");				break;
+			case Output::JUMP :			printf("- jump");				break;
+			case Output::LEFT_WHEEL_B :	printf("- left wheel (B)");		break;
+			case Output::LEFT_WHEEL_F :	printf("- left wheel (F)");		break;
+			case Output::PROJECT :		printf("- sexual proj.");		break;
+			case Output::RED :			printf("- red");				break;
+			case Output::RIGHT_WHEEL_B : printf("- right wheel (B)");	break;
+			case Output::RIGHT_WHEEL_F : printf("- right wheel (F)");	break;
+			case Output::SPIKE :		printf("- spike");				break;
+			case Output::STIMULANT :	printf("- stimulant");			break;
+			case Output::TONE :			printf("- voice tone");			break;
+			case Output::VOLUME :		printf("- voice volume");		break;
+			case Output::WASTE_RATE :	printf("- waste");				break;
 		}
 		printf(" output: %f\n", out[i]);
 	}
 	
 	//outputs
-	printf("wheel 1 & 2: %f, %f\n", w1, w2);
+	printf("wheel 1 & 2 sums: %f, %f\n", w1, w2);
 //	bool boost; //is this agent boosting?
 //	float jump; //what "height" this bot is at after jumping
 //	float red, gre, blu; //colors of the
@@ -233,6 +250,7 @@ void Agent::printSelf()
 //	bool sexproject; //is this bot trying to give out its genetic data?
 	
 	//stats
+	printf("======================== stats ========================\n");
 	if(hybrid) printf("is hybrid\n");
 	else printf("is budded\n");
 //	const char * death; //the cause of death of this agent
@@ -249,7 +267,7 @@ void Agent::printSelf()
 	for (int i=0; i<(int)damages.size(); i++) {
 		cout << damages[i].first << ": " << damages[i].second << endl;
 	}
-	printf("~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+	printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 }
 
 void Agent::traceBack(int outback)
@@ -295,8 +313,7 @@ void Agent::traceBack(int outback)
 			case Input::FRUIT_SMELL :	printf("fruit_smell");		break;
 			case Input::HAZARD_SMELL :	printf("hazard_smell");		break;
 			case Input::HEALTH :		printf("health");			break;
-			case Input::HEARING1 :		printf("ear1");				break;
-			case Input::HEARING2 :		printf("ear2");				break;
+			case Input::REPCOUNT :		printf("reproduction_counter");	break;
 			case Input::MEAT_SMELL :	printf("meat_smell");		break;
 			case Input::PLAYER :		printf("PLAYER_INPUT");		break;
 			case Input::RANDOM :		printf("RaNdOm");			break;
@@ -305,10 +322,12 @@ void Agent::traceBack(int outback)
 		}
 
 		if(inputs[i]>=Input::EYES && inputs[i]<=Input::xEYES){
-			printf("eye#%d_",(int)floor((float)(inputs[i])/3.0));
+			printf("eye#%d_",(int)floor((float)(inputs[i])/3.0)-Input::EYES);
 			if(inputs[i]%3==0)		printf("red"); //a->in[Input::EYES+i*3]= cap(r[i]);
 			else if(inputs[i]%3==1)	printf("green"); //a->in[Input::EYES+i*3+1]= cap(g[i]);
 			else if(inputs[i]%3==2)	printf("blue"); //a->in[Input::EYES+i*3+2]= cap(b[i]);
+		} else if(inputs[i]>=Input::EARS && inputs[i]<=Input::xEARS){
+			printf("ear#%d",inputs[i]-Input::EARS);
 		}
 		printf(" ");
 	}
@@ -343,12 +362,12 @@ void Agent::tick()
 {
 	brain.tick(in, out);
 }
-Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
+Agent Agent::reproduce(Agent* that, float MEANRADIUS, float REP_PER_BABY)
 {
 	//moved muterate gets into reproduce because thats where its needed and used, no reason to go through world
 	//choose a value of our agent's mutation and their saved mutation value, can be anywhere between the parents'
-	float MR= randf(min(this->MUTCHANCE,that.MUTCHANCE),max(this->MUTCHANCE,that.MUTCHANCE));
-	float MR2= randf(min(this->MUTSIZE,that.MUTSIZE),max(this->MUTSIZE,that.MUTSIZE));
+	float MR= randf(min(this->MUTCHANCE,that->MUTCHANCE),max(this->MUTCHANCE,that->MUTCHANCE));
+	float MR2= randf(min(this->MUTSIZE,that->MUTSIZE),max(this->MUTSIZE,that->MUTSIZE));
 
 	//create baby. Note that if the bot selects itself to mate with, this function acts also as assexual reproduction
 	//NOTES: Agent "this" is mother, Agent "that" is father, Agent "a2" is daughter
@@ -365,60 +384,60 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	a2.borderRectify();
 
 	//basic trait inheritance
-	a2.gencount= max(this->gencount+1,that.gencount+1);
-	a2.numbabies= randf(0,1)<0.5 ? this->numbabies : that.numbabies;
-	a2.metabolism= randf(0,1)<0.5 ? this->metabolism : that.metabolism;
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) a2.stomach[i]= randf(0,1)<0.5 ? this->stomach[i]: that.stomach[i];
-	a2.species= randf(0,1)<0.5 ? this->species : that.species;
-	a2.kinrange= randf(0,1)<0.5 ? this->kinrange : that.kinrange;
-	a2.radius= randf(0,1)<0.5 ? this->radius : that.radius;
-	a2.strength= randf(0,1)<0.5 ? this->strength : that.strength;
-	a2.chamovid= randf(0,1)<0.5 ? this->chamovid : that.chamovid;
-	a2.gene_red= randf(0,1)<0.5 ? this->gene_red : that.gene_red;
-	a2.gene_gre= randf(0,1)<0.5 ? this->gene_gre : that.gene_gre;
-	a2.gene_blu= randf(0,1)<0.5 ? this->gene_blu : that.gene_blu;
-	a2.sexprojectbias= randf(0,1)<0.5 ? this->sexprojectbias : that.sexprojectbias;
+	a2.gencount= max(this->gencount+1,that->gencount+1);
+	a2.numbabies= randf(0,1)<0.5 ? this->numbabies : that->numbabies;
+	a2.metabolism= randf(0,1)<0.5 ? this->metabolism : that->metabolism;
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) a2.stomach[i]= randf(0,1)<0.5 ? this->stomach[i]: that->stomach[i];
+	a2.species= randf(0,1)<0.5 ? this->species : that->species;
+	a2.kinrange= randf(0,1)<0.5 ? this->kinrange : that->kinrange;
+	a2.radius= randf(0,1)<0.5 ? this->radius : that->radius;
+	a2.strength= randf(0,1)<0.5 ? this->strength : that->strength;
+	a2.chamovid= randf(0,1)<0.5 ? this->chamovid : that->chamovid;
+	a2.gene_red= randf(0,1)<0.5 ? this->gene_red : that->gene_red;
+	a2.gene_gre= randf(0,1)<0.5 ? this->gene_gre : that->gene_gre;
+	a2.gene_blu= randf(0,1)<0.5 ? this->gene_blu : that->gene_blu;
+	a2.sexprojectbias= randf(0,1)<0.5 ? this->sexprojectbias : that->sexprojectbias;
 
-	a2.MUTCHANCE= randf(0,1)<0.5 ? this->MUTCHANCE : that.MUTCHANCE;
-	a2.MUTSIZE= randf(0,1)<0.5 ? this->MUTSIZE : that.MUTSIZE;
+	a2.MUTCHANCE= randf(0,1)<0.5 ? this->MUTCHANCE : that->MUTCHANCE;
+	a2.MUTSIZE= randf(0,1)<0.5 ? this->MUTSIZE : that->MUTSIZE;
 	a2.parentid= this->id; //parent ID is strictly inherited from mothers
-	a2.clockf1= randf(0,1)<0.5 ? this->clockf1 : that.clockf1;
-	a2.clockf2= randf(0,1)<0.5 ? this->clockf2 : that.clockf2;
+	a2.clockf1= randf(0,1)<0.5 ? this->clockf1 : that->clockf1;
+	a2.clockf2= randf(0,1)<0.5 ? this->clockf2 : that->clockf2;
 
-	a2.smell_mod= randf(0,1)<0.5 ? this->smell_mod : that.smell_mod;
-	a2.hear_mod= randf(0,1)<0.5 ? this->hear_mod : that.hear_mod;
-	a2.eye_see_agent_mod= randf(0,1)<0.5 ? this->eye_see_agent_mod : that.eye_see_agent_mod;
-//	a2.eye_see_cell_mod= randf(0,1)<0.5 ? this->eye_see_cell_mod : that.eye_see_cell_mod;
-	a2.blood_mod= randf(0,1)<0.5 ? this->blood_mod : that.blood_mod;
+	a2.smell_mod= randf(0,1)<0.5 ? this->smell_mod : that->smell_mod;
+	a2.hear_mod= randf(0,1)<0.5 ? this->hear_mod : that->hear_mod;
+	a2.eye_see_agent_mod= randf(0,1)<0.5 ? this->eye_see_agent_mod : that->eye_see_agent_mod;
+//	a2.eye_see_cell_mod= randf(0,1)<0.5 ? this->eye_see_cell_mod : that->eye_see_cell_mod;
+	a2.blood_mod= randf(0,1)<0.5 ? this->blood_mod : that->blood_mod;
 
-	a2.temperature_preference= randf(0,1)<0.5 ? this->temperature_preference : that.temperature_preference;
+	a2.temperature_preference= randf(0,1)<0.5 ? this->temperature_preference : that->temperature_preference;
 	a2.discomfort= this->discomfort;
-	a2.lungs= randf(0,1)<0.5 ? this->lungs : that.lungs;
+	a2.lungs= randf(0,1)<0.5 ? this->lungs : that->lungs;
 	
-	a2.eardir= randf(0,1)<0.5 ? this->eardir : that.eardir;
-	a2.hearlow= randf(0,1)<0.5 ? this->hearlow : that.hearlow;
-	a2.hearhigh= randf(0,1)<0.5 ? this->hearhigh : that.hearhigh;
+	a2.eardir= randf(0,1)<0.5 ? this->eardir : that->eardir;
+	a2.hearlow= randf(0,1)<0.5 ? this->hearlow : that->hearlow;
+	a2.hearhigh= randf(0,1)<0.5 ? this->hearhigh : that->hearhigh;
 
-	a2.eyefov= randf(0,1)<0.5 ? this->eyefov : that.eyefov;
-	a2.eyedir= randf(0,1)<0.5 ? this->eyedir : that.eyedir;
+	a2.eyefov= randf(0,1)<0.5 ? this->eyefov : that->eyefov;
+	a2.eyedir= randf(0,1)<0.5 ? this->eyedir : that->eyedir;
 
 
 	//---MUTATIONS---//
-	if (randf(0,1)<MR/10) a2.numbabies= (int) (randn(a2.numbabies, 0.1 + MR2*50));
+	if (randf(0,1)<MR/4) a2.numbabies= (int) (randn(a2.numbabies, 0.1 + MR2*50));
 	if (a2.numbabies<1) a2.numbabies= 1; //technically, 0 babies is perfectly logical, but in this sim it is pointless, so it's disallowed
 	a2.resetRepCounter(MEANRADIUS, REP_PER_BABY);
-	if (randf(0,1)<MR) a2.metabolism= cap(randn(a2.metabolism, MR2*3));
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*5) a2.stomach[i]= cap(randn(a2.stomach[i], MR2*7)); //*10 was a bit much
-	if (randf(0,1)<MR*20) a2.species+= (int) (randn(0, 0.5+MR2*50));
-	if (randf(0,1)<MR*10) a2.kinrange= (int) abs(randn(a2.kinrange, 10+MR2*(a2.kinrange+1)));
-	if (randf(0,1)<MR*10) a2.radius= randn(a2.radius, MR2*15);
+	if (randf(0,1)<MR/2) a2.metabolism= cap(randn(a2.metabolism, MR2*3));
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*4) a2.stomach[i]= cap(randn(a2.stomach[i], MR2*6)); //*7 was a bit much
+	if (randf(0,1)<MR*10) a2.species+= (int) (randn(0, 0.5+MR2*50));
+	if (randf(0,1)<MR*5) a2.kinrange= (int) abs(randn(a2.kinrange, 10+2*MR2*(a2.kinrange+1))); //convoluted? yes.
+	if (randf(0,1)<MR*5) a2.radius= randn(a2.radius, MR2*15);
 	if (a2.radius<1) a2.radius= 1;
-	if (randf(0,1)<MR*2) a2.strength= cap(randn(a2.strength, MR2));
-	if (randf(0,1)<MR*2) a2.chamovid= cap(randn(a2.chamovid, MR2));
-	if (randf(0,1)<MR*3) a2.gene_red= cap(randn(a2.gene_red, MR2*2));
-	if (randf(0,1)<MR*3) a2.gene_gre= cap(randn(a2.gene_gre, MR2*2));
-	if (randf(0,1)<MR*3) a2.gene_blu= cap(randn(a2.gene_blu, MR2*2));
-	if (randf(0,1)<MR) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2*2), -1.0, 1.0);
+	if (randf(0,1)<MR) a2.strength= cap(randn(a2.strength, MR2));
+	if (randf(0,1)<MR) a2.chamovid= cap(randn(a2.chamovid, MR2));
+	if (randf(0,1)<MR*2) a2.gene_red= cap(randn(a2.gene_red, MR2*3));
+	if (randf(0,1)<MR*2) a2.gene_gre= cap(randn(a2.gene_gre, MR2*3));
+	if (randf(0,1)<MR*2) a2.gene_blu= cap(randn(a2.gene_blu, MR2*3));
+	if (randf(0,1)<MR/2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2*20), -1.0, 1.0);
 
 	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTSIZE*6));
 	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
@@ -426,9 +445,9 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	//if we didn't add a bit, the peak of the bell curve tends toward 0 statisticly speaking, not just evolutionarily. We add this bit to fight statistics
 	//We should probably add more instability to the environment to render this correction factor useless, as that's the reason 0* mutation is being selected
 
-	if (randf(0,1)<MR) a2.clockf1= randn(a2.clockf1, MR2);
+	if (randf(0,1)<MR/2) a2.clockf1= randn(a2.clockf1, MR2);
 	if (a2.clockf1<2) a2.clockf1= 2;
-	if (randf(0,1)<MR) a2.clockf2= randn(a2.clockf2, MR2);
+	if (randf(0,1)<MR/2) a2.clockf2= randn(a2.clockf2, MR2);
 	if (a2.clockf2<2) a2.clockf2= 2;
 
 	if (randf(0,1)<MR) a2.smell_mod= randn(a2.smell_mod, MR2);
@@ -437,40 +456,53 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 //	if (randf(0,1)<MR) a2.eye_see_cell_mod= randn(a2.eye_see_cell_mod, MR2);
 	if (randf(0,1)<MR) a2.blood_mod= randn(a2.blood_mod, MR2);
 
-	if (randf(0,1)<MR*3) a2.temperature_preference= cap(randn(a2.temperature_preference, MR2));
-	if (randf(0,1)<MR*4) a2.lungs= cap(randn(a2.lungs, MR2));
+	if (randf(0,1)<MR) a2.temperature_preference= cap(randn(a2.temperature_preference, MR2));
+	if (randf(0,1)<MR*2) a2.lungs= cap(randn(a2.lungs, MR2));
 
 	for(int i=0;i<eyedir.size();i++){
-		if (randf(0,1)<MR/100) {
-			//LOW-CHANCE COPY EVENT (multiply by NUMEYES for real probability)
-			int origeye= randi(0,eyedir.size());
-			if(randf(0,1)<MR*5) a2.eyedir[i]= a2.eyedir[origeye];
-			if(randf(0,1)<MR*5) a2.eyefov[i]= a2.eyefov[origeye];
+		if(i%2==0) {
+			if (randf(0,1)<MR/60) {
+				//LOW-CHANCE COPY EVENT (multiply by NUMEYES for real probability)
+				int origeye= randi(0,eyedir.size());
+				a2.eyedir[i]= a2.eyedir[origeye];
+				if(randf(0,1)<MR*3) a2.eyefov[i]= a2.eyefov[origeye];
+			}
+
+			if(randf(0,1)<MR/2) a2.eyefov[i] = abs(randn(a2.eyefov[i], MR2/2));
+			if(a2.eyefov[i]>M_PI) a2.eyefov[i] = M_PI; //eyes cannot wrap around bot
+			
+			if(randf(0,1)<MR) a2.eyedir[i] = randn(a2.eyedir[i], MR2*5);
+			if(a2.eyedir[i]<0) a2.eyedir[i] = 0;
+			if(a2.eyedir[i]>2*M_PI) a2.eyedir[i] = 2*M_PI;
+			//not going to loop coordinates; 0,2pi is bots front again, so it provides a good point to "bounce" off of
+		}
+		else { //IMPLEMENT WORLD SETTING FOR CONTROLLING THIS
+			eyedir[i]= 2*M_PI-eyedir[i-1];
+			eyefov[i] = eyefov[i-1];
 		}
 
-		if(randf(0,1)<MR) a2.eyefov[i] = abs(randn(a2.eyefov[i], MR2/2));
-		if(a2.eyefov[i]>M_PI) a2.eyefov[i] = M_PI; //eyes cannot wrap around bot
 		
-		if(randf(0,1)<MR*2) a2.eyedir[i] = randn(a2.eyedir[i], MR2*5);
-		if(a2.eyedir[i]<0) a2.eyedir[i] = 0;
-		if(a2.eyedir[i]>2*M_PI) a2.eyedir[i] = 2*M_PI;
-		//not going to loop coordinates; 0,2pi is bots front again, so it provides a good point to "bounce" off of
 	}
 
 	for(int i=0;i<NUMEARS;i++){
-		if (randf(0,1)<MR/60) {
-			//LOW-CHANCE COPY EVENT (multiply by NUMEARS for total probability)
-			int origear= randi(0,NUMEARS);
-//			if(randf(0,1)<MR*5) a2.eardir[i]= a2.eardir[origear];
-			if(randf(0,1)<MR*5) a2.hearlow[i]= a2.hearlow[origear];
-			if(randf(0,1)<MR*5) a2.hearhigh[i]= a2.hearhigh[origear];
+		if(i%2==0) {
+			if (randf(0,1)<MR/40) {
+				//LOW-CHANCE COPY EVENT (multiply by NUMEARS for total probability)
+				int origear= randi(0,NUMEARS);
+	//			if(randf(0,1)<MR*3) a2.eardir[i]= a2.eardir[origear];
+				if(randf(0,1)<MR*3) a2.hearlow[i]= a2.hearlow[origear];
+				if(randf(0,1)<MR*3) a2.hearhigh[i]= a2.hearhigh[origear];
+			}
+			
+			if(randf(0,1)<MR) a2.eardir[i] = randn(a2.eardir[i], MR2*5);
+			if(a2.eardir[i]<0) a2.eardir[i] = 0;
+			if(a2.eardir[i]>2*M_PI) a2.eardir[i] = 2*M_PI;
+		} else { //IMPLEMENT WORLD SETTING FOR CONTROLLING THIS
+			eardir[i]= eardir[i-1];
 		}
-		
-		if(randf(0,1)<MR*2) a2.eardir[i] = randn(a2.eardir[i], MR2*5);
-		if(a2.eardir[i]<0) a2.eardir[i] = 0;
-		if(a2.eardir[i]>2*M_PI) a2.eardir[i] = 2*M_PI;
-		if(randf(0,1)<MR) a2.hearlow[i]= randn(a2.hearlow[i], MR2);
-		if(randf(0,1)<MR) a2.hearhigh[i]= randn(a2.hearhigh[i], MR2);
+
+		if(randf(0,1)<MR/2) a2.hearlow[i]= randn(a2.hearlow[i], MR2*2);
+		if(randf(0,1)<MR/2) a2.hearhigh[i]= randn(a2.hearhigh[i], MR2*2);
 
 		//restore order if lost
 		if (a2.hearlow[i]>a2.hearhigh[i]) {
@@ -481,7 +513,7 @@ Agent Agent::reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY)
 	}
 	
 	//create brain here
-	a2.brain= this->brain.crossover(that.brain);
+	a2.brain= this->brain.crossover(&that->brain);
 	a2.brain.initMutate(MR,MR2);
 
 	a2.initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0.8,0.8,0.8); //grey event means we were just born! Welcome!
@@ -651,6 +683,13 @@ bool Agent::isMale() const
 	return false;
 }
 
+int Agent::getRepType() const
+{
+	if(isAsexual()) return RepType::ASEXUAL;
+	else if(isMale()) return RepType::MALE;
+	return RepType::FEMALE;
+}
+
 bool Agent::isGrabbing() const
 {
 	if(grabbing>0.5) return true;
@@ -685,7 +724,7 @@ void Agent::addDamage(const char * sourcetext, float amount)
 void Agent::addDamage(std::string sourcetext, float amount)
 {
 	//this method now handles subtraction of health as well as checking if the agent died
-	#pragma omp critical //protect us from ourselves... collapse any threads for 
+	#pragma omp critical //protect us from ourselves... collapse any "for" threads 
 	if(amount>0){
 		this->health-= amount;
 

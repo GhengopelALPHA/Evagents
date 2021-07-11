@@ -23,7 +23,7 @@ public:
 	float angle; //of the bot
 
 	//Genes! WIP
-	std::vector<std::pair<int, float> > genes; //NEW genes. First is type, second is value. All Values of same Type get averaged or added
+	std::vector< std::pair<int, float> > genes; //NEW genes. First is type, second is value. All Values of same Type get averaged or added
 
 	float MUTCHANCE; //how often do mutations occur?
 	float MUTSIZE; //how significant are they?
@@ -89,7 +89,7 @@ public:
 	std::vector<std::string> mutations;
 	std::vector<std::pair<std::string, float>> damages; //tracker for sources of injury
 	std::vector<std::pair<std::string, float>> intakes; //tracker for sources of intake
-	std::string death; //the cause of death of this agent
+	std::string death; //the cause of death of this agent. Do not load-save without handling spaces
 	
 	
 	//outputs
@@ -128,7 +128,7 @@ public:
 	void addIntake(std::string sourcetext, float amount);
 	void writeIfKilled();
 
-	Agent reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY);
+	Agent reproduce(Agent* that, float MEANRADIUS, float REP_PER_BABY);
 	void resetRepCounter(float MEANRADIUS, float REP_PER_BABY);
 
 	void liveMutate(int MUTMULT= 1);
@@ -156,6 +156,7 @@ public:
 	bool isTinyEye(int eyenumber) const;
 	bool isAsexual() const;
 	bool isMale() const;
+	int getRepType() const;
 	bool isGrabbing() const;
 	bool isGiving() const;
 	bool isSelfish(float MAXSELFISH) const;

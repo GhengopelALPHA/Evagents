@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
 	//GLUT SETUP
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DEPTH | GLUT_DOUBLE | GLUT_MULTISAMPLE | GLUT_RGBA);
-	glutInitWindowPosition(250,20);
+	glutInitWindowPosition(260,20);
 	glutInitWindowSize(conf::WWIDTH,conf::WHEIGHT);
 
 	GLVIEW->win1= glutCreateWindow("Evagents");
