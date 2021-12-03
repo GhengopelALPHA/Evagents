@@ -1,7 +1,7 @@
 #ifndef AGENT_H
 #define AGENT_H
 
-#include "DRAWSBrain.h"
+#include "CPBrain.h"
 #include "vmath.h"
 
 #include <vector>
@@ -12,7 +12,7 @@ class Agent
 {
 //IMPORTANT: if ANY variables are added/removed, you MUST check ReadWrite.cpp to see how loading and saving will be effected!!!
 public:
-	Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1, float MUTARATE2);
+	Agent(int NUMBOXES, int NUMINITCONNS, bool SPAWN_MIRROR_EYES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1, float MUTARATE2);
 	Agent();
 		
 	//Saved Variables
@@ -23,7 +23,7 @@ public:
 	float angle; //of the bot
 
 	//Genes! WIP
-	std::vector<std::pair<int, float> > genes; //NEW genes. First is type, second is value. All Values of same Type get averaged or added
+	std::vector< std::pair<int, float> > genes; //NEW genes. First is type, second is value. All Values of same Type get averaged or added
 
 	float MUTCHANCE; //how often do mutations occur?
 	float MUTSIZE; //how significant are they?
@@ -50,8 +50,9 @@ public:
 	float clockf1, clockf2, clockf3; //the frequencies of the three clocks of this bot
 	float blood_mod;
 	float smell_mod;
+
 	//the BRAIN!!!
-	DRAWSBrain brain;
+	CPBrain brain;
 	std::vector<float> in; //see Input in settings.h
 	std::vector<float> out; //see Output in settings.h
 
@@ -89,7 +90,7 @@ public:
 	std::vector<std::string> mutations;
 	std::vector<std::pair<std::string, float>> damages; //tracker for sources of injury
 	std::vector<std::pair<std::string, float>> intakes; //tracker for sources of intake
-	std::string death; //the cause of death of this agent
+	std::string death; //the cause of death of this agent. Do not load-save without handling spaces
 	
 	
 	//outputs
@@ -128,7 +129,7 @@ public:
 	void addIntake(std::string sourcetext, float amount);
 	void writeIfKilled();
 
-	Agent reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY);
+	Agent reproduce(Agent that, bool PRESERVE_MIRROR_EYES, float MEANRADIUS, float REP_PER_BABY, int baby);
 	void resetRepCounter(float MEANRADIUS, float REP_PER_BABY);
 
 	void liveMutate(int MUTMULT= 1);
@@ -156,6 +157,7 @@ public:
 	bool isTinyEye(int eyenumber) const;
 	bool isAsexual() const;
 	bool isMale() const;
+	int getRepType() const;
 	bool isGrabbing() const;
 	bool isGiving() const;
 	bool isSelfish(float MAXSELFISH) const;

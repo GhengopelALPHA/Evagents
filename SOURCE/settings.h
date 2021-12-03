@@ -3,7 +3,7 @@
 #include <string>
 
 #define NUMEYES 6
-#define NUMEARS 2
+#define NUMEARS 4
 #define CONNS 5
 #define STACKS 3
 
@@ -105,9 +105,27 @@ const enum {
 	NONE= 0,
 	POPUPS, //show popups only
 	SELECT, //select agent only
+	SELECT_PROFILE_INTERACT, //mode for interacting with agent profile views. No popups
 	POPUPS_SELECT, //DEFAULT select agents and show popups
 	PLACE, //place agents only
 	POPUPS_PLACE, //show popups and place agents
+
+	//Don't add beyond this entry!
+	MODES
+};};
+
+//defines for read-write modes. Changing order does nothing
+namespace ReadWriteMode{
+const enum {
+	OFF = 0,
+	READY,
+	WORLD,
+	CELL,
+	AGENT,
+	BOX,
+	CONN,
+	EYE,
+	EAR,
 
 	//Don't add beyond this entry!
 	MODES
@@ -165,8 +183,10 @@ const enum {
 	LUNGS,
 	HEALTH,
 	REPCOUNTER,
-	METABOLISM,
 	DISCOMFORT,
+	METABOLISM,
+	MUTATION,
+	GENERATIONS,
 	VOLUME,
 	SPECIES,
 	CROSSABLE,
@@ -269,9 +289,9 @@ const enum {
 	TONE,
 	STAT_KILLED,
 	STAT_CHILDREN,
+	BRAINSIZE,
 	MUTCHANCE,
 	MUTSIZE,
-	blank2,
 	DEATH,
 
 	//Don't add beyond this entry!
@@ -324,18 +344,27 @@ const enum {
 	SELECT_TYPES
 };};
 
+//defines for reproduction modes. I don't forsee any reason to add more or change their order; it effects no visuals, except color (for now)
+namespace RepType {
+const enum {
+	ASEXUAL,
+	FEMALE,
+	MALE
+};};
+
 //defines for brain input code. Changing order here changes input-to-brain order and visualization order
 namespace Input {
 const enum {
 	EYES,
 	xEYES= EYES+NUMEYES*3-1, //I strongly recommend keeping EYES and xEYES together in this order
 	HEALTH,
+	REPCOUNT,
 	RANDOM,
 	CLOCK1,
 	CLOCK2,
 	CLOCK3,
-	HEARING1,
-	HEARING2,
+	EARS,
+	xEARS= EARS+NUMEARS-1, //same comment as xEYES
 	BLOOD,
 	TEMP,
 	PLAYER,
@@ -437,8 +466,8 @@ namespace conf {
 	
 	//DEFAULTS: All of what follows are defaults, and if settings.cfg exists, are subsituted with that file's values if VERSION #'s match
 	//SIM ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ SIM
-	const int WIDTH = 10000;  //width and height of simulation
-	const int HEIGHT = 8000;
+	const int WIDTH = 15000;  //width and height of simulation
+	const int HEIGHT = 12000;
 	const int WWIDTH = 1100;  //initial window width and height
 	const int WHEIGHT = 700;
 
@@ -467,8 +496,11 @@ namespace conf {
 	const std::string SHIMMER_SONG= "sounds/music/pinecone-ambient - evanjones4.ogg";
 	const std::string OVERGROWTH_SONG= "sounds/music/dunes - andrewkn.ogg";
 	const std::string STALE_SONG= "sounds/music/msfxp6-198-stretched-piano-1 - erokia.ogg";
-	const std::string SONGS[11]= {MAIN_SONG,ETHERAL_SONG,ENERGY_SONG,BABY_SONG,ADAPT_SONG,PERSIST_SONG,RHYTHM_SONG,
-		SLEEPY_SONG,SHIMMER_SONG,OVERGROWTH_SONG,STALE_SONG};
+	const std::string INSPIRE_SONG= "cd-yang-001 - kevp888.ogg";
+	const int NUM_SONGS= 12; // must increment when adding new songs above, and add ref to list below
+
+	const std::string SONGS[NUM_SONGS]= {MAIN_SONG,ETHERAL_SONG,ENERGY_SONG,BABY_SONG,ADAPT_SONG,PERSIST_SONG,RHYTHM_SONG,
+		SLEEPY_SONG,SHIMMER_SONG,OVERGROWTH_SONG,STALE_SONG,INSPIRE_SONG};
 
 	const float SNAP_SPEED = 0.2; //how fast snapping to an object of interest is; 1 is instant, 0.1 is smooth, 0 is pointless
 	const float ZOOM_SPEED = 0.002; //how fast zoom actions change the magnification
@@ -484,6 +516,9 @@ namespace conf {
 	const int FRAMES_PER_EPOCH = 200000; //(.cfg)
 	const int FRAMES_PER_DAY= 4000; //(.cfg)
 	const int RECORD_SIZE = 200; // number of data points stored for the graph. Units are in reports, the frequency of which are defined above
+	const int CELL_TICK_RATE= 4; //Tick rate of all cells in the world. IMPACTS PERFORMANCE!!! 1= every cell calculated every tick, 
+	 // 2= every other tick for every other cell, 4= every 4th cell is calculated every 4 ticks, etc. This value also multiplies all cell 
+	 // growth/decay rates so no differences should be observed. Setting to 5+ will cause light to look weird, and has diminishing performance returns
 
 	//WORLD ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ WORLD
 	const int CZ= 50; //cell size in pixels, for food squares. Should divide well into Width, Height
@@ -496,12 +531,12 @@ namespace conf {
 	const int CONTINENTS= 2; //(.cfg)
 	const int CONTINENT_SPREAD= 20; //how many cells each continent "seed" will, at max, spread from another
 	const float LOWER_ELEVATION_CHANCE= 0.08; //what's the chance that the terrain will drop a level instead of stay the same when "spreading"?
-	const float OCEANPERCENT= 0.6; //(.cfg)
+	const float OCEANPERCENT= 0.65; //(.cfg)
 	const bool SPAWN_LAKES= true; //(.cfg)
 
 	const int AGENTS_MIN_NOTCLOSED= 50; //(.cfg)
 	const int AGENTS_MAX_SPAWN= 400; //(.cfg)
-	const int AGENTSPAWN_FREQ= 75; //(.cfg)
+	const int AGENTSPAWN_FREQ= 100; //(.cfg)
 	const int AGENTS_MAX_NOOXYGEN= 2500; //(.cfg)
 	const int SPECIESID_RANGE= 9000; //species ID range between (-this,this) that agents will spawn with. Note it is not capped
 
@@ -509,13 +544,15 @@ namespace conf {
 	const float BUMP_PRESSURE= 0.1; //(.cfg)
 	const float GRAB_PRESSURE= 0.1; //(.cfg)
 	const float SOUNDPITCHRANGE= 0.1; //(.cfg)
+	const float WHEEL_VOLUME= 0.1; //multiplier of the wheel speeds when being heard
+	const float WHEEL_TONE= 0.125; //tone value that wheels are heard at, in range [0,1]
 	const float LIGHT_AMBIENT_PERCENT= 0.25; //multiplier of the natural light level that eyes will always see. Be cautious with this.
 
 	const bool DISABLE_LAND_SPAWN= true; //(.cfg & GUI)
 	const bool MOONLIT= true; //(.cfg, save, & GUI)
 	const float MOONLIGHTMULT= 0.1; //(.cfg & save)
 	const bool DROUGHTS= true; //(.cfg, save, & GUI)
-	const float DROUGHT_STDDEV= 0.1; // The standard deviation of changes to the DROUGHTMULT
+	const float DROUGHT_STDDEV= 0.15; // The standard deviation of changes to the DROUGHTMULT
 	const int DROUGHT_WEIGHT= 2; // the weight multiple of the current DROUGHTMULT when averaged (1.0 has a weight of 1)
 	const float DROUGHT_NOTIFY= 0.2; //+/- this value from 1.0 of drought shows notifications
 	const float DROUGHT_MIN= 0.6; //(.cfg & save)
@@ -526,20 +563,23 @@ namespace conf {
 	const bool CLIMATE= true; //(.cfg, save, & GUI)
 	const float CLIMATE_INTENSITY= 0.007; //(.cfg & GUI)
 	const float CLIMATEMULT_AVERAGE= 0.5; //value that the world's climate mult tries to average back towards
+	const bool CLIMATE_AFFECT_FLORA= true; //(.cfg)
+	const float CLIMATE_KILL_FLORA_ZONE= 0.1; //temperature zone (in absolute units) that flora struggles within. A value of 0 disables plant decay, so using CLIMATE_AFFECT_FLORA= true only reduces seeding
 
 	//BOTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ BOTS
 
 	//brain settings
-	const int BRAINSIZE= 160; //(.cfg)
+	const int BRAINBOXES= 70 + Output::OUTPUT_SIZE; //(.cfg)
+	const int BRAINCONNS= 300; //(.cfg)
 	const float LEARNRATE= 0.001; // CHANGE TO LEARN FROM USER INPUT
 	const bool ENABLE_LEARNING= true; //
-	const float BRAIN_DIRECTINPUTS= 0.2; //probability of random brain conns on average which will connect directly to inputs
+	const float BRAIN_DIRECTINPUTS= 0.4; //probability of random brain conns on average which will connect directly to inputs
 	const float BRAIN_DEADCONNS= 0.35; //probability of random brain conns which are "dead" (that is, weight = 0)
 	const float BRAIN_CHANGECONNS= 0.05; //probablility of random brain conns which are change sensitive
 	const float BRAIN_MEMCONNS= 0.01; //probablility of random brain conns which are memory type
-	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
 //	const float BRAIN_MIRRORCONNS= 0.05; //
-//	const float BRAIN_ANDCONNS= 0.2; //probability of random brain conns that multiply in instead of add.
+	const float BRAIN_CONN_ID_MUTATION_STD_DEV= 1.0; //standard dev. for the brain connection ID change mutation. UNUSED! todo
+	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
 
 	//general settings
 	const float WHEEL_SPEED= 0.3; //(.cfg)
@@ -547,7 +587,7 @@ namespace conf {
 	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
 	const float MEANRADIUS=10.0; //(.cfg)
 	const float BOOSTSIZEMULT= 2.0; //(.cfg)
-	const float BOOSTEXAUSTMULT= 4.0; //(.cfg)
+	const float BOOSTEXAUSTMULT= 1.5; //(.cfg)
 	const float BASEEXHAUSTION= -7; //(.cfg)
 	const float EXHAUSTION_MULT= 0.5; //(.cfg)
 	const int MAXWASTEFREQ= 200; //(.cfg)
@@ -555,26 +595,33 @@ namespace conf {
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
 	const float SPIKESPEED= 0.01; //(.cfg)
 	const float VELOCITYSPIKEMIN= 0.2; //minimum velocity difference between two agents in the positive direction to be spiked by the other
+	const bool SPAWN_MIRROR_EYES = true; //(.cfg)
+	const bool PRESERVE_MIRROR_EYES = false; //(.cfg)
+
+	//visual settings
 	const int BLINKTIME= 8; //it's really a little thing... how many ticks the agent eyes blink for. Purely aesthetic
 	const int BLINKDELAY= 105; //blink delay time. In ticks
-	const int JAWRENDERTIME= 25; //time allowed for jaw to be rendered after a bite starts
+	const int JAWRENDERTIME= 20; //time allowed for jaw to be rendered after a bite starts
+	const int INPUTS_OUTPUTS_PER_ROW = 20; //visually how many inputs and outputs are we showing before starting a new row?
+	const int BOXES_PER_ROW = 30; //same as above, but for boxes
 
 	//reproduction
 	const int TENDERAGE= 10; //(.cfg)
 	const float MINMOMHEALTH=0.25; //(.cfg)
 	const float MIN_INTAKE_HEALTH_RATIO= 0.5; //(.cfg)
-	const float REP_PER_BABY= 4; //(.cfg)
-	const float REPCOUNTER_MIN= 15; //minimum value the Repcounter may be set to
+	const float REP_PER_BABY= 3; //(.cfg)
+	const float REPCOUNTER_MIN= 8; //minimum value the Repcounter may be set to
 	const float OVERHEAL_REPFILL= 0; //(.cfg)
+	const bool KEEP_MIRRORED_EYES= true; //(.cfg) NOT IMPLEMENTED FULLY todo
 
 	//mutations
 	const float MAXDEVIATION= 10; // no longer used, kept for loading legacy worlds
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
-	const float META_MUTCHANCE= 0.2; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
-	const float META_MUTSIZE= 0.0015;
-	const float DEFAULT_MUTCHANCE= 0.11; //(.cfg)
-	const float DEFAULT_MUTSIZE= 0.02; //(.cfg)
+	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
+	const float META_MUTSIZE= 0.005;
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
+	const float DEFAULT_MUTCHANCE= 0.1; //(.cfg)
+	const float DEFAULT_MUTSIZE= 0.02; //(.cfg)
 
 	//distances
 	const float DIST= 400; //(.cfg)
@@ -583,6 +630,7 @@ namespace conf {
 	const float FOOD_SHARING_DISTANCE= 60; //(.cfg)
 	const float SEXTING_DISTANCE= 60; //(.cfg)
 	const float GRABBING_DISTANCE= 40; //(.cfg)
+	const float SMELL_DIST_MULT= 0.5; //multiplier for cell and agent smell distance
 //	const float BLOOD_SENSE_DISTANCE= 50; //(.cfg)
 
 	//life and death things
@@ -597,27 +645,28 @@ namespace conf {
 	const float HEALTHLOSS_AGING = 0.0001; //(.cfg)
 	const float HEALTHLOSS_WHEELS = 0.0; //(.cfg)
 	const float HEALTHLOSS_BOOSTMULT= 2.0; //(.cfg)
-	const float HEALTHLOSS_BADTEMP = 0.0055; //(.cfg)
+	const float HEALTHLOSS_BADTEMP = 0.006; //(.cfg)
 	const float HEALTHLOSS_BRAINUSE= 0.0; //(.cfg)
 	const float HEALTHLOSS_SPIKE_EXT= 0.0; //(.cfg)
-	const float HEALTHLOSS_BADTERRAIN= 0.022; //(.cfg)
+	const float HEALTHLOSS_BADTERRAIN= 0.021; //(.cfg)
 	const float HEALTHLOSS_NOOXYGEN= 0.0002; //(.cfg)
-	const float HEALTHLOSS_ASSEX= 0.25; //(.cfg)
+	const float HEALTHLOSS_ASSEX= 0.15; //(.cfg)
 
 	const float DAMAGE_FULLSPIKE= 4.0; //(.cfg)
 	const float DAMAGE_COLLIDE= 3.0; //(.cfg)
 	const float DAMAGE_JAWSNAP= 3.0; //(.cfg)
 
 	//Death cause strings. Typically preceeded by "Killed by ", but this is just all damage sources in text form
-	//please note: there are two "sections" sepparated by a single space. In reporting, this is used for uniquely identifying death causes
+	//please note: there are two "words" sepparated by a single space. In reporting, this is used for uniquely identifying death causes
 	//The number of these should match exactly the above sources of health loss and damage, plus generosity transfer and user kill, minus boostmult and wheels (natural)
+	const char DEATH_TOOYOUNG[]= "Mutation? TooYoung";
 	const char DEATH_SPIKERAISE[]= "Spike Raising";
 	const char DEATH_HAZARD[]= "a Hazard";
 	const char DEATH_BADTERRAIN[]= "Suffocation .";
-	const char DEATH_GENEROUSITY[]= "Excessive Generosity";
-	const char DEATH_COLLIDE[]= "Excessive Generosity";
-	const char DEATH_SPIKE[]= "a Murder";
-	const char DEATH_BITE[]= "a Murder"; //these are currently the same, because currently I'm not monitoring bites vs stabs. will change later
+	const char DEATH_GENEROSITY[]= "Excessive Generosity";
+	const char DEATH_COLLIDE[]= "a Collision";
+	const char DEATH_SPIKE[]= "a Stab!";
+	const char DEATH_BITE[]= "a Bite!";
 	const char DEATH_NATURAL[]= "Natural Causes";
 	const char DEATH_TOOMANYAGENTS[]= "LackOf Oxygen"; //again, this is funky because reporting is expecting only one space...
 	const char DEATH_BADTEMP[]= "Temp Discomfort";
@@ -640,7 +689,7 @@ namespace conf {
 	//Plant food is the simplest and most plentiful form of nutrition, but it takes time to consume enough
 
 	const char FRUIT_TEXT[]= "Fruit Food";
-	const float FRUITINTAKE = 0.020; //(.cfg)
+	const float FRUITINTAKE = 0.040; //(.cfg)
 	const float FRUITDECAY = 0.000003; //(.cfg)
 	const float FRUITWASTE = 0.0023; //0.0014; //(.cfg)
 	const int FRUITADDFREQ = 4; //(.cfg)
@@ -649,14 +698,14 @@ namespace conf {
 
 	const char MEAT_TEXT[]= "Meat Food";
 	const float MEATINTAKE= 0.1; //(.cfg)
-	const float MEATDECAY= 0.00002;//0.00001; //(.cfg)
+	const float MEATDECAY= 0.00001;//0.00001; //(.cfg)
 	const float MEATWASTE= 0.008; //0.0023; //(.cfg)
 	const float MEATVALUE= 1.0; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)
 
 	const int HAZARDFREQ= 30; //(.cfg)
 	const float HAZARDEVENT_MULT= 4.0; //(.cfg)
-	const float HAZARDDECAY= 0.000002; //(.cfg)
+	const float HAZARDDECAY= 0.000001; //(.cfg)
 	const float HAZARDDEPOSIT= 0.00006; //(.cfg)
 	const float HAZARDDAMAGE= 0.001;//0.0032; //(.cfg)
 	const float HAZARDPOWER= 0.5; //(.cfg)

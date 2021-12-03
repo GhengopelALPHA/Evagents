@@ -113,9 +113,14 @@ private:
 	Color3f setColorSpecies(float species);
 	Color3f setColorCrossable(float species);
 	Color3f setColorGenerocity(float give);
-	Color3f setColorRepCount(float repcount, bool asexual);
+	Color3f setColorRepType(int type);
+	Color3f setColorRepCount(float repcount, int type);
 	Color3f setColorMutations(float rate, float size);
 	Color3f setColorStrength(float strength);
+	Color3f setColorGeneration(int gen);
+
+	//3f agent part color defs
+	std::pair<Color3f,float> setColorEar(int index);
 
 	//3f cell color defs
 	Color3f setColorCellsAll(const float values[Layer::LAYERS]);
@@ -167,6 +172,7 @@ private:
 	int live_autosave; //are we allowing autosaves?
 	int live_grid; //override usual grid behavior and always draw grid?
 	int live_hidedead; //hide dead agents?
+	int live_hidegenz; //hide generation zero agents? (no hard feelings)
 	int live_landspawns; // are landspawns enabled
 	int live_moonlight; //is moonlight enabled?
 	float live_oceanpercent; //what is the setting for the percentage of water in the world?

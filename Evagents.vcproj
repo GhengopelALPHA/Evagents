@@ -213,6 +213,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\SOURCE\CPBrain.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\SOURCE\DRAWSBrain.cpp"
 				>
 			</File>
@@ -252,6 +256,10 @@
 			</File>
 			<File
 				RelativePath=".\SOURCE\config.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\CPBrain.h"
 				>
 			</File>
 			<File
