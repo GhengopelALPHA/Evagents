@@ -4,6 +4,7 @@
 #include "Agent.h"
 #include "settings.h"
 #include <vector>
+#include <sstream>
 
 #include <irrKlang.h>
 using namespace irrklang;
@@ -89,17 +90,16 @@ public:
 	bool processMouse(int button, int state, int x, int y, float scale);
     
 	//graph stuff
-    int numHerbivore[conf::RECORD_SIZE];
-	int numCarnivore[conf::RECORD_SIZE];
-	int numFrugivore[conf::RECORD_SIZE];
-	int numTerrestrial[conf::RECORD_SIZE];
-	int numAmphibious[conf::RECORD_SIZE];
-	int numAquatic[conf::RECORD_SIZE];
-	int numHybrid[conf::RECORD_SIZE];
-	int numDead[conf::RECORD_SIZE];
-	int numTotal[conf::RECORD_SIZE];
-	int ptr;
-	int lastptr;
+	std::vector<int> graphGuides;
+	std::vector<int> numTotal;
+	std::vector<int> numDead;
+	std::vector<int> numHerbivore;
+	std::vector<int> numCarnivore;
+	std::vector<int> numFrugivore;
+	std::vector<int> numTerrestrial;
+	std::vector<int> numAmphibious;
+	std::vector<int> numAquatic;
+	std::vector<int> numHybrid;
 
 	//counters
 	int modcounter;
@@ -110,9 +110,12 @@ public:
 	std::vector<Agent> agents;
 	Agent loadedagent;
 
-	void processReporting();
+	void processWorldTick(); //handle all tick/day/report/epoch opperations
+	void processNewEpoch();
 	void processClimate();
-	void processCells();
+	void processMutationEvent();
+	void processReporting();
+	void processCells(bool prefire= false);
 	void tryPlayMusic(); //CONTROL.CPP!!!
 	void setInputs();
 	void brainsTick();  //takes in[] to out[] for every agent
@@ -138,7 +141,10 @@ public:
 
 	std::vector<std::pair <std::string ,std::pair <int,int> > > events; //short-term record of events happening in the sim. includes text, type, and counter
 	void addEvent(std::string text, int type= 0); //adds event to the event list. max of ~40 characters
+	void addDemoEvent(std::string text, int type, int agentIndex); //post an event only if we: A: are in demo mode, and B: have the current agent selected that matches the index passed
 	void dismissNextEvents(int count= 1); //dismisses next [count] events (starts their disappearing act, doesn't delete them!)
+
+	void setStatsAfterLoad();
 
 	//helper functions to give us counts of agents and cells
     int getHerbivores() const;
@@ -227,10 +233,11 @@ public:
 	float CORPSE_MEAT_MIN;
 	float SOUNDPITCHRANGE;
 
+	float MEANRADIUS;
 	float FOODTRANSFER;
 	float BASEEXHAUSTION;
-	float EXHAUSTION_MULT;
-	float MEANRADIUS;
+	float EXHAUSTION_MULT_PER_OUTPUT;
+	float EXHAUSTION_MULT_PER_CONN;
 	float SPIKESPEED;
 	bool SPAWN_MIRROR_EYES;
 	bool PRESERVE_MIRROR_EYES;
@@ -246,7 +253,7 @@ public:
 	float REP_PER_BABY;
 	float OVERHEAL_REPFILL;
 //	float LEARNRATE;
-	float MAXDEVIATION;
+	int OVERRIDE_KINRANGE;
 	float DEFAULT_MUTCHANCE;
 	float DEFAULT_MUTSIZE;
 	float LIVE_MUTATE_CHANCE;
@@ -265,6 +272,7 @@ public:
 	float HEALTHLOSS_BOOSTMULT;
 	float HEALTHLOSS_BADTEMP;
 	float HEALTHLOSS_AGING;
+	float HEALTHLOSS_EXHAUSTION;
 	float HEALTHLOSS_BRAINUSE;
 	float HEALTHLOSS_SPIKE_EXT;
 	float HEALTHLOSS_BADTERRAIN;
@@ -350,6 +358,8 @@ private:
 	float STATallmeat; //exact number sum of all plant matter
 	float STATallhazard; //exact number sum of all plant matter
 
+	bool STATuserseengenerosity; //true if the user was shown an event when an agent sent health via generosity
+	bool STATuserseenjumping; //true if the user has seen jumping
 	bool STATuseracted; //true if the user took control of an agent
 	bool STATfirstspecies; //true if we have had at least one agent with a generation =5 during a report
 	bool STATfirstpopulation; //true if we had a population count of > AGENTS_MAX_SPAWN

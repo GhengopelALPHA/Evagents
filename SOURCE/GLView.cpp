@@ -541,6 +541,8 @@ void GLView::menu(int key)
 	} else if(key=='q') {
 		//zoom and translocate to instantly see the whole world
 		gotoDefaultZoom();
+	} else if (key=='j') { //toggle hide dead
+		live_hidedead = 1-live_hidedead;
 	} else if (key=='z' || key=='x') { //change agent visual scheme; x= "next", z= "previous"
 		if (key=='x') live_agentsvis++;
 		else live_agentsvis--;
@@ -885,6 +887,7 @@ void GLView::gluiCreateMenu()
 		else if(i==Visual::HEALTH) strcpy(text, "Health");
 		else if(i==Visual::REPCOUNTER) strcpy(text, "Rep. Counter");
 		else if(i==Visual::METABOLISM) strcpy(text, "Metabolism");
+		else if(i==Visual::STRENGTH) strcpy(text, "Strength");
 		else if(i==Visual::MUTATION) strcpy(text, "Mutability");
 		else if(i==Visual::LUNGS) strcpy(text, "Lungs");
 		else if(i==Visual::GENERATIONS) strcpy(text, "Generation");
@@ -1600,15 +1603,15 @@ void GLView::handleIdle()
 	currentTime = glutGet(GLUT_ELAPSED_TIME);
 	frames++;
 	if ((currentTime - lastUpdate) >= 1000) {
-		char fastmode;
+		char ratemode;
 		if(live_fastmode){
-			fastmode= 'T';
+			ratemode= 'T';
 			if(live_paused) frames= 0; //if we're paused and in fast mode, we're not exactly rendering any frames
 			//we technically are rendering if just paused tho, so this check should stay here
-		} else fastmode='F';
+		} else ratemode='F';
 
 		sprintf( buf, "Evagents - %cPS: %d Alive: %d Herbi: %d Carni: %d Frugi: %d Epoch: %d Day %d",
-			fastmode, frames, world->getAgents()-world->getDead(), world->getHerbivores(), world->getCarnivores(),
+			ratemode, frames, world->getAgents()-world->getDead(), world->getHerbivores(), world->getCarnivores(),
 			world->getFrugivores(), world->getEpoch(), world->getDay() );
 		glutSetWindowTitle( buf );
 
@@ -1767,12 +1770,19 @@ Color3f GLView::setColorStomach(const float stomach[Stomach::FOOD_TYPES])
 
 Color3f GLView::setColorTempPref(float discomfort)
 {
-	float discomfortmult= discomfort*world->HEALTHLOSS_BADTEMP/0.0055;
-	//0.0055 is based on a HEALTHLOSS_BADTEMP with that val, I advise against changing it or making it use the config value
 	Color3f color;
-	color.red= cap(2*sqrt(cap(2*discomfortmult))*(1-discomfortmult));
-	color.gre= discomfort==0 ? 1.0 : cap(0.9-3*discomfortmult);
-	color.blu= discomfort==0 ? 1.0 : cap((2-5*discomfortmult)/4);
+	if (discomfort>0) {
+		color.red= cap(2*sqrt(cap(2*discomfort))*(1.3-discomfort));
+		color.gre= cap(0.9-2*discomfort);
+		color.blu= cap((2-16*discomfort)/4);
+	} else if (discomfort<0) {
+		color.red= cap((-discomfort)*(1+discomfort));
+		color.gre= cap(0.8+2*discomfort);
+		color.blu= cap(1+discomfort);
+	} else {
+		color.gre= 1.0;
+	}
+
 	return color;
 }
 
@@ -1811,9 +1821,9 @@ Color3f GLView::setColorLungs(float lungs)
 Color3f GLView::setColorSpecies(float species)
 {
 	Color3f color;
-	color.red= (cos((float)species/89*M_PI)+1.0)/2.0;
-	color.gre= (sin((float)species/54*M_PI)+1.0)/2.0;
-	color.blu= (cos((float)species/34*M_PI)+1.0)/2.0;
+	color.red= (cos((float)species/178*M_PI)+1.0)/2.0;
+	color.gre= (sin((float)species/101*M_PI)+1.0)/2.0;
+	color.blu= (cos((float)species/67*M_PI)+1.0)/2.0;
 	return color;
 }
 
@@ -1833,7 +1843,7 @@ Color3f GLView::setColorCrossable(float species)
 			//female-only reproducable relatives: navy blue
 			color.red= 0;
 			color.gre= 0;
-		} else if (deviation<=3*conf::MAXDEVIATION) {
+		} else if (deviation<=world->agents[selectedindex].kinrange + conf::VISUALIZE_RELATED_RANGE) {
 			//possible relatives: purple
 			color.gre= 0.4;
 		}
@@ -1848,6 +1858,15 @@ Color3f GLView::setColorGenerocity(float give)
 	if(give>0) color.gre= val;
 	else color.red= val;
 	if(abs(give)<0.001) { color.blu= 0.75; color.gre= 0.5; }
+	return color;
+}
+
+Color3f GLView::setColorStrength(float strength)
+{
+	Color3f color;
+	color.red= cap(2-strength)/2;
+	color.gre= (cap(2*strength)+2*cap(strength))/4;
+	color.blu= strength;
 	return color;
 }
 
@@ -1891,21 +1910,6 @@ Color3f GLView::setColorMutations(float rate, float size)
 	color.red= sqrt(3*rate)+cap(size-0.25);
 	color.gre= 4*size + cap(2*rate-0.25);
 	color.blu= powf((float)4*size,0.25)+cap(rate-0.5);
-
-	return color;
-}
-
-Color3f GLView::setColorStrength(float strength)
-{
-	Color3f color;
-	if(strength>=0.5){ 
-		color.red= sqrt(cap(+3-5*strength));
-		color.gre= sqrt(cap(-5+5*strength));
-	} else {
-		color.red= sqrt(cap(1-5*strength));
-		color.gre= sqrt(cap(-1+5*strength));
-	}
-	color.blu= sqrt(cap(-3+5*strength));
 
 	return color;
 }
@@ -2069,11 +2073,11 @@ Color3f GLView::setColorLight(float val)
 
 bool GLView::cullAtCoords(int x, int y)
 {
-	//determine if the object at the x and y WORLD coords can be rendered, returning TRUE
-	if(y > wHeight*0.5/scalemult-ytranslate + conf::CZ) return true;
-	if(x > wWidth*0.5/scalemult-xtranslate + conf::CZ) return true;
-	if(y < -wHeight*0.5/scalemult-ytranslate - conf::CZ) return true;
-	if(x < -wWidth*0.5/scalemult-xtranslate - conf::CZ) return true;
+	//determine if the object at the x and y WORLD coords can be rendered, returning TRUE if it should be CULLED
+	if(y > wHeight*0.5/scalemult-ytranslate + 2*conf::CZ) return true;
+	if(x > wWidth*0.5/scalemult-xtranslate + 2*conf::CZ) return true;
+	if(y < -wHeight*0.5/scalemult-ytranslate - 2*conf::CZ) return true;
+	if(x < -wWidth*0.5/scalemult-xtranslate - 2*conf::CZ) return true;
 	return false;
 }
 	
@@ -2091,17 +2095,6 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 
 	if ((live_agentsvis!=Visual::NONE && (live_hidedead==0 || agent.health>0) && (live_hidegenz==0 || agent.gencount>0)) || ghost) {
 		// don't render if visual set to NONE, or if we're hiding the agent for some reason
-		//first, calculate colors for indicators (NOTE: Indicator tags are gone now, consider removing these too if unneeded)
-		Color3f healthcolor= setColorHealth(agent.health);
-		Color3f stomachcolor= setColorStomach(agent.stomach);
-		Color3f discomfortcolor= setColorTempPref(agent.discomfort);
-		Color3f metabcolor= setColorMetabolism(agent.metabolism);
-		Color3f tonecolor= setColorTone(agent.tone);
-		Color3f lungcolor= setColorLungs(agent.lungs);
-		Color3f speciescolor= setColorSpecies(agent.species);
-		Color3f crossablecolor= setColorCrossable(agent.species);
-		Color3f generocitycolor= setColorGenerocity(agent.dhealth);
-		Color3f repcountcolor= setColorRepCount(agent.repcounter, agent.getRepType());
 
 		glPushMatrix(); //switch to local position coordinates
 		glTranslatef(x,y,0);
@@ -2233,8 +2226,10 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 								std::pair<Color3f, float> earcolor= setColorEar(j-Input::EARS);
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "E", earcolor.first.red, earcolor.first.gre, earcolor.first.blu);
 							} else if(j==Input::HEALTH){
+								Color3f healthcolor= setColorHealth(agent.health);
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "H", healthcolor.red, healthcolor.gre, healthcolor.blu);
 							} else if(j==Input::REPCOUNT){
+								Color3f repcountcolor= setColorRepCount(agent.repcounter, agent.getRepType());
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "R", cap(0.2+0.8*repcountcolor.red), cap(0.2+0.8*repcountcolor.gre), cap(0.2+0.8*repcountcolor.blu));
 							} else if(j==Input::BLOOD){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "B", 0.6f, 0.0, 0.0f);
@@ -2327,8 +2322,10 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 							} else if(j==Output::RIGHT_WHEEL_B || j==Output::RIGHT_WHEEL_F){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "!", 0.0f, 1.0f, 0.0f);
 							} else if(j==Output::VOLUME){
-								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "V", 1.0f, 1.0f, 1.0f);
+								float volcol = value>0.75 ? 0.0f : 1.0f;
+								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "V", volcol, volcol, volcol);
 							} else if(j==Output::TONE){
+								Color3f tonecolor= setColorTone(agent.tone);
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "T", tonecolor.red, tonecolor.gre, tonecolor.blu);
 							} else if(j==Output::CLOCKF3){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "Q", 0.0f, 0.0f, 0.0f);
@@ -2465,6 +2462,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					//now show our own sound, colored by tone
 					glLineWidth(3);
 					glBegin(GL_LINES);
+					Color3f tonecolor= setColorTone(agent.tone);
 					glColor3f(tonecolor.red, tonecolor.gre, tonecolor.blu);
 					glVertex3f(2+176*agent.tone, 78, 0);
 					glVertex3f(2+176*agent.tone, 78-76*agent.volume, 0);
@@ -2569,6 +2567,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			glVertex3f(0,0,0);
 
 			float mag= (live_agentsvis==Visual::HEALTH) ? 3 : 1;//draw sharing as a thick green or red outline, bigger if viewing health
+			Color3f generocitycolor= setColorGenerocity(agent.dhealth);
 			
 			glColor4f(generocitycolor.red, generocitycolor.gre, generocitycolor.blu, 1);
 			drawCircle(0, 0, rp*mag);
@@ -2579,6 +2578,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 
 		//sound waves!
 		if(live_agentsvis==Visual::VOLUME && !ghost && agent.volume>conf::RENDER_MINVOLUME){
+			Color3f tonecolor= setColorTone(agent.tone);
 
 			if(scalemult > 1) glLineWidth(3);
 			else if(scalemult > .3) glLineWidth(2);
@@ -2630,7 +2630,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			glVertex3f(xo+5,yo+42,0);
 			glVertex3f(xo,yo+42,0);
 
-			float exh= 2/(1+exp(world->EXHAUSTION_MULT*agent.exhaustion));
+			float exh= 2/(1+exp(agent.exhaustion));
 			glColor3f(0.8*exh,0.8*exh,cap(1-agent.exhaustion)*0.75);
 			glVertex3f(xo,yo+42*(1-exh),0);
 			glVertex3f(xo+5,yo+42*(1-exh),0);
@@ -2752,60 +2752,33 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		// don't render if visual set to NONE, or if we're hiding the agent for some reason
 
 		//agent body color assignment
-		float red= 0,gre= 0,blu= 0;
-
-		//first, calculate colors
-		Color3f healthcolor= setColorHealth(agent.health);
-		Color3f stomachcolor= setColorStomach(agent.stomach);
-		Color3f discomfortcolor= setColorTempPref(agent.discomfort);
-		Color3f metabcolor= setColorMetabolism(agent.metabolism);
-		Color3f tonecolor= setColorTone(agent.tone);
-		Color3f lungcolor= setColorLungs(agent.lungs);
-		Color3f speciescolor= setColorSpecies(agent.species);
-		Color3f crossablecolor= setColorCrossable(agent.species);
-		Color3f generocitycolor= setColorGenerocity(agent.dhealth);
-//		Color3f sexualitycolor= setColorSexuality(agent);
-		Color3f repcountcolor= setColorRepCount(agent.repcounter, agent.getRepType());
-		Color3f mutationcolor= setColorMutations(agent.MUTCHANCE, agent.MUTSIZE);
-		Color3f generationcolor= setColorGeneration(agent.gencount);
-
-		//now colorize agents and other things
+		Color3f color;
 		if (live_agentsvis==Visual::RGB || (live_agentsvis==Visual::NONE && ghost)){ //real rgb values
-			red= agent.real_red; gre= agent.real_gre; blu= agent.real_blu;
-
+			color= Color3f(agent.real_red, agent.real_gre, agent.real_blu);
 		} else if (live_agentsvis==Visual::STOMACH){
-			red= stomachcolor.red; gre= stomachcolor.gre; blu= stomachcolor.blu;
-		
+			color= setColorStomach(agent.stomach);
 		} else if (live_agentsvis==Visual::DISCOMFORT){
-			red= discomfortcolor.red; gre= discomfortcolor.gre; blu= discomfortcolor.blu;
-
+			color= setColorTempPref(agent.discomfort);
 		} else if (live_agentsvis==Visual::VOLUME) {
-			red= agent.volume; gre= agent.volume; blu= agent.volume;
-
+			color= Color3f(agent.volume);
 		} else if (live_agentsvis==Visual::SPECIES){ 
-			red= speciescolor.red; gre= speciescolor.gre; blu= speciescolor.blu;
-		
+			color= setColorSpecies(agent.species);
 		} else if (live_agentsvis==Visual::CROSSABLE){ //crossover-compatable to selection
-			red= crossablecolor.red; gre= crossablecolor.gre; blu= crossablecolor.blu;
-
+			color= setColorCrossable(agent.species);
 		} else if (live_agentsvis==Visual::HEALTH) {
-			red= healthcolor.red; gre= healthcolor.gre; //blu= healthcolor.blu;
-
+			color= setColorHealth(agent.health);
 		} else if (live_agentsvis==Visual::REPCOUNTER) {
-			red= repcountcolor.red; gre= repcountcolor.gre; blu= repcountcolor.blu;
-
+			color= setColorRepCount(agent.repcounter, agent.getRepType());
 		} else if (live_agentsvis==Visual::METABOLISM){
-			red= metabcolor.red; gre= metabcolor.gre; blu= metabcolor.blu;
-
+			color= setColorMetabolism(agent.metabolism);
+		} else if (live_agentsvis==Visual::STRENGTH){
+			color= setColorStrength(agent.strength);
 		} else if (live_agentsvis==Visual::MUTATION){
-			red= mutationcolor.red; gre= mutationcolor.gre; blu= mutationcolor.blu;
-		
+			color= setColorMutations(agent.MUTCHANCE, agent.MUTSIZE);
 		} else if (live_agentsvis==Visual::LUNGS){
-			red= lungcolor.red; gre= lungcolor.gre; blu= lungcolor.blu;
-
+			color= setColorLungs(agent.lungs);
 		} else if (live_agentsvis==Visual::GENERATIONS){
-			red= generationcolor.red; gre= generationcolor.gre; blu= generationcolor.blu;
-
+			color= setColorGeneration(agent.gencount);
 		}
 
 		//the center gets its own alpha and darkness multiplier. For now, tied to reproduction mode (asexual, sexual F, or sexual M). See centerrender def
@@ -2881,11 +2854,11 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				Vector2f displace= agent.dpos - agent.pos;
 				for(int q=1;q<4;q++){
 					glBegin(GL_POLYGON);
-					glColor4f(red,gre,blu,dead*centeralpha*0.1);
+					glColor4f(color.red,color.gre,color.blu,dead*centeralpha*0.1);
 					glVertex3f(0,0,0);
-					glColor4f(red,gre,blu,0.25);
+					glColor4f(color.red,color.gre,color.blu,0.25);
 					drawCircle(capm(displace.x, -1, 1)*(q*10), capm(displace.y, -1, 1)*(q*10), r);
-					glColor4f(red,gre,blu,dead*centeralpha*0.1);
+					glColor4f(color.red,color.gre,color.blu,dead*centeralpha*0.1);
 					glVertex3f(0,0,0);
 					glEnd();
 				}
@@ -2918,11 +2891,11 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 
 		//body
 		glBegin(GL_POLYGON); 
-		glColor4f(red*centercmult,gre*centercmult,blu*centercmult,dead*centeralpha);
+		glColor4f(color.red*centercmult,color.gre*centercmult,color.blu*centercmult,dead*centeralpha);
 		glVertex3f(0,0,0);
-		glColor4f(red,gre,blu,dead);
+		glColor4f(color.red,color.gre,color.blu,dead);
 		drawCircleRes(0, 0, rad, getAgentRes(ghost));
-		glColor4f(red*centercmult,gre*centercmult,blu*centercmult,dead*centeralpha);
+		glColor4f(color.red*centercmult,color.gre*centercmult,color.blu*centercmult,dead*centeralpha);
 		glVertex3f(0,0,0);
 		glEnd();
 
@@ -2963,7 +2936,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			glColor4f(0.7,0.7,0.7,dead);
 
 		//otherwise, color as agent's body if zoomed out, color as above if normal zoomed
-		} else glColor4f(cap(out_red*blur + (1-blur)*red), cap(out_gre*blur + (1-blur)*gre), cap(out_blu*blur + (1-blur)*blu), dead);
+		} else glColor4f(cap(out_red*blur + (1-blur)*color.red), cap(out_gre*blur + (1-blur)*color.gre), cap(out_blu*blur + (1-blur)*color.blu), dead);
 		drawOutlineRes(0, 0, rad, getAgentRes(ghost));
 		glEnd();
 		glLineWidth(1);
@@ -3110,7 +3083,7 @@ void GLView::drawData()
 	//print global agent stats in top-left region
 	int spaceperline= 14;
 	
-	if(!cullAtCoords(0,-ytranslate)){ //don't do this if we can't see the left side
+	if(!cullAtCoords(0,-ytranslate) || !cullAtCoords(-UID::GRAPHWIDTH,-ytranslate)){ //don't do this if we can't see the left side
 		/*if(scalemult>0.065){
 			for(int i= 0; i<DataDisplay::DATADISPLAYS; i++){
 				if(i==DataDisplay::ALIVE){
@@ -3159,110 +3132,115 @@ void GLView::drawData()
 			}
 		}*/
 
-		//draw misc info
-		float mm = 6; //vertical measurement multiplier
+		//draw Graphs
+		glTranslatef(-UID::GRAPHBUFFER, 0, 0);
+		float yscaling = 5; //vertical measurement multiplier
+		float xinterval = (float)UID::GRAPHWIDTH / world->REPORTS_PER_EPOCH;
+		int agentinterval = yscaling*100;
 
-		//start graphs of aquatics, amphibians, and terrestrials
-		Color3f graphcolor= setColorLungs(0.0);
-		glBegin(GL_QUADS); 
-
-		//aquatic count
-		glColor3f(graphcolor.red,graphcolor.gre,graphcolor.blu);
-		for(int q=0;q<conf::RECORD_SIZE-1;q++) {
-			if(q==world->ptr-1){
-				glColor3f((1+graphcolor.red)/2,(1+graphcolor.gre)/2,(1+graphcolor.blu)/2);
-				continue;
-			}
-			glVertex3f(-2010 + q*10, conf::HEIGHT - mm*world->numTotal[q],0);
-			glVertex3f(-2010 +(q+1)*10, conf::HEIGHT - mm*world->numTotal[q+1],0);
-			glVertex3f(-2010 +(q+1)*10, conf::HEIGHT, 0);
-			glVertex3f(-2010 + q*10, conf::HEIGHT, 0);
-		}
-
-		//amphibian count
-		graphcolor= setColorLungs(0.4);
-		glColor3f(graphcolor.red,graphcolor.gre,graphcolor.blu);
-		for(int q=0;q<conf::RECORD_SIZE-1;q++) {
-			if(q==world->ptr-1){
-				glColor3f((1+graphcolor.red)/2,(1+graphcolor.gre)/2,(1+graphcolor.blu)/2);
-				continue;
-			}
-			glVertex3f(-2010 + q*10, conf::HEIGHT - mm*world->numAmphibious[q] - mm*world->numTerrestrial[q],0);
-			glVertex3f(-2010 +(q+1)*10, conf::HEIGHT - mm*world->numAmphibious[q+1] - mm*world->numTerrestrial[q+1],0);
-			glVertex3f(-2010 +(q+1)*10, conf::HEIGHT, 0);
-			glVertex3f(-2010 + q*10, conf::HEIGHT, 0);
-		}
-
-		//terrestrial count
-		graphcolor= setColorLungs(1.0);
-		glColor3f(graphcolor.red,graphcolor.gre,graphcolor.blu);
-		for(int q=0;q<conf::RECORD_SIZE-1;q++) {
-			if(q==world->ptr-1){
-				glColor3f((1+graphcolor.red)/2,(1+graphcolor.gre)/2,(1+graphcolor.blu)/2);
-				continue;
-			}
-			glVertex3f(-2010 + q*10, conf::HEIGHT - mm*world->numTerrestrial[q],0);
-			glVertex3f(-2010 +(q+1)*10, conf::HEIGHT - mm*world->numTerrestrial[q+1],0);
-			glVertex3f(-2010 +(q+1)*10, conf::HEIGHT, 0);
-			glVertex3f(-2010 + q*10, conf::HEIGHT, 0);
-		}
-		glEnd();
-	
+		//Start with gridlines: horizontal: every 100 agents, vertical: days and epochs, scrolling with data
 		glBegin(GL_LINES);
-		glColor3f(0,0,0.5); //hybrid count
-		for(int q=0;q<conf::RECORD_SIZE-1;q++) {
-			if(q==world->ptr-1) continue;
-			glVertex3f(-2010 + q*10, conf::HEIGHT - mm*world->numHybrid[q],0);
-			glVertex3f(-2010 +(q+1)*10, conf::HEIGHT - mm*world->numHybrid[q+1],0);
+		glColor3f(0.8,0.8,0.8);
+
+		int debugcountvert = 0;
+		for(int n=0;n<world->REPORTS_PER_EPOCH;n++) {
+			if(world->graphGuides[n]==GuideLine::NONE) continue;
+			else if (world->graphGuides[n]==GuideLine::EPOCH) glColor3f(0.8,0.4,0.3);
+			glVertex3f(-UID::GRAPHWIDTH + n*xinterval, 0, 0);
+			glVertex3f(-UID::GRAPHWIDTH + n*xinterval, conf::HEIGHT, 0);
+			debugcountvert++;
+			glColor3f(0.8,0.8,0.8);
 		}
-		glColor3f(0,1,0); //herbivore count
-		for(int q=0;q<conf::RECORD_SIZE-1;q++) {
-			if(q==world->ptr-1) continue;
-			glVertex3f(-2010 + q*10,conf::HEIGHT - mm*world->numHerbivore[q],0);
-			glVertex3f(-2010 +(q+1)*10,conf::HEIGHT - mm*world->numHerbivore[q+1],0);
+
+		int debugcounthoriz = 0;
+		for(int n=0; n<((float)conf::HEIGHT/agentinterval); n++) {
+			//if(cullAtCoords(-xtranslate,(-n*agentinterval)*scalemult)) break;
+			debugcounthoriz++;
+			glVertex3f(0, conf::HEIGHT - n*agentinterval, 0);
+			glVertex3f(-UID::GRAPHWIDTH, conf::HEIGHT - n*agentinterval, 0);
 		}
-		glColor3f(1,0,0); //carnivore count
-		for(int q=0;q<conf::RECORD_SIZE-1;q++) {
-			if(q==world->ptr-1) continue;
-			glVertex3f(-2010 + q*10,conf::HEIGHT - mm*world->numCarnivore[q],0);
-			glVertex3f(-2010 +(q+1)*10,conf::HEIGHT - mm*world->numCarnivore[q+1],0);
-		}
-		glColor3f(0.9,0.9,0); //frugivore count
-		for(int q=0;q<conf::RECORD_SIZE-1;q++) {
-			if(q==world->ptr-1) continue;
-			glVertex3f(-2010 + q*10,conf::HEIGHT - mm*world->numFrugivore[q],0);
-			glVertex3f(-2010 +(q+1)*10,conf::HEIGHT - mm*world->numFrugivore[q+1],0);
-		}
-		glColor3f(0,0,0); //total count
-		for(int q=0;q<conf::RECORD_SIZE-1;q++) {
-			if(q==world->ptr-1) continue;
-			glVertex3f(-2010 + q*10,conf::HEIGHT - mm*world->numTotal[q],0);
-			glVertex3f(-2010 +(q+1)*10,conf::HEIGHT - mm*world->numTotal[q+1],0);
-		}
-		glColor3f(0.8,0.8,0.6); //dead count
-		for(int q=0;q<conf::RECORD_SIZE-1;q++) {
-			if(q==world->ptr-1) continue;
-			glVertex3f(-2010 + q*10,conf::HEIGHT - mm*(world->numDead[q]+world->numTotal[q]),0);
-			glVertex3f(-2010 +(q+1)*10,conf::HEIGHT - mm*(world->numDead[q+1]+world->numTotal[q+1]),0);
+
+		//printf("there were %i vertical and %i horizontal lines drawn\n",debugcountvert,debugcounthoriz);
+		glEnd();
+
+		//Render data		
+		for(int q=0;q<world->REPORTS_PER_EPOCH-1;q++) {
+			if(world->numTotal[q]==0) continue;
+
+			//start graphs of aquatics, amphibians, and terrestrials
+			Color3f graphcolor= setColorLungs(0.0);
+			glBegin(GL_QUADS); 
+
+			//aquatic count
+			glColor3f(graphcolor.red,graphcolor.gre,graphcolor.blu);
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT - yscaling*world->numTotal[q],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT - yscaling*world->numTotal[q+1],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT, 0);
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT, 0);
+
+			//amphibian count
+			graphcolor= setColorLungs(0.4);
+			glColor3f(graphcolor.red,graphcolor.gre,graphcolor.blu);
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT - yscaling*world->numAmphibious[q] - yscaling*world->numTerrestrial[q],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT - yscaling*world->numAmphibious[q+1] - yscaling*world->numTerrestrial[q+1],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT, 0);
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT, 0);
+
+			//terrestrial count
+			graphcolor= setColorLungs(1.0);
+			glColor3f(graphcolor.red,graphcolor.gre,graphcolor.blu);
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT - yscaling*world->numTerrestrial[q],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT - yscaling*world->numTerrestrial[q+1],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT, 0);
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT, 0);
+
+			glEnd();
+	
+			glBegin(GL_LINES);
+			glColor3f(0,0,0.5); //hybrid count
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT - yscaling*world->numHybrid[q],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT - yscaling*world->numHybrid[q+1],0);
+
+			glColor3f(0,1,0); //herbivore count
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval,conf::HEIGHT - yscaling*world->numHerbivore[q],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval,conf::HEIGHT - yscaling*world->numHerbivore[q+1],0);
+
+			glColor3f(1,0,0); //carnivore count
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval,conf::HEIGHT - yscaling*world->numCarnivore[q],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval,conf::HEIGHT - yscaling*world->numCarnivore[q+1],0);
+
+			glColor3f(0.9,0.9,0); //frugivore count
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval,conf::HEIGHT - yscaling*world->numFrugivore[q],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval,conf::HEIGHT - yscaling*world->numFrugivore[q+1],0);
+
+			glColor3f(0,0,0); //total count
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval,conf::HEIGHT - yscaling*world->numTotal[q],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval,conf::HEIGHT - yscaling*world->numTotal[q+1],0);
+
+			glColor3f(0.8,0.8,0.6); //dead count
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval,conf::HEIGHT - yscaling*(world->numDead[q]+world->numTotal[q]),0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval,conf::HEIGHT - yscaling*(world->numDead[q+1]+world->numTotal[q+1]),0);
+			glEnd();
 		}
 
 		//current population vertical bars
-		glVertex3f(-2010 + world->ptr*10,conf::HEIGHT,0);
-		glVertex3f(-2010 + world->ptr*10,conf::HEIGHT - mm*world->getAgents(),0);
+		glBegin(GL_LINES);
+		glVertex3f(0,conf::HEIGHT,0);
+		glVertex3f(0,conf::HEIGHT - yscaling*world->getAgents(),0);
 		glColor3f(0,0,0);
-		glVertex3f(-2010 + world->ptr*10,conf::HEIGHT,0);
-		glVertex3f(-2010 + world->ptr*10,conf::HEIGHT - mm*world->getAlive(),0);
+		glVertex3f(0,conf::HEIGHT,0);
+		glVertex3f(0,conf::HEIGHT - yscaling*world->getAlive(),0);
 		glEnd();
 
 		//labels for current population bars
-		int movetext= 0;
-		if (world->ptr>=conf::RECORD_SIZE*0.75) movetext= -700;
 		sprintf(buf2, "%i dead", world->getDead());
-		RenderString(-2006 + movetext + world->ptr*10,conf::HEIGHT - mm*world->getAgents(),
+		RenderString(-3-(float)(UID::CHARWIDTH*(int)strlen(buf2))/scalemult,conf::HEIGHT - yscaling*world->getAgents(),
 			GLUT_BITMAP_HELVETICA_12, buf2, 0.8f, 0.8f, 0.6f);
 		sprintf(buf2, "%i agents", world->getAlive());
-		RenderString(-2006 + movetext + world->ptr*10,conf::HEIGHT - mm*world->getAlive(),
+		RenderString(-3-(float)(UID::CHARWIDTH*(int)strlen(buf2))/scalemult,conf::HEIGHT - yscaling*world->getAlive(),
 			GLUT_BITMAP_HELVETICA_12, buf2, 0.0f, 0.0f, 0.0f);
+
+		glTranslatef(UID::GRAPHBUFFER, 0, 0);
 	}
 
 	if(getLayerDisplayCount()>0){
@@ -3279,12 +3257,12 @@ void GLView::drawData()
 	glColor3f(0,0,0); //border around graphs and feedback
 
 	glVertex3f(0,0,0);
-	glVertex3f(-2020,0,0);
+	glVertex3f(-UID::GRAPHWIDTH-UID::GRAPHBUFFER,0,0);
 
-	glVertex3f(-2020,0,0);
-	glVertex3f(-2020,conf::HEIGHT,0);
+	glVertex3f(-UID::GRAPHWIDTH-UID::GRAPHBUFFER,0,0);
+	glVertex3f(-UID::GRAPHWIDTH-UID::GRAPHBUFFER,conf::HEIGHT,0);
 
-	glVertex3f(-2020,conf::HEIGHT,0);
+	glVertex3f(-UID::GRAPHWIDTH-UID::GRAPHBUFFER,conf::HEIGHT,0);
 	glVertex3f(0,conf::HEIGHT,0);
 	glEnd();
 }
@@ -3305,8 +3283,7 @@ void GLView::drawStatic()
 	gluOrtho2D(0, ww, 0, wh);
 	// invert the y axis, down is positive
 	glScalef(1, -1, 1);
-	// move the origin from the bottom left corner
-	// to the upper left corner
+	// move the origin from the bottom left corner to the upper left corner
 	glTranslatef(0, -wh, 0);
 	glMatrixMode(GL_MODELVIEW);
 	glPushMatrix();
@@ -3366,10 +3343,10 @@ void GLView::drawStatic()
 			}
 		} else if(line==StaticDisplay::DROUGHT) {
 			if(world->isDrought()) {
-				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Drought Epoch", 1.0f, 1.0f, 0.0f);
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Active Drought", 1.0f, 1.0f, 0.0f);
 				currentline++;
 			} else if(world->isOvergrowth()) {
-				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Overgrowth Epoch", 0.0f, 0.65f, 0.25f);
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Active Overgrowth", 0.0f, 0.65f, 0.25f);
 				currentline++;
 			}
 		} else if (line==StaticDisplay::MUTATIONS) {
@@ -3399,10 +3376,10 @@ void GLView::drawStatic()
 			}
 		} else if (line==StaticDisplay::CLIMATE) {
 			if(world->isIceAge()) {
-				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Ice Age Epoch", 0.3f, 0.9f, 0.9f);
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Ice Age", 0.3f, 0.9f, 0.9f);
 				currentline++;
 			} else if(world->isHadean()) {
-				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Hadean Epoch", 1.0f, 0.55f, 0.15f);
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Hadean Climate", 1.0f, 0.55f, 0.15f);
 				currentline++;
 			} else if(world->isExtreme()) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Extreme Climate", 1.0f, 0.75f, 0.4f);
@@ -3639,7 +3616,7 @@ void GLView::drawPieDisplay(float x, float y, float size, std::vector<std::pair<
 			else if (values[i].first==conf::DEATH_COLLIDE) color= new Color3f(0,0.8,1);
 			else if (values[i].first==conf::DEATH_SPIKE || values[i].first==conf::MEAT_TEXT) color= new Color3f(1,0,0);
 			else if (values[i].first==conf::DEATH_BITE || values[i].first==conf::FRUIT_TEXT) color= new Color3f(0.8,0.8,0);
-			else if (values[i].first==conf::DEATH_NATURAL) color= new Color3f(0.8,0.4,0.4);
+			else if (values[i].first==conf::DEATH_NATURAL) color= new Color3f(0.4,0.3,0.0);
 			else if (values[i].first==conf::DEATH_TOOMANYAGENTS) color= new Color3f(1,0,1);
 			else if (values[i].first==conf::DEATH_BADTEMP) color= new Color3f(0.9,0.6,0);
 			else if (values[i].first==conf::DEATH_USER) color= new Color3f(1,1,1);
@@ -3954,7 +3931,7 @@ void GLView::renderAllTiles()
 						glVertex3f(selected.health/conf::HEALTH_CAP*UID::HUDSWIDTH+ux,uy,0);
 						glVertex3f(ux,uy,0);
 					} else if (u==SADHudOverview::EXHAUSTION){ //Exhaustion/energy indicator ux=ww-100, uy=25
-						float exh= 2/(1+exp(world->EXHAUSTION_MULT*selected.exhaustion));
+						float exh= 2/(1+exp(selected.exhaustion));
 						glColor3f(0.8,0.8,0);
 						glVertex3f(ux,uy,0);
 						glVertex3f(ux,uy-UID::CHARHEIGHT,0);
@@ -3994,8 +3971,8 @@ void GLView::renderAllTiles()
 					sprintf(buf, "Child: %.2f/%.0f", selected.repcounter, selected.maxrepcounter);
 				
 				} else if(u==SADHudOverview::EXHAUSTION){
-					if(world->EXHAUSTION_MULT>0 && selected.exhaustion>(5*world->EXHAUSTION_MULT)) sprintf(buf, "Exhausted!");
-					else if (world->EXHAUSTION_MULT>0 && selected.exhaustion<(2*world->EXHAUSTION_MULT)) sprintf(buf, "Energetic!");
+					if(selected.exhaustion>5) sprintf(buf, "Exhausted!");
+					else if (selected.exhaustion<2) sprintf(buf, "Energetic!");
 					else sprintf(buf, "Tired.");
 
 				} else if(u==SADHudOverview::AGE){
@@ -4030,7 +4007,7 @@ void GLView::renderAllTiles()
 					else if(selected.encumbered) sprintf(buf, "Encumbered");
 					else if(selected.boost) sprintf(buf, "Boosting");
 					else if(abs(selected.w1-selected.w2)>0.06) sprintf(buf, "Spinning...");
-					else if(abs(selected.w1)>0.1 || abs(selected.w2)>0.1) sprintf(buf, "Sprinting");
+					else if(abs(selected.w1)>0.2 || abs(selected.w2)>0.2) sprintf(buf, "Sprinting");
 					else if(abs(selected.w1)>0.03 || abs(selected.w2)>0.03) sprintf(buf, "Moving");
 					else if(selected.health<=0) sprintf(buf, "Dead.");
 					else sprintf(buf, "Idle");
@@ -4130,6 +4107,7 @@ void GLView::renderAllTiles()
 					isFixedTrait= true;
 
 				} else if(u==SADHudOverview::STRENGTH){
+					if(live_agentsvis==Visual::STRENGTH) drawbox= true;
 					if(selected.strength>0.7) sprintf(buf, "Strong!");
 					else if(selected.strength>0.3) sprintf(buf, "Not Weak");
 					else sprintf(buf, "Weak!");
@@ -4207,43 +4185,46 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 		Color3f cellcolor(0.0, 0.0, 0.0);
 
 		//init color additives
-		Color3f light= live_layersvis[DisplayLayer::LIGHT] ? setColorLight(values[Layer::LIGHT]) : setColorLight(1);
+		Color3f light= live_layersvis[DisplayLayer::LIGHT] ? setColorLight(values[Layer::LIGHT]) : Color3f(1);
 
-		Color3f terrain= live_layersvis[DisplayLayer::ELEVATION] ? setColorHeight(values[Layer::ELEVATION]) : setColorHeight(0);
+		Color3f terrain= live_layersvis[DisplayLayer::ELEVATION] ? setColorHeight(values[Layer::ELEVATION]) : Color3f(0);
 
-		Color3f plant= live_layersvis[DisplayLayer::PLANTS] ? setColorPlant(values[Layer::PLANTS]) : setColorHeight(0);
+		Color3f plant= live_layersvis[DisplayLayer::PLANTS] ? setColorPlant(values[Layer::PLANTS]) : Color3f(0);
 
-		Color3f hazard= live_layersvis[DisplayLayer::HAZARDS] ? setColorHazard(values[Layer::HAZARDS]) : setColorHeight(0);
+		Color3f hazard= live_layersvis[DisplayLayer::HAZARDS] ? setColorHazard(values[Layer::HAZARDS]) : Color3f(0);
 
-		Color3f fruit= live_layersvis[DisplayLayer::FRUITS] ? setColorFruit(values[Layer::FRUITS]) : setColorHeight(0);
+		Color3f fruit= live_layersvis[DisplayLayer::FRUITS] ? setColorFruit(values[Layer::FRUITS]) : Color3f(0);
 
-		Color3f meat= live_layersvis[DisplayLayer::MEATS] ? setColorMeat(values[Layer::MEATS]) : setColorHeight(0);
+		Color3f meat= live_layersvis[DisplayLayer::MEATS] ? setColorMeat(values[Layer::MEATS]) : Color3f(0);
 
-		Color3f temp= live_layersvis[DisplayLayer::TEMP] ? setColorTempCell(y) : setColorHeight(0); //special for temp: until cell-based, convert y coord and process
+		Color3f temp= live_layersvis[DisplayLayer::TEMP] ? setColorTempCell(y) : Color3f(0); //special for temp: until cell-based, convert y coord and process
 
 		if(layers>1) { //if more than one layer selected, some layers display VERY differently
 			//set terrain to use terrain instead of just elevation
-			terrain= live_layersvis[DisplayLayer::ELEVATION] ? setColorTerrain(values[Layer::ELEVATION]) : setColorHeight(0);
+			terrain= live_layersvis[DisplayLayer::ELEVATION] ? setColorTerrain(values[Layer::ELEVATION]) : Color3f(0);
 
-			//stop fruit from displaying if we're also displaying plants or elevation
-			if(live_layersvis[DisplayLayer::PLANTS] || live_layersvis[DisplayLayer::ELEVATION]){ 
-				fruit= setColorHeight(0);
+			//stop fruit from displaying if we're also displaying plants
+			if(live_layersvis[DisplayLayer::PLANTS]){ 
+				fruit= Color3f(0);
+				// live_layersvis[DisplayLayer::ELEVATION]
 
 				//stop displaying meat if we're also displaying plants, fruit, or elevation
-				if(live_layersvis[DisplayLayer::FRUITS]) meat= setColorHeight(0);
+				if(live_layersvis[DisplayLayer::FRUITS]) meat= Color3f(0);
 			}
 
-			//if only disp light and another layer, mix them lightly.
 			if(layers==2) {
+				//if only disp light and another layer (except elevation), mix them lightly.
 				if(live_layersvis[DisplayLayer::LIGHT] && !live_layersvis[DisplayLayer::ELEVATION]) {
-					terrain= setColorHeight(0.5); // this allows "light" to be "seen"
+					terrain= Color3f(0.5); // this allows "light" to be "seen"
 				}
+				//if displaying temp and another layer, mix with temp, and dim elevation too if it's the other one
 				if(live_layersvis[DisplayLayer::TEMP]) {
 					temp.red*= 0.45; temp.gre*= 0.45; temp.blu*= 0.45;
 					if(live_layersvis[DisplayLayer::ELEVATION]) terrain= setColorHeight(values[Layer::ELEVATION]/4+0.25);
 				}
 								
 			} else { 
+				//if more than 2 layers displayed, always dim temp
 				temp.red*= 0.15; temp.gre*= 0.15; temp.blu*= 0.15;
 			}
 
@@ -4254,7 +4235,7 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 				hazard.red*= 0.85; hazard.gre*= 0.85; hazard.blu*= 0.85;
 			}
 
-		} else if(live_layersvis[DisplayLayer::LIGHT]) terrain= setColorHeight(1); //if only light layer, set terrain to 1 so we show something
+		} else if(live_layersvis[DisplayLayer::LIGHT]) terrain= Color3f(1); //if only light layer, set terrain to 1 so we show something
 
 		//If we're displaying terrain...
 		if(live_layersvis[DisplayLayer::ELEVATION]){
@@ -4265,8 +4246,8 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 				
 			} else { //...and cell is water...
 				//...then change plant and hazard colors in water
-				plant= live_layersvis[DisplayLayer::PLANTS] ? setColorWaterPlant(values[Layer::PLANTS]) : setColorHeight(0);
-				hazard= live_layersvis[DisplayLayer::HAZARDS] ? setColorWaterHazard(values[Layer::HAZARDS]) : setColorHeight(0);
+				plant= live_layersvis[DisplayLayer::PLANTS] ? setColorWaterPlant(values[Layer::PLANTS]) : Color3f(0);
+				hazard= live_layersvis[DisplayLayer::HAZARDS] ? setColorWaterHazard(values[Layer::HAZARDS]) : Color3f(0);
 
 				
 			}

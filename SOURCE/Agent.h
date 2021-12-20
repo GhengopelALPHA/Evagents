@@ -12,7 +12,15 @@ class Agent
 {
 //IMPORTANT: if ANY variables are added/removed, you MUST check ReadWrite.cpp to see how loading and saving will be effected!!!
 public:
-	Agent(int NUMBOXES, int NUMINITCONNS, bool SPAWN_MIRROR_EYES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1, float MUTARATE2);
+	Agent(
+		int NUMBOXES, 
+		int NUMINITCONNS, 
+		bool SPAWN_MIRROR_EYES, 
+		int OVERRIDE_KINRANGE,
+		float MEANRADIUS, 
+		float REP_PER_BABY, 
+		float MUTARATE1, 
+		float MUTARATE2);
 	Agent();
 		
 	//Saved Variables
@@ -129,7 +137,14 @@ public:
 	void addIntake(std::string sourcetext, float amount);
 	void writeIfKilled();
 
-	Agent reproduce(Agent that, bool PRESERVE_MIRROR_EYES, float MEANRADIUS, float REP_PER_BABY, int baby);
+	Agent reproduce(
+		Agent that,
+		bool PRESERVE_MIRROR_EYES,
+		int OVERRIDE_KINRANGE,
+		float MEANRADIUS,
+		float REP_PER_BABY,
+		int baby
+	);
 	void resetRepCounter(float MEANRADIUS, float REP_PER_BABY);
 
 	void liveMutate(int MUTMULT= 1);

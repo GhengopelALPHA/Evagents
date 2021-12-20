@@ -170,7 +170,16 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 	char dataval[16];
 	int mode= ReadWriteMode::READY;
 
-	Agent xa(world->BRAINBOXES, world->BRAINCONNS, world->SPAWN_MIRROR_EYES, world->MEANRADIUS, world->REP_PER_BABY, world->DEFAULT_MUTCHANCE, world->DEFAULT_MUTSIZE); //mock agent. gets moved and deleted after loading
+	Agent xa(
+		world->BRAINBOXES,
+		world->BRAINCONNS,
+		world->SPAWN_MIRROR_EYES,
+		world->OVERRIDE_KINRANGE,
+		world->MEANRADIUS,
+		world->REP_PER_BABY,
+		world->DEFAULT_MUTCHANCE,
+		world->DEFAULT_MUTSIZE
+	); //Agent::Agent //mock agent. gets moved and deleted after loading
 	bool t2= false; //triggers for keeping track of where exactly we are
 
 	int eyenum= -1; //temporary index holders
@@ -514,39 +523,45 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 	if(!world->isDemo()){
 		char line[1028], *pos;
 
-		//first, check if the last epoch in the saved report matches or is one less than the first one in the current report
+		//first, check if the last epoch and day in the saved report matches or is one less than the first one in the current report
 		FILE* fr = fopen("report.txt", "r"); 
 		FILE* ft = fopen(addressREP.c_str(), "r"); 
 		bool append= false;
-		char text[8]; //for checking
-		int epoch= 0;
-		int maxepoch= 0;
+		char epochtext[8], daytext[8]; //for checking
+		int epoch;
+		int maxepoch= -1;
+		int day;
+		int maxday= -1;
 
 		if(ft){
+			printf("Old report.txt found, ");
 			while(!feof(ft)){
 				fgets(line, sizeof(line), ft);
 				pos= strtok(line,"\n");
-				sscanf(line, "%s%i%*s", &text, &epoch);
-				if (strcmp(text, "Epoch:")==0) {
-					if (epoch>maxepoch) maxepoch= epoch;
+				sscanf(line, "%s%i%s%i%*s", &epochtext, &epoch, &daytext, &day);
+				if (strcmp(epochtext, "Epoch:")==0) {
+					if (epoch>=maxepoch) {
+						maxepoch= epoch;
+						maxday = day;
+					}
 				}
 			}
 			fclose(ft);
 
-			if(world->isDebug()) printf("Old report.txt found, and its last epoch was %i.\n", maxepoch);
+			if(world->isDebug()) printf("its last epoch was %i and day was %i.\n", maxepoch, maxday);
 			
 			//now compare the max epoch from original with the first entry of the new
 			if(fr){
 				fgets(line, sizeof(line), fr);
 				pos= strtok(line,"\n");
-				sscanf(line, "%s%i%*s", &text, &epoch);
-				if (strcmp(text, "Epoch:")==0) {
+				sscanf(line, "%s%i%s%i%*s", &epochtext, &epoch, &daytext, &day);
+				if (strcmp(epochtext, "Epoch:")==0) {
 					//if it is, we append, because this is (very likely) a continuation of that save
-					if(world->isDebug())printf("Our report.txt starts at epoch %i. ", epoch);
-					if (epoch==maxepoch || epoch==maxepoch+1){
+					if(world->isDebug()) printf("Our report.txt starts at epoch %i and day %i, ", epoch, day);
+					if ((epoch==maxepoch || epoch==maxepoch+1) && (day==maxday || day==maxday+1 || (maxday==1 && day>1))){
 						append= true;
-						printf("Old report.txt found with matching Epoch numbers. Apending to it.\n");
-					} else printf("Old report.txt found. Replacing it.\n");
+						printf("epoch and day numbers match. Apending to it.\n");
+					} else printf("Replacing it.\n");
 				}
 				rewind(fr);
 			}
@@ -566,7 +581,13 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 			printf("report.txt didn\'t exist. That\'s... odd...\n");
 		}
 		fclose(fr); fclose(ft);
-	} else printf("Demo mode was active; no report data was ready\n");
+
+		if(append) {
+			//if we appended, then clear the current report so that we can save to the saved file's report once again if we don't restart the program
+			fopen("report.txt", "w");
+		}
+
+	} else printf("Demo mode was active; no report data was ready. We're recording starting now!\n");
 
 	//once we've saved, and checked if demo mode was active, we set it to false to make sure we start recording
 	world->setDemo(false);
@@ -737,7 +758,6 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					//mod count
 					sscanf(dataval, "%i", &i);
 					world->modcounter= i;
-					world->ptr= floor((float)i*world->REPORTS_PER_EPOCH/world->FRAMES_PER_EPOCH); //fix for loading saves breaking the epoch alignment of the data graph
 				}else if(strcmp(var, "CLOSED=")==0){
 					//closed state
 					sscanf(dataval, "%i", &i);
@@ -798,6 +818,9 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 
 		printf("WORLD LOADED!\n");
 
+		world->setStatsAfterLoad();
+
+		world->processCells(true);
 		world->setInputs();
 		world->brainsTick();
 		world->processOutputs(true);

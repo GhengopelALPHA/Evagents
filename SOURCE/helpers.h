@@ -2,7 +2,17 @@
 #define HELPERS_H
 #include <stdlib.h>
 #include <math.h>
+#include <vector>
 #include "vmath.h"
+
+inline float expnf(float x, int n = 8) {
+	x = 1.0 + x / pow(2.0f, n);
+	while (n>=0) {
+		x *= x;
+		n--;
+	}
+	return x;
+}
 
 //uniform random in [a,b)
 inline float randf(float a, float b){return ((b-a)*((float)rand()/RAND_MAX))+a;}
@@ -57,6 +67,13 @@ inline float pointline(Vector2f posA, Vector2f posB, Vector2f posC){
 	return fabs((posC.x-posA.x)*(posB.y-posA.y) - (posC.y-posA.y)*(posB.x-posA.x))/normalLength;
 }
 
+//delete the first item in a vector, treating it like a queue
+template <typename T>
+void pop_front(std::vector<T>& v)
+{
+    assert(!v.empty());
+    v.erase(v.begin());
+}
 
 //Passed arrays store different data types
 template <typename T, typename U, int size1, int size2>

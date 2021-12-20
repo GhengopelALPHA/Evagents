@@ -154,25 +154,40 @@ void World::reset()
 		}
 	}
 
-	//open report file; null it up if it exists. ONLY if we are not in demo mode. Mind you, demo mode could get turned off by config above
 	if(!isDemo()){ 
+		//open report file; null it up if it exists. ONLY if we are not in demo mode. Mind you, demo mode could get turned off by config above
 		FILE* fr = fopen("report.txt", "w");
 		fclose(fr);
+
+		STATuserseengenerosity= true;
+		STATuserseenjumping= true;
+	} else {
+		//only reset generosity stat if in demo mode
+		STATuserseengenerosity= false;
+		STATuserseenjumping= false;
 	}
 
-	ptr= 0;
-	for(int q=0;q<conf::RECORD_SIZE;q++) {
-		numHerbivore[q]= 0;
-		numCarnivore[q]= 0;
-		numFrugivore[q]= 0;
-		numTerrestrial[q]= 0;
-		numAmphibious[q]= 0;
-		numAquatic[q]= 0;
-		numHybrid[q]= 0;
-		numDead[q]= 0;
-		numTotal[q]= 0;
-	}
-	lastptr= 0;
+	graphGuides.clear();
+	numTotal.clear();
+	numDead.clear();
+	numHerbivore.clear();
+	numCarnivore.clear();
+	numFrugivore.clear();
+	numTerrestrial.clear();
+	numAmphibious.clear();
+	numAquatic.clear();
+	numHybrid.clear();
+
+	graphGuides.resize(REPORTS_PER_EPOCH, GuideLine::NONE);
+	numTotal.resize(REPORTS_PER_EPOCH, 0);
+	numDead.resize(REPORTS_PER_EPOCH, 0);
+	numHerbivore.resize(REPORTS_PER_EPOCH, 0);
+	numCarnivore.resize(REPORTS_PER_EPOCH, 0);
+	numFrugivore.resize(REPORTS_PER_EPOCH, 0);
+	numTerrestrial.resize(REPORTS_PER_EPOCH, 0);
+	numAmphibious.resize(REPORTS_PER_EPOCH, 0);
+	numAquatic.resize(REPORTS_PER_EPOCH, 0);
+	numHybrid.resize(REPORTS_PER_EPOCH, 0);
 
 	//reset achievements
 	STATuseracted= false;
@@ -194,6 +209,7 @@ void World::sanitize()
 {
 	printf("...sanitizing agents...\n");
 	agents.clear();
+	deaths.clear();
 }
 
 void World::spawn()
@@ -262,7 +278,7 @@ void World::spawn()
 	if(CLIMATE) {
 		printf("...(un)freezing glaciers...\n");
 		CLIMATEBIAS= randf(0.25,0.75);
-		CLIMATEMULT= randf(0.4,0.9);
+		CLIMATEMULT= randf(0.4,0.8);
 		#if defined(_DEBUG)
 			printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
 		#endif
@@ -292,7 +308,7 @@ void World::cellsLandMasses()
 		}
 	}
 
-	if(OCEANPERCENT!=1){
+	if(OCEANPERCENT<1){
 		int lastcx, lastcy;
 		for (int i=0; i<CONTINENTS*3; i++) { //give ourselves more iterations to do extra stuff
 			int lowcx= 0;
@@ -497,46 +513,22 @@ void World::cellsRoundTerrain()
 
 void World::update()
 {
-	modcounter++; //mod at init== 1, this is intentional
-	vector<int> dt;
-
-	//Process periodic events
+	//Process periodic world events
 	#if defined(_DEBUG)
-	if(DEBUG) printf("P");
+	if(DEBUG) printf("W");
 	#endif
 
-	//disable demo mode if epoch>0
-	if(current_epoch>0) setDemo(false);
+	processWorldTick();
 
-	//if this is very first tick,
-	if(modcounter==1 && current_epoch==0){
-		setInputs(); //take a snapshot...
-		brainsTick(); //...push it through the brain...
-		processOutputs(true);
-		processOutputs(true);
-		processOutputs(true);
-		processOutputs(true);
-		processOutputs(true); //...and equalize all agent's outputs
+	//play music! move to CONTROL.CPP
+	tryPlayMusic();
 
-		if(DISABLE_LAND_SPAWN && STATlandratio>0.75) {
-			//disable disable land spawning if the oceans are too small
-			DISABLE_LAND_SPAWN= false;
-			addEvent("Land spawning now enabled!", EventColor::CYAN);
-			addEvent("(you can disable again in menu)", EventColor::CYAN);
-		}
-	}
-
-	//start reporting process
-	processReporting();
-
-	//adjust global climate
-	processClimate();
+	#if defined(_DEBUG)
+	if(DEBUG) printf("/S");
+	#endif
 
 	//add new agents, if environment isn't closed
 	processRandomSpawn();
-
-	//play music!
-	tryPlayMusic();
 
 	#if defined(_DEBUG)
 	if(DEBUG) printf("/C");
@@ -629,121 +621,70 @@ void World::update()
 
 }
 
-void World::processReporting()
+void World::processWorldTick()
 {
-	//update achievements, write report, record counts, display population events
-	if(!STATuseracted && pcontrol) { //outside of the report if statement b/c it can happen anytime
-		addEvent("User, Take the Wheel!", EventColor::MULTICOLOR);
-		STATuseracted= true;
+	//disable demo mode if epoch>0
+	if(current_epoch>0) setDemo(false);
+
+	//if this is very first tick,
+	if(modcounter==0 && current_epoch==0){
+		setInputs(); //take a snapshot...
+		brainsTick(); //...push it through the brain...
+		processOutputs(true);
+		processOutputs(true);
+		processOutputs(true);
+		processOutputs(true);
+		processOutputs(true); //...and equalize all agent's outputs
+
+		if(DISABLE_LAND_SPAWN && STATlandratio>0.75) {
+			//disable disable land spawning if the oceans are too small
+			DISABLE_LAND_SPAWN= false;
+			addEvent("Land spawning forceenabled!", EventColor::CYAN);
+			addEvent("(you can disable again in menu)", EventColor::CYAN);
+		}
 	}
 
-	//start reporting process
-	if (REPORTS_PER_EPOCH>0 && modcounter%(FRAMES_PER_EPOCH/REPORTS_PER_EPOCH)==0) { //if this code is adjusted, please search "ptr" in ReadWrite's load fuction
-		//first, collect all stats
-		findStats();
+	processReporting(); 
 
-		numHerbivore[ptr]= getHerbivores();
-		numCarnivore[ptr]= getCarnivores();
-		numFrugivore[ptr]= getFrugivores();
-		numTerrestrial[ptr]= getLungLand();
-		numAmphibious[ptr]= getLungAmph();
-		numAquatic[ptr]= getLungWater();
-		numHybrid[ptr]= getHybrids();
-		numDead[ptr]= getDead();
-		numTotal[ptr]= getAlive();
+	if (modcounter>=FRAMES_PER_EPOCH) {
+		processNewEpoch(); //resets modcounter= 0 after running
+	}
 
-		//events for achievements and stats every report cycle, every other if one was recorded 
-		if(lastptr>=0){
-			if(!STATfirstspecies && max(STATbestherbi,max(STATbestfrugi,STATbestcarni))==5) {
-				addEvent("First Species Suriving!", EventColor::MULTICOLOR);
-				STATfirstspecies= true;}
-			if(!STATfirstpopulation && getAlive()>AGENTS_MAX_SPAWN) {
-				addEvent("First Large Population!", EventColor::MULTICOLOR);
-				STATfirstpopulation= true;}
-			if(!STATfirstglobal && STATbestaquatic>=5 && STATbestterran>=5) {
-				addEvent("First Global Population(s)!", EventColor::MULTICOLOR);
-				STATfirstglobal= true;}
-			if(!STATstrongspecies && max(STATbestherbi,max(STATbestfrugi,STATbestcarni))>=500) {
-				addEvent("First to Generation 500!", EventColor::MULTICOLOR);
-				STATstrongspecies= true;}
-			if(!STATstrongspecies2 && max(STATbestherbi,max(STATbestfrugi,STATbestcarni))>=1000) {
-				addEvent("First to Generation 1000!", EventColor::MULTICOLOR);
-				STATstrongspecies2= true;}
-			if(!STATwildspecies && STATstrongspecies) {
-				int wildest= 0;
-				for(int i=0; i<agents.size(); i++){
-					if(abs(agents[i].species)>abs(wildest)) wildest= agents[i].species;
-				}
-				if(abs(wildest)>conf::SPECIESID_RANGE){
-					addEvent("It\'s over 9000!", EventColor::MULTICOLOR);
-					STATwildspecies= true;
-				}
-			}
-			if(STATallachieved && FUN==true) FUN= false;
-			if(!STATallachieved && STATuseracted && STATfirstspecies && STATfirstpopulation && STATfirstglobal && STATstrongspecies && STATstrongspecies2 && STATwildspecies){
-				addEvent("All Achievements Achieved!", EventColor::MULTICOLOR);
-				STATallachieved= true;
-				FUN= true;}
+	processClimate();
 
-			int preeventcount= events.size(); //count of events before checks. Will cause next cycle to skip, reducing repeat event flags
+	modcounter++;
+}
 
-			//generic stats between last report and current
-			if(current_epoch>0 && numTotal[ptr]<=numTotal[lastptr]*0.9-20) {
-				addEvent("Population Bust!", EventColor::RED);}
-			if(current_epoch>0 && numTotal[ptr]==AGENTS_MIN_NOTCLOSED && STATfirstspecies && numTotal[lastptr]>AGENTS_MIN_NOTCLOSED*1.1+5) {
-				addEvent("Population Crash!", EventColor::RED);}
-			if(numTotal[ptr]>=numTotal[lastptr]*1.1+20) {
-				//if having a major population boom, check major phenotypes
-				if(numHerbivore[ptr]>=numHerbivore[lastptr]*1.1+20 && numHerbivore[ptr]>AGENTS_MIN_NOTCLOSED) {
-					addEvent("Herbivore Bloom", EventColor::GREEN);}
-				if(numCarnivore[ptr]>=numCarnivore[lastptr]*1.1+20 && numCarnivore[ptr]>AGENTS_MIN_NOTCLOSED) {
-					addEvent("Carnivore Bloom", EventColor::GREEN);}
-				if(numFrugivore[ptr]>=numFrugivore[lastptr]*1.1+20 && numFrugivore[ptr]>AGENTS_MIN_NOTCLOSED) {
-					addEvent("Frugivore Bloom", EventColor::GREEN);}
-				if(numAmphibious[ptr]>=numAmphibious[lastptr]*1.1+20 && numAmphibious[ptr]>AGENTS_MIN_NOTCLOSED && (numTerrestrial[ptr]>AGENTS_MIN_NOTCLOSED || numAquatic[ptr]>AGENTS_MIN_NOTCLOSED)) {
-					addEvent("Amphibian Bloom", EventColor::GREEN);}
-				if(numTerrestrial[ptr]>=numTerrestrial[lastptr]*1.1+20 && numTerrestrial[ptr]>AGENTS_MIN_NOTCLOSED && (numAmphibious[ptr]>AGENTS_MIN_NOTCLOSED || numAquatic[ptr]>AGENTS_MIN_NOTCLOSED)) {
-					addEvent("Terrestrial Bloom", EventColor::GREEN);}
-				if(numAquatic[ptr]>=numAquatic[lastptr]*1.1+20 && numAquatic[ptr]>AGENTS_MIN_NOTCLOSED && (numAmphibious[ptr]>AGENTS_MIN_NOTCLOSED || numTerrestrial[ptr]>AGENTS_MIN_NOTCLOSED)) {
-					addEvent("Aquatic Bloom", EventColor::GREEN);}
-			} else {
-				//if not having a major population boom or bust, check slower rates of growth/death
-				if(ptr>10 && numTotal[ptr]>numTotal[ptr-1] && numTotal[ptr-1]>numTotal[ptr-2] && numTotal[ptr-2]>numTotal[ptr-3]
-					&& numTotal[ptr-3]>numTotal[ptr-4] && numTotal[ptr-4]>numTotal[ptr-5] && numTotal[ptr-5]>numTotal[ptr-6]
-					&& numTotal[ptr-6]>numTotal[ptr-7] && numTotal[ptr-7]>numTotal[ptr-8] && numTotal[ptr-8]>numTotal[ptr-9]
-					&& numTotal[ptr-9]>numTotal[ptr-10]) {
-						addEvent("Steady Population Bloom", EventColor::GREEN);}
-				else if(ptr>10 && numTotal[ptr]<numTotal[ptr-1] && numTotal[ptr-1]<numTotal[ptr-2] && numTotal[ptr-2]<numTotal[ptr-3]
-					&& numTotal[ptr-3]<numTotal[ptr-4] && numTotal[ptr-4]<numTotal[ptr-5] && numTotal[ptr-5]<numTotal[ptr-6]
-					&& numTotal[ptr-6]<numTotal[ptr-7] && numTotal[ptr-7]<numTotal[ptr-8] && numTotal[ptr-8]<numTotal[ptr-9]
-					&& numTotal[ptr-9]<numTotal[ptr-10]) {
-						addEvent("Steady Population Bust", EventColor::RED);}
-			}
+void World::processNewEpoch()
+{
+	modcounter = 0;
+	current_epoch++;
 
-			if(events.size()>preeventcount) lastptr= -ptr; //new event? skip next cycle of checks; otherwise, update
-			else lastptr= ptr;
-		} else lastptr*= -1;
-		
-		ptr++;
-		if(ptr == conf::RECORD_SIZE) ptr = 0;
+	//post event that a new epoch has started
+	std::string eventstring= "Epoch #";
+	std::ostringstream ss;
+	ss << current_epoch;
+	eventstring.append( ss.str() );
+	eventstring.append(" Started");
+	addEvent(eventstring, EventColor::BLACK);
 
-		//please note: DEMO mode is checked inside this func
-		writeReport();
-
-		deaths.clear();
-	} else if (modcounter%12==0) findStats(); //ocasionally collect stats regardless
+	//adjust global mutation rate
+	processMutationEvent();
 }
 
 void World::processClimate()
 {
-	if(modcounter%(5*FRAMES_PER_DAY)==0) {
+	if(modcounter%(5*FRAMES_PER_DAY)==0) { //every 5 days, we adjust climate
 		if(CLIMATE){
-			int epochmult= modcounter>=FRAMES_PER_EPOCH ? 10 : 1;
-			CLIMATEBIAS= cap(randn(CLIMATEBIAS, CLIMATE_INTENSITY*epochmult)); //simple cap of bias - we can get stuck at the extremes 
-			CLIMATEMULT= cap(abs(randn(CLIMATEMULT, CLIMATE_INTENSITY*epochmult)));
+			int epochmult= modcounter>=FRAMES_PER_EPOCH ? conf::CLIMATE_INTENSITY_EPOCH_MULT : 1;
+			//simple cap of bias - we can get stuck at the extremes 
+			CLIMATEBIAS= cap(randn(CLIMATEBIAS, CLIMATE_INTENSITY*epochmult));
 			//more complicated behavior of the mult - take abs randn and cap it
-			if(modcounter%(int)(FRAMES_PER_EPOCH/2)==0) CLIMATEMULT= 0.25*(CLIMATEMULT_AVERAGE + 3*CLIMATEMULT);
+			CLIMATEMULT= cap(abs(randn(CLIMATEMULT, CLIMATE_INTENSITY*epochmult)));
+			
 			//average the climate mult towards 0.5 occasionally
+			if(modcounter%(int)(FRAMES_PER_EPOCH/2)==0)
+				CLIMATEMULT= (CLIMATEMULT*conf::CLIMATEMULT_WEIGHT + CLIMATEMULT_AVERAGE) / ((float)(conf::CLIMATEMULT_WEIGHT+1));
 
 			if(epochmult!=1) {
 				if(isHadean()) addEvent("Global Hadean Epoch!", EventColor::ORANGE);
@@ -756,37 +697,220 @@ void World::processClimate()
 				printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
 			#endif
 		}
-	}
 
-	if (modcounter>=FRAMES_PER_EPOCH) {
-		modcounter=0;
-		current_epoch++;
+		if (DROUGHTS){
+			bool beforedrought = isDrought();
+			bool beforeovergrowth = isOvergrowth();
 
-		//adjust global drought multiplier at end of epoch
-		if(DROUGHTS){
-			DROUGHTMULT= randn(DROUGHTMULT, conf::DROUGHT_STDDEV);
-			if(DROUGHTMULT>DROUGHT_MAX || DROUGHTMULT<DROUGHT_MIN) 
-				DROUGHTMULT= (DROUGHTMULT*conf::DROUGHT_WEIGHT+1.0)/((float)(conf::DROUGHT_WEIGHT+1)); //try to average back wandering Droughts
-			if(isDrought()) addEvent("Global Drought Epoch!", EventColor::PINK);
-			if(isOvergrowth()) addEvent("Global Overgrowth Epoch!", EventColor::LIME);
-			if(DEBUG) printf("Set Drought Multiplier to %f\n", DROUGHTMULT);
-		} else DROUGHTMULT= 1.0;
+			//every 25 days, we pick a new drought mult
+			if (modcounter%(50*FRAMES_PER_DAY)==0 && current_epoch > 0) {
+				DROUGHTMULT= randn(DROUGHTMULT, conf::DROUGHT_STDDEV);
+			} else if (modcounter%(10*FRAMES_PER_DAY)==0) {
+				//try to average Droughts down to a random float every 10 days
+				DROUGHTMULT= (DROUGHTMULT*conf::DROUGHT_WEIGHT_TO_RANDOM+randf(0,1)) / ((float)(conf::DROUGHT_WEIGHT_TO_RANDOM+1));
+			}
+			//average back toward 1.0 if out of range
+			if (DROUGHTMULT>DROUGHT_MAX || DROUGHTMULT<DROUGHT_MIN) 
+				DROUGHTMULT= (DROUGHTMULT*conf::DROUGHT_WEIGHT_TO_ONE+1.0) / ((float)(conf::DROUGHT_WEIGHT_TO_ONE+1));
+				
+			if (!beforedrought && isDrought())
+				addEvent("Global Drought Started!", EventColor::PINK);
+			else if (beforedrought && !isDrought())
+				addEvent("Global Drought Ended!", EventColor::LIME);
+			
+			if (!beforeovergrowth && isOvergrowth())
+				addEvent("Global Overgrowth Start!", EventColor::LIME);
+			else if (beforeovergrowth && !isOvergrowth())
+				addEvent("Global Overgrowth Ended!", EventColor::PINK);
 
-		//adjust global mutation rate
-		if(MUTEVENTS){
-			MUTEVENTMULT= randf(0,1)<conf::MUTEVENT_CHANCE ? randi(min(1,MUTEVENT_MAX),max(1,MUTEVENT_MAX+1)) : 1;
-			if(MUTEVENTMULT<0) MUTEVENTMULT= 0;
-			if(MUTEVENTMULT==0) addEvent("No Mutation chance Epoch!?!", EventColor::LAVENDER);
-			else if(MUTEVENTMULT==2) addEvent("Double Mutation chance Epoch!", EventColor::LAVENDER);
-			else if(MUTEVENTMULT==3) addEvent("TRIPPLE Mutation chance Epoch!", EventColor::LAVENDER);
-			else if(MUTEVENTMULT==4) addEvent("QUADRUPLE Mutation chance Epoch!", EventColor::LAVENDER);
-			else if(MUTEVENTMULT>4) addEvent("Mutation chance > *4!!!", EventColor::LAVENDER);
-			if(DEBUG) printf("Set Mutation Multiplier to %i\n", MUTEVENTMULT);
+			if (DEBUG)
+				printf("Set Drought Multiplier to %f\n", DROUGHTMULT);
+		} else {
+			DROUGHTMULT= 1.0;
 		}
 	}
 }
 
-void World::processCells()
+void World::processMutationEvent()
+{
+	if (MUTEVENTS) {
+		MUTEVENTMULT= randf(0,1)<conf::MUTEVENT_CHANCE ? randi(min(1,MUTEVENT_MAX),max(1,MUTEVENT_MAX+1)) : 1;
+		if (MUTEVENTMULT<0) 
+			MUTEVENTMULT= 0;
+		if (MUTEVENTMULT==0) 
+			addEvent("No Mutation chance Epoch!?!", EventColor::LAVENDER);
+		else if (MUTEVENTMULT==2) 
+			addEvent("Double Mutation chance Epoch!", EventColor::LAVENDER);
+		else if (MUTEVENTMULT==3) 
+			addEvent("TRIPPLE Mutation chance Epoch!", EventColor::LAVENDER);
+		else if (MUTEVENTMULT==4) 
+			addEvent("QUADRUPLE Mutation chance Epoch!", EventColor::LAVENDER);
+		else if (MUTEVENTMULT>4) 
+			addEvent("Mutation chance > *4!!!", EventColor::LAVENDER);
+		if(DEBUG) 
+			printf("Set Mutation Multiplier to %i\n", MUTEVENTMULT);
+	} else {
+		MUTEVENTMULT = 1;
+	}
+}
+
+void World::processReporting()
+{
+	//update achievements, write report, record counts, display population events
+	if (!STATuseracted && pcontrol) { //outside of the report if statement b/c it can happen anytime
+		addEvent("User, Take the Wheel!", EventColor::MULTICOLOR);
+		STATuseracted= true;
+	}
+
+	//start reporting process
+	if (REPORTS_PER_EPOCH>0 && modcounter%(FRAMES_PER_EPOCH/REPORTS_PER_EPOCH)==0) {
+		//first, collect all stats
+		findStats();
+
+		//pop the front of all the vectors
+		pop_front(graphGuides);
+		pop_front(numTotal);
+		pop_front(numDead);
+		pop_front(numHerbivore);
+		pop_front(numCarnivore);
+		pop_front(numFrugivore);
+		pop_front(numTerrestrial);
+		pop_front(numAmphibious);
+		pop_front(numAquatic);
+		pop_front(numHybrid);
+
+		//push back all new values
+		int guideline;
+		if(modcounter%FRAMES_PER_EPOCH==0) guideline = GuideLine::EPOCH;
+		else if (modcounter%FRAMES_PER_DAY==0) guideline = GuideLine::DAY;
+		else guideline = GuideLine::NONE;
+		graphGuides.push_back(guideline);
+
+		numTotal.push_back(getAlive());
+		numDead.push_back(getDead());
+		numHerbivore.push_back(getHerbivores());
+		numCarnivore.push_back(getCarnivores());
+		numFrugivore.push_back(getFrugivores());
+		numTerrestrial.push_back(getLungLand());
+		numAmphibious.push_back(getLungAmph());
+		numAquatic.push_back(getLungWater());
+		numHybrid.push_back(getHybrids());
+
+		//events for achievements and stats every epoch
+	
+		if(!STATfirstspecies && max(STATbestherbi,max(STATbestfrugi,STATbestcarni))==5) {
+			addEvent("First Species Suriving!", EventColor::MULTICOLOR);
+			STATfirstspecies= true;}
+		if(!STATfirstpopulation && getAlive()>AGENTS_MAX_SPAWN) {
+			addEvent("First Large Population!", EventColor::MULTICOLOR);
+			STATfirstpopulation= true;}
+		if(!STATfirstglobal && STATbestaquatic>=5 && STATbestterran>=5) {
+			addEvent("First Global Population(s)!", EventColor::MULTICOLOR);
+			STATfirstglobal= true;}
+		if(!STATstrongspecies && max(STATbestherbi,max(STATbestfrugi,STATbestcarni))>=500) {
+			addEvent("First to Generation 500!", EventColor::MULTICOLOR);
+			STATstrongspecies= true;}
+		if(!STATstrongspecies2 && max(STATbestherbi,max(STATbestfrugi,STATbestcarni))>=1000) {
+			addEvent("First to Generation 1000!", EventColor::MULTICOLOR);
+			STATstrongspecies2= true;}
+		if(!STATwildspecies && STATstrongspecies) {
+			int wildest= 0;
+			for(int i=0; i<agents.size(); i++){
+				if(abs(agents[i].species)>abs(wildest)) wildest= agents[i].species;
+			}
+			if(abs(wildest)>conf::SPECIESID_RANGE){
+				addEvent("It\'s over 9000!", EventColor::MULTICOLOR);
+				STATwildspecies= true;
+			}
+		}
+		if(STATallachieved && FUN==true) FUN= false;
+		if(!STATallachieved && STATuseracted && STATfirstspecies && STATfirstpopulation && STATfirstglobal && STATstrongspecies && STATstrongspecies2 && STATwildspecies){
+			addEvent("All Achievements Achieved!", EventColor::MULTICOLOR);
+			STATallachieved= true;
+			FUN= true;}
+
+		//once-epoch events tags (skipping if the 0th slot is totally zero, indicating a load or program start)
+		if(modcounter%FRAMES_PER_EPOCH == 0 && numTotal[0] != 0){
+			int preeventcount= events.size(); //count of events before checks. Will cause next cycle to skip, reducing repeat event flags
+			int ptr = REPORTS_PER_EPOCH-1;
+
+			//generic stats between last report and current
+			if(numTotal[ptr] <= AGENTS_MIN_NOTCLOSED && STATfirstspecies) {
+				//population is at or below min_agents after the First Species alert was fired
+				addEvent("Population Crash Epoch!", EventColor::RED);
+				STATfirstspecies= false; //reset first species alert
+			} else if (numTotal[ptr] <= numTotal[0]*0.5) {
+				//population at end of epoch is less than at start of epoch by a dramatic amount
+				addEvent("Population Bust Epoch!", EventColor::RED);
+			} else if (numTotal[ptr] >= numTotal[0]*1.3) {
+				//population at end of epoch is greater than at start of epoch by at least a dramatic amount (130%)
+				if (numTotal[ptr] >= numTotal[0]*2) {
+					//check for a huge population boom (doubling)
+					addEvent("Population Doubled (or more) Epoch!", EventColor::YELLOW);
+				}
+
+				//check major phenotypes for blooms or branches:
+				bool anyphenotype = false;
+				//stomach phenotype
+				if(numHerbivore[ptr] >= numHerbivore[0]*1.3 && numHerbivore[ptr] > AGENTS_MIN_NOTCLOSED) {
+					if(numCarnivore[0] > numHerbivore[0] || numFrugivore[0] > numHerbivore[0]) 
+						addEvent("Herbivore Branch Epoch", EventColor::GREEN); //if the other phenotypes were >, we branched
+					else addEvent("Herbivore Bloom Epoch", EventColor::GREEN); //otherwise, we bloomed
+					anyphenotype = true;
+				}
+				if(numCarnivore[ptr] >= numCarnivore[0]*1.3 && numCarnivore[ptr] > AGENTS_MIN_NOTCLOSED) {
+					if(numHerbivore[0]>numCarnivore[0] || numFrugivore[0]>numCarnivore[0]) 
+						addEvent("Carnivore Branch Epoch", EventColor::GREEN);
+					else addEvent("Carnivore Bloom Epoch", EventColor::GREEN);
+					anyphenotype = true;
+				}
+				if(numFrugivore[ptr] >= numFrugivore[0]*1.3 && numFrugivore[ptr] > AGENTS_MIN_NOTCLOSED) {
+					if(numHerbivore[0]>numFrugivore[0] || numCarnivore[0]>numFrugivore[0]) 
+						addEvent("Frugivore Branch Epoch", EventColor::GREEN);
+					else addEvent("Frugivore Bloom Epoch", EventColor::GREEN);
+					anyphenotype = true;
+				}
+				//lung phenotype
+				if(numAmphibious[ptr] >= numAmphibious[0]*1.3 && numAmphibious[ptr] > AGENTS_MIN_NOTCLOSED) {
+					if(numTerrestrial[0]>numAmphibious[0] || numAquatic[0]>numAmphibious[0]) 
+						addEvent("Amphibian Branch Epoch", EventColor::GREEN);
+					else addEvent("Amphibian Bloom Epoch", EventColor::GREEN);
+					anyphenotype = true;
+				}
+				if(numTerrestrial[ptr] >= numTerrestrial[0]*1.3 && numTerrestrial[ptr] > AGENTS_MIN_NOTCLOSED) {
+					if(numAmphibious[0]>numTerrestrial[0] || numAquatic[0]>numTerrestrial[0])
+						addEvent("Terrestrial Branch Epoch", EventColor::GREEN);
+					else addEvent("Terrestrial Bloom Epoch", EventColor::GREEN);
+					anyphenotype = true;
+				}
+				if(numAquatic[ptr] >= numAquatic[0]*1.3 && numAquatic[ptr] > AGENTS_MIN_NOTCLOSED) {
+					if(numAmphibious[0] > numAquatic[0] || numTerrestrial[0] > numAquatic[0])
+						addEvent("Aquatic Branch Epoch", EventColor::GREEN);
+					else addEvent("Aquatic Bloom Epoch", EventColor::GREEN);
+					anyphenotype = true;
+				}
+
+				if(!anyphenotype) {
+					//if none of the major phenotypes triggered, we just had a generic population bloom
+					addEvent("Population Bloom Epoch", EventColor::GREEN);
+				}
+			} else {
+				//if not having a major population boom or bust, check slower rates of growth/death
+				if(numTotal[ptr] > numTotal[0]*1.2) addEvent("Slight Increase Population Epoch", EventColor::YELLOW);
+				else if(numTotal[ptr] < numTotal[0]*0.8) addEvent("Slight Decrease Population Epoch", EventColor::YELLOW);
+				else if(numTotal[ptr] < AGENTS_MIN_NOTCLOSED*1.2) addEvent("Minimum Population Epoch", EventColor::YELLOW);
+				else addEvent("Steady Population Epoch", EventColor::YELLOW);
+			}
+		}
+
+		//please note: DEMO mode is checked inside this func
+		writeReport();
+
+		deaths.clear();
+	} else if (modcounter%12==0) findStats(); //ocasionally collect stats regardless
+}
+
+void World::processCells(bool prefire)
 {
 	if(conf::CELL_TICK_RATE!=0) {
 		//random seeds/spawns
@@ -825,7 +949,7 @@ void World::processCells()
 
 			for(int cx=0; cx<(int)CW;cx++){
 				//basic simulation spread function; calculate every other cell every other tick, except modcounter= first frame
-				if((cx+cy)%conf::CELL_TICK_RATE!=modcounter%conf::CELL_TICK_RATE && modcounter!=1) continue;
+				if((cx+cy)%conf::CELL_TICK_RATE!=modcounter%conf::CELL_TICK_RATE && modcounter!=1 && !prefire) continue;
 
 				float plant = cells[Layer::PLANTS][cx][cy];
 				float fruit = cells[Layer::FRUITS][cx][cy];
@@ -833,7 +957,7 @@ void World::processCells()
 				float hazard = cells[Layer::HAZARDS][cx][cy];
 
 				//plant ops
-				if (plant>0) {
+				if (plant>0 && !prefire) {
 					float tempmult= CLIMATE_AFFECT_FLORA ? 2-cap(2*min(tempzone+0.5-conf::CLIMATE_KILL_FLORA_ZONE,1.5-conf::CLIMATE_KILL_FLORA_ZONE-tempzone)) : 1.0;
 					plant-= FOODDECAY*conf::CELL_TICK_RATE*tempmult; //food quantity is changed by FOODDECAY, which is doubled in bad temperature regions (arctic and hadean)
 					if (hazard>0) {
@@ -853,40 +977,35 @@ void World::processCells()
 					}
 				}
 				cells[Layer::PLANTS][cx][cy]= cap(plant);
-				//end plant
 
 				//meat ops
-				if (meat>0) {
+				if (meat>0 && !prefire) {
 					meat -= MEATDECAY*conf::CELL_TICK_RATE; //consider: meat decay effected by direct tempzone?
 				}
 				cells[Layer::MEATS][cx][cy]= cap(meat);
-				//end meat
 
 				//fruit ops
-				if (fruit>0) {
+				if (fruit>0 && !prefire) {
 					if (plant<=FRUITREQUIRE || DROUGHTMULT<0){
 						fruit-= FRUITDECAY*conf::CELL_TICK_RATE; //fruit decays, double if lack of plant life or DROUGHTMULT is negative
 					}
 					fruit-= FRUITDECAY*conf::CELL_TICK_RATE;
 				}
 				cells[Layer::FRUITS][cx][cy]= cap(fruit);
-				//end fruit
 
 				//hazard = cells[Layer::HAZARDS]...
-				if (hazard>0 && hazard<=0.9){
+				if (hazard>0 && hazard<=0.9 && !prefire){
 					hazard-= HAZARDDECAY*conf::CELL_TICK_RATE; //hazard decays
-				} else if (hazard>0.9 && randf(0,1)<0.0625){
+				} else if (hazard>0.9 && randf(0,1)<0.0625 && !prefire){
 					hazard= 90*(hazard-0.99); //instant hazards will be reset to proportionate value
 				}
 				cells[Layer::HAZARDS][cx][cy]= cap(hazard);
-				//end hazard
 
 				//light ops
 				//if we are moonlit and moonlight happens to be 1.0, then the light layer is useless. Set all values to 1 for rendering
 				cells[Layer::LIGHT][cx][cy]= (MOONLIT && MOONLIGHTMULT==1.0) ? 1.0 :
 					cap(0.6+sin((cx*2*M_PI)*invCW - daytime));
 				//cap(0.6+sin((cx*2*M_PI)/CW-(modcounter+current_epoch*FRAMES_PER_EPOCH)*2*M_PI/FRAMES_PER_DAY));
-				//end light
 			}
 		}
 	}
@@ -919,7 +1038,6 @@ void World::tryPlayMusic()
 			#if defined(_DEBUG) 
 				printf(", index: %i", songindex);
 			#endif
-			printf("\n");
 
 			currentsong= audio->play2D(songfile.c_str(), false, false, true, ESM_NO_STREAMING);
 
@@ -932,7 +1050,7 @@ void World::tryPlayMusic()
 						last5songs[(i+4)%5]= -1; // this little do-dad will set the next index to -1, allowing us to cycle!
 						last5songs[i]= songindex;
 						#if defined(_DEBUG)
-						printf("added to list of recent songs\n");
+						printf(", added to list of recent songs\n");
 						#endif
 						break;
 					}
@@ -942,6 +1060,7 @@ void World::tryPlayMusic()
 				printf("...failed!\n");
 				#endif
 			}
+			printf("\n");
 		}
 
 	} else if (currentsong) {
@@ -1127,7 +1246,7 @@ void World::setInputs()
 					if(a->isTiny()) break; //small agents only get one ear input, the rest are 0
 				}
 
-				float ang= (a2->pos- a->pos).get_angle(); //current angle between bots, with origin at agent a
+				float ang= (a2->pos - a->pos).get_angle(); //current angle between bots, in the interval [-pi,pi] radians (a-> is at origin)
 
 				//eyes: bot sight
 				//we will skip all eyesight if our agent is in the dark (light==0)
@@ -1138,20 +1257,27 @@ void World::setInputs()
 							//careful about trying to do anything else in here; it depends on if the agent is within DIST of another
 						}
 
-						float aa = a->angle + a->eyedir[q];//get eye's absolute (world) angle, with origin at agent a
-						if (aa<-M_PI) aa += 2*M_PI;
-						if (aa>M_PI) aa -= 2*M_PI;//not only loop aa angle, but throw it a whole circle around (we're allowing negative)
+						float eye_absolute_angle = a->angle + a->eyedir[q]; //get eye's absolute (world) angle
+						// a->angle is in [-pi,pi], a->eyedir[] is in [0,2pi]. it's possible to be > pi but not > 3*pi or < -pi
+						if (eye_absolute_angle>M_PI) eye_absolute_angle -= 2*M_PI; //correct if > pi
 						
-						float diff1= aa- ang; //get the difference in absolute angles between the eye and the other agent
-						if (fabs(diff1)>M_PI) diff1= 2*M_PI- fabs(diff1); //now take the absolute value to get a raw angle between
-						diff1= fabs(diff1);
+						//remember, eye_absolute_angle is in [-pi,pi], and ang is in [-pi,pi]
+						float eye_target_angle = fabs(ang - eye_absolute_angle); //get the difference in absolute angles between the eye and the other agent
+						//will be in range [-2pi,2pi] potentially, but it's okay because now we only compare to our FOV
 						
 						float fov = a->eyefov[q] + a2->radius/d; //add in radius/d to allowed fov, which for large distances is the same as the angle
 						//"fov" here is a bit of a misnomer, as it's taking into account the seen agent's radius. This is used later in the calc again
+						//but this is the idea:
+						//											|						 _
+						//											|             d    _ _-- _|_	
+						//           d     _ _ _					|	        _ _ --     /  | a2.radius
+						//     _ _ _ - - -      | a2.radius        vs	  _ _ --  $      /    |    \
+						//   a______$________ ( a2 )				|	a_______________(    a2     )
+						// d=h, a2.radius = o, sin($)= o/h
 
-						if (diff1<fov) {
+						if (eye_target_angle < fov) {
 							//we see a2 with this eye. Accumulate stats
-							float mul1= light*a->eye_see_agent_mod*(fabs(fov-diff1)/fov)*(1-d*d*invDIST*invDIST);
+							float mul1= light*a->eye_see_agent_mod*(fabs(fov-eye_target_angle)/fov)*(1-d*d*invDIST*invDIST);
 
 							if(r[q]<mul1*a2->real_red) r[q]= mul1*a2->real_red;
 							if(g[q]<mul1*a2->real_gre) g[q]= mul1*a2->real_gre;
@@ -1165,12 +1291,10 @@ void World::setInputs()
 				}
 				
 				//blood sensor
-				float forwangle= a->angle;
-				float diff4= forwangle- ang;
-				if (fabs(forwangle)>M_PI) diff4= 2*M_PI- fabs(forwangle);
-				diff4= fabs(diff4);
-				if (diff4<PI38) {
-					float newblood= a->blood_mod*(fabs(PI38-diff4)/PI38)*(1-d*invDIST)*(1-agents[j].health/conf::HEALTH_CAP);
+				float bloodangle = fabs(a->angle - ang);
+
+				if (bloodangle < PI38) {
+					float newblood= a->blood_mod*((PI38-bloodangle)/PI38)*(1-d*invDIST)*(1-agents[j].health/conf::HEALTH_CAP);
 					if(newblood>blood) blood= newblood;
 					//agents with high life dont bleed. low life makes them bleed more. dead agents bleed the maximum
 				}
@@ -1241,7 +1365,7 @@ void World::processCounters()
 			for(int m=0; m<MUTEVENTMULT; m++) {
 				if(randf(0,1)<LIVE_MUTATE_CHANCE){
 					a->liveMutate(MUTEVENTMULT);
-					if(a->id==SELECTION) addEvent("The Selected Agent Was Mutated!", EventColor::PURPLE); //control.cpp - want this to be supressed when in fast mode
+					addDemoEvent("Selected Agent Was Mutated!", EventColor::PURPLE, i); //control.cpp - want this to be supressed when in fast mode
 					STATlivemutations++;
 					if(DEBUG) printf("Live Mutation Event\n");
 				}
@@ -1263,23 +1387,12 @@ void World::processCounters()
 			else if(a->isMale()) a->centerrender-= 0.01*(a->centerrender-2);
 			else a->centerrender-= 0.01*(a->centerrender-1);
 			a->centerrender= cap(a->centerrender*0.5)*2; //duck the counter under a cap to allow range [0,2]
-
-			//exhaustion gets increased
-			float boostmult= a->boost ? BOOSTEXAUSTMULT : 1;
-			a->exhaustion= max((float)0,a->exhaustion + a->getOutputSum()*boostmult + BASEEXHAUSTION)*EXHAUSTION_MULT;
-
-			//temp discomfort gets re-calculated intermittently based on size, to simulate heat absorption/release
-			if (modcounter%(int)ceil(10+2*a->radius)==0){
-				//calculate temperature at the agents spot. (based on distance from horizontal equator)
-				float currenttemp= calcTempAtCoord(a->pos.y);
-				a->discomfort+= 0.1*(abs(currenttemp-a->temperature_preference) - a->discomfort);
-				if (a->discomfort<0.01) a->discomfort= 0;
-			}
 		}
 	}
 }
 
 void World::processOutputs(bool prefire)
+// A prefire is needed when loading, as many values need refreshing (for example, from save loading), but the agents shouldn't move yet
 {
 	#pragma omp parallel for schedule(dynamic)
 	for (int i=0; i<(int)agents.size(); i++) {
@@ -1299,7 +1412,36 @@ void World::processOutputs(bool prefire)
 			continue;
 		}
 
+		//set exhaustion
+		float boostmult = a->boost ? BOOSTEXAUSTMULT : 1;
+		float exhaustion_outputs = a->getOutputSum()*EXHAUSTION_MULT_PER_OUTPUT;
+		float exhaustion_conns = a->brain.conns.size()*EXHAUSTION_MULT_PER_CONN;
+		float exhaustion_brain = (exhaustion_outputs + exhaustion_conns)*boostmult;
+
+		a->exhaustion = max((float)0,(a->exhaustion + exhaustion_brain) + BASEEXHAUSTION)*0.333333; // /3 to average the value
+
+		//temp discomfort gets re-calculated intermittently based on size, to simulate heat absorption/release
+		if (modcounter%(int)ceil(10+2*a->radius) == 0 || prefire){
+			//calculate temperature at the agents spot. (based on distance from horizontal equator)
+			float currenttemp = calcTempAtCoord(a->pos.y);
+			a->discomfort += 0.1*( (currenttemp-a->temperature_preference) - a->discomfort ); //if agent is too cold, value is negative
+			if (abs(a->discomfort) < conf::MIN_TEMP_DISCOMFORT_THRESHOLD) a->discomfort = 0; //below a minimum, agent can deal with it, no problem
+		}
+
+		//return to processing outputs now
 		float exh= 1.0/(1.0+a->exhaustion); //*exh reduces agent output->physical action rates for high exhaustion values
+
+		//jump gets set to 2*((jump output) - 0.5) if itself is zero (the bot is on the ground) and if jump output is greater than 0.5
+		if(GRAVITYACCEL>0 && a->jump==0 && a->age>0){
+			float height= (a->out[Output::JUMP]*exh - 0.5)*2;
+			if (height>0){
+				a->jump= height;
+				if(!STATuserseenjumping) {
+					addDemoEvent("Selected Agent jumped!", EventColor::YELLOW, i);
+					STATuserseenjumping= true;
+				}
+			}
+		} //do this before setting wheels
 
 		if (!a->isAirborne()) { //if not jumping, then change wheel speeds. otherwise, we want to keep wheel speeds constant
 			if (pcontrol && a->id==SELECTION) {
@@ -1309,9 +1451,6 @@ void World::processOutputs(bool prefire)
 				a->w1+= a->strength*(a->out[Output::LEFT_WHEEL_F] - a->out[Output::LEFT_WHEEL_B] - a->w1);
 				a->w2+= a->strength*(a->out[Output::RIGHT_WHEEL_F] - a->out[Output::RIGHT_WHEEL_B] - a->w2);
 			}
-			//apply exhaustion later, when moving agents
-//			a->w1*= exh;
-//			a->w2*= exh;
 		}
 		a->real_red+= 0.2*((1-a->chamovid)*a->gene_red + a->chamovid*a->out[Output::RED]-a->real_red);
 		a->real_gre+= 0.2*((1-a->chamovid)*a->gene_gre + a->chamovid*a->out[Output::GRE]-a->real_gre);
@@ -1332,12 +1471,6 @@ void World::processOutputs(bool prefire)
 		//grab gets set
 		a->grabbing= a->out[Output::GRAB]*exh;
 		a->grabangle+= 0.2*exh*(a->out[Output::GRAB_ANGLE]*2*M_PI-a->grabangle); //exhaustion effects angle move speed
-
-		//jump gets set to 2*((jump output) - 0.5) if itself is zero (the bot is on the ground) and if jump output is greater than 0.5
-		if(GRAVITYACCEL>0 && a->jump==0 && a->age>0){
-			float height= (a->out[Output::JUMP]*exh - 0.5)*2;
-			if (height>0) a->jump= height;
-		}
 
 		//jaw *snap* mechanic
 		float newjaw= cap(a->out[Output::JAW] - a->jawOldOutput)*exh; //new output has to be at least twice the old output to really trigger
@@ -1369,9 +1502,10 @@ void World::processOutputs(bool prefire)
 		a->dpos.y= a->pos.y;
 	}
 
-	//move bots if this is not a prefire. A prefire is needed when loading, as all the values above need refreshing, but we shouldn't move yet
+	//move bots if this is not a prefire
 	if(!prefire){
 		float invMEANRADIUS= 1/MEANRADIUS;
+
 		#pragma omp parallel for schedule(dynamic)
 		for (int i=0; i<(int)agents.size(); i++) {
 			Agent* a= &agents[i];
@@ -1398,9 +1532,10 @@ void World::processOutputs(bool prefire)
 			Vector2f vwheelright= -vleft;
 
 			//the vectors get rotated by the amount (???) and then merged into position (???)
+			//I believe this was done to make large values have less impact than smaller ones, perhaps encouraging interesting behavior
 			vwheelleft.rotate(-BW1*M_PI);
 			vwheelright.rotate(BW2*M_PI);
-			a->pos+= (vwheelleft - vleft)+(vwheelright + vleft);
+			a->pos+= (vwheelleft - vleft) + (vwheelright + vleft);
 
 			//angle bots
 			if (!a->isAirborne()) {
@@ -1503,7 +1638,10 @@ void World::processCellInteractions()
 					if(a->age<TENDERAGE) agemult= 0.5+0.5*agents[i].age/TENDERAGE;
 
 					float damage= HAZARDDAMAGE*agemult*pow(hazard, HAZARDPOWER);
-					if(hazard>0.9) damage*= HAZARDEVENT_MULT; //if a hazard event, apply multiplier
+					if(hazard>0.9) {
+						damage*= HAZARDEVENT_MULT; //if a hazard event, apply multiplier
+						if(modcounter%5==0) addDemoEvent("Agent struck by lightning!", EventColor::PURPLE, i);
+					}
 
 					a->addDamage(conf::DEATH_HAZARD, damage);
 				}
@@ -1599,6 +1737,8 @@ void World::processAgentInteractions()
 
 				float d= (a->pos-a2->pos).length();
 				float sumrad= a->radius+a2->radius;
+				float ainvrad= 1/a->radius;
+				float a2invrad= 1/a2->radius;
 
 				//---HEALTH GIVING---//
 				if (FOOD_SHARING_DISTANCE>0 && FOODTRANSFER!=0 && !a->isSelfish(conf::MAXSELFISH) && a2->health+FOODTRANSFER<2) {
@@ -1613,7 +1753,7 @@ void World::processAgentInteractions()
 						//healthrate goes from 0->1 for give [0,0.5], and from 0.5->1 for give (0.5,1]...
 						if(d<=sumrad+1 && a->isGiving()) healthrate= FOODTRANSFER;
 						//...it is maxxed when touching and generous...
-						if(a->give!=1) healthrate= capm(healthrate, 0, (a->health - a2->health)/2);
+						if(a->give!=1) healthrate= capm(healthrate, 0, cap(a->health - a2->health)/2);
 						//...and can't give more than half the diff in health if agent is max giving (if they are, it is possible to give till they die)
 
 						//initiate transfer
@@ -1621,6 +1761,11 @@ void World::processAgentInteractions()
 						a->addDamage(conf::DEATH_GENEROSITY, healthrate);
 						a2->dhealth += healthrate; //only for drawing
 						a->dhealth -= healthrate;
+						if(!STATuserseengenerosity && healthrate!=0){
+							addDemoEvent("Agent donated health!", EventColor::GREEN, i);
+							addDemoEvent("Agent received health donation!", EventColor::GREEN, j);
+							STATuserseengenerosity= true;
+						}
 					}
 				}
 
@@ -1629,20 +1774,22 @@ void World::processAgentInteractions()
 					//if inside each others radii and neither are jumping, fix physics
 					float ov= (sumrad-d);
 					if (ov>0 && d>0.00001) {
-						if (ov>TOOCLOSE && TOOCLOSE>0) {//if bots are too close, they get injured before being pushed away
+						if (TOOCLOSE>0 && ov>TOOCLOSE) {//if bots are too close, they get injured before being pushed away
+							float invsumrad= 1/sumrad;
 							float aagemult= 1;
 							float a2agemult= 1;
-							if(a->age<TENDERAGE) aagemult= a->age/TENDERAGE;
-							if(a2->age<TENDERAGE) a2agemult= a2->age/TENDERAGE;
-							float DMG1= capm(ov*DAMAGE_COLLIDE*sumrad/2/a->radius*aagemult, 0, conf::HEALTH_CAP); //larger, younger bots take less damage, bounce less
-							float DMG2= capm(ov*DAMAGE_COLLIDE*sumrad/2/a2->radius*a2agemult, 0, conf::HEALTH_CAP);
+							if(a->age<TENDERAGE) aagemult= (float)(a->age+1)/TENDERAGE;
+							if(a2->age<TENDERAGE) a2agemult= (float)(a2->age+1)/TENDERAGE;
+							float damagemult= ov*DAMAGE_COLLIDE*MEANRADIUS/sumrad;
 
-							if(DEBUG) printf("\na collision occured. Damage on agent a: %.4f. Damage on agent a2: %.4f\n", DMG1, DMG2);
+							float DMG1= capm(damagemult*ainvrad*aagemult, 0, conf::HEALTH_CAP); //larger, younger bots take less damage, bounce less
+							float DMG2= capm(damagemult*a2invrad*a2agemult, 0, conf::HEALTH_CAP);
+
+							if(DEBUG) printf("\na collision occured. overlap: %.4f, aagemult: %.2f, a2agemult: %.2f, Damage on a: %f. Damage on a2: %f\n", ov, aagemult, a2agemult, DMG1, DMG2);
 							a->addDamage(conf::DEATH_COLLIDE, DMG1);
 							a2->addDamage(conf::DEATH_COLLIDE, DMG2);
 
 							if(a->health==0){
-								break;
 								continue;
 							}
 							if(a2->health==0){
@@ -1653,16 +1800,23 @@ void World::processAgentInteractions()
 							//only trigger collision splash if another splash not being displayed
 							if(a->indicator<=0) a->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0,0.5,1);
 							if(a2->indicator<=0) a2->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0,0.5,1);
+							addDemoEvent("Agent collided hard", EventColor::CYAN, i);
+							addDemoEvent("Agent collided hard", EventColor::CYAN, j);
 							
 							a->freshkill= FRESHKILLTIME; //this agent was hit this turn, giving full meat value
 							a2->freshkill= FRESHKILLTIME;
 						}
-						float ff1= capm(ov/d*a2->radius/a->radius*BUMP_PRESSURE, 0, 2); //the radii come in here for inertia-like effect
-						float ff2= capm(ov/d*a->radius/a2->radius*BUMP_PRESSURE, 0, 2);
-						a->pos.x-= (a2->pos.x-a->pos.x)*ff1;
-						a->pos.y-= (a2->pos.y-a->pos.y)*ff1;
-						a2->pos.x+= (a2->pos.x-a->pos.x)*ff2;
-						a2->pos.y+= (a2->pos.y-a->pos.y)*ff2;
+
+						float bumpmult= ov*BUMP_PRESSURE/d;
+						float ff1= capm(bumpmult*a2->radius*ainvrad, 0, 2); //the radii come in here for inertia-like effect
+						float ff2= capm(bumpmult*a->radius*a2invrad, 0, 2);
+						float diffx= (a2->pos.x-a->pos.x);
+						float diffy= (a2->pos.y-a->pos.y);
+
+						a->pos.x-= diffx*ff1;
+						a->pos.y-= diffy*ff1;
+						a2->pos.x+= diffx*ff2;
+						a2->pos.y+= diffy*ff2;
 
 						a->borderRectify();
 						a2->borderRectify();
@@ -1698,7 +1852,7 @@ void World::processAgentInteractions()
 								if(DEBUG) printf("\nan agent received spike damage: %.4f\n", DMG);
 								a2->addDamage(conf::DEATH_SPIKE, DMG); 
 								a2->freshkill= FRESHKILLTIME; //this agent was hit this turn, giving full meat value
-								if(a2->id==SELECTION) addEvent("Selected Agent was Stabbed!", EventColor::BLOOD);
+								addDemoEvent("Agent was Stabbed!", EventColor::BLOOD, j);
 
 								a->hits++;
 								a->spikeLength= 0; //retract spike down
@@ -1708,10 +1862,10 @@ void World::processAgentInteractions()
 								if (a2->health==0){ 
 									//red splash means bot has killed the other bot. Murderer!
 									a->initSplash(conf::RENDER_MAXSPLASHSIZE,1,0,0);
-									if(a->id==SELECTION) addEvent("Selected Agent Killed Another!", EventColor::RED);
+									addDemoEvent("Agent Killed Another!", EventColor::RED, i);
 									a->killed++;
 									continue;
-								} else if(a->id==SELECTION) addEvent("Selected Agent Stabbed Another!", EventColor::ORANGE);
+								} else addDemoEvent("Agent Stabbed Another!", EventColor::ORANGE, i);
 
 								/*Vector2f v2(1,0);
 								v2.rotate(a2->angle);
@@ -1732,12 +1886,12 @@ void World::processAgentInteractions()
 					v.rotate(a->angle);
 					float diff= v.angle_between(a2->pos-a->pos);
 					if (fabs(diff)<M_PI/6) { //advantage over spike: wide AOE
-						float DMG= DAMAGE_JAWSNAP*a->jawPosition*(a->radius/a2->radius); //advantage over spike: large agents do more damage to smaller agents
+						float DMG= DAMAGE_JAWSNAP*a->jawPosition*(a->radius*a2invrad); //advantage over spike: large agents do more damage to smaller agents
 
 						if(DEBUG) printf("\nan agent received bite damage: %.4f\n", DMG);
 						a2->addDamage(conf::DEATH_BITE, DMG);
 						a2->freshkill= FRESHKILLTIME;
-						if(a2->id==SELECTION) addEvent("Selected Agent was Bitten!", EventColor::BLOOD);
+						addDemoEvent("Agent was Bitten!", EventColor::BLOOD, j);
 
 						a->hits++;
 						a->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5*DMG,1,1,0); //yellow splash means bot has chomped the other bot. ouch!
@@ -1745,11 +1899,11 @@ void World::processAgentInteractions()
 						if (a2->health==0){ 
 							//red splash means bot has killed the other bot. Murderer!
 							a->initSplash(conf::RENDER_MAXSPLASHSIZE,1,0,0);
-							if(a->id==SELECTION) addEvent("Selected Agent Killed Another!", EventColor::RED);
+							addDemoEvent("Agent Killed Another!", EventColor::RED, i);
 							a->killed++;
 							if(a->grabID==a2->id) a->grabID= -1;
 							continue;
-						} else if(a->id==SELECTION) addEvent("Selected Agent Bit Another!", EventColor::ORANGE);
+						} else addDemoEvent("Agent Bit Another!", EventColor::YELLOW, i);
 					}
 				} //end jaw mechanics
 
@@ -1765,6 +1919,8 @@ void World::processAgentInteractions()
 						if(a->grabID==-1){
 							if (fabs(diff)<M_PI/4 && randf(0,1)<0.3) { //very wide AOE centered on a's grabangle, 30% chance any one bot is picked
 								a->grabID= a2->id;
+								addDemoEvent("Agent grabbed another", EventColor::CYAN, i);
+								addDemoEvent("Agent was grabbed", EventColor::CYAN, j);
 							}
 						} 
 
@@ -1779,8 +1935,8 @@ void World::processAgentInteractions()
 								float dpref= sumrad + 1.5;
 								Vector2f tpos(a->pos.x+dpref*cos(a->angle+a->grabangle),a->pos.y+dpref*sin(a->angle+a->grabangle));
 
-								float ff1= a2->radius/a->radius*a->grabbing*GRAB_PRESSURE; //the radii come in here for inertia-like effect
-								float ff2= a->radius/a2->radius*a->grabbing*GRAB_PRESSURE;
+								float ff1= a2->radius*ainvrad*a->grabbing*GRAB_PRESSURE; //the radii come in here for inertia-like effect
+								float ff2= a->radius*a2invrad*a->grabbing*GRAB_PRESSURE;
 								a->pos.x-= (tpos.x-a2->pos.x)*ff1;
 								a->pos.y-= (tpos.y-a2->pos.y)*ff1;
 								a2->pos.x+= (tpos.x-a2->pos.x)*ff2;
@@ -1791,7 +1947,7 @@ void World::processAgentInteractions()
 							}
 
 							//the graber gets rotated toward the grabbed agent by a ratio of their radii, limited to 0.08 radian
-							a->angle+= capm(a->grabbing*diff*a2->radius/a->radius, -0.08, 0.08);
+							a->angle+= capm(a->grabbing*diff*a2->radius*ainvrad, -0.08, 0.08);
 						}
 					} else if (a->grabID==a2->id) {
 						//grab distance exceeded, break the bond
@@ -1814,28 +1970,31 @@ void World::healthTick()
 		if (a->health>0){
 			//"natural" causes of death: age, wheel activity, excesive brain activity
 			//baseloss starts by penalizing high average wheel speed
-			float baseloss= HEALTHLOSS_WHEELS*(fabs(a->w1) + fabs(a->w2))/2;
+			float baseloss= HEALTHLOSS_WHEELS * (fabs(a->w1) + fabs(a->w2))/2;
 
 			//getting older reduces health.
-			baseloss += (float)a->age/MAXAGE*HEALTHLOSS_AGING;
+			baseloss +=  HEALTHLOSS_AGING * (float)a->age / MAXAGE;
 
-			//if boosting, init (baseloss + age loss) * metab loss is multiplied by boost loss
+			//being exhausted reduces health (both indirectly through it's effects on output, and directly here so we can increase agent turnover)
+			baseloss += HEALTHLOSS_EXHAUSTION * a->exhaustion * a->exhaustion;
+
+			//if boosting, loss from age, wheels, and exhaustion is multiplied
 			if (a->boost) {
 				baseloss *= HEALTHLOSS_BOOSTMULT;
 			}
 
-			//brain activity reduces health
-			if(HEALTHLOSS_BRAINUSE!=0) baseloss += HEALTHLOSS_BRAINUSE*a->getActivity();
+			//brain activity reduces health (note: this doesn't make sense now that exhaustion is in the picture. default mult has been 0)
+			baseloss += HEALTHLOSS_BRAINUSE*a->getActivity();
 
 			a->addDamage(conf::DEATH_NATURAL, baseloss);
 			if (a->health==0) continue; //agent died, we must move on.
 
 			//remove health from lack of "air", a straight up penalty to all bots for large population
-			a->addDamage(conf::DEATH_TOOMANYAGENTS, HEALTHLOSS_NOOXYGEN*agents.size()/AGENTS_MAX_NOOXYGEN);
+			a->addDamage(conf::DEATH_TOOMANYAGENTS, HEALTHLOSS_NOOXYGEN*(float)max((int)agents.size()-AGENTS_MIN_NOTCLOSED, 0)/AGENTS_MAX_NOOXYGEN);
 			if (a->health==0) continue; //agent died, we must move on!
 
 			//apply temperature discomfort
-			a->addDamage(conf::DEATH_BADTEMP, HEALTHLOSS_BADTEMP*a->discomfort);
+			a->addDamage(conf::DEATH_BADTEMP, HEALTHLOSS_BADTEMP*abs(a->discomfort));
 		}
 	}
 }
@@ -1867,7 +2026,8 @@ void World::processReproduction()
 
 						reproduce(mother, father);
 
-						if(agents[mother].id==SELECTION) addEvent("Selected Agent Sexually Reproduced", EventColor::BLUE);
+						addDemoEvent("Agent Sexually Reproduced", EventColor::BLUE, mother);
+						addDemoEvent("Agent Sexually Reproduced", EventColor::BLUE, father);
 						tryPlayAudio(conf::SFX_SMOOCH1, agents[mother].pos.x, agents[mother].pos.y, randn(1.0,0.15));
 
 						if(DEBUG) printf(" Success!\n");
@@ -1878,7 +2038,7 @@ void World::processReproduction()
 
 					reproduce(mother, mother);
 
-					if(agents[mother].id==SELECTION) addEvent("Selected Agent Assexually Budded", EventColor::NEON);
+					addDemoEvent("Agent Assexually Budded", EventColor::NEON, mother);
 					tryPlayAudio(conf::SFX_PLOP1, agents[mother].pos.x, agents[mother].pos.y, randn(1.0,0.15));
 
 					if(DEBUG) printf(" Success!\n");
@@ -1898,12 +2058,14 @@ void World::processDeath()
 {
 	for (int i=0; i<(int)agents.size(); i++) {
 		Agent* a= &agents[i];
-		if(a->health<0) printf("Please check the code: an agent unexpectedly had negative health when it should have had exactly zero\n");
+		if(a->health<0) {
+			printf("Please check the code: an agent unexpectedly had negative health when it should have had exactly zero\n");
+		}
 		if (a->health==0 && a->carcasscount==0) { 
 			//world is only now picking up the fact that the agent died from the agent itself
 			if (SELECTION==a->id){
 				printf("The Selected Agent was %s!\n", a->death.c_str());
-				addEvent("The Selected Agent Died!");
+				addDemoEvent("The Selected Agent Died!", 0, i);
 
 				//play audio clip of death. At position 0,0 (no position) if we had the agent selected, otherwise, use world coords
 				tryPlayAudio(conf::SFX_DEATH1, 0, 0, randn(1.0,0.05));
@@ -1933,7 +2095,7 @@ void World::processDeath()
 	vector<Agent>::iterator iter= agents.begin();
 	while (iter != agents.end()) {
 		if (iter->health <=0 && iter->carcasscount >= conf::CORPSE_FRAMES) {
-			if(iter->id == SELECTION) addEvent("The Selected Agent has decayed", EventColor::BROWN);
+			if(iter->id == SELECTION && isDemo()) addEvent("The Selected Agent decayed", EventColor::BROWN);
 			iter= agents.erase(iter);
 		} else {
 			++iter;
@@ -2105,7 +2267,7 @@ bool World::setSelectionRelative(int posneg)
 			if(agents[i].health<=0 || agents[i].species==species) continue;
 
 			int dd= posneg*(agents[i].species - species);
-			if(dd>agents[sid].kinrange || dd<0) continue;
+			if(dd>agents[sid].kinrange + conf::VISUALIZE_RELATED_RANGE || dd<0) continue;
 
 			if(dd<bestdd){ //if its the best so far, pick it
 				bestdd= dd;
@@ -2254,7 +2416,7 @@ void World::selectedMutate() {
 	int sidx= getSelectedAgentIndex();
 	if(sidx>=0){
 		agents[sidx].liveMutate();
-		if(agents[sidx].id==SELECTION) addEvent("The Selected Agent Was Mutated!", EventColor::PURPLE);
+		addDemoEvent("Selected Agent was Mutated!", EventColor::PURPLE, sidx);
 	}
 }
 
@@ -2360,7 +2522,8 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pr
 {
 	for (int i=0;i<num;i++) {
 		int scx= 0,scy= 0;
-		Agent a(BRAINBOXES, BRAINCONNS, SPAWN_MIRROR_EYES, MEANRADIUS, REP_PER_BABY, DEFAULT_MUTCHANCE, DEFAULT_MUTSIZE);
+		Agent a(BRAINBOXES, BRAINCONNS, SPAWN_MIRROR_EYES, OVERRIDE_KINRANGE, MEANRADIUS, REP_PER_BABY, DEFAULT_MUTCHANCE, DEFAULT_MUTSIZE);
+		//Agent::Agent
 		scx= (int) a.pos.x/conf::CZ;
 		scy= (int) a.pos.y/conf::CZ;
 
@@ -2435,8 +2598,9 @@ void World::reproduce(int mother, int father)
 
 	if (SELECTION==agents[mother].id) printf("The Selected Agent has Reproduced and had %i Babies!\n", numbabies);
 
+	//do not omp
 	for (int i=0;i<numbabies;i++) {
-		Agent daughter= agents[mother].reproduce(agents[father], PRESERVE_MIRROR_EYES, MEANRADIUS, REP_PER_BABY, i);
+		Agent daughter= agents[mother].reproduce(agents[father], PRESERVE_MIRROR_EYES, OVERRIDE_KINRANGE, MEANRADIUS, REP_PER_BABY, i);
 
 		daughter.health= newhealth;
 		daughter.hybrid= hybridoffspring;
@@ -2455,17 +2619,18 @@ void World::writeReport()
 	printf("Writing Report, Epoch: %i, Day: %i\n", getEpoch(), getDay());
 	//save all kinds of nice data stuff
 	int randspawned;
-	int randgen= 0;
-	int randspecies= 0;
-	int randkinrange= 0;
-	int randseed= 0;
-	float randradius= 0;
-	float randmetab= 0;
-	float randmutchance= 0;
-	float randmutsize= 0;
-	float randtemppref= 0;
-	int randchildren= 0;
-	int randbrainsize= 0;
+	int randgen = 0;
+	int randspecies = 0;
+	int randkinrange = 0;
+	int randseed = 0;
+	float randradius = 0;
+	float randmetab = 0;
+	float randsex = 0;
+	float randmutchance = 0;
+	float randmutsize = 0;
+	float randtemppref = 0;
+	int randchildren = 0;
+	int randbrainsize = 0;
 
 	int randagent= randi(0,agents.size());
 	randspawned= agents[randagent].gencount==0 ? 1 : 0;
@@ -2478,6 +2643,7 @@ void World::writeReport()
 	randbrainsize = agents[randagent].brain.conns.size();
 	randradius= agents[randagent].radius;
 	randmetab= agents[randagent].metabolism;
+	randsex = agents[randagent].sexproject;
 	randmutchance= agents[randagent].MUTCHANCE;
 	randmutsize= agents[randagent].MUTSIZE;
 	randtemppref= agents[randagent].temperature_preference;
@@ -2519,8 +2685,8 @@ void World::writeReport()
 	fprintf(fr, "#Plant:\t%i\t#Meat:\t%i\t#Hazard:\t%i\t#Fruit:\t%i\t",
 		getFood(), getMeat(), getHazards(), getFruit());
 	//print random selections: Genome, brain seeds, [[[generation]]]
-	fprintf(fr, "RSpawned:\t%i\tRGenome:\t%i\tRKinRange:\t%i\tRBrainSize:\t%i\tRSeed:\t%i\tRGen:\t%i\tRRadius:\t%f\tRMetab:\t%f\tRTempP:\t%f\tRMutChance:\t%f\tRMutSize:\t%f\tRChildren:\t%i\t",
-		randspawned, randspecies, randkinrange, randbrainsize, randseed, randgen, randradius, randmetab, randtemppref, randmutchance, randmutsize, randchildren);
+	fprintf(fr, "RGenome:\t%i\tRKinRange:\t%i\tRBrainSize:\t%i\tRSeed:\t%i\tRGen:\t%i\tRRadius:\t%f\tRMetab:\t%f\tRSexProj:\t%f\tRTempP:\t%f\tRMutChance:\t%f\tRMutSize:\t%f\tRChildren:\t%i\t",
+		randspecies, randkinrange, randbrainsize, randseed, randgen, randradius, randmetab, randsex, randtemppref, randmutchance, randmutsize, randchildren);
 	//print generations: Top Gen counts
 	fprintf(fr, "TopHGen:\t%i\tTopFGen:\t%i\tTopCGen:\t%i\tTopLGen:\t%i\tTopAGen:\t%i\tTopWGen:\t%i\t",
 		STATbestherbi, STATbestfrugi, STATbestcarni, STATbestterran, STATbestamphibious, STATbestaquatic);
@@ -2876,6 +3042,20 @@ void World::addEvent(std::string text, int type)
 	events.push_back(data);
 }
 
+void World::addDemoEvent(std::string text, int type, int agentIndex)
+//Control.cpp
+{
+	//use EventColor:: namespace to access available colors for the "type" input
+	//post an event only if we: A: are in demo mode, and B: have the current agent selected that matches the index passed
+	if (getSelectedAgentIndex()==agentIndex && isDemo()) {
+		std::pair <std::string ,std::pair <int,int> > data;
+		data.first= text;
+		data.second.first= type;
+		data.second.second= conf::EVENTS_HALFLIFE;
+		events.push_back(data);
+	}
+}
+
 void World::dismissNextEvents(int count)
 //Control.cpp
 {
@@ -2886,6 +3066,19 @@ void World::dismissNextEvents(int count)
 			disevents++;
 		}
 		if(disevents==count) break;
+	}
+}
+
+void World::setStatsAfterLoad()
+{
+	if(agents.size() > AGENTS_MIN_NOTCLOSED){
+		//reset some stats that often trigger
+		STATuserseengenerosity= true;
+		STATuserseenjumping= true;
+		STATfirstspecies= true;
+		STATfirstpopulation= true;
+		if(agents.size() > 500) STATstrongspecies= true;
+		if(agents.size() > 1000) STATstrongspecies2= true;
 	}
 }
 
@@ -2940,7 +3133,8 @@ void World::init()
 
     FOODTRANSFER= conf::FOODTRANSFER;
 	BASEEXHAUSTION= conf::BASEEXHAUSTION;
-	EXHAUSTION_MULT= conf::EXHAUSTION_MULT;
+	EXHAUSTION_MULT_PER_CONN= conf::EXHAUSTION_MULT_PER_CONN;
+	EXHAUSTION_MULT_PER_OUTPUT= conf::EXHAUSTION_MULT_PER_OUTPUT;
 	MEANRADIUS= conf::MEANRADIUS;
     SPIKESPEED= conf::SPIKESPEED;
 	SPAWN_MIRROR_EYES= conf::SPAWN_MIRROR_EYES;
@@ -2956,7 +3150,7 @@ void World::init()
     REP_PER_BABY= conf::REP_PER_BABY;
 	OVERHEAL_REPFILL= conf::OVERHEAL_REPFILL;
 //    LEARNRATE= conf::LEARNRATE;
-    MAXDEVIATION= conf::MAXDEVIATION;
+    OVERRIDE_KINRANGE= conf::OVERRIDE_KINRANGE;
 	DEFAULT_MUTCHANCE= conf::DEFAULT_MUTCHANCE;
 	DEFAULT_MUTSIZE= conf::DEFAULT_MUTSIZE;
 	LIVE_MUTATE_CHANCE= conf::LIVE_MUTATE_CHANCE;
@@ -2974,6 +3168,7 @@ void World::init()
     HEALTHLOSS_BOOSTMULT= conf::HEALTHLOSS_BOOSTMULT;
     HEALTHLOSS_BADTEMP= conf::HEALTHLOSS_BADTEMP;
     HEALTHLOSS_AGING= conf::HEALTHLOSS_AGING;
+	HEALTHLOSS_EXHAUSTION= conf::HEALTHLOSS_EXHAUSTION;
     HEALTHLOSS_BRAINUSE= conf::HEALTHLOSS_BRAINUSE;
     HEALTHLOSS_SPIKE_EXT= conf::HEALTHLOSS_SPIKE_EXT;
     HEALTHLOSS_BADTERRAIN= conf::HEALTHLOSS_BADTERRAIN;
@@ -3307,10 +3502,14 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=BASEEXHAUSTION) printf("BASEEXHAUSTION, ");
 				BASEEXHAUSTION= f;
-			}else if(strcmp(var, "EXHAUSTION_MULT=")==0){
+			}else if(strcmp(var, "EXHAUSTION_MULT_PER_OUTPUT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=EXHAUSTION_MULT) printf("EXHAUSTION_MULT, ");
-				EXHAUSTION_MULT= f;
+				if(f!=EXHAUSTION_MULT_PER_OUTPUT) printf("EXHAUSTION_MULT_PER_OUTPUT, ");
+				EXHAUSTION_MULT_PER_OUTPUT= f;
+			}else if(strcmp(var, "EXHAUSTION_MULT_PER_CONN=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=EXHAUSTION_MULT_PER_CONN) printf("EXHAUSTION_MULT_PER_CONN, ");
+				EXHAUSTION_MULT_PER_CONN= f;
 			}else if(strcmp(var, "MEANRADIUS=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=MEANRADIUS) printf("MEANRADIUS, ");
@@ -3373,10 +3572,14 @@ void World::readConfig()
 //				sscanf(dataval, "%f", &f);
 //				if(f!=LEARNRATE) printf("LEARNRATE, ");
 //				LEARNRATE= f;
-			}else if(strcmp(var, "MAXDEVIATION=")==0){
+			}else if(strcmp(var, "OVERRIDE_KINRANGE=")==0){
+				sscanf(dataval, "%i", &i);
+				if(i!=OVERRIDE_KINRANGE) printf("OVERRIDE_KINRANGE, ");
+				OVERRIDE_KINRANGE= i;
+			}else if(strcmp(var, "MAXDEVIATION=")==0){ //MAXDEVIATION is an old config value for OVERRIDE_KINRANGE that was saved in float form
 				sscanf(dataval, "%f", &f);
-				if(f!=MAXDEVIATION) printf("MAXDEVIATION, ");
-				MAXDEVIATION= f;
+				if((int)f!=OVERRIDE_KINRANGE) printf("OVERRIDE_KINRANGE (MAXDEVIATION), ");
+				OVERRIDE_KINRANGE= (int)f;
 			}else if(strcmp(var, "DEFAULT_MUTCHANCE=")==0 || strcmp(var, "MUTCHANCE=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=DEFAULT_MUTCHANCE) printf("DEFAULT_MUTCHANCE, ");
@@ -3437,6 +3640,10 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=HEALTHLOSS_AGING) printf("HEALTHLOSS_AGING, ");
 				HEALTHLOSS_AGING= f;
+			}else if(strcmp(var, "HEALTHLOSS_EXHAUSTION=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=HEALTHLOSS_EXHAUSTION) printf("HEALTHLOSS_EXHAUSTION, ");
+				HEALTHLOSS_EXHAUSTION= f;
 			}else if(strcmp(var, "HEALTHLOSS_BRAINUSE=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=HEALTHLOSS_BRAINUSE) printf("HEALTHLOSS_BRAINUSE, ");
@@ -3631,18 +3838,18 @@ void World::writeConfig()
 	fprintf(cf, "OCEANPERCENT= %f \t\t//decimal ratio of terrain layer which will be ocean. Approximately\n", conf::OCEANPERCENT);
 	fprintf(cf, "GRAVITYACCEL= %f \t\t//how fast an agent will 'fall' after jumping. 0= jump disabled, 0.1+ = super-gravity\n", conf::GRAVITYACCEL);
 	fprintf(cf, "BUMP_PRESSURE= %f \t//the restoring force between two colliding agents. 0= no reaction (disables TOOCLOSE and all collisions). I'd avoid negative values if I were you...\n", conf::BUMP_PRESSURE);
-	fprintf(cf, "GRAB_PRESSURE= %f \t//the restoring force between and agent and its grab target. 0= no reaction (disables grab function), negative values push agents away\n", conf::GRAB_PRESSURE);
+	fprintf(cf, "GRAB_PRESSURE= %f \t//the restoring force between and agent and its grab target. 0= no reaction (disables grab function), negative values make grabbing agents push others away instead\n", conf::GRAB_PRESSURE);
 	fprintf(cf, "SOUNDPITCHRANGE= %f \t//range below hearhigh and above hearlow within which external sounds fade in. Would not recommend extreme values near or beyond [0,0.5]\n", conf::SOUNDPITCHRANGE);
 	fprintf(cf, "\n");
-	fprintf(cf, "BRAINBOXES= %i \t\t\t//number boxes in every agent brain. Sim will NEVER make brains smaller than # Inputs + # Outputs. Saved per world, loaded worlds will override this value. You cannot change this value for worlds already in progress; use New World options or restart app\n", conf::BRAINBOXES);
+	fprintf(cf, "BRAINBOXES= %i \t\t\t//number boxes in every agent brain. Note: the sim will NEVER make brains smaller than # of Outputs. Saved per world, loaded worlds will override this value. You cannot change this value for worlds already in progress; either use New World options or restart\n", conf::BRAINBOXES);
 	fprintf(cf, "BRAINCONNS= %i \t\t//number connections attempted for every init agent brain. Sim may make brains with less than this number, due to trimming. Changing this value will only effect newly spawned agents. Default= %i\n", conf::BRAINCONNS, conf::BRAINCONNS);
 	fprintf(cf, "WHEEL_SPEED= %f \t\t//fastest possible speed of agents. This effects so much of the sim I dont advise changing it\n", conf::WHEEL_SPEED);
 	fprintf(cf, "MEANRADIUS= %f \t\t//\"average\" agent radius, range [0.2*this,2.2*this) (only applies to random agents, no limits on mutations). This effects SOOOO much stuff, and I would not recommend setting negative unless you like crashing programs.\n", conf::MEANRADIUS);
 	fprintf(cf, "BOOSTSIZEMULT= %f \t//how much speed boost do agents get when boost is active?\n", conf::BOOSTSIZEMULT);
-	fprintf(cf, "BOOSTEXAUSTMULT= %f \t//how much exhaustion from brain outputs is multiplied by when boost is active?\n", conf::BOOSTEXAUSTMULT);
-	fprintf(cf, "BASEEXHAUSTION= %f \t//base value of exhaustion. When negative, is essentially the sum amount of output allowed before healthloss. Would not recommend >=0 values\n", conf::BASEEXHAUSTION);
-	fprintf(cf, "EXHAUSTION_MULT= %f \t//multiplier applied to outputsum + BASEEXHAUSTION\n", conf::EXHAUSTION_MULT);
-	fprintf(cf, "MEANRADIUS= %f \t\t//\"average\" agent radius, range [0.2*this,2.2*this) (only applies to random agents, no limits on mutations). This effects SOOOO much stuff, and I would not recommend setting negative unless you like crashing programs.\n", conf::MEANRADIUS);
+	fprintf(cf, "BOOSTEXAUSTMULT= %f \t//how much exhaustion from brain is multiplied by when boost is active?\n", conf::BOOSTEXAUSTMULT);
+	fprintf(cf, "BASEEXHAUSTION= %f \t//base value of exhaustion. When negative, is essentially the sum amount of output allowed before healthloss. Would not recommend positive values\n", conf::BASEEXHAUSTION);
+	fprintf(cf, "EXHAUSTION_MULT_PER_OUTPUT= %f //multiplier applied to the sum value of all outputs; effectively, the cost multiplier of performing actions. Increase to pressure agents to chose their output more carefully\n", conf::EXHAUSTION_MULT_PER_OUTPUT);
+	fprintf(cf, "EXHAUSTION_MULT_PER_CONN= %f //multiplier applied to the count of brain connections; effectively, the cost multiplier of maintaining each synapse in the brain. Increase to pressure agents to make more efficient brains.\n", conf::EXHAUSTION_MULT_PER_CONN);
 	fprintf(cf, "MAXWASTEFREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. Default= 200, 1= no agent control allowed, 0= program crash\n", conf::MAXWASTEFREQ);
 	fprintf(cf, "FOODTRANSFER= %f \t\t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::FOODTRANSFER);
 	fprintf(cf, "SPIKESPEED= %f \t\t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKESPEED);
@@ -3656,7 +3863,7 @@ void World::writeConfig()
 	fprintf(cf, "OVERHEAL_REPFILL= %f \t//decimal value flag for letting agents redirect overfill health (>2) to repcounter. 0= extra intake is destroyed, punishing overeating, 1= conserves matter. Can be set to a decimal value to mult the conversion factor\n", conf::OVERHEAL_REPFILL);
 //	fprintf(cf,	"LEARNRATE= %f\n", conf::LEARNRATE);
 	fprintf(cf, "\n");
-	fprintf(cf, "MAXDEVIATION= %f \t//maximum difference in species ID a crossover reproducing agent will be willing to tolerate\n", conf::MAXDEVIATION);
+	fprintf(cf, "OVERRIDE_KINRANGE= %d \t\t//for the purposes of sexual reproduction and generosity, the kinrange of agents can be overridden to this value. set to -1 to disable forcing any value.\n", conf::OVERRIDE_KINRANGE);
 	fprintf(cf, "DEFAULT_MUTCHANCE= %f \t//the default chance of mutations occurring (note that various mutations modify this value up or down)\n", conf::DEFAULT_MUTCHANCE);
 	fprintf(cf, "DEFAULT_MUTSIZE= %f \t//the default magnitude of mutations (note that various mutations modify this value up or down)\n", conf::DEFAULT_MUTSIZE);
 	fprintf(cf, "LIVE_MUTATE_CHANCE= %f \t//chance, per tick, that a given agent will be mutated alive. Not typically harmful. Can be increased by mutation events if enabled.\n", conf::LIVE_MUTATE_CHANCE);
@@ -3673,19 +3880,20 @@ void World::writeConfig()
 	fprintf(cf, "CORPSE_MEAT_MIN= %f \t//minimum amount of meat on cell under dead agent before the agent starts counting down from CORPSE_FRAMES\n", conf::CORPSE_MEAT_MIN);
 	fprintf(cf, "\n");
 	fprintf(cf, "MAXAGE= %i \t\t\t//Age at which the full HEALTHLOSS_AGING amount is applied to an agent\n", conf::MAXAGE);
-	fprintf(cf, "HEALTHLOSS_AGING= %f \t//health lost at MAXAGE. Note that this damage is applied to all agents in proportion to their age.\n", conf::HEALTHLOSS_AGING);
-	fprintf(cf, "HEALTHLOSS_WHEELS= %f \t//How much health is lost for an agent driving at full speed\n", conf::HEALTHLOSS_WHEELS);
-	fprintf(cf, "HEALTHLOSS_BOOSTMULT= %f \t//how much boost costs (set to 1 to nullify boost cost; its a multiplier)\n", conf::HEALTHLOSS_BOOSTMULT);
-	fprintf(cf, "HEALTHLOSS_BADTEMP= %f \t//how quickly health drains in non-preferred temperatures\n", conf::HEALTHLOSS_BADTEMP);
-	fprintf(cf, "HEALTHLOSS_BRAINUSE= %f \t//how much health is reduced for each box in the brain being active\n", conf::HEALTHLOSS_BRAINUSE);
-	fprintf(cf, "HEALTHLOSS_SPIKE_EXT= %f \t//how much health an agent looses for extending spike\n", conf::HEALTHLOSS_SPIKE_EXT);
-	fprintf(cf, "HEALTHLOSS_BADTERRAIN= %f //how much health is lost if in totally opposite environment\n", conf::HEALTHLOSS_BADTERRAIN);
-	fprintf(cf, "HEALTHLOSS_NOOXYGEN= %f \t//how much agents are penalized when total agents = AGENTS_MAX_NOOXYGEN\n", conf::HEALTHLOSS_NOOXYGEN);
-	fprintf(cf, "HEALTHLOSS_ASSEX= %f \t//multiplier for radius/MEANRADIUS penalty on mother for asexual reproduction\n", conf::HEALTHLOSS_ASSEX);
+	fprintf(cf, "HEALTHLOSS_AGING= %f \t//health lost at MAXAGE. Note that this damage is applied to all agents in proportion to their age. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_AGING, conf::DEATH_NATURAL);
+	fprintf(cf, "HEALTHLOSS_EXHAUSTION= %f //health lost from exhaustion squared. As agents get more exhausted, they loose more health. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_AGING, conf::DEATH_NATURAL);
+	fprintf(cf, "HEALTHLOSS_WHEELS= %f \t//How much health is lost for an agent driving at full speed. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_WHEELS, conf::DEATH_NATURAL);
+	fprintf(cf, "HEALTHLOSS_BOOSTMULT= %f \t//how much boost costs (its a multiplier; set to 1 to nullify boost cost). Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_BOOSTMULT, conf::DEATH_NATURAL);
+	fprintf(cf, "HEALTHLOSS_BRAINUSE= %f \t//how much health is reduced for each box in the brain being active. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_BRAINUSE, conf::DEATH_NATURAL);
+	fprintf(cf, "HEALTHLOSS_BADTEMP= %f \t//how quickly health drains in non-preferred temperatures. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_BADTEMP, conf::DEATH_BADTEMP);
+	fprintf(cf, "HEALTHLOSS_SPIKE_EXT= %f \t//how much health an agent looses for extending spike. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_SPIKE_EXT, conf::DEATH_SPIKERAISE);
+	fprintf(cf, "HEALTHLOSS_BADTERRAIN= %f //how much health is lost if in totally opposite environment. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_BADTERRAIN, conf::DEATH_BADTERRAIN);
+	fprintf(cf, "HEALTHLOSS_NOOXYGEN= %f \t//how much agents are penalized when total agents = AGENTS_MAX_NOOXYGEN. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_NOOXYGEN, conf::DEATH_TOOMANYAGENTS);
+	fprintf(cf, "HEALTHLOSS_ASSEX= %f \t//multiplier for radius/MEANRADIUS penalty on mother for asexual reproduction. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_ASSEX, conf::DEATH_ASEXUAL);
 	fprintf(cf, "\n");
-	fprintf(cf, "DAMAGE_FULLSPIKE= %f \t//health multiplier of spike injury. Note: it is effected by spike length and relative velocity of the agents\n", conf::DAMAGE_FULLSPIKE);
-	fprintf(cf, "DAMAGE_COLLIDE= %f \t//how much health is lost upon collision. Note that =0 does not disable the event (see TOOCLOSE above)\n", conf::DAMAGE_COLLIDE);
-	fprintf(cf, "DAMAGE_JAWSNAP= %f \t//when jaws snap fully (0->1), this is the damage applied to agents in front\n", conf::DAMAGE_JAWSNAP);
+	fprintf(cf, "DAMAGE_FULLSPIKE= %f \t//health multiplier of spike injury. Note: it is effected by spike length and relative velocity of the agents. When used against another agent, it causes the death cause '%s'.\n", conf::DAMAGE_FULLSPIKE, conf::DEATH_SPIKE);
+	fprintf(cf, "DAMAGE_COLLIDE= %f \t//how much health is lost upon collision. Note that =0 does not disable the event (see TOOCLOSE above). When used against another agent, it causes the death cause '%s'.\n", conf::DAMAGE_COLLIDE, conf::DEATH_COLLIDE);
+	fprintf(cf, "DAMAGE_JAWSNAP= %f \t//when jaws snap fully (0->1), this is the damage applied to agents in front. When used against another agent, it causes the death cause '%s'.\n", conf::DAMAGE_JAWSNAP, conf::DEATH_BITE);
 	fprintf(cf, "\n");
 	fprintf(cf, "STOMACH_EFF= %f \t\t//the worst possible multiplier produced from having at least two stomach types at 1. =0.1 is harsh. =1 disables (always full efficiency)\n", conf::STOMACH_EFF);
 	fprintf(cf, "\n");
@@ -3713,7 +3921,7 @@ void World::writeConfig()
 	fprintf(cf, "HAZARDDECAY= %f \t\t//how much non-event hazard decays on a cell per tick? (negative values make it grow everywhere instead)\n", conf::HAZARDDECAY);
 	fprintf(cf, "HAZARDDEPOSIT= %f \t//how much hazard is placed by an agent per tick? (Ideally. Agents can control the frequency and amount that they deposit, but in sum it should equal this per tick)\n", conf::HAZARDDEPOSIT);
 	fprintf(cf, "HAZARDPOWER= %f \t\t//power of the hazard layer value, applied before HAZARDDAMAGE. default= 0.5 (remember, hazard in range [0,1])\n", conf::HAZARDPOWER);
-	fprintf(cf, "HAZARDDAMAGE= %f \t\t//how much health an agent looses while on a filled hazard cell per tick? (note that 9/10 of this is max waste damage)\n", conf::HAZARDDAMAGE);
+	fprintf(cf, "HAZARDDAMAGE= %f \t\t//how much health an agent looses while on a filled hazard cell per tick? (note that 9/10 of this is max waste damage). Contributes to the death cause '%s'.\n", conf::HAZARDDAMAGE, conf::DEATH_HAZARD);
 	fprintf(cf, "\n");
 	fprintf(cf, "SUN_RED= %f \t\t//???\n", SUN_RED);
 	fprintf(cf, "SUN_GRE= %f \t\t//???\n", SUN_GRE);

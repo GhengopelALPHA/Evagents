@@ -11,14 +11,14 @@
 #define SETTINGS_H
 
 //defines for GUI button handles. Order changes nothing
-namespace GUIButtons{
+namespace GUIButtons {
 const enum {
 	TOGGLE_LAYERS= 0,
 	TOGGLE_PLACEAGENTS
 };};
 
 //defines for reading/writing GUI handles. Order changes nothing
-namespace RWOpen{
+namespace RWOpen {
 const enum {
 	STARTLOAD= 0,
 	NEWWORLD,
@@ -36,7 +36,7 @@ const enum {
 };};
 
 //defines for reading/writing GUI handles. Order changes nothing
-namespace RWClose{
+namespace RWClose {
 const enum {
 	BASICLOAD= 0,
 	BASICSAVE,
@@ -56,7 +56,7 @@ const enum {
 };};
 
 //defines for tile (buttons) data. Order changes nothing except my sanity
-namespace MainTiles{
+namespace MainTiles {
 const enum {
 	SAD= 0, //Selected Agent Display, our first tile! It has lots of sub-tiles that get made automatically
 	TOOLBOX,
@@ -66,19 +66,28 @@ const enum {
 };};
 
 //defines for ui dimensions and useful values throughout the program
-namespace UID{
+namespace UID {
 	const int CHARHEIGHT= 9;
-	const int CHARWIDTH= 7; //height and width (on screen) allowed for text characters
+	const int CHARWIDTH= 6; //height and width (on screen) allowed for text characters
 	const int HUDSWIDTH= 88; //the width we are assuming when it comes to text space in the Selected Agent Display.
 	const int TILEMARGIN= 10; //what is the min margin between a sub-tile and the next tile above (or window if main tile)
 	const int TILEBEVEL= 5; //bevel size on tiles. 5 was scaled for the SAD; consider code for smaller tiles to have smaller bevels
 	const int SADWIDTH= 440; //Selected Agent Display width. SHOULD be tied to HUDSWIDTH above, but there's a lot more stuff going on in there
 	const int BUFFER= 6; //extra buffer space, mostly for text
 	const int EVENTSWIDTH= 210; //Event toast width (length?)... x-dimension-size
+	const int GRAPHWIDTH = 10020; //x-d width of the on-world graph
+	const int GRAPHBUFFER = 15;
 };
 
 
-namespace EventColor{
+namespace GuideLine {
+const enum {
+	NONE = 0,
+	DAY,
+	EPOCH
+};};
+
+namespace EventColor {
 const enum {
 	WHITE= 0,	//type 0: white		- Selected agent event
 	RED,		//type 1: red		- Selected agent killed / population bad
@@ -164,8 +173,8 @@ namespace DisplayLayer{
 const enum {
 	ELEVATION,
 	PLANTS,
-	MEATS,
 	FRUITS,
+	MEATS,
 	HAZARDS,	
 	TEMP,
 	LIGHT,
@@ -181,13 +190,14 @@ const enum {
 	RGB,
 	STOMACH,
 	LUNGS,
-	HEALTH,
-	REPCOUNTER,
 	DISCOMFORT,
+	HEALTH,
 	METABOLISM,
+	REPCOUNTER,
+	STRENGTH,
+	VOLUME,
 	MUTATION,
 	GENERATIONS,
-	VOLUME,
 	SPECIES,
 	CROSSABLE,
 //	REPMODE,
@@ -512,10 +522,9 @@ namespace conf {
 	const float RENDER_MAXSPLASHSIZE= 35.0; //max indicator splash size on any agent
 	const float RENDER_MINVOLUME= 0.01; //min volume below which the agent is considered silent (for visualizing purposes, not real)
 
-	const int REPORTS_PER_EPOCH = 200; //(.cfg)
-	const int FRAMES_PER_EPOCH = 200000; //(.cfg)
-	const int FRAMES_PER_DAY= 4000; //(.cfg)
-	const int RECORD_SIZE = 200; // number of data points stored for the graph. Units are in reports, the frequency of which are defined above
+	const int REPORTS_PER_EPOCH = 500; //(.cfg)
+	const int FRAMES_PER_EPOCH = 400000; //(.cfg)
+	const int FRAMES_PER_DAY= 8000; //(.cfg)
 	const int CELL_TICK_RATE= 4; //Tick rate of all cells in the world. IMPACTS PERFORMANCE!!! 1= every cell calculated every tick, 
 	 // 2= every other tick for every other cell, 4= every 4th cell is calculated every 4 ticks, etc. This value also multiplies all cell 
 	 // growth/decay rates so no differences should be observed. Setting to 5+ will cause light to look weird, and has diminishing performance returns
@@ -537,7 +546,7 @@ namespace conf {
 	const int AGENTS_MIN_NOTCLOSED= 50; //(.cfg)
 	const int AGENTS_MAX_SPAWN= 400; //(.cfg)
 	const int AGENTSPAWN_FREQ= 100; //(.cfg)
-	const int AGENTS_MAX_NOOXYGEN= 2500; //(.cfg)
+	const int AGENTS_MAX_NOOXYGEN= 2400; //(.cfg)
 	const int SPECIESID_RANGE= 9000; //species ID range between (-this,this) that agents will spawn with. Note it is not capped
 
 	const float GRAVITYACCEL= 0.010; //(.cfg)
@@ -552,8 +561,9 @@ namespace conf {
 	const bool MOONLIT= true; //(.cfg, save, & GUI)
 	const float MOONLIGHTMULT= 0.1; //(.cfg & save)
 	const bool DROUGHTS= true; //(.cfg, save, & GUI)
-	const float DROUGHT_STDDEV= 0.15; // The standard deviation of changes to the DROUGHTMULT
-	const int DROUGHT_WEIGHT= 2; // the weight multiple of the current DROUGHTMULT when averaged (1.0 has a weight of 1)
+	const float DROUGHT_STDDEV= 0.3; // The standard deviation of changes to the DROUGHTMULT
+	const int DROUGHT_WEIGHT_TO_RANDOM= 31; //the weight multiple of the current DROUGHTMULT when averaged DOWN (randf(0,1) has a weight of 1)
+	const int DROUGHT_WEIGHT_TO_ONE= 2; //the weight multiple of the current DROUGHTMULT when averaged to ONE (1.0 has a weight of 1). changing this relative to _ZERO should be interesting
 	const float DROUGHT_NOTIFY= 0.2; //+/- this value from 1.0 of drought shows notifications
 	const float DROUGHT_MIN= 0.6; //(.cfg & save)
 	const float DROUGHT_MAX= 1.5; //(.cfg & save)
@@ -561,8 +571,10 @@ namespace conf {
 	const int MUTEVENT_MAX= 3; //(.cfg)
 	const float MUTEVENT_CHANCE= 0.25; //chance of a mutation event that has a multiple other than 1
 	const bool CLIMATE= true; //(.cfg, save, & GUI)
-	const float CLIMATE_INTENSITY= 0.007; //(.cfg & GUI)
+	const float CLIMATE_INTENSITY= 0.009; //(.cfg & GUI)
+	const float CLIMATE_INTENSITY_EPOCH_MULT= 10.0; //multiplier applied to the above value when selecting new climate values at start of epochs
 	const float CLIMATEMULT_AVERAGE= 0.5; //value that the world's climate mult tries to average back towards
+	const int CLIMATEMULT_WEIGHT= 3; // the weight multiple of the current CLIMATEMULT when averaged (CLIMATEMULT_AVERAGE has a weight of 1)
 	const bool CLIMATE_AFFECT_FLORA= true; //(.cfg)
 	const float CLIMATE_KILL_FLORA_ZONE= 0.1; //temperature zone (in absolute units) that flora struggles within. A value of 0 disables plant decay, so using CLIMATE_AFFECT_FLORA= true only reduces seeding
 
@@ -588,8 +600,9 @@ namespace conf {
 	const float MEANRADIUS=10.0; //(.cfg)
 	const float BOOSTSIZEMULT= 2.0; //(.cfg)
 	const float BOOSTEXAUSTMULT= 1.5; //(.cfg)
-	const float BASEEXHAUSTION= -7; //(.cfg)
-	const float EXHAUSTION_MULT= 0.5; //(.cfg)
+	const float BASEEXHAUSTION= -10; //(.cfg)
+	const float EXHAUSTION_MULT_PER_OUTPUT= 1.0; //(.cfg)
+	const float EXHAUSTION_MULT_PER_CONN= 0.02; //(.cfg)
 	const int MAXWASTEFREQ= 200; //(.cfg)
 	const float FOODTRANSFER= 0.1; //(.cfg)
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
@@ -597,6 +610,7 @@ namespace conf {
 	const float VELOCITYSPIKEMIN= 0.2; //minimum velocity difference between two agents in the positive direction to be spiked by the other
 	const bool SPAWN_MIRROR_EYES = true; //(.cfg)
 	const bool PRESERVE_MIRROR_EYES = false; //(.cfg)
+	const float MIN_TEMP_DISCOMFORT_THRESHOLD = 0.005; //minimum discomfort value below which it's just overridden to 0
 
 	//visual settings
 	const int BLINKTIME= 8; //it's really a little thing... how many ticks the agent eyes blink for. Purely aesthetic
@@ -612,16 +626,16 @@ namespace conf {
 	const float REP_PER_BABY= 3; //(.cfg)
 	const float REPCOUNTER_MIN= 8; //minimum value the Repcounter may be set to
 	const float OVERHEAL_REPFILL= 0; //(.cfg)
-	const bool KEEP_MIRRORED_EYES= true; //(.cfg) NOT IMPLEMENTED FULLY todo
 
 	//mutations
-	const float MAXDEVIATION= 10; // no longer used, kept for loading legacy worlds
+	const int OVERRIDE_KINRANGE= -1; //(.cfg)
+	const int VISUALIZE_RELATED_RANGE= 30; // what's the range in addition to agent's kinrange that we go ahead and say maybe they were related
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
 	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
-	const float META_MUTSIZE= 0.005;
+	const float META_MUTSIZE= 0.003;
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
 	const float DEFAULT_MUTCHANCE= 0.1; //(.cfg)
-	const float DEFAULT_MUTSIZE= 0.02; //(.cfg)
+	const float DEFAULT_MUTSIZE= 0.03; //(.cfg)
 
 	//distances
 	const float DIST= 400; //(.cfg)
@@ -643,6 +657,7 @@ namespace conf {
 	//Health losses
 	const int MAXAGE=10000; //(.cfg)
 	const float HEALTHLOSS_AGING = 0.0001; //(.cfg)
+	const float HEALTHLOSS_EXHAUSTION = 0.001; //(.cfg)
 	const float HEALTHLOSS_WHEELS = 0.0; //(.cfg)
 	const float HEALTHLOSS_BOOSTMULT= 2.0; //(.cfg)
 	const float HEALTHLOSS_BADTEMP = 0.006; //(.cfg)
@@ -653,7 +668,7 @@ namespace conf {
 	const float HEALTHLOSS_ASSEX= 0.15; //(.cfg)
 
 	const float DAMAGE_FULLSPIKE= 4.0; //(.cfg)
-	const float DAMAGE_COLLIDE= 3.0; //(.cfg)
+	const float DAMAGE_COLLIDE= 2.0; //(.cfg)
 	const float DAMAGE_JAWSNAP= 3.0; //(.cfg)
 
 	//Death cause strings. Typically preceeded by "Killed by ", but this is just all damage sources in text form
@@ -692,7 +707,7 @@ namespace conf {
 	const float FRUITINTAKE = 0.040; //(.cfg)
 	const float FRUITDECAY = 0.000003; //(.cfg)
 	const float FRUITWASTE = 0.0023; //0.0014; //(.cfg)
-	const int FRUITADDFREQ = 4; //(.cfg)
+	const int FRUITADDFREQ = 3; //(.cfg)
 	const float FRUITREQUIRE= 0.1; //(.cfg)
 	//Fruit is a quick and easy alternative to plants. Also partially randomly populated, harkening back to ScriptBots origins
 
@@ -707,7 +722,7 @@ namespace conf {
 	const float HAZARDEVENT_MULT= 4.0; //(.cfg)
 	const float HAZARDDECAY= 0.000001; //(.cfg)
 	const float HAZARDDEPOSIT= 0.00006; //(.cfg)
-	const float HAZARDDAMAGE= 0.001;//0.0032; //(.cfg)
+	const float HAZARDDAMAGE= 0.0025;//0.0032; //(.cfg)
 	const float HAZARDPOWER= 0.5; //(.cfg)
 	}
 

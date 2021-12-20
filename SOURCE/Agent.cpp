@@ -4,8 +4,16 @@
 #include <stdio.h>
 
 using namespace std;
-Agent::Agent(int NUMBOXES, int NUMINITCONNS, bool SPAWN_MIRROR_EYES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1, float MUTARATE2)
-{
+Agent::Agent(
+	int NUMBOXES, 
+	int NUMINITCONNS, 
+	bool SPAWN_MIRROR_EYES, 
+	int OVERRIDE_KINRANGE, 
+	float MEANRADIUS, 
+	float REP_PER_BABY, 
+	float MUTARATE1, 
+	float MUTARATE2
+){
 	//basics
 	id= 0;
 	setPosRandom(conf::WIDTH, conf::HEIGHT);
@@ -16,6 +24,7 @@ Agent::Agent(int NUMBOXES, int NUMINITCONNS, bool SPAWN_MIRROR_EYES, float MEANR
 	MUTSIZE= MUTARATE2; //abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10); //size of mutations
 	parentid= 0;
 	radius= randf(MEANRADIUS*0.2,MEANRADIUS*2.2);
+	strength= randf(0.01,1);
 	numbabies= randi(1,7);
 	gene_red= randf(0,1);
 	gene_gre= randf(0,1);
@@ -25,7 +34,7 @@ Agent::Agent(int NUMBOXES, int NUMINITCONNS, bool SPAWN_MIRROR_EYES, float MEANR
 	metabolism= randf(0.25,0.75);
 	setIdealTempPref();
 	species= randi(-conf::SPECIESID_RANGE,conf::SPECIESID_RANGE);
-	kinrange= randi(1,conf::SPECIESID_RANGE/10);
+	kinrange= OVERRIDE_KINRANGE>=0 ? OVERRIDE_KINRANGE : randi(1,conf::SPECIESID_RANGE/10);
 	sexprojectbias= randf(-1,0); //purposefully excluding "male" biases (0,1), which are allowed, but for random spawn agents are detrimental
 	setRandomStomach();
 
@@ -35,7 +44,7 @@ Agent::Agent(int NUMBOXES, int NUMINITCONNS, bool SPAWN_MIRROR_EYES, float MEANR
 	eyefov.resize(NUMEYES, 0);
 	eyedir.resize(NUMEYES, 0);
 	for(int i=0;i<NUMEYES;i++) {
-		if(!SPAWN_MIRROR_EYES || i%2==0) { //init and every other eye gets unique values. todo: implement connection to passed world flag
+		if(!SPAWN_MIRROR_EYES || i%2==0) { //init and every other eye gets unique values
 			eyedir[i] = randf(0, 2*M_PI);
 			eyefov[i] = randf(0.001, 1.25);
 		}
@@ -100,7 +109,6 @@ Agent::Agent(int NUMBOXES, int NUMINITCONNS, bool SPAWN_MIRROR_EYES, float MEANR
 	//output mechanical values
 	w1= 0;
 	w2= 0;
-	strength= randf(0.01,1);
 	boost= false;
 	jump= 0;
 	real_red= 0.5;
@@ -362,8 +370,14 @@ void Agent::tick()
 {
 	brain.tick(in, out);
 }
-Agent Agent::reproduce(Agent that, bool PRESERVE_MIRROR_EYES, float MEANRADIUS, float REP_PER_BABY, int baby)
-{
+Agent Agent::reproduce(
+	Agent that,
+	bool PRESERVE_MIRROR_EYES,
+	int OVERRIDE_KINRANGE,
+	float MEANRADIUS,
+	float REP_PER_BABY,
+	int baby
+){
 	//moved muterate gets into reproduce because thats where its needed and used, no reason to go through world
 	//choose a value of our agent's mutation and their saved mutation value, can be anywhere between the parents'
 	float MR= randf(min(this->MUTCHANCE,that.MUTCHANCE),max(this->MUTCHANCE,that.MUTCHANCE));
@@ -372,7 +386,8 @@ Agent Agent::reproduce(Agent that, bool PRESERVE_MIRROR_EYES, float MEANRADIUS, 
 	//create baby. Note that if the bot selects itself to mate with, this function acts also as assexual reproduction
 	//NOTES: Agent "this" is mother, Agent "that" is father, Agent "a2" is daughter
 	//if a single parent's trait is required, use the mother's (this->)
-	Agent a2(this->brain.boxes.size(), this->brain.conns.size(), PRESERVE_MIRROR_EYES, MEANRADIUS, this->maxrepcounter, MR, MR2);
+	Agent a2(this->brain.boxes.size(), this->brain.conns.size(), PRESERVE_MIRROR_EYES, OVERRIDE_KINRANGE, MEANRADIUS, this->maxrepcounter, MR, MR2);
+	//Agent::Agent(
 
 	//spawn the baby somewhere closeby behind the mother
 	//we want to spawn behind so that agents dont accidentally kill their young right away
@@ -440,31 +455,29 @@ Agent Agent::reproduce(Agent that, bool PRESERVE_MIRROR_EYES, float MEANRADIUS, 
 	}
 
 	//---MUTATIONS---//
-	if (randf(0,1)<MR/4) a2.numbabies= (int) (randn(a2.numbabies, 0.1 + MR2*50));
+	if (randf(0,1)<MR/2) a2.numbabies= (int) (randn(a2.numbabies, 0.1 + MR2*50));
 	if (a2.numbabies<1) a2.numbabies= 1; //technically, 0 babies is perfectly logical, but in this sim it is pointless, so it's disallowed
 	a2.resetRepCounter(MEANRADIUS, REP_PER_BABY);
 	if (randf(0,1)<MR/2) a2.metabolism= cap(randn(a2.metabolism, MR2*2));
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*5) a2.stomach[i]= cap(randn(a2.stomach[i], MR2*7)); //*10 was a bit much
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*8) a2.stomach[i]= cap(randn(a2.stomach[i], MR2*4)); //*7 was a bit much
 	if (randf(0,1)<MR*10) a2.species+= (int) (randn(0, 0.5+MR2*50));
-	if (randf(0,1)<MR*5) a2.kinrange= (int) abs(randn(a2.kinrange, 1+MR2*5*(a2.kinrange+1)));
+	if (randf(0,1)<MR*5 && OVERRIDE_KINRANGE<0) a2.kinrange= (int) abs(randn(a2.kinrange, 1+MR2*5*(a2.kinrange+1)));
 	if (randf(0,1)<MR*5) a2.radius= randn(a2.radius, MR2*15);
 	if (a2.radius<1) a2.radius= 1;
-	if (randf(0,1)<MR) a2.strength= cap(randn(a2.strength, MR2));
-	if (randf(0,1)<MR) a2.chamovid= cap(randn(a2.chamovid, MR2));
-	if (randf(0,1)<MR*2) a2.gene_red= cap(randn(a2.gene_red, MR2*2));
-	if (randf(0,1)<MR*2) a2.gene_gre= cap(randn(a2.gene_gre, MR2*2));
-	if (randf(0,1)<MR*2) a2.gene_blu= cap(randn(a2.gene_blu, MR2*2));
-	if (randf(0,1)<MR/2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2*2), -1.0, 1.0);
+	if (randf(0,1)<MR) a2.strength= cap(randn(a2.strength, MR2*2));
+	if (randf(0,1)<MR*2) a2.chamovid= cap(randn(a2.chamovid, MR2));
+	if (randf(0,1)<MR*4) a2.gene_red= cap(randn(a2.gene_red, MR2*4));
+	if (randf(0,1)<MR*4) a2.gene_gre= cap(randn(a2.gene_gre, MR2*4));
+	if (randf(0,1)<MR*4) a2.gene_blu= cap(randn(a2.gene_blu, MR2*4));
+	if (randf(0,1)<MR*2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2*2), -1.0, 1.0);
 
-	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTSIZE*3));
+	if (randf(0,1)<conf::META_MUTCHANCE*2) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTSIZE*3));
 	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
-	//we dont really want mutrates to get to zero; thats too stable, take the absolute randn instead. for CHANCE, we add a bit to prevent getting to 0
-	//if we didn't add a bit, the peak of the bell curve tends toward 0 statisticly speaking, not just evolutionarily. We add this bit to fight statistics
-	//We should probably add more instability to the environment to render this correction factor useless, as that's the reason 0* mutation is being selected
+	//we dont really want mutrates to get to zero; thats too stable, take the absolute randn instead
 
-	if (randf(0,1)<MR/2) a2.clockf1= randn(a2.clockf1, MR2);
+	if (randf(0,1)<MR) a2.clockf1= randn(a2.clockf1, MR2);
 	if (a2.clockf1<2) a2.clockf1= 2;
-	if (randf(0,1)<MR/2) a2.clockf2= randn(a2.clockf2, MR2);
+	if (randf(0,1)<MR) a2.clockf2= randn(a2.clockf2, MR2);
 	if (a2.clockf2<2) a2.clockf2= 2;
 
 	if (randf(0,1)<MR) a2.smell_mod= randn(a2.smell_mod, MR2);
@@ -479,7 +492,7 @@ Agent Agent::reproduce(Agent that, bool PRESERVE_MIRROR_EYES, float MEANRADIUS, 
 	for(int i=0;i<eyedir.size();i++){
 		if(!PRESERVE_MIRROR_EYES || i%2==0) {
 			if (randf(0,1)<MR/60) {
-				//LOW-CHANCE COPY EVENT (multiply by NUMEYES for real probability)
+				//LOW-CHANCE COPY EVENT
 				int origeye= randi(0,eyedir.size());
 				a2.eyedir[i]= a2.eyedir[origeye];
 				if(randf(0,1)<MR*3) a2.eyefov[i]= a2.eyefov[origeye];
@@ -502,7 +515,7 @@ Agent Agent::reproduce(Agent that, bool PRESERVE_MIRROR_EYES, float MEANRADIUS, 
 	for(int i=0;i<NUMEARS;i++){
 		if(i%2==0) {
 			if (randf(0,1)<MR/40) {
-				//LOW-CHANCE COPY EVENT (multiply by NUMEARS for total probability)
+				//LOW-CHANCE COPY EVENT
 				int origear= randi(0,NUMEARS);
 	//			if(randf(0,1)<MR*3) a2.eardir[i]= a2.eardir[origear];
 				if(randf(0,1)<MR*3) a2.hearlow[i]= a2.hearlow[origear];
@@ -629,7 +642,7 @@ void Agent::setIdealTempPref(float temp)
 
 void Agent::setIdealLungs(float target)
 {
-	lungs= cap(randn(target,0.10));
+	lungs= cap(randn(target,0.05));
 }
 
 bool Agent::isHerbivore() const
@@ -761,9 +774,9 @@ void Agent::addDamage(std::string sourcetext, float amount)
 
 	//check if agent died. If it did, properly bury it
 	if(this->health<0){
-		if(age < 2*conf::TENDERAGE && (sourcetext.compare(conf::DEATH_HAZARD)==0 || sourcetext.compare(conf::DEATH_NATURAL)==0) && gencount > 0) {
+		if(age < conf::TENDERAGE && (sourcetext.compare(conf::DEATH_HAZARD)==0 || sourcetext.compare(conf::DEATH_NATURAL)==0) && gencount > 0) {
 			sourcetext= std::string(conf::DEATH_TOOYOUNG);
-			//before an age of 2*TENDERAGE -> 2 days, a death is suspected to be caused by mutations
+			//before TENDERAGE, a death is suspected to be caused by mutations
 			//only overwrite hazard and natural deaths however; I want to know when children die from murders, generocity, temperature, etc
 		}
 		this->death= "Killed by " + sourcetext;

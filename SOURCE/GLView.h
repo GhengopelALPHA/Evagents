@@ -35,6 +35,7 @@ void glui_handleCloses(int action);
 struct Color3f
 {
 	Color3f() : red(0), gre(0), blu(0.1) {} //navy-blue default color
+	Color3f(float v) : red(v), gre(v), blu(v) {}
 	Color3f(float r, float g) : red(r), gre(g), blu(0.1) {}
 	Color3f(float r, float g, float b) : red(r), gre(g), blu(b) {}
 	void mix(Color3f ocolor) {
@@ -113,10 +114,10 @@ private:
 	Color3f setColorSpecies(float species);
 	Color3f setColorCrossable(float species);
 	Color3f setColorGenerocity(float give);
+	Color3f setColorStrength(float strength);
 	Color3f setColorRepType(int type);
 	Color3f setColorRepCount(float repcount, int type);
 	Color3f setColorMutations(float rate, float size);
-	Color3f setColorStrength(float strength);
 	Color3f setColorGeneration(int gen);
 
 	//3f agent part color defs

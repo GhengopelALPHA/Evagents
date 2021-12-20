@@ -37,6 +37,7 @@ public:
 	int tid; //target box id in boxes[]
     int type; //0: regular synapse. 1: change-sensitive synapse. 2: NOT IMPLEMENTED memory trigger synapse
 
+	bool dead; //t/f flag for if this conn links to a dead target or not. Can also become dead if weight == 0
 	int seed; //number of successes (reproduction events) this conn has experienced whilst unmodified
 };
 
@@ -53,8 +54,8 @@ public:
 	CPBrain();
     CPBrain(int numboxes, int numconns);
     virtual CPBrain& operator=(const CPBrain& other);
-	void setLiveBoxes();
-	void resetLiveBoxes();
+	void setLives();
+	void resetLives();
 	void resetBrain();
 	void healthCheck();
 
@@ -65,7 +66,6 @@ public:
     void tick(std::vector<float>& in, std::vector<float>& out);
 
 	float getActivityRatio() const;
-	float getNonZeroWRatio() const;
 //	std::vector<int> traceBack(int outback);
 
     void initMutate(float MR, float MR2);
