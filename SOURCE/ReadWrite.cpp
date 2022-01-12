@@ -101,7 +101,10 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "metab= %f\n", a->metabolism);
 	fprintf(file, "temppref= %f\n", a->temperature_preference);
 	fprintf(file, "lungs= %f\n", a->lungs);
-	fprintf(file, "mutchance= %f\nmutsize= %f\n", a->MUTCHANCE, a->MUTSIZE);
+	fprintf(file, "brain_mutchance= %f\n", a->brain_mutation_chance);
+	fprintf(file, "brain_mutsize= %f\n", a->brain_mutation_size);
+	fprintf(file, "gene_mutchance= %f\n", a->gene_mutation_chance);
+	fprintf(file, "gene_mutsize= %f\n", a->gene_mutation_size);
 	fprintf(file, "parentid= %i\n", a->parentid);
 	fprintf(file, "strength= %f\n", a->strength);
 	fprintf(file, "cl1= %f\ncl2= %f\n", a->clockf1, a->clockf2);
@@ -166,7 +169,7 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 	//loadexact is flag for loading agent EXACTLY is same pos, same health, exhaustion, etc, if set to false we give it random spawn settings for non-genes
 	char address[32];
 	char line[64], *pos;
-	char var[16];
+	char var[32];
 	char dataval[16];
 	int mode= ReadWriteMode::READY;
 
@@ -177,8 +180,10 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 		world->OVERRIDE_KINRANGE,
 		world->MEANRADIUS,
 		world->REP_PER_BABY,
-		world->DEFAULT_MUTCHANCE,
-		world->DEFAULT_MUTSIZE
+		world->DEFAULT_BRAIN_MUTCHANCE,
+		world->DEFAULT_BRAIN_MUTSIZE,
+		world->DEFAULT_GENE_MUTCHANCE,
+		world->DEFAULT_GENE_MUTSIZE
 	); //Agent::Agent //mock agent. gets moved and deleted after loading
 	bool t2= false; //triggers for keeping track of where exactly we are
 
@@ -209,9 +214,11 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "posx=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.pos.x= f;
+				xa.dpos.x= f;
 			}else if(strcmp(var, "posy=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.pos.y= f;
+				xa.dpos.y= f;
 			}else if(strcmp(var, "angle=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.angle= f;
@@ -312,12 +319,18 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "lungs=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.lungs= f;
-			}else if(strcmp(var, "mutchance=")==0 || strcmp(var, "mutrate1=")==0){
+			}else if(strcmp(var, "brain_mutchance=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.MUTCHANCE= f;
-			}else if(strcmp(var, "mutsize=")==0 || strcmp(var, "mutrate2=")==0){
+				xa.brain_mutation_chance= f;
+			}else if(strcmp(var, "brain_mutsize=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.MUTSIZE= f;
+				xa.brain_mutation_size= f;
+			}else if(strcmp(var, "gene_mutchance=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.gene_mutation_chance= f;
+			}else if(strcmp(var, "gene_mutsize=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.gene_mutation_size= f;
 			}else if(strcmp(var, "parentid=")==0){
 				sscanf(dataval, "%i", &i);
 				xa.parentid= i;
@@ -445,7 +458,7 @@ void ReadWrite::loadAgentFile(World *world, const char *address)
 }
 
 
-void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *filename)
+void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult, const char *filename)
 {
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
 	std::string addressSAV;
@@ -469,7 +482,6 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 	fprintf(fs,"BRAINBOXES= %i\n", world->BRAINBOXES);
 	fprintf(fs,"INPUTS= %i\n", Input::INPUT_SIZE);
 	fprintf(fs,"OUTPUTS= %i\n", Output::OUTPUT_SIZE);
-	fprintf(fs,"CONNECTIONS= %i\n", CONNS);
 	fprintf(fs,"WIDTH= %i\n", conf::WIDTH);
 	fprintf(fs,"HEIGHT= %i\n", conf::HEIGHT);
 	fprintf(fs,"CELLSIZE= %i\n", conf::CZ); //these saved values up till now are mostly for version control for now
@@ -488,7 +500,8 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 	fprintf(fs,"epoch= %i\n", world->current_epoch);
 	fprintf(fs,"mod= %i\n", world->modcounter);
 	fprintf(fs,"xpos= %f\n", xpos);
-	fprintf(fs,"ypos= %f\n", ypos); //GLView xtranslate and ytranslate
+	fprintf(fs,"ypos= %f\n", ypos);
+	fprintf(fs,"scale= %f\n", scalemult); //GLView xtranslate and ytranslate and scalemult
 	for(int cx=0;cx<world->CW;cx++){ //start with the layers
 		for(int cy=0;cy<world->CH;cy++){
 			float food= world->cells[Layer::PLANTS][cx][cy];
@@ -595,7 +608,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 	printf("World Saved!\n");
 }
 
-void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, const char *filename)
+void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, float &scalemult, const char *filename)
 {
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
 	std::string address;
@@ -676,12 +689,6 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					sscanf(dataval, "%i", &i);
 					if(i!=Output::OUTPUT_SIZE) {
 						printf("ALERT: Brain Output size different! Issues WILL occur! Press enter to try and continue. . .\n");
-						cin.get();
-					}
-				}else if(strcmp(var, "CONNECTIONS=")==0){
-					sscanf(dataval, "%i", &i);
-					if(i!=CONNS) {
-						printf("ALERT: Brain CONNS per brain box different! Issues WILL occur! Press enter to try and continue. . .\n");
 						cin.get();
 					}
 				}else if(strcmp(var, "WIDTH=")==0){
@@ -769,13 +776,17 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 //					if (i==1) ;
 //					else ;
 				}else if(strcmp(var, "xpos=")==0){
-					//veiw screen location x
+					//view screen location x
 					sscanf(dataval, "%f", &f);
 					xtranslate= f;
 				}else if(strcmp(var, "ypos=")==0){
-					//veiw screen location y
+					//view screen location y
 					sscanf(dataval, "%f", &f);
 					ytranslate= f;
+				}else if(strcmp(var, "scale=")==0){
+					//view screen scalemult
+					sscanf(dataval, "%f", &f);
+					scalemult= f;
 				}else if(strcmp(var, "<c>")==0){
 					//cells tag activates cell reading mode
 					mode= ReadWriteMode::CELL;
@@ -817,6 +828,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 		fclose(fl);
 
 		printf("WORLD LOADED!\n");
+		world->addEvent("World Loaded!", EventColor::MINT);
 
 		world->setStatsAfterLoad();
 

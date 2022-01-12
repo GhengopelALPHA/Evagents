@@ -1,6 +1,6 @@
 ==============================================================================================================
 Evagents
-Authors & Contributors: Julian Hershey, Andrej Karpathy, Casey Link, David Coleman 
+Authors & Contributors: Julian Hershey, Andrej Karpathy, Casey Link, David Coleman
 Supporters: Eric Hvinden
 License: BSD (see end of file)
 
@@ -10,18 +10,7 @@ https://sites.google.com/view/evagentsproject/home
 ==============================================================================================================
 
 WHAT IS EVAGENTS?
-Evagents is a "natural" selection simulator. The program contains a world wherein agents can interact with that world and each other, reproduce, die, run around, eat, breed, communicate, and other things, using neural nets to calculate their responses to stimuli. Each agent has a huge number of features available to them that they can use in various ways to try and survive long enough to reproduce, extending their solution through time. Any time a baby is born its traits are copied from it's parent(s), but with chances of mutations. Thus a form of natural selection is applied to create populations of species that can best survive in the world. Competition and cooperation are important secondary characteristics that agents must develop, using their DRAWS Brains, a neural network with features of Dampening, Recurrence, Addition, Weighted, Sigmoid-outputs that takes inputs (in range 0-1) and feeds them to outputs (also 0-1) over time and in an initially random structure. As time passes, however, the brains can mutate into more efficient forms
-
-==============================================================================================================
-
-NOTE ABOUT VERSION NUMBERS:
-Version numbers are in format x.xx.x
-
-First decimal is the overall version and status of the program. 0= development, 1= final release version (fvr) 1, 2= frv 2, etc.
-
-Second decimal is the release number. I expect this to get into double-digits in development status.
-
-Third decimal is the pre-release number of the NEXT version. IE, v0.04.1 is the first pre-release of the next version, 0.05. This is reverse of how most others use these numbers, where they represent patches to the release version, but it's easier for me to make an update to the next release version than it is to make a new release version, so that's how that's going to be.
+Evagents is a "natural" selection simulator written for Windows platforms. The program contains a world wherein agents can interact with that world and each other, reproduce, die, run around, eat, breed, communicate, and other things, using neural nets to calculate their responses to stimuli. Each agent has a huge number of features available to them that they can use in various ways to try and survive long enough to reproduce, extending their solution through time. Any time a baby is born its traits are copied from it's parent(s), but with chances of mutations. Thus a form of natural selection is applied to create populations of species that can best survive in the world. Competition and cooperation are important secondary characteristics that agents must develop, using their brains, a neural network with features of Connection-Positive, Dampened, Recurrent, Additive, Weighted, Sigmoid-processed outputs that take sensory inputs (in range 0-1), process them with finite but potentially complex iterations, and produces outputs (also 0-1) over time and in an initially random structure. As time passes, however, the brains can mutate into more efficient forms, via adding/removing connections, changing connection targets and sources, changing weights, biases, and dampening factors, and more.
 
 ==============================================================================================================
 

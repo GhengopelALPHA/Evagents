@@ -19,22 +19,28 @@ public:
 		int OVERRIDE_KINRANGE,
 		float MEANRADIUS, 
 		float REP_PER_BABY, 
-		float MUTARATE1, 
-		float MUTARATE2);
+		float BRAIN_MUTATION_CHANCE, 
+		float BRAIN_MUTATION_SIZE,
+		float GENE_MUTATION_CHANCE,
+		float GENE_MUTATION_SIZE);
 	Agent();
 		
 	//Saved Variables
 	//simulation basics
 	int id;
 	Vector2f pos;
-	Vector2f dpos; //UNSAVED
+	Vector2f dpos; //UNSAVED, but LOADED (with the pos values)
+	float height; //TODO
 	float angle; //of the bot
 
 	//Genes! WIP
-	std::vector< std::pair<int, float> > genes; //NEW genes. First is type, second is value. All Values of same Type get averaged or added
+	std::vector< std::pair<int, float> > genes; //TODO: NEW genes. First is type, second is value. All Values of same Type get averaged or added
+	//REDO! make new structs instead. need more variables
 
-	float MUTCHANCE; //how often do mutations occur?
-	float MUTSIZE; //how significant are they?
+	float brain_mutation_chance; //how often do mutations occur?
+	float brain_mutation_size; //how significant are they?
+	float gene_mutation_chance; //same as above, but for genes
+	float gene_mutation_size;
 	int parentid; //who's your momma? Note that like mitochondrial DNA, this is only passed from mother to children
 	float radius; //radius of bot
 	float gene_red, gene_gre, gene_blu; //genetic color traits of the agent. can be hidden by chamovid= 1

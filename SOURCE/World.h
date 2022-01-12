@@ -100,6 +100,7 @@ public:
 	std::vector<int> numAmphibious;
 	std::vector<int> numAquatic;
 	std::vector<int> numHybrid;
+	std::vector<int> numSpiky; //UNUSED
 
 	//counters
 	int modcounter;
@@ -115,6 +116,7 @@ public:
 	void processClimate();
 	void processMutationEvent();
 	void processReporting();
+	void triggerStatEvents(bool showevents= true);
 	void processCells(bool prefire= false);
 	void tryPlayMusic(); //CONTROL.CPP!!!
 	void setInputs();
@@ -180,6 +182,9 @@ public:
 	int STAThighestgen; //highest and lowest generation (excluding gen 0 unless that's all there is)
 	int STATlowestgen;
 	float STATinvgenrange; //range of generation values, with high-gen forcast, inverted (1/this)
+	int MINPOP;
+	int MAXPOP;
+	bool MAXAFTERMIN; //if max is set after min (pop rise), this returns true, otherwise false (pop fall)
 
 	//reloadable "constants"
 	int MIN_PLANT;
@@ -227,7 +232,8 @@ public:
 	int BRAINBOXES;
 	int BRAINCONNS;
 	float WHEEL_SPEED;
-	float BOOSTSIZEMULT;
+	float JUMP_MOVE_BONUS_MULT;
+	float BOOST_MOVE_MULT;
 	float BOOSTEXAUSTMULT;
 	int CORPSE_FRAMES;
 	float CORPSE_MEAT_MIN;
@@ -254,8 +260,10 @@ public:
 	float OVERHEAL_REPFILL;
 //	float LEARNRATE;
 	int OVERRIDE_KINRANGE;
-	float DEFAULT_MUTCHANCE;
-	float DEFAULT_MUTSIZE;
+	float DEFAULT_BRAIN_MUTCHANCE;
+	float DEFAULT_BRAIN_MUTSIZE;
+	float DEFAULT_GENE_MUTCHANCE;
+	float DEFAULT_GENE_MUTSIZE;
 	float LIVE_MUTATE_CHANCE;
 	int MAXAGE;
 	int MAXWASTEFREQ;
@@ -285,31 +293,32 @@ public:
 
 	float STOMACH_EFF;
 
-	float FOODINTAKE;
-	float FOODDECAY;
-	float FOODGROWTH;
-	float FOODWASTE;
-	int FOODADDFREQ;
-	float FOODSPREAD;
-	int FOODRANGE;
+	float PLANT_INTAKE;
+	float PLANT_DECAY;
+	float PLANT_GROWTH;
+	float PLANT_WASTE;
+	int PLANT_ADD_FREQ;
+	float PLANT_SPREAD;
+	int PLANT_RANGE;
+	float PLANT_TENACITY;
 
-	float FRUITINTAKE;
-	float FRUITDECAY;
-	float FRUITWASTE;
-	int FRUITADDFREQ;
-	float FRUITREQUIRE;
+	float FRUIT_INTAKE;
+	float FRUIT_DECAY;
+	float FRUIT_WASTE;
+	int FRUIT_ADD_FREQ;
+	float FRUIT_PLANT_REQUIRE;
 
-	float MEATINTAKE;
-	float MEATDECAY;
-	float MEATWASTE;
-	float MEATVALUE;
+	float MEAT_INTAKE;
+	float MEAT_DECAY;
+	float MEAT_WASTE;
+	float MEAT_VALUE;
 
-	int HAZARDFREQ;
-	float HAZARDEVENT_MULT;
-	float HAZARDDECAY;
-	float HAZARDDEPOSIT;
-	float HAZARDDAMAGE;
-	float HAZARDPOWER;
+	int HAZARD_EVENT_FREQ;
+	float HAZARD_EVENT_MULT;
+	float HAZARD_DECAY;
+	float HAZARD_DEPOSIT;
+	float HAZARD_DAMAGE;
+	float HAZARD_POWER;
 
 	std::vector<std::string> tips;//list of tips to display every once in a while (more frequently at epoch=0)
     

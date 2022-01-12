@@ -4,8 +4,6 @@
 
 #define NUMEYES 6
 #define NUMEARS 4
-#define CONNS 5
-#define STACKS 3
 
 #ifndef SETTINGS_H
 #define SETTINGS_H
@@ -58,8 +56,9 @@ const enum {
 //defines for tile (buttons) data. Order changes nothing except my sanity
 namespace MainTiles {
 const enum {
-	SAD= 0, //Selected Agent Display, our first tile! It has lots of sub-tiles that get made automatically
-	TOOLBOX,
+	LAD= 0, //Selected Agent Display, our first tile! It has lots of sub-tiles that get created automatically
+	TOOLBOX, //UNUSED, will hold many of the GLUI functions eventually
+	EVENTS, //UNUSED, will eventually migrate events to GLView and handle them as tiles
 
 	//Don't add beyond this entry!
 	TILES
@@ -69,17 +68,17 @@ const enum {
 namespace UID {
 	const int CHARHEIGHT= 9;
 	const int CHARWIDTH= 6; //height and width (on screen) allowed for text characters
-	const int HUDSWIDTH= 88; //the width we are assuming when it comes to text space in the Selected Agent Display.
+	const int HUDSWIDTH= 88; //the column width we are assuming when it comes to text space in the Selected Agent Display.
 	const int TILEMARGIN= 10; //what is the min margin between a sub-tile and the next tile above (or window if main tile)
-	const int TILEBEVEL= 5; //bevel size on tiles. 5 was scaled for the SAD; consider code for smaller tiles to have smaller bevels
-	const int SADWIDTH= 440; //Selected Agent Display width. SHOULD be tied to HUDSWIDTH above, but there's a lot more stuff going on in there
+	const int TILEBEVEL= 5; //bevel size on tiles. 5 was scaled for the LAD; consider code for smaller tiles to have smaller bevels
+	const int LADWIDTH= 440; //Loaded / seLected Agent Display width. SHOULD be tied to HUDSWIDTH above, but there's a lot more stuff going on in there
 	const int BUFFER= 6; //extra buffer space, mostly for text
 	const int EVENTSWIDTH= 210; //Event toast width (length?)... x-dimension-size
 	const int GRAPHWIDTH = 10020; //x-d width of the on-world graph
 	const int GRAPHBUFFER = 15;
 };
 
-
+//defines for the graph's vertical guide lines, indicating days and epochs (or nothing). Order changes nothing
 namespace GuideLine {
 const enum {
 	NONE = 0,
@@ -89,35 +88,58 @@ const enum {
 
 namespace EventColor {
 const enum {
-	WHITE= 0,	//type 0: white		- Selected agent event
-	RED,		//type 1: red		- Selected agent killed / population bad
-	GREEN,		//type 2: green		- population good
-	BLUE,		//type 3: blue		- Selected sexual reproduction
-	YELLOW,		//type 4: yellow	- tips / autoselect changed poorly
-	CYAN,		//type 5: cyan		- simulation notification and controls, global ice age
-	PURPLE,		//type 6: purple	- Selected mutation event
-	BROWN,		//type 7: brown		- Selected decayed
-	NEON,		//type 8: neon		- Selected assexual reproduction
-	MINT,		//type 9: mint		- simulation start/restart/change
-	MULTICOLOR,	//type 10: multicolor -achievements
-	PINK,		//type 11: pink		- global change
-	ORANGE,		//type 12: orange	- Selected attacked, global hadean or extreme climate
-	BLOOD,		//type 13: bloodred - selected bad
-	LAVENDER,	//type 14: lavender - global change (mutations)
-	LIME,		//type 15: lime		- global good
-	BLACK		//type 16+: black	- 
+	//				Default:										- Demo Only:
+	WHITE= 0,	//	simulation notification							- agent event
+	RED,		//	global population decrease						- agent killed
+	GREEN,		//	global population increase						- agent generosity
+	BLUE,		//	neutral population change						- agent sexual reproduction
+	YELLOW,		//													- tips, agent jumped, agent bit another										
+	CYAN,		//	control help, global ice age					- agent collision, grab
+	PURPLE,		//													- agent mutation
+	BROWN,		//													- agent decayed
+	NEON,		//													- agent assexual reproduction
+	MINT,		//	simulation start/restart/change
+	PINK,		//	global change (overgrowth/drought bad)
+	ORANGE,		//	global hadean or extreme climate				- agent stabbed another
+	BLOOD,		//	load agent failed								- agent was stabbed or bitten (non-fatal)
+	LAVENDER,	//	global change (mutations)
+	LIME,		//	global change (overgrowth/drought good)
+	MULTICOLOR,	//	achievements ONLY
+	BLACK		//	epoch count, multi-use, Autoselect changed
 };};
 
-//defines for mouse modes. Order changes nothing. NOT USED CURRENTLY
+//defines for mouse modes. Order changes nothing.
 namespace MouseMode{
 const enum {
 	NONE= 0,
-	POPUPS, //show popups only
 	SELECT, //select agent only
-	SELECT_PROFILE_INTERACT, //mode for interacting with agent profile views. No popups
-	POPUPS_SELECT, //DEFAULT select agents and show popups
-	PLACE, //place agents only
-	POPUPS_PLACE, //show popups and place agents
+	PLACE_AGENT, //place agents only
+	PLACE_VALUE, //place cell value to cell layer
+
+	//Don't add beyond this entry!
+	MODES
+};};
+
+//defines for LAD (Loaded Agent Display) visual modes. Order changes nothing.
+namespace LADVisualMode{
+const enum {
+	NONE= 0,
+	GHOST, //draw a ghost agent, copying all motion and events
+	DAMAGES, //draw the damage amounts pie chart
+	INTAKES, //draw the cell intake amounts pie chart
+
+	//Don't add beyond this entry!
+	MODES
+};};
+
+//defines for LAD (Loaded Agent Display) body modes. Order changes nothing. CURRENTLY UNUSED
+namespace LADBodyMode{
+const enum {
+	NONE= 0,
+	COMMON, //show traits and stats that are commonly looked at
+	TRAITS_ONLY, //only show traits (fixed values), and more of them
+	STATS_ONLY, //only show stats (changing values), and more of them
+	PROFILE, //display the selected agent's profile
 
 	//Don't add beyond this entry!
 	MODES
@@ -196,11 +218,11 @@ const enum {
 	REPCOUNTER,
 	STRENGTH,
 	VOLUME,
-	MUTATION,
+	BRAINMUTATION,
+	GENEMUTATION,
 	GENERATIONS,
 	SPECIES,
 	CROSSABLE,
-//	REPMODE,
 	
 	//Don't add beyond this entry!
 	VISUALS
@@ -238,7 +260,7 @@ const enum {
 	STATICDISPLAYS
 };};
 
-//defines for global agent stats display in the data region. Changing order here changes arrangement order
+//defines for global agent stats display in the data region. Changing order here changes arrangement order. UNUSED
 namespace DataDisplay{
 const enum {
 	blank1= 0,
@@ -270,7 +292,7 @@ const enum {
 //defines for selected agent heads up display ordering. Changing order here changes arrangement order
 //keep in mind, it is displayed in 3 columns, so the 4th entry will be in the same column as the 1st,
 //5th with the 2nd, etc
-namespace SADHudOverview{
+namespace LADHudOverview{
 const enum {
 	HEALTH= 0,
 	REPCOUNTER,
@@ -299,10 +321,11 @@ const enum {
 	TONE,
 	STAT_KILLED,
 	STAT_CHILDREN,
+	BRAINMUTCHANCE,
+	BRAINMUTSIZE,
 	BRAINSIZE,
-	MUTCHANCE,
-	MUTSIZE,
-	DEATH,
+	GENEMUTCHANCE,
+	GENEMUTSIZE,
 
 	//Don't add beyond this entry!
 	HUDS
@@ -312,7 +335,7 @@ const enum {
 //keep in mind, it is displayed in 3 columns, so the 4th entry will be in the same column as the 1st,
 //5th with the 2nd, etc
 //these are STATS, so they can CHANGE!
-namespace SADHudStats{
+namespace LADHudStats{
 const enum {
 	HEALTH= 0,
 	REPCOUNTER,
@@ -434,8 +457,8 @@ const enum {
 	ADD_STRUCT_NODE= 0, //UNUSED
 	MULT_MAXHEALTH, //UNUSED
 	ADD_INT_MAXAGE, //UNUSED
-	MULT_MUTCHANCE, //old MUTRATE1
-	MULT_MUTSIZE, //old MUTRATE2
+	MULT_BRAIN_MUTCHANCE, //old MUTRATE1
+	MULT_BRAIN_MUTSIZE, //old MUTRATE2
 	MULT_RADIUS,
 	MULT_RED,
 	MULT_GREEN,
@@ -572,7 +595,7 @@ namespace conf {
 	const float MUTEVENT_CHANCE= 0.25; //chance of a mutation event that has a multiple other than 1
 	const bool CLIMATE= true; //(.cfg, save, & GUI)
 	const float CLIMATE_INTENSITY= 0.009; //(.cfg & GUI)
-	const float CLIMATE_INTENSITY_EPOCH_MULT= 10.0; //multiplier applied to the above value when selecting new climate values at start of epochs
+	const float CLIMATE_INTENSITY_EPOCH_MULT= 8.0; //multiplier applied to the above value when selecting new climate values at start of epochs
 	const float CLIMATEMULT_AVERAGE= 0.5; //value that the world's climate mult tries to average back towards
 	const int CLIMATEMULT_WEIGHT= 3; // the weight multiple of the current CLIMATEMULT when averaged (CLIMATEMULT_AVERAGE has a weight of 1)
 	const bool CLIMATE_AFFECT_FLORA= true; //(.cfg)
@@ -597,10 +620,11 @@ namespace conf {
 	const float WHEEL_SPEED= 0.3; //(.cfg)
 	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
 	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
-	const float MEANRADIUS=10.0; //(.cfg)
-	const float BOOSTSIZEMULT= 2.0; //(.cfg)
+	const float MEANRADIUS= 10.0; //(.cfg)
+	const float JUMP_MOVE_BONUS_MULT= 2.0; //(.cfg)
+	const float BOOST_MOVE_MULT= 2.0; //(.cfg)
 	const float BOOSTEXAUSTMULT= 1.5; //(.cfg)
-	const float BASEEXHAUSTION= -10; //(.cfg)
+	const float BASEEXHAUSTION= -12; //(.cfg)
 	const float EXHAUSTION_MULT_PER_OUTPUT= 1.0; //(.cfg)
 	const float EXHAUSTION_MULT_PER_CONN= 0.02; //(.cfg)
 	const int MAXWASTEFREQ= 200; //(.cfg)
@@ -634,8 +658,10 @@ namespace conf {
 	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
 	const float META_MUTSIZE= 0.003;
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
-	const float DEFAULT_MUTCHANCE= 0.1; //(.cfg)
-	const float DEFAULT_MUTSIZE= 0.03; //(.cfg)
+	const float DEFAULT_BRAIN_MUTCHANCE= 0.05; //(.cfg)
+	const float DEFAULT_BRAIN_MUTSIZE= 0.03; //(.cfg)
+	const float DEFAULT_GENE_MUTCHANCE= 0.05; //(.cfg)
+	const float DEFAULT_GENE_MUTSIZE= 0.03; //(.cfg)
 
 	//distances
 	const float DIST= 400; //(.cfg)
@@ -664,7 +690,7 @@ namespace conf {
 	const float HEALTHLOSS_BRAINUSE= 0.0; //(.cfg)
 	const float HEALTHLOSS_SPIKE_EXT= 0.0; //(.cfg)
 	const float HEALTHLOSS_BADTERRAIN= 0.021; //(.cfg)
-	const float HEALTHLOSS_NOOXYGEN= 0.0002; //(.cfg)
+	const float HEALTHLOSS_NOOXYGEN= 0.0001; //(.cfg)
 	const float HEALTHLOSS_ASSEX= 0.15; //(.cfg)
 
 	const float DAMAGE_FULLSPIKE= 4.0; //(.cfg)
@@ -690,40 +716,41 @@ namespace conf {
 
 
 	//LAYERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LAYERS
-	const float STOMACH_EFF= 0.2; //(.cfg)
+	const float STOMACH_EFF= 0.3; //(.cfg)
 	const float CARNIVORE_MEAT_EFF= 0.125; //0.05; //highest meat mult possible from full carnivores. The carivore stomach is sqrt-ed for even harsher punishment
 
-	const char FOOD_TEXT[]= "Plant Food";
-	const float FOODINTAKE= 0.01; //(.cfg)
-	const float FOODDECAY = 0.000004; //(.cfg)
-	const float FOODGROWTH= 0.000003; //(.cfg)
-	const float FOODWASTE= 0.0023;//0.0007; //(.cfg)
-	const int FOODADDFREQ= 225; //(.cfg)
-	const float FOODSPREAD= 0.00012; //(.cfg)
-	const int FOODRANGE= 2; //(.cfg)
+	const char PLANT_TEXT[]= "Plant Food";
+	const float PLANT_INTAKE= 0.01; //(.cfg)
+	const float PLANT_DECAY = 0.000004; //(.cfg)
+	const float PLANT_GROWTH= 0.000003; //(.cfg)
+	const float PLANT_WASTE= 0.0023;//0.0007; //(.cfg)
+	const int PLANT_ADD_FREQ= 225; //(.cfg)
+	const float PLANT_SPREAD= 0.00012; //(.cfg)
+	const int PLANT_RANGE= 2; //(.cfg)
+	const float PLANT_TENACITY= 0.1; //(.cfg)
 	//Plant food is the simplest and most plentiful form of nutrition, but it takes time to consume enough
 
 	const char FRUIT_TEXT[]= "Fruit Food";
-	const float FRUITINTAKE = 0.040; //(.cfg)
-	const float FRUITDECAY = 0.000003; //(.cfg)
-	const float FRUITWASTE = 0.0023; //0.0014; //(.cfg)
-	const int FRUITADDFREQ = 3; //(.cfg)
-	const float FRUITREQUIRE= 0.1; //(.cfg)
+	const float FRUIT_INTAKE = 0.03; //(.cfg)
+	const float FRUIT_DECAY = 0.000003; //(.cfg)
+	const float FRUIT_WASTE = 0.0023; //0.0014; //(.cfg)
+	const int FRUIT_ADD_FREQ = 2; //(.cfg)
+	const float FRUIT_PLANT_REQUIRE= 0.1; //(.cfg)
 	//Fruit is a quick and easy alternative to plants. Also partially randomly populated, harkening back to ScriptBots origins
 
 	const char MEAT_TEXT[]= "Meat Food";
-	const float MEATINTAKE= 0.1; //(.cfg)
-	const float MEATDECAY= 0.00001;//0.00001; //(.cfg)
-	const float MEATWASTE= 0.008; //0.0023; //(.cfg)
-	const float MEATVALUE= 1.0; //(.cfg)
+	const float MEAT_INTAKE= 0.1; //(.cfg)
+	const float MEAT_DECAY= 0.00001;//0.00001; //(.cfg)
+	const float MEAT_WASTE= 0.006; //0.0023; //(.cfg)
+	const float MEAT_VALUE= 1.0; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)
 
-	const int HAZARDFREQ= 30; //(.cfg)
-	const float HAZARDEVENT_MULT= 4.0; //(.cfg)
-	const float HAZARDDECAY= 0.000001; //(.cfg)
-	const float HAZARDDEPOSIT= 0.00006; //(.cfg)
-	const float HAZARDDAMAGE= 0.0025;//0.0032; //(.cfg)
-	const float HAZARDPOWER= 0.5; //(.cfg)
+	const int HAZARD_EVENT_FREQ= 30; //(.cfg)
+	const float HAZARD_EVENT_MULT= 4.0; //(.cfg)
+	const float HAZARD_DECAY= 0.000001; //(.cfg)
+	const float HAZARD_DEPOSIT= 0.00006; //(.cfg)
+	const float HAZARD_DAMAGE= 0.003;//0.0032; //(.cfg)
+	const float HAZARD_POWER= 0.5; //(.cfg)
 	}
 
 #endif

@@ -11,8 +11,10 @@ Agent::Agent(
 	int OVERRIDE_KINRANGE, 
 	float MEANRADIUS, 
 	float REP_PER_BABY, 
-	float MUTARATE1, 
-	float MUTARATE2
+	float BRAIN_MUTATION_CHANCE, 
+	float BRAIN_MUTATION_SIZE,
+	float GENE_MUTATION_CHANCE,
+	float GENE_MUTATION_SIZE
 ){
 	//basics
 	id= 0;
@@ -20,8 +22,10 @@ Agent::Agent(
 	angle= randf(-M_PI,M_PI);
 
 	//genes
-	MUTCHANCE= MUTARATE1; //abs(MUTARATE1+randf(-conf::META_MUTCHANCE,conf::META_MUTCHANCE)); //chance of mutations.
-	MUTSIZE= MUTARATE2; //abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10); //size of mutations
+	brain_mutation_chance= BRAIN_MUTATION_CHANCE; //abs(BRAIN_MUTATION_CHANCE+randf(-conf::META_MUTCHANCE,conf::META_MUTCHANCE));
+	brain_mutation_size= BRAIN_MUTATION_SIZE; //abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10);
+	gene_mutation_chance= GENE_MUTATION_CHANCE; //abs(BRAIN_MUTATION_CHANCE+randf(-conf::META_MUTCHANCE,conf::META_MUTCHANCE));
+	gene_mutation_size= GENE_MUTATION_SIZE; //abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10);
 	parentid= 0;
 	radius= randf(MEANRADIUS*0.2,MEANRADIUS*2.2);
 	strength= randf(0.01,1);
@@ -158,6 +162,211 @@ Agent::Agent(){
 
 //}
 
+Agent Agent::reproduce(
+	Agent that,
+	bool PRESERVE_MIRROR_EYES,
+	int OVERRIDE_KINRANGE,
+	float MEANRADIUS,
+	float REP_PER_BABY,
+	int baby
+){
+	//moved muterate gets into reproduce because thats where its needed and used, no reason to go through world
+	//choose a value of our agent's mutation and their saved mutation value, can be anywhere between the parents'
+	float BMR= randf(min(this->brain_mutation_chance, that.brain_mutation_chance), max(this->brain_mutation_chance, that.brain_mutation_chance));
+	float BMR2= randf(min(this->brain_mutation_size, that.brain_mutation_size), max(this->brain_mutation_size, that.brain_mutation_size));
+	float GMR= randf(min(this->gene_mutation_chance, that.gene_mutation_chance), max(this->gene_mutation_chance, that.gene_mutation_chance));
+	float GMR2= randf(min(this->gene_mutation_size, that.gene_mutation_size), max(this->gene_mutation_size, that.gene_mutation_size));
+
+	//create baby. Note that if the bot selects itself to mate with, this function acts also as assexual reproduction
+	//NOTES: Agent "this" is mother, Agent "that" is father, Agent "a2" is daughter
+	//if a single parent's trait is required, use the mother's (this->)
+	Agent a2(
+		this->brain.boxes.size(),
+		this->brain.conns.size(),
+		PRESERVE_MIRROR_EYES,
+		OVERRIDE_KINRANGE,
+		MEANRADIUS,
+		this->maxrepcounter,
+		BMR,
+		BMR2,
+		GMR,
+		GMR2
+		);
+	//Agent::Agent(
+
+	//spawn the baby somewhere closeby behind the mother
+	//we want to spawn behind so that agents dont accidentally kill their young right away
+	//note that this relies on bots actally driving forward, not backward. We'll let natural selection choose who lives and who dies
+	Vector2f fb(this->radius*randf(1.9, 2.5),0);
+	float floatrange = 0.4;
+	fb.rotate(this->angle + M_PI*(1 + floatrange - 2*floatrange*(baby+1)/(this->numbabies+1)));
+	a2.pos= this->pos + fb;
+	a2.dpos= a2.pos;
+	a2.borderRectify();
+
+	//basic trait inheritance
+	a2.gencount= max(this->gencount+1,that.gencount+1);
+	a2.numbabies= randf(0,1)<0.5 ? this->numbabies : that.numbabies;
+	a2.metabolism= randf(0,1)<0.5 ? this->metabolism : that.metabolism;
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) a2.stomach[i]= randf(0,1)<0.5 ? this->stomach[i]: that.stomach[i];
+	a2.species= randf(0,1)<0.5 ? this->species : that.species;
+	a2.kinrange= randf(0,1)<0.5 ? this->kinrange : that.kinrange;
+	a2.radius= randf(0,1)<0.5 ? this->radius : that.radius;
+	a2.strength= randf(0,1)<0.5 ? this->strength : that.strength;
+	a2.chamovid= randf(0,1)<0.5 ? this->chamovid : that.chamovid;
+	a2.gene_red= randf(0,1)<0.5 ? this->gene_red : that.gene_red;
+	a2.gene_gre= randf(0,1)<0.5 ? this->gene_gre : that.gene_gre;
+	a2.gene_blu= randf(0,1)<0.5 ? this->gene_blu : that.gene_blu;
+	a2.sexprojectbias= randf(0,1)<0.5 ? this->sexprojectbias : that.sexprojectbias;
+
+	a2.brain_mutation_chance= randf(0,1)<0.5 ? this->brain_mutation_chance : that.brain_mutation_chance;
+	a2.brain_mutation_size= randf(0,1)<0.5 ? this->brain_mutation_size : that.brain_mutation_size;
+	a2.parentid= this->id; //parent ID is strictly inherited from mothers
+	a2.clockf1= randf(0,1)<0.5 ? this->clockf1 : that.clockf1;
+	a2.clockf2= randf(0,1)<0.5 ? this->clockf2 : that.clockf2;
+
+	a2.smell_mod= randf(0,1)<0.5 ? this->smell_mod : that.smell_mod;
+	a2.hear_mod= randf(0,1)<0.5 ? this->hear_mod : that.hear_mod;
+	a2.eye_see_agent_mod= randf(0,1)<0.5 ? this->eye_see_agent_mod : that.eye_see_agent_mod;
+//	a2.eye_see_cell_mod= randf(0,1)<0.5 ? this->eye_see_cell_mod : that.eye_see_cell_mod;
+	a2.blood_mod= randf(0,1)<0.5 ? this->blood_mod : that.blood_mod;
+
+	a2.temperature_preference= randf(0,1)<0.5 ? this->temperature_preference : that.temperature_preference;
+	a2.discomfort= this->discomfort;
+	a2.lungs= randf(0,1)<0.5 ? this->lungs : that.lungs;
+	
+	for (int i=0; i<eardir.size(); i++) { //replace with list of ear objects if/when the time comes
+		//inherrit individual ears
+		if(randf(0,1)<0.5) {
+			a2.eardir[i]= this->eardir[i];
+			a2.hearlow[i]= this->hearlow[i];
+			a2.hearhigh[i]= this->hearhigh[i];
+		} else {
+			a2.eardir[i]= that.eardir[i];
+			a2.hearlow[i]= that.hearlow[i];
+			a2.hearhigh[i]= that.hearhigh[i];
+		}
+	}
+
+	for (int i=0; i<eyedir.size(); i++) { //replace with list of eye objects when the time comes
+		//inherrit individual eyes
+		if(randf(0,1)<0.5) {
+			a2.eyefov[i]= this->eyefov[i];
+			a2.eyedir[i]= this->eyedir[i];
+		} else {
+			a2.eyefov[i]= that.eyefov[i];
+			a2.eyedir[i]= that.eyedir[i];
+		}
+	}
+
+	//---MUTATIONS---//
+	if (randf(0,1)<GMR/2) a2.numbabies= (int) (randn(a2.numbabies, 0.1 + GMR2*50));
+	if (a2.numbabies<1) a2.numbabies= 1; //technically, 0 babies is perfectly logical, but in this sim it is pointless, so it's disallowed
+	a2.resetRepCounter(MEANRADIUS, REP_PER_BABY);
+	if (randf(0,1)<GMR/2) a2.metabolism= cap(randn(a2.metabolism, GMR2*2));
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<GMR*8) a2.stomach[i]= cap(randn(a2.stomach[i], GMR2*4)); //*7 was a bit much
+	if (randf(0,1)<GMR*10) a2.species+= (int) (randn(0, 0.5+GMR2*50));
+	if (randf(0,1)<GMR*5 && OVERRIDE_KINRANGE<0) a2.kinrange= (int) abs(randn(a2.kinrange, 1+GMR2*5*(a2.kinrange+1)));
+	if (randf(0,1)<GMR*5) a2.radius= randn(a2.radius, GMR2*15);
+	if (a2.radius<1) a2.radius= 1;
+	if (randf(0,1)<GMR) a2.strength= cap(randn(a2.strength, GMR2*2));
+	if (randf(0,1)<GMR*2) a2.chamovid= cap(randn(a2.chamovid, GMR2));
+	if (randf(0,1)<GMR*4) a2.gene_red= cap(randn(a2.gene_red, GMR2*4));
+	if (randf(0,1)<GMR*4) a2.gene_gre= cap(randn(a2.gene_gre, GMR2*4));
+	if (randf(0,1)<GMR*4) a2.gene_blu= cap(randn(a2.gene_blu, GMR2*4));
+	if (randf(0,1)<GMR*2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, GMR2*5), -1.0, 1.0);
+
+	if (randf(0,1)<conf::META_MUTCHANCE*2) a2.brain_mutation_chance= abs(randn(a2.brain_mutation_chance, conf::META_MUTSIZE*3));
+	if (randf(0,1)<conf::META_MUTCHANCE) a2.brain_mutation_size= abs(randn(a2.brain_mutation_size, conf::META_MUTSIZE));
+	if (randf(0,1)<conf::META_MUTCHANCE*2) a2.gene_mutation_chance= abs(randn(a2.gene_mutation_chance, conf::META_MUTSIZE*3));
+	if (randf(0,1)<conf::META_MUTCHANCE) a2.gene_mutation_size= abs(randn(a2.gene_mutation_size, conf::META_MUTSIZE));
+	//we dont really want mutrates to get to zero; thats too stable, take the absolute randn instead
+
+	if (randf(0,1)<GMR) a2.clockf1= randn(a2.clockf1, GMR2);
+	if (a2.clockf1<2) a2.clockf1= 2;
+	if (randf(0,1)<GMR) a2.clockf2= randn(a2.clockf2, GMR2);
+	if (a2.clockf2<2) a2.clockf2= 2;
+
+	if (randf(0,1)<GMR) a2.smell_mod= abs(randn(a2.smell_mod, GMR2));
+	if (randf(0,1)<GMR) a2.hear_mod= abs(randn(a2.hear_mod, GMR2));
+	if (randf(0,1)<GMR) a2.eye_see_agent_mod= abs(randn(a2.eye_see_agent_mod, GMR2));
+//	if (randf(0,1)<GMR) a2.eye_see_cell_mod= abs(randn(a2.eye_see_cell_mod, GMR2));
+	if (randf(0,1)<GMR) a2.blood_mod= abs(randn(a2.blood_mod, GMR2));
+
+	if (randf(0,1)<GMR*2) a2.temperature_preference= cap(randn(a2.temperature_preference, GMR2/2));
+	if (randf(0,1)<GMR*3) a2.lungs= cap(randn(a2.lungs, GMR2));
+
+	for(int i=0;i<eyedir.size();i++){
+		if(!PRESERVE_MIRROR_EYES || i%2==0) {
+			if (randf(0,1)<GMR/60) {
+				//LOW-CHANCE EYE COPY MUTATION
+				int origeye= randi(0,eyedir.size());
+				a2.eyedir[i]= a2.eyedir[origeye];
+				if(randf(0,1)<GMR*3) a2.eyefov[i]= a2.eyefov[origeye];
+			}
+			if (randf(0,1)<GMR/40) {
+				//MIRROR EYE COPY MUTATION
+				int origeye= randi(0,eyedir.size());
+				a2.eyedir[i]= 2*M_PI - a2.eyedir[origeye];
+				if(randf(0,1)<GMR*3) a2.eyefov[i]= a2.eyefov[origeye];
+			}
+
+			if(randf(0,1)<GMR/2) a2.eyefov[i] = abs(randn(a2.eyefov[i], GMR2/2));
+			if(a2.eyefov[i]>M_PI) a2.eyefov[i] = M_PI; //eyes cannot wrap around agent
+
+			if(randf(0,1)<GMR) a2.eyedir[i] = randn(a2.eyedir[i], GMR2*5);
+			if(a2.eyedir[i]<0) a2.eyedir[i] = 0;
+			if(a2.eyedir[i]>2*M_PI) a2.eyedir[i] = 2*M_PI;
+			//not going to loop coordinates; 0,2pi is agents' front again, so it provides a good point to "bounce" off of
+		}
+		else {
+			eyedir[i]= 2*M_PI - eyedir[i-1];
+			eyefov[i] = eyefov[i-1];
+		}
+	}
+
+	for(int i=0;i<NUMEARS;i++){
+		if(i%2==0) {
+			if (randf(0,1)<GMR/40) {
+				//LOW-CHANCE COPY EVENT
+				int origear= randi(0,NUMEARS);
+	//			if(randf(0,1)<GMR*3) a2.eardir[i]= a2.eardir[origear];
+				if(randf(0,1)<GMR*3) a2.hearlow[i]= a2.hearlow[origear];
+				if(randf(0,1)<GMR*3) a2.hearhigh[i]= a2.hearhigh[origear];
+			}
+
+			if(randf(0,1)<GMR) a2.eardir[i] = randn(a2.eardir[i], GMR2*5);
+			if(a2.eardir[i]<0) a2.eardir[i] = 0;
+			if(a2.eardir[i]>2*M_PI) a2.eardir[i] = 2*M_PI;
+		} else { //IMPLEMENT WORLD SETTING FOR CONTROLLING THIS
+			eardir[i]= eardir[i-1];
+		}
+		
+		if(randf(0,1)<GMR/2) a2.hearlow[i]= randn(a2.hearlow[i], GMR2*2);
+		if(randf(0,1)<GMR/2) a2.hearhigh[i]= randn(a2.hearhigh[i], GMR2*2);
+
+		//restore order if lost
+		if (a2.hearlow[i]>a2.hearhigh[i]) {
+			float temp= a2.hearlow[i];
+			a2.hearlow[i]= a2.hearhigh[i];
+			a2.hearhigh[i]= temp;
+		}
+	}
+	
+	//create brain here
+	a2.brain= this->brain.crossover(that.brain);
+	a2.brain.initMutate(BMR,BMR2);
+
+	a2.initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0.8,0.8,0.8); //grey event means we were just born! Welcome!
+	
+	return a2;
+}
+
+void Agent::tick()
+{
+	brain.tick(in, out);
+}
+
 void Agent::printSelf()
 {
 	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
@@ -166,7 +375,7 @@ void Agent::printSelf()
 	printf("AGENT, ID: %i\n", id);
 	printf("pos & angle: (%f,%f), %f\n", pos.x, pos.y, angle);
 	printf("health, age, & gencount: %f, %.1f, %i\n", health, (float)age/10, gencount);
-	printf("MUTCHANCE: %f, MUTSIZE: %f\n", MUTCHANCE, MUTSIZE);
+	printf("brain_mutation_chance: %f, brain_mutation_size: %f\n", brain_mutation_chance, brain_mutation_size);
 	printf("parent ID: &i\n", parentid);
 	printf("radius: %f\n", radius);
 	printf("strength: %f\n", strength);
@@ -366,193 +575,9 @@ float Agent::getOutputSum() const
 	return sum;
 }
 
-void Agent::tick()
-{
-	brain.tick(in, out);
-}
-Agent Agent::reproduce(
-	Agent that,
-	bool PRESERVE_MIRROR_EYES,
-	int OVERRIDE_KINRANGE,
-	float MEANRADIUS,
-	float REP_PER_BABY,
-	int baby
-){
-	//moved muterate gets into reproduce because thats where its needed and used, no reason to go through world
-	//choose a value of our agent's mutation and their saved mutation value, can be anywhere between the parents'
-	float MR= randf(min(this->MUTCHANCE,that.MUTCHANCE),max(this->MUTCHANCE,that.MUTCHANCE));
-	float MR2= randf(min(this->MUTSIZE,that.MUTSIZE),max(this->MUTSIZE,that.MUTSIZE));
-
-	//create baby. Note that if the bot selects itself to mate with, this function acts also as assexual reproduction
-	//NOTES: Agent "this" is mother, Agent "that" is father, Agent "a2" is daughter
-	//if a single parent's trait is required, use the mother's (this->)
-	Agent a2(this->brain.boxes.size(), this->brain.conns.size(), PRESERVE_MIRROR_EYES, OVERRIDE_KINRANGE, MEANRADIUS, this->maxrepcounter, MR, MR2);
-	//Agent::Agent(
-
-	//spawn the baby somewhere closeby behind the mother
-	//we want to spawn behind so that agents dont accidentally kill their young right away
-	//note that this relies on bots actally driving forward, not backward. We'll let natural selection choose who lives and who dies
-	Vector2f fb(this->radius*randf(1.9, 2.5),0);
-	float floatrange = 0.4;
-	fb.rotate(this->angle + M_PI*(1 + floatrange - 2*floatrange*(baby+1)/(this->numbabies+1)));
-	a2.pos= this->pos + fb;
-	a2.dpos= a2.pos;
-	a2.borderRectify();
-
-	//basic trait inheritance
-	a2.gencount= max(this->gencount+1,that.gencount+1);
-	a2.numbabies= randf(0,1)<0.5 ? this->numbabies : that.numbabies;
-	a2.metabolism= randf(0,1)<0.5 ? this->metabolism : that.metabolism;
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) a2.stomach[i]= randf(0,1)<0.5 ? this->stomach[i]: that.stomach[i];
-	a2.species= randf(0,1)<0.5 ? this->species : that.species;
-	a2.kinrange= randf(0,1)<0.5 ? this->kinrange : that.kinrange;
-	a2.radius= randf(0,1)<0.5 ? this->radius : that.radius;
-	a2.strength= randf(0,1)<0.5 ? this->strength : that.strength;
-	a2.chamovid= randf(0,1)<0.5 ? this->chamovid : that.chamovid;
-	a2.gene_red= randf(0,1)<0.5 ? this->gene_red : that.gene_red;
-	a2.gene_gre= randf(0,1)<0.5 ? this->gene_gre : that.gene_gre;
-	a2.gene_blu= randf(0,1)<0.5 ? this->gene_blu : that.gene_blu;
-	a2.sexprojectbias= randf(0,1)<0.5 ? this->sexprojectbias : that.sexprojectbias;
-
-	a2.MUTCHANCE= randf(0,1)<0.5 ? this->MUTCHANCE : that.MUTCHANCE;
-	a2.MUTSIZE= randf(0,1)<0.5 ? this->MUTSIZE : that.MUTSIZE;
-	a2.parentid= this->id; //parent ID is strictly inherited from mothers
-	a2.clockf1= randf(0,1)<0.5 ? this->clockf1 : that.clockf1;
-	a2.clockf2= randf(0,1)<0.5 ? this->clockf2 : that.clockf2;
-
-	a2.smell_mod= randf(0,1)<0.5 ? this->smell_mod : that.smell_mod;
-	a2.hear_mod= randf(0,1)<0.5 ? this->hear_mod : that.hear_mod;
-	a2.eye_see_agent_mod= randf(0,1)<0.5 ? this->eye_see_agent_mod : that.eye_see_agent_mod;
-//	a2.eye_see_cell_mod= randf(0,1)<0.5 ? this->eye_see_cell_mod : that.eye_see_cell_mod;
-	a2.blood_mod= randf(0,1)<0.5 ? this->blood_mod : that.blood_mod;
-
-	a2.temperature_preference= randf(0,1)<0.5 ? this->temperature_preference : that.temperature_preference;
-	a2.discomfort= this->discomfort;
-	a2.lungs= randf(0,1)<0.5 ? this->lungs : that.lungs;
-	
-	for (int i=0; i<eardir.size(); i++) { //replace with list of ear objects if/when the time comes
-		//inherrit individual ears
-		if(randf(0,1)<0.5) {
-			a2.eardir[i]= this->eardir[i];
-			a2.hearlow[i]= this->hearlow[i];
-			a2.hearhigh[i]= this->hearhigh[i];
-		} else {
-			a2.eardir[i]= that.eardir[i];
-			a2.hearlow[i]= that.hearlow[i];
-			a2.hearhigh[i]= that.hearhigh[i];
-		}
-	}
-
-	for (int i=0; i<eyedir.size(); i++) { //replace with list of eye objects when the time comes
-		//inherrit individual eyes
-		if(randf(0,1)<0.5) {
-			a2.eyefov[i]= this->eyefov[i];
-			a2.eyedir[i]= this->eyedir[i];
-		} else {
-			a2.eyefov[i]= that.eyefov[i];
-			a2.eyedir[i]= that.eyedir[i];
-		}
-	}
-
-	//---MUTATIONS---//
-	if (randf(0,1)<MR/2) a2.numbabies= (int) (randn(a2.numbabies, 0.1 + MR2*50));
-	if (a2.numbabies<1) a2.numbabies= 1; //technically, 0 babies is perfectly logical, but in this sim it is pointless, so it's disallowed
-	a2.resetRepCounter(MEANRADIUS, REP_PER_BABY);
-	if (randf(0,1)<MR/2) a2.metabolism= cap(randn(a2.metabolism, MR2*2));
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*8) a2.stomach[i]= cap(randn(a2.stomach[i], MR2*4)); //*7 was a bit much
-	if (randf(0,1)<MR*10) a2.species+= (int) (randn(0, 0.5+MR2*50));
-	if (randf(0,1)<MR*5 && OVERRIDE_KINRANGE<0) a2.kinrange= (int) abs(randn(a2.kinrange, 1+MR2*5*(a2.kinrange+1)));
-	if (randf(0,1)<MR*5) a2.radius= randn(a2.radius, MR2*15);
-	if (a2.radius<1) a2.radius= 1;
-	if (randf(0,1)<MR) a2.strength= cap(randn(a2.strength, MR2*2));
-	if (randf(0,1)<MR*2) a2.chamovid= cap(randn(a2.chamovid, MR2));
-	if (randf(0,1)<MR*4) a2.gene_red= cap(randn(a2.gene_red, MR2*4));
-	if (randf(0,1)<MR*4) a2.gene_gre= cap(randn(a2.gene_gre, MR2*4));
-	if (randf(0,1)<MR*4) a2.gene_blu= cap(randn(a2.gene_blu, MR2*4));
-	if (randf(0,1)<MR*2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, MR2*2), -1.0, 1.0);
-
-	if (randf(0,1)<conf::META_MUTCHANCE*2) a2.MUTCHANCE= abs(randn(a2.MUTCHANCE, conf::META_MUTSIZE*3));
-	if (randf(0,1)<conf::META_MUTCHANCE) a2.MUTSIZE= abs(randn(a2.MUTSIZE, conf::META_MUTSIZE));
-	//we dont really want mutrates to get to zero; thats too stable, take the absolute randn instead
-
-	if (randf(0,1)<MR) a2.clockf1= randn(a2.clockf1, MR2);
-	if (a2.clockf1<2) a2.clockf1= 2;
-	if (randf(0,1)<MR) a2.clockf2= randn(a2.clockf2, MR2);
-	if (a2.clockf2<2) a2.clockf2= 2;
-
-	if (randf(0,1)<MR) a2.smell_mod= randn(a2.smell_mod, MR2);
-	if (randf(0,1)<MR) a2.hear_mod= randn(a2.hear_mod, MR2);
-	if (randf(0,1)<MR) a2.eye_see_agent_mod= randn(a2.eye_see_agent_mod, MR2);
-//	if (randf(0,1)<MR) a2.eye_see_cell_mod= randn(a2.eye_see_cell_mod, MR2);
-	if (randf(0,1)<MR) a2.blood_mod= randn(a2.blood_mod, MR2);
-
-	if (randf(0,1)<MR*2) a2.temperature_preference= cap(randn(a2.temperature_preference, MR2/2));
-	if (randf(0,1)<MR*3) a2.lungs= cap(randn(a2.lungs, MR2));
-
-	for(int i=0;i<eyedir.size();i++){
-		if(!PRESERVE_MIRROR_EYES || i%2==0) {
-			if (randf(0,1)<MR/60) {
-				//LOW-CHANCE COPY EVENT
-				int origeye= randi(0,eyedir.size());
-				a2.eyedir[i]= a2.eyedir[origeye];
-				if(randf(0,1)<MR*3) a2.eyefov[i]= a2.eyefov[origeye];
-			}
-
-			if(randf(0,1)<MR/2) a2.eyefov[i] = abs(randn(a2.eyefov[i], MR2/2));
-			if(a2.eyefov[i]>M_PI) a2.eyefov[i] = M_PI; //eyes cannot wrap around bot
-
-			if(randf(0,1)<MR) a2.eyedir[i] = randn(a2.eyedir[i], MR2*5);
-			if(a2.eyedir[i]<0) a2.eyedir[i] = 0;
-			if(a2.eyedir[i]>2*M_PI) a2.eyedir[i] = 2*M_PI;
-			//not going to loop coordinates; 0,2pi is bots front again, so it provides a good point to "bounce" off of
-		}
-		else {
-			eyedir[i]= 2*M_PI-eyedir[i-1];
-			eyefov[i] = eyefov[i-1];
-		}
-	}
-
-	for(int i=0;i<NUMEARS;i++){
-		if(i%2==0) {
-			if (randf(0,1)<MR/40) {
-				//LOW-CHANCE COPY EVENT
-				int origear= randi(0,NUMEARS);
-	//			if(randf(0,1)<MR*3) a2.eardir[i]= a2.eardir[origear];
-				if(randf(0,1)<MR*3) a2.hearlow[i]= a2.hearlow[origear];
-				if(randf(0,1)<MR*3) a2.hearhigh[i]= a2.hearhigh[origear];
-			}
-
-			if(randf(0,1)<MR) a2.eardir[i] = randn(a2.eardir[i], MR2*5);
-			if(a2.eardir[i]<0) a2.eardir[i] = 0;
-			if(a2.eardir[i]>2*M_PI) a2.eardir[i] = 2*M_PI;
-		} else { //IMPLEMENT WORLD SETTING FOR CONTROLLING THIS
-			eardir[i]= eardir[i-1];
-		}
-		
-		if(randf(0,1)<MR/2) a2.hearlow[i]= randn(a2.hearlow[i], MR2*2);
-		if(randf(0,1)<MR/2) a2.hearhigh[i]= randn(a2.hearhigh[i], MR2*2);
-
-		//restore order if lost
-		if (a2.hearlow[i]>a2.hearhigh[i]) {
-			float temp= a2.hearlow[i];
-			a2.hearlow[i]= a2.hearhigh[i];
-			a2.hearhigh[i]= temp;
-		}
-	}
-	
-	//create brain here
-	a2.brain= this->brain.crossover(that.brain);
-	a2.brain.initMutate(MR,MR2);
-
-	a2.initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0.8,0.8,0.8); //grey event means we were just born! Welcome!
-	
-	return a2;
-
-}
-
 void Agent::resetRepCounter(float MEANRADIUS, float REP_PER_BABY)
 {
-	this->maxrepcounter= max(conf::REPCOUNTER_MIN, REP_PER_BABY*this->numbabies*sqrt(this->radius/MEANRADIUS)); //division and sqrt...
+	this->maxrepcounter= max(conf::REPCOUNTER_MIN, REP_PER_BABY*this->numbabies*sqrt(this->radius/MEANRADIUS));
 	this->repcounter= this->maxrepcounter;
 }
 
@@ -560,22 +585,26 @@ void Agent::liveMutate(int MUTMULT)
 {
 	initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0.5,0,1.0);
 	
-	float MR= this->MUTCHANCE*MUTMULT;
-	float MR2= this->MUTSIZE;
+	float BMR= this->gene_mutation_chance*MUTMULT;
+	float BMR2= this->gene_mutation_size;
+	float GMR= this->gene_mutation_chance*MUTMULT;
+	float GMR2= this->gene_mutation_size;
 	for(int i= 0; i<randi(1,6); i++){ //mutate between 1 and 5 brain boxes
-		this->brain.liveMutate(MR, MR2, this->out);
+		this->brain.liveMutate(BMR, BMR2, this->out);
 	}
 
 	//change other live-mutable traits here
-	if (randf(0,1)<MR) this->metabolism= cap(randn(this->metabolism, MR2/5));
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<MR*2) this->stomach[i]= cap(randn(this->stomach[i], MR2));
-	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTCHANCE= abs(randn(this->MUTCHANCE, conf::META_MUTSIZE*20)); 
-	if (randf(0,1)<conf::META_MUTCHANCE) this->MUTSIZE= abs(randn(this->MUTSIZE, conf::META_MUTSIZE/2));
-	if (randf(0,1)<MR) this->clockf1= randn(this->clockf1, MR2/2);
+	if (randf(0,1)<GMR) this->metabolism= cap(randn(this->metabolism, GMR2/5));
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<GMR*2) this->stomach[i]= cap(randn(this->stomach[i], GMR2));
+	if (randf(0,1)<conf::META_MUTCHANCE) this->brain_mutation_chance= abs(randn(this->brain_mutation_chance, conf::META_MUTSIZE*20)); 
+	if (randf(0,1)<conf::META_MUTCHANCE) this->brain_mutation_size= abs(randn(this->brain_mutation_size, conf::META_MUTSIZE/2));
+	if (randf(0,1)<conf::META_MUTCHANCE) this->gene_mutation_chance= abs(randn(this->gene_mutation_chance, conf::META_MUTSIZE*20)); 
+	if (randf(0,1)<conf::META_MUTCHANCE) this->gene_mutation_size= abs(randn(this->gene_mutation_size, conf::META_MUTSIZE/2));
+	if (randf(0,1)<GMR) this->clockf1= randn(this->clockf1, GMR2/2);
 	if (this->clockf1<2) this->clockf1= 2;
-	if (randf(0,1)<MR) this->clockf2= randn(this->clockf2, MR2/2);
+	if (randf(0,1)<GMR) this->clockf2= randn(this->clockf2, GMR2/2);
 	if (this->clockf2<2) this->clockf2= 2;
-	if (randf(0,1)<MR) this->temperature_preference= cap(randn(this->temperature_preference, MR2/4));
+	if (randf(0,1)<GMR) this->temperature_preference= cap(randn(this->temperature_preference, GMR2/4));
 }
 
 void Agent::setHerbivore()

@@ -224,7 +224,7 @@ private:
 	bool uiclicked; //was the ui clicked recently? used to disable drag fuctions if inital click was on UI
 
 	int ui_layerpreset; //user can select a preset of layer displays using this
-	int ui_sadmode; //what rendering mode are we using for the Selected Agent Display? 0= off (text only), 1= normal agent view, 2= damage pie chart
+	int ui_ladmode; //what rendering mode are we using for the Loaded Agent Display?
 	bool ui_movetiles; //are we allowing tiles to be moved?
 	std::vector<UIElement> maintiles; //list of interactive tile buttons! WIP
 

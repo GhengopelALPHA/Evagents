@@ -145,8 +145,7 @@ GLView::GLView(World *s) :
 		lastUpdate(0),
 		mousedrag(false),
 		uiclicked(false),
-		ui_layerpreset(0),
-		ui_sadmode(1)
+		ui_layerpreset(0)
 {
 
 	xtranslate= 0.0;
@@ -159,6 +158,8 @@ GLView::GLView(World *s) :
 	savehelper= new ReadWrite();
 	currentTime= glutGet(GLUT_ELAPSED_TIME);
 	lastsavedtime= currentTime;
+
+	ui_ladmode = LADVisualMode::GHOST;
 }
 
 
@@ -172,17 +173,17 @@ void GLView::gotoDefaultZoom()
 //Control.cpp
 {
 	//reset width height just this once
-	wWidth= glutGet(GLUT_WINDOW_WIDTH);
-	wHeight= glutGet(GLUT_WINDOW_HEIGHT);
+	wWidth = glutGet(GLUT_WINDOW_WIDTH);
+	wHeight = glutGet(GLUT_WINDOW_HEIGHT);
 
 	//do some mathy things to zoom and translate correctly
-	float scaleA= (float)wWidth/(conf::WIDTH+2200);
-	float scaleB= (float)wHeight/(conf::HEIGHT+150);
-	if(scaleA>scaleB) scalemult= scaleB;
-	else scalemult= scaleA;
-	xtranslate= -(conf::WIDTH-2020)/2;
-	ytranslate= -(conf::HEIGHT)/2;
-	live_follow= 0;
+	float scaleA = (float)wWidth / (conf::WIDTH + 2200);
+	float scaleB = (float)wHeight / (conf::HEIGHT + 150);
+	if(scaleA > scaleB) scalemult = scaleB;
+	else scalemult = scaleA;
+	xtranslate = -(conf::WIDTH - 3200)/2;
+	ytranslate = -(conf::HEIGHT)/2;
+	live_follow = 0;
 }
 
 
@@ -226,8 +227,8 @@ void GLView::changeSize(int w, int h)
 
 	//update UI elements and make sure they are still in view
 	for(int i=0; i<maintiles.size(); i++){
-		if(i==MainTiles::SAD){
-			maintiles[i].moveElement(wWidth-UID::SADWIDTH-UID::BUFFER, UID::BUFFER);
+		if(i==MainTiles::LAD){
+			maintiles[i].moveElement(wWidth-UID::LADWIDTH-UID::BUFFER, UID::BUFFER);
 		}
 	}
 }
@@ -249,11 +250,11 @@ void GLView::processMouse(int button, int state, int x, int y)
 			int wx= (int) ((x-wWidth*0.5)/scalemult-xtranslate);
 			int wy= (int) ((y-wHeight*0.5)/scalemult-ytranslate);
 
-			if(live_cursormode==0){ //selection mode
+			if(live_cursormode==MouseMode::SELECT){
 				//This line both processes mouse (via world) and sets selection mode if it was successfull
 				if(world->processMouse(button, state, wx, wy, scalemult) && live_selection!=Select::RELATIVE) live_selection = Select::MANUAL;
 
-			} else if(live_cursormode==1){ //placement mode
+			} else if(live_cursormode==MouseMode::PLACE_AGENT){
 				if(world->addLoadedAgent(wx, wy)) printf("agent placed!    yay\n");
 				else world->addEvent("No agent loaded! Load an Agent 1st", EventColor::BLOOD);
 			}
@@ -509,7 +510,7 @@ void GLView::menu(int key)
 		if(scalemult<0.03) scalemult=0.03;
 	} else if (key==9) { //[tab] - press sets select mode to off, and sets cursor mode to default
 		live_selection= Select::NONE;
-		live_cursormode= 0;
+		live_cursormode= MouseMode::SELECT;
 	} else if (key=='c') {
 		world->setClosed( !world->isClosed() );
 		live_worldclosed= (int) world->isClosed();
@@ -667,6 +668,7 @@ void GLView::menu(int key)
 		world->reset();
 		world->spawn();
 		printf("WORLD RESET!\n");
+		world->addEvent("World Started!", EventColor::MINT);
 	} else if (key==1008) { //save world
 		handleRW(RWOpen::BASICSAVE);
 	} else if (key==1009) { //load world
@@ -787,7 +789,7 @@ void GLView::gluiCreateMenu()
 	live_climate= (int)world->CLIMATE;
 	live_climatebias= world->CLIMATEBIAS;
 	live_climatemult= world->CLIMATEMULT;
-	live_cursormode= 0;
+	live_cursormode= MouseMode::SELECT;
 	char text[32]= "";
 
 	#if defined(_DEBUG) //disable some extra features in debug environment
@@ -888,7 +890,8 @@ void GLView::gluiCreateMenu()
 		else if(i==Visual::REPCOUNTER) strcpy(text, "Rep. Counter");
 		else if(i==Visual::METABOLISM) strcpy(text, "Metabolism");
 		else if(i==Visual::STRENGTH) strcpy(text, "Strength");
-		else if(i==Visual::MUTATION) strcpy(text, "Mutability");
+		else if(i==Visual::BRAINMUTATION) strcpy(text, "Brain Mutability");
+		else if(i==Visual::GENEMUTATION) strcpy(text, "Gene Mutability");
 		else if(i==Visual::LUNGS) strcpy(text, "Lungs");
 		else if(i==Visual::GENERATIONS) strcpy(text, "Generation");
 //		else if(i==Visual::REPMODE) strcpy(text, "Rep. Mode");
@@ -937,13 +940,15 @@ void GLView::gluiCreateMenu()
 void GLView::handleButtons(int action)
 //Control.cpp (only if not immediately switching UI systems)
 {
-	if (action==GUIButtons::TOGGLE_LAYERS) {
-		if(ui_layerpreset!=0) ui_layerpreset= 0;
-		else ui_layerpreset= DisplayLayer::DISPLAYS*2;
+	if (action == GUIButtons::TOGGLE_LAYERS) {
+		if(ui_layerpreset != 0) ui_layerpreset = 0;
+		else ui_layerpreset = DisplayLayer::DISPLAYS*2;
 
 		processLayerPreset(); //call to method to update layer bools based on ui_layerpreset
-	} else if (action==GUIButtons::TOGGLE_PLACEAGENTS) {
-		live_cursormode= 1-live_cursormode;
+
+	} else if (action == GUIButtons::TOGGLE_PLACEAGENTS) {
+		if(live_cursormode != MouseMode::PLACE_AGENT) live_cursormode = MouseMode::PLACE_AGENT;
+		else live_cursormode = MouseMode::SELECT;
 	}
 }
 
@@ -955,7 +960,7 @@ void GLView::handleRW(int action) //glui callback for saving/loading worlds
 {
 	live_paused= 1; //pause world while we work
 
-	if (action==RWOpen::STARTLOAD){ //basic load option selected
+	if (action == RWOpen::STARTLOAD){ //basic load option selected
 		//Step 1 of loading: check if user really wants to reset world
 		if(!world->isDemo()){ //no need for alerts if in demo mode (epoch == 0)
 			//get time since last save
@@ -988,12 +993,12 @@ void GLView::handleRW(int action) //glui callback for saving/loading worlds
 			}
 		} else handleRW(RWOpen::BASICLOAD);
 
-	} else if (action==RWOpen::IGNOREOVERLOAD) {
+	} else if (action == RWOpen::IGNOREOVERLOAD) {
 		//alert window open before load, was ignored by user. Close it first before loading
 		Alert->hide();
 		handleRW(RWOpen::BASICLOAD);
 
-	} else if (action==RWOpen::BASICLOAD) { //load option promt
+	} else if (action == RWOpen::BASICLOAD) { //load option promt
 		Loader = GLUI_Master.create_glui("Load World",0,50,50);
 
 		new GLUI_StaticText(Loader,"");
@@ -1005,7 +1010,7 @@ void GLView::handleRW(int action) //glui callback for saving/loading worlds
 
 		Loader->set_main_gfx_window(win1);
 
-	} else if (action==RWOpen::BASICSAVE) { //save option prompt
+	} else if (action == RWOpen::BASICSAVE) { //save option prompt
 		Saver = GLUI_Master.create_glui("Save World",0,50,50);
 
 		new GLUI_StaticText(Saver,"");
@@ -1017,7 +1022,7 @@ void GLView::handleRW(int action) //glui callback for saving/loading worlds
 
 		Saver->set_main_gfx_window(win1);
 
-	} else if (action==RWOpen::NEWWORLD){ //new world alert prompt
+	} else if (action == RWOpen::NEWWORLD){ //new world alert prompt
 		Alert = GLUI_Master.create_glui("Alert",0,50,50);
 		Alert->show();
 		new GLUI_StaticText(Alert,"");
@@ -1030,22 +1035,22 @@ void GLView::handleRW(int action) //glui callback for saving/loading worlds
 
 		Alert->set_main_gfx_window(win1);
 
-	} else if (action==RWOpen::BASICSAVEAGENT) { //save selected agent prompt
+	} else if (action == RWOpen::BASICSAVEAGENT) { //save selected agent prompt
 		Saver = GLUI_Master.create_glui("Save Agent",0,50,50);
 
 		new GLUI_StaticText(Saver,"");
-		Filename= new GLUI_EditText(Saver,"Enter Agent File Name (e.g, 'AGENT'):");
+		Filename = new GLUI_EditText(Saver,"Enter Agent File Name (e.g, 'AGENT'):");
 		new GLUI_StaticText(Saver,"");
 		Filename->set_w(300);
 		new GLUI_Button(Saver,"Save", RWClose::BASICSAVEAGENT, glui_handleCloses);
 		new GLUI_Button(Saver,"Cancel", RWClose::CANCELSAVE, glui_handleCloses);
 
-	} else if (action==RWOpen::BASICLOADAGENT) {
-		if(live_cursormode==0){
+	} else if (action == RWOpen::BASICLOADAGENT) {
+		if(live_cursormode != MouseMode::PLACE_AGENT){
 			Loader = GLUI_Master.create_glui("Load Agent",0,50,50);
 
 			new GLUI_StaticText(Loader,"");
-			Filename= new GLUI_EditText(Loader,"Enter Agent File Name (e.g, 'AGENT'):");
+			Filename = new GLUI_EditText(Loader,"Enter Agent File Name (e.g, 'AGENT'):");
 			new GLUI_StaticText(Loader,"");
 			Filename->set_w(300);
 			new GLUI_Button(Loader,"Load", RWClose::BASICLOADAGENT, glui_handleCloses);
@@ -1053,8 +1058,8 @@ void GLView::handleRW(int action) //glui callback for saving/loading worlds
 
 			Loader->set_main_gfx_window(win1);
 		} else {
-			live_cursormode= 0; //return cursor mode to normal if we press button again
-			live_paused= 0;
+			live_cursormode = MouseMode::SELECT; //return cursor mode to normal if we press button while in placement mode
+			live_paused = 0;
 			LoadAgentButton->set_name("Load Agent");
 		}
 
@@ -1119,7 +1124,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 			} else {
 				fclose(fl); //we are technically going to open the file again in savehelper... oh well
 
-				savehelper->loadWorld(world, xtranslate, ytranslate, filename);
+				savehelper->loadWorld(world, xtranslate, ytranslate, scalemult, filename);
 
 				lastsavedtime= currentTime; //reset last saved time; we have nothing before the load to save!
 
@@ -1138,6 +1143,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 		world->spawn();
 		lastsavedtime= currentTime;
 		printf("WORLD RESET!\n");
+		world->addEvent("World Started!", EventColor::MINT);
 		//this is getting annoying - so if the world changes any values that have a GUI, the GUI will not update. We have to force update here
 		syncLiveWithWorld();
 		Alert->hide();
@@ -1178,13 +1184,13 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 					std::string selectedsaved= "Agent saved as \"";
 					selectedsaved.append(filename);
 					selectedsaved.append("\"");
-					world->addEvent(selectedsaved, EventColor::CYAN);
+					world->addEvent(selectedsaved, EventColor::WHITE);
 				}
 				fclose(sa);
 //			}
 		}
 		Saver->hide();
-	} else if (action==RWClose::BASICLOADAGENT){ //basic agent loader
+	} else if (action == RWClose::BASICLOADAGENT){ //basic agent loader
 		strcpy(filename, Filename->get_text());
 				
 		if (checkFileName(filename)) {
@@ -1214,7 +1220,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 
 				savehelper->loadAgentFile(world, address.c_str());
 
-				live_cursormode= 1; //activate agent placement mode
+				live_cursormode = MouseMode::PLACE_AGENT; //activate agent placement mode
 				LoadAgentButton->set_name("UNLOAD Agent");
 			}
 		}
@@ -1226,7 +1232,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 		strcpy(filename,file_name.c_str());
 
 		if (checkFileName(filename)) {
-			savehelper->loadWorld(world, xtranslate, ytranslate, filename);
+			savehelper->loadWorld(world, xtranslate, ytranslate, scalemult, filename);
 		}
 		Loader->hide(); //NEEDS LOTS OF WORK
 
@@ -1339,15 +1345,15 @@ void GLView::trySaveWorld(bool force, bool autosave)
 			fclose(ck);
 		} else {
 			if(ck) fclose(ck);
-			savehelper->saveWorld(world, xtranslate, ytranslate, filename);
+			savehelper->saveWorld(world, xtranslate, ytranslate, scalemult, filename);
 			lastsavedtime= currentTime;
 			if(!autosave){
 				if (!force) {
 					std::string selectedsaved= "World saved as \"";
 					selectedsaved.append(filename);
 					selectedsaved.append("\"");
-					world->addEvent(selectedsaved, EventColor::CYAN);
-				} else world->addEvent("Saved World (overwritten)", EventColor::CYAN);
+					world->addEvent(selectedsaved, EventColor::WHITE);
+				} else world->addEvent("Saved World (overwritten)", EventColor::WHITE);
 			}
 		}
 	}
@@ -1416,15 +1422,19 @@ void GLView::checkTileListClicked(std::vector<UIElement> tiles, int mx, int my, 
 
 			uiclicked= true; //this must be exposed to mouse state==0 so that it catches drags off of UI elements
 
-			if(tiles[ti].clickable && state==1){ //if clickable, process actions
-				if(tiles[ti].key=="Follow") { 
-					live_follow= 1-live_follow;
-					ui_sadmode= 1;
+			if(tiles[ti].clickable && state == 1){ //if clickable, process actions
+				if(tiles[ti].key == "Follow") { 
+					live_follow = 1-live_follow;
+					ui_ladmode = LADVisualMode::GHOST;
 				}
-				else if(tiles[ti].key=="Damages" && ui_sadmode!=2) ui_sadmode= 2;
-				else if(tiles[ti].key=="Damages" && ui_sadmode==2) ui_sadmode= 1;
-				else if(tiles[ti].key=="Intake" && ui_sadmode!=3) ui_sadmode= 3;
-				else if(tiles[ti].key=="Intake" && ui_sadmode==3) ui_sadmode= 1;
+				else if(tiles[ti].key == "Damages") {
+					if (ui_ladmode != LADVisualMode::DAMAGES) ui_ladmode = LADVisualMode::DAMAGES;
+					else ui_ladmode = LADVisualMode::GHOST;
+				}
+				else if(tiles[ti].key=="Intake") {
+					if (ui_ladmode != LADVisualMode::INTAKES) ui_ladmode = LADVisualMode::INTAKES;
+					else ui_ladmode = LADVisualMode::GHOST;
+				}
 			}
 
 			//finally, check our tile's sub-tiles list, and all their sub-tiles, etc.
@@ -1438,14 +1448,16 @@ void GLView::processTiles()
 //Control.cpp
 {
 	for(int ti= 0; ti<maintiles.size(); ti++){
-		if(ti==MainTiles::SAD){
-			//SAD: selected agent display
-			if(world->getSelectedAgentIndex()<0 && live_cursormode!=1) { maintiles[ti].hide(); continue; }
-			else maintiles[ti].show(); //hide/unhide as needed
+		if(ti==MainTiles::LAD){
+			//LAD: Loaded/seLected Agent Display
+			if(world->getSelectedAgentIndex()<0 && live_cursormode != MouseMode::PLACE_AGENT) {
+				maintiles[ti].hide(); continue; 
+			} else maintiles[ti].show();
 
 			for(int tichild= 0; tichild<maintiles[ti].children.size(); tichild++){
 				std::string key= maintiles[ti].children[tichild].key;
-				if(live_cursormode==1 && (key=="Follow" || key=="Damages" || key=="Intake")) maintiles[ti].children[tichild].hide();
+				if(live_cursormode == MouseMode::PLACE_AGENT && (key=="Follow" || key=="Damages" || key=="Intake"))
+					maintiles[ti].children[tichild].hide(); //hide the profiler buttons if we have an agent loaded
 				else maintiles[ti].children[tichild].show();
 			}
 
@@ -1545,16 +1557,16 @@ void GLView::handleIdle()
 
 			//create the UI tiles 
 			//I don't like destroying and creating these live, but for reasons beyond me, initialization won't accept variables like glutGet()
-			int sadheight= 3*UID::BUFFER + ((int)ceil((float)SADHudOverview::HUDS*0.333333))*(UID::CHARHEIGHT + UID::BUFFER);
-			//The SAD requires a special height measurement based on the Hud construct, expanding it easily if more readouts are added
+			int ladheight= 3*UID::BUFFER + ((int)ceil((float)LADHudOverview::HUDS*0.333333))*(UID::CHARHEIGHT + UID::BUFFER);
+			//The LAD requires a special height measurement based on the Hud construct, expanding it easily if more readouts are added
 
 			maintiles.clear();
 			for(int i=0; i<MainTiles::TILES; i++){
-				if(i==MainTiles::SAD) {
-					createTile(wWidth-UID::SADWIDTH-UID::BUFFER, UID::BUFFER, UID::SADWIDTH, sadheight, "");
-					createTile(maintiles[MainTiles::SAD], 20, 20, "Follow", "F", true, false);
-					createTile(maintiles[MainTiles::SAD], 20, 20, "Damages", "D", false, true);
-					createTile(maintiles[MainTiles::SAD], 20, 20, "Intake", "I", false, true);
+				if(i==MainTiles::LAD) {
+					createTile(wWidth-UID::LADWIDTH-UID::BUFFER, UID::BUFFER, UID::LADWIDTH, ladheight, "");
+					createTile(maintiles[MainTiles::LAD], 20, 20, "Follow", "F", true, false);
+					createTile(maintiles[MainTiles::LAD], 20, 20, "Damages", "D", false, true);
+					createTile(maintiles[MainTiles::LAD], 20, 20, "Intake", "I", false, true);
 				} else if(i==MainTiles::TOOLBOX) {
 					createTile(UID::BUFFER, 190, 50, 300, "", "Tools");
 					createTile(maintiles[MainTiles::TOOLBOX], UID::BUFFER+UID::TILEMARGIN, 215, 30, 30, "UnpinUI", "UI.");
@@ -1610,9 +1622,8 @@ void GLView::handleIdle()
 			//we technically are rendering if just paused tho, so this check should stay here
 		} else ratemode='F';
 
-		sprintf( buf, "Evagents - %cPS: %d Alive: %d Herbi: %d Carni: %d Frugi: %d Epoch: %d Day %d",
-			ratemode, frames, world->getAgents()-world->getDead(), world->getHerbivores(), world->getCarnivores(),
-			world->getFrugivores(), world->getEpoch(), world->getDay() );
+		sprintf( buf, "Evagents - %cPS: %d Alive: %d Epoch: %d Day %d",
+			ratemode, frames, world->getAgents()-world->getDead(), world->getEpoch(), world->getDay() );
 		glutSetWindowTitle( buf );
 
 		world->timenewsong--; //reduce our song delay timer
@@ -1762,9 +1773,9 @@ Color3f GLView::setColorStomach(const float stomach[Stomach::FOOD_TYPES])
 	float fruit= stomach[Stomach::FRUIT];
 	float meat= stomach[Stomach::MEAT];
 	Color3f color;
-	color.red= cap(meat + fruit - pow(plant,2)/2);
-	color.gre= cap(plant/2 + fruit - meat/3);
-	color.blu= meat*plant/2;
+	color.red= meat + fruit - pow(plant,2)/2;
+	color.gre= plant/2 + fruit - meat/2;
+	color.blu= meat*plant;
 	return color;
 }
 
@@ -1772,13 +1783,13 @@ Color3f GLView::setColorTempPref(float discomfort)
 {
 	Color3f color;
 	if (discomfort>0) {
-		color.red= cap(2*sqrt(cap(2*discomfort))*(1.3-discomfort));
-		color.gre= cap(0.9-2*discomfort);
-		color.blu= cap((2-16*discomfort)/4);
+		color.red= 2*sqrt(cap(2*discomfort))*(1.3-discomfort);
+		color.gre= 0.9-2*discomfort;
+		color.blu= (2-16*discomfort)/4;
 	} else if (discomfort<0) {
-		color.red= cap((-discomfort)*(1+discomfort));
-		color.gre= cap(0.8+2*discomfort);
-		color.blu= cap(1+discomfort);
+		color.red= (-discomfort)*(1+discomfort);
+		color.gre= 0.8+2*discomfort;
+		color.blu= 1+discomfort;
 	} else {
 		color.gre= 1.0;
 	}
@@ -1789,18 +1800,18 @@ Color3f GLView::setColorTempPref(float discomfort)
 Color3f GLView::setColorMetabolism(float metabolism)
 {
 	Color3f color;
-	color.red= 3*metabolism-1.2;
-	color.gre= 4.5*(metabolism-0.1)*(1-metabolism);
-	color.blu= 2.5*(1-2.3*metabolism)*(sqrt(metabolism)+0.16);
+	color.red= 3*metabolism-1;
+	color.gre= 8*(metabolism)*(1-metabolism)*(metabolism-0.1);
+	color.blu= 8*(1-1.5*metabolism)*metabolism;
 	return color;
 }
 
 Color3f GLView::setColorTone(float tone)
 {
 	Color3f color;
-	color.red= tone<0.8 ? cap(1.6-3*tone) : cap(-3.5+4*tone); //best put these into an online graphing calculator...
-	color.gre= tone<0.5 ? cap(5*tone-0.2) : cap(2.925-3*tone);
-	color.blu= cap(4*tone-1.75);
+	color.red= tone<0.8 ? 1.6-3*tone : -3.5+4*tone; //best put these into an online graphing calculator...
+	color.gre= tone<0.5 ? 5*tone-0.2 : 2.925-3*tone;
+	color.blu= 4*tone-1.75;
 	if(tone>0.45 && tone<0.55) {
 		color.red*= 10*fabs(tone-0.5)+0.5;
 		color.gre*= 5*fabs(tone-0.5)+0.75;
@@ -1812,9 +1823,9 @@ Color3f GLView::setColorTone(float tone)
 Color3f GLView::setColorLungs(float lungs)
 {
 	Color3f color;
-	color.red= cap((0.2+lungs)*(0.4-lungs) + 25*(lungs-0.45)*(0.8-lungs));
-	color.gre= lungs>0.1 ? cap(2.45*(lungs)*(1.2-lungs)) : 0.0;
-	color.blu= cap(1-1.5*lungs);
+	color.red= (0.2+lungs)*(0.4-lungs) + 25*(lungs-0.45)*(0.8-lungs);
+	color.gre= lungs>0.1 ? 2.45*(lungs)*(1.2-lungs) : 0.0;
+	color.blu= 1-1.5*lungs;
 	return color;
 }
 
@@ -1887,18 +1898,20 @@ Color3f GLView::setColorRepCount(float repcount, int type)
 {
 	Color3f color= setColorRepType(type);
 
-	float val= powf(cap(1-repcount*0.5), 2);
+	float val= 0.25 + 0.75*powf(cap(1-repcount*0.25), 2); //repcounter of 4 starts getting brighter, but otherwise we always display a little color
 	color.red*= val; color.gre*= val; color.blu*= val;
 
-	int mod= 12;
-	if(repcount<1) mod= 3;
-	if((int)(abs(repcount)*1000)%mod>=mod*0.5){
-		if(repcount<0) {
-			color.red= 1.0;
-			color.gre= 1.0;
-			color.blu= 1.0;
-		} else {
-			color.red= 0; color.gre= 0; color.blu= 0;
+	if(repcount < 3) { //repcounter of 3 starts getting brighter...
+		int mod= 12;
+		if(repcount<1) mod= 3; //repcounter of 1 starts blinking more rapidly
+		if((int)(abs(repcount)*1000)%mod>=mod*0.5){
+			if(repcount < 0) { //negative repcounter indicates agent is ready to reproduce but something prevents it (sexprojection, health below minimum)
+				color.red= 1.0;
+				color.gre= 1.0;
+				color.blu= 1.0;
+			} else {
+				color.red*= 0.25; color.gre*= 0.25; color.blu*= 0.25;
+			}
 		}
 	}
 	return color;
@@ -2044,11 +2057,11 @@ Color3f GLView::setColorTempCell(int val)
 	Color3f color(sqrt(cap(1.3*temp-0.2)), cap(1.2*(1-1.1*temp)), pow(1-temp,3)); //revert "temp" to "val" to fix for cell-based temp layer
 	if(temp>0.3) {
 		float blu_gre= cap(2.5*temp-0.9);
-		color.red= cap(color.red + cap(2.5*temp-1.25));
+		color.red= color.red + cap(2.5*temp-1.25);
 		if(temp>0.6) {
-			color.gre= cap(color.gre + cap(1.8-2*temp));
-		} else color.gre= cap(color.gre + blu_gre);
-		color.blu= cap(color.blu - blu_gre);
+			color.gre= color.gre + cap(1.8-2*temp);
+		} else color.gre= color.gre + blu_gre;
+		color.blu= color.blu - blu_gre;
 	}
 	return color;
 }
@@ -2058,9 +2071,9 @@ Color3f GLView::setColorLight(float val)
 	Color3f color;
 	//if moonlight is a thing, then set a lower limit
 	if(world->MOONLIT && world->MOONLIGHTMULT!=1.0) {
-		color.red= world->SUN_RED*val>world->MOONLIGHTMULT ? cap(world->SUN_RED*val) : world->MOONLIGHTMULT;
-		color.gre= world->SUN_GRE*val>world->MOONLIGHTMULT ? cap(world->SUN_GRE*val) : world->MOONLIGHTMULT;
-		color.blu= world->SUN_BLU*val>world->MOONLIGHTMULT ? cap(world->SUN_BLU*val) : world->MOONLIGHTMULT;
+		color.red= world->SUN_RED*val>world->MOONLIGHTMULT ? world->SUN_RED*val : world->MOONLIGHTMULT;
+		color.gre= world->SUN_GRE*val>world->MOONLIGHTMULT ? world->SUN_GRE*val : world->MOONLIGHTMULT;
+		color.blu= world->SUN_BLU*val>world->MOONLIGHTMULT ? world->SUN_BLU*val : world->MOONLIGHTMULT;
 	} else {
 		color.red= cap(world->SUN_RED*val);
 		color.gre= cap(world->SUN_GRE*val);
@@ -2222,9 +2235,6 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 							} else if(j>=Input::EARS && j<=Input::xEARS){
 								std::pair<Color3f, float> earcolor= setColorEar(j-Input::EARS);
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "E", earcolor.first.red, earcolor.first.gre, earcolor.first.blu);
-							} else if(j>=Input::EARS && j<=Input::xEARS){
-								std::pair<Color3f, float> earcolor= setColorEar(j-Input::EARS);
-								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "E", earcolor.first.red, earcolor.first.gre, earcolor.first.blu);
 							} else if(j==Input::HEALTH){
 								Color3f healthcolor= setColorHealth(agent.health);
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "H", healthcolor.red, healthcolor.gre, healthcolor.blu);
@@ -2245,6 +2255,9 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "S", 1.0f, 1.0f, 1.0f);
 							} else if(j==Input::PLAYER){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "+", 1.0f, 1.0f, 1.0f);
+							} else if(j==Input::RANDOM){
+								float col = randf(0,1);
+								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "?", col, col, col);
 							}
 							glBegin(GL_QUADS);
 						}
@@ -2322,13 +2335,14 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 							} else if(j==Output::RIGHT_WHEEL_B || j==Output::RIGHT_WHEEL_F){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "!", 0.0f, 1.0f, 0.0f);
 							} else if(j==Output::VOLUME){
-								float volcol = value>0.75 ? 0.0f : 1.0f;
-								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "V", volcol, volcol, volcol);
+								float compcol = value>0.75 ? 0.0f : 1.0f;
+								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "V", compcol, compcol, compcol);
 							} else if(j==Output::TONE){
 								Color3f tonecolor= setColorTone(agent.tone);
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "T", tonecolor.red, tonecolor.gre, tonecolor.blu);
 							} else if(j==Output::CLOCKF3){
-								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "Q", 0.0f, 0.0f, 0.0f);
+								float compcol = value>0.75 ? 0.0f : 1.0f;
+								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "Q", compcol, compcol, compcol);
 							} else if(j==Output::SPIKE){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "S", 1.0f, 0.0f, 0.0f);
 							} else if(j==Output::PROJECT){
@@ -2345,6 +2359,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "J", 1.0f, 1.0f, 0.0f);
 							} else if(j==Output::BOOST){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "B", 0.6f, 0.6f, 0.6f);
+							} else if(j==Output::STIMULANT){
+								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "$", 0.0f, 1.0f, 1.0f);
 							} else if(j==Output::WASTE_RATE){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "W", 0.9f, 0.0f, 0.81f);
 							}
@@ -2566,7 +2582,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			glColor4f(1,1,1,0);
 			glVertex3f(0,0,0);
 
-			float mag= (live_agentsvis==Visual::HEALTH) ? 3 : 1;//draw sharing as a thick green or red outline, bigger if viewing health
+			float mag= (live_agentsvis==Visual::HEALTH && !ghost) ? 3 : 1;//draw sharing as a thick green or red outline, bigger if viewing health
 			Color3f generocitycolor= setColorGenerocity(agent.dhealth);
 			
 			glColor4f(generocitycolor.red, generocitycolor.gre, generocitycolor.blu, 1);
@@ -2773,8 +2789,10 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			color= setColorMetabolism(agent.metabolism);
 		} else if (live_agentsvis==Visual::STRENGTH){
 			color= setColorStrength(agent.strength);
-		} else if (live_agentsvis==Visual::MUTATION){
-			color= setColorMutations(agent.MUTCHANCE, agent.MUTSIZE);
+		} else if (live_agentsvis==Visual::BRAINMUTATION){
+			color= setColorMutations(agent.brain_mutation_chance, agent.brain_mutation_size);
+		} else if (live_agentsvis==Visual::GENEMUTATION){
+			color= setColorMutations(agent.gene_mutation_chance, agent.gene_mutation_size);
 		} else if (live_agentsvis==Visual::LUNGS){
 			color= setColorLungs(agent.lungs);
 		} else if (live_agentsvis==Visual::GENERATIONS){
@@ -2796,7 +2814,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 
 		}
 
-		if (agent.health<=0 || (scalemult <= 0.3 && !ghost)) {
+		if (agent.health<=0 || (scalemult <= 0.3 && !ghost) || live_agentsvis!=Visual::RGB) {
 			//when zoomed out too far to want to see agent details, or if agent is dead (either ghost render or not), draw center as solid
 			centeralpha= 1; 
 			centercmult= 1;
@@ -2815,10 +2833,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				float aa= agent.angle+agent.eyedir[q];
 				
 				glBegin(GL_LINES);
-				if (live_profilevis==Profile::EYES) {
-					//color eye lines based on actual input if we're on the eyesight profile
-					glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.75*dead);
-				} else glColor4f(0.5,0.5,0.5,0.75*dead);
+				glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.75*dead);
 
 				glVertex3f(r*cos(aa), r*sin(aa),0);
 				glVertex3f((2*r+30)*cos(aa), (2*r+30)*sin(aa), 0); //this draws whiskers. Don't get rid of or change these <3
@@ -3134,7 +3149,8 @@ void GLView::drawData()
 
 		//draw Graphs
 		glTranslatef(-UID::GRAPHBUFFER, 0, 0);
-		float yscaling = 5; //vertical measurement multiplier
+		int worldpop = world->MAXPOP+400 > 500 ? world->MAXPOP+400 : 500;
+		float yscaling = conf::HEIGHT / worldpop;
 		float xinterval = (float)UID::GRAPHWIDTH / world->REPORTS_PER_EPOCH;
 		int agentinterval = yscaling*100;
 
@@ -3233,11 +3249,16 @@ void GLView::drawData()
 		glEnd();
 
 		//labels for current population bars
+		float ydeadlabel = yscaling*world->getAgents(); //since # of dead could go over the top of the graph, clamp it (don't worry about the bar)
+		float ymaxdeadlabel = conf::HEIGHT - (UID::CHARHEIGHT + 2)/scalemult;
+		if (ydeadlabel > ymaxdeadlabel) ydeadlabel = ymaxdeadlabel;
+
 		sprintf(buf2, "%i dead", world->getDead());
-		RenderString(-3-(float)(UID::CHARWIDTH*(int)strlen(buf2))/scalemult,conf::HEIGHT - yscaling*world->getAgents(),
+		RenderString((2 - ((float)UID::CHARWIDTH + 1.0f)*(float)strlen(buf2))/scalemult, conf::HEIGHT - ydeadlabel,
 			GLUT_BITMAP_HELVETICA_12, buf2, 0.8f, 0.8f, 0.6f);
+
 		sprintf(buf2, "%i agents", world->getAlive());
-		RenderString(-3-(float)(UID::CHARWIDTH*(int)strlen(buf2))/scalemult,conf::HEIGHT - yscaling*world->getAlive(),
+		RenderString((8 - ((float)UID::CHARWIDTH + 1.0f)*(float)strlen(buf2))/scalemult, conf::HEIGHT - yscaling*world->getAlive(),
 			GLUT_BITMAP_HELVETICA_12, buf2, 0.0f, 0.0f, 0.0f);
 
 		glTranslatef(UID::GRAPHBUFFER, 0, 0);
@@ -3440,7 +3461,7 @@ void GLView::drawStatic()
 
 
 	//event display y coord, based on Selected Agent Hud to avoid overlap
-	int euy= 20 + 2*UID::BUFFER+((int)ceil((float)SADHudOverview::HUDS/3))*(UID::CHARHEIGHT+UID::BUFFER);
+	int euy= 20 + 2*UID::BUFFER+((int)ceil((float)LADHudOverview::HUDS/3))*(UID::CHARHEIGHT+UID::BUFFER);
 
 	//event log display
 	float ss= 18;
@@ -3616,11 +3637,11 @@ void GLView::drawPieDisplay(float x, float y, float size, std::vector<std::pair<
 			else if (values[i].first==conf::DEATH_COLLIDE) color= new Color3f(0,0.8,1);
 			else if (values[i].first==conf::DEATH_SPIKE || values[i].first==conf::MEAT_TEXT) color= new Color3f(1,0,0);
 			else if (values[i].first==conf::DEATH_BITE || values[i].first==conf::FRUIT_TEXT) color= new Color3f(0.8,0.8,0);
-			else if (values[i].first==conf::DEATH_NATURAL) color= new Color3f(0.4,0.3,0.0);
+			else if (values[i].first==conf::DEATH_NATURAL) color= new Color3f(0.5,0.4,0.1);
 			else if (values[i].first==conf::DEATH_TOOMANYAGENTS) color= new Color3f(1,0,1);
 			else if (values[i].first==conf::DEATH_BADTEMP) color= new Color3f(0.9,0.6,0);
 			else if (values[i].first==conf::DEATH_USER) color= new Color3f(1,1,1);
-			else if (values[i].first==conf::DEATH_ASEXUAL || values[i].first==conf::FOOD_TEXT) color= new Color3f(0,0.8,0);
+			else if (values[i].first==conf::DEATH_ASEXUAL || values[i].first==conf::PLANT_TEXT) color= new Color3f(0,0.8,0);
 			else color= new Color3f(1.0/(i+2),1.0/(i+2),1.0/(i+2));
 
 			glColor4f(color->red, color->gre, color->blu, 1);
@@ -3766,21 +3787,20 @@ void GLView::renderAllTiles()
 		//yes so we are importing an array from the so-called renderTile method because I wanted to minimize the number of times I set those
 		//ugly? maybe. Bad code? I'll let you decide when you want to make a change to a single tile you're adding...
 
-		if(ti==MainTiles::SAD){
-			//SAD: selected agent display
+		if(ti == MainTiles::LAD){
+			//LAD: Loaded / seLected Agent Display
 			Agent selected;
 			Color3f *bg;
 
-			//or are we the LAD: Loaded Agent Display? If so, render a mock Loaded agent instead!
-			if(live_cursormode==1 && world->loadedagent.brain.boxes.size()==world->BRAINBOXES) {
-				selected= world->loadedagent;
-				selected.angle+= 2*sin((float)currentTime/200); //make loaded agent spin a little, and flash a selection icon
+			if(live_cursormode == MouseMode::PLACE_AGENT) {
+				selected = world->loadedagent; //load a mock agent
+				selected.angle += 2*sin((float)currentTime/200); //make loaded agent spin a little, and flash a selection icon
 				if(world->modcounter%20==0) selected.initSplash(20, 1.0,1.0,1.0);
-				bg= new Color3f(0,0.45,0.1); //set a cool green background color
+				bg = new Color3f(0,0.45,0.1); //set a cool green background color
 			} else {
-				//SAD defines
-				selected= world->agents[world->getSelectedAgentIndex()];
-				bg= new Color3f(0,0.4,0.6); //set background to our traditional blue
+				//LAD defines
+				selected = world->agents[world->getSelectedAgentIndex()]; //load exactly the same agent as the selected
+				bg = new Color3f(0,0.4,0.6); //set background to our traditional blue
 			}
 
 			//main box
@@ -3831,51 +3851,54 @@ void GLView::renderAllTiles()
 
 			float centery= (float)(th)/2;
 
-			if(live_cursormode==1){
+			if(live_cursormode == MouseMode::PLACE_AGENT){
 				RenderString(tx+centery-35, ty2-15, GLUT_BITMAP_HELVETICA_12, "Place me!", 0.8f, 1.0f, 1.0f);
-				ui_sadmode= 1; //force below display mode if our SAD is actually a LAD
+				ui_ladmode = LADVisualMode::GHOST; //force ghost display mode if we're in PLACE_AGENT mode
 			}
 
-			//next, depending on the current SAD visual mode, we render something in our extra space
-			if(ui_sadmode==1) {
-				//draw Ghost Agent
+			//depending on the current LAD visual mode, we render something in our left-hand space
+			if(ui_ladmode == LADVisualMode::GHOST) {
 				drawPreAgent(selected, tx+centery, 5+centery, true);
 				drawAgent(selected, tx+centery, 5+centery, true);
 
-			} else if (ui_sadmode==2) {
-				//draw Damages pie chart
+			} else if (ui_ladmode == LADVisualMode::DAMAGES) {
 				RenderString(tx+centery-45, ty+42, GLUT_BITMAP_HELVETICA_12, "Damage Taken:", 0.8f, 1.0f, 1.0f);
 				drawPieDisplay(tx+centery, 10+centery, 32, selected.damages);
-			} else if (ui_sadmode==3) {
-				//draw Intakes pie chart
+
+			} else if (ui_ladmode == LADVisualMode::INTAKES) {
 				RenderString(tx+centery-45, ty+42, GLUT_BITMAP_HELVETICA_12, "Food Intaken:", 0.8f, 1.0f, 1.0f);
 				drawPieDisplay(tx+centery, 10+centery, 32, selected.intakes);
-			}
+			} //note NONE is an option and renders nothing, leaving space for other things...
 
 			//Agent ID
 			glBegin(GL_QUADS);
-			glColor4f(0,0,0,0.7);
 			float idlength= 19+UID::CHARWIDTH*floorf(1.0+log10((float)selected.id+1.0));
 			float idboxx= tx+centery-idlength/2-5;
 			float idboxy= ty+11;
-			float idboxx2= tx+centery+idlength/2+5;
+			float idboxx2= tx+centery+idlength/2+10;
 			float idboxy2= idboxy+14;
 
-			glVertex3f(idboxx,idboxy2,0); 
-			glVertex3f(idboxx2,idboxy2,0); 
 			Color3f specie= setColorSpecies(selected.species);
 			glColor4f(specie.red,specie.gre,specie.blu,1);
-			glVertex3f(idboxx2,idboxy,0); 
+			glVertex3f(idboxx2,idboxy,0);
 			glVertex3f(idboxx,idboxy,0); 
+			glColor4f(specie.red/2,specie.gre/2,specie.blu/2,1);
+			glVertex3f(idboxx,idboxy2,0); 
+			glVertex3f(idboxx2,idboxy2,0); 
 			glEnd();
 
 			sprintf(buf, "ID: %d", selected.id);
 			RenderString(tx+centery-idlength/2, idboxy2-3, GLUT_BITMAP_HELVETICA_12, buf, 0.8f, 1.0f, 1.0f);
 
+			//Show cause of death if dead
+			if(selected.health==0){
+				RenderString(tbx+UID::BUFFER-2, idboxy2+3*UID::BUFFER, GLUT_BITMAP_HELVETICA_12, selected.death.c_str(), 0.8f, 1.0f, 1.0f);
+			}
+
 			Color3f defaulttextcolor(0.8,1,1);
 			Color3f traittextcolor(0.6,0.7,0.8);
 
-			for(int u=0; u<SADHudOverview::HUDS; u++) {
+			for(int u=0; u<LADHudOverview::HUDS; u++) {
 				bool drawbox= false;
 
 				bool isFixedTrait= false;
@@ -3887,7 +3910,7 @@ void GLView::renderAllTiles()
 				//must + ul to ux, must - uw to uy, for other corners
 
 				//Draw graphs
-				if(u==SADHudOverview::HEALTH || u==SADHudOverview::REPCOUNTER || u==SADHudOverview::STOMACH || u==SADHudOverview::EXHAUSTION){
+				if(u==LADHudOverview::HEALTH || u==LADHudOverview::REPCOUNTER || u==LADHudOverview::STOMACH || u==LADHudOverview::EXHAUSTION){
 					//all graphs get a trasparent black box put behind them first
 					glBegin(GL_QUADS);
 					glColor4f(0,0,0,0.7);
@@ -3896,7 +3919,7 @@ void GLView::renderAllTiles()
 					glVertex3f(ux+1+UID::HUDSWIDTH,uy-1-UID::CHARHEIGHT,0);
 					glVertex3f(ux+1+UID::HUDSWIDTH,uy+1,0);
 
-					if(u==SADHudOverview::STOMACH){ //stomach indicators, ux= ww-100, uy= 40
+					if(u==LADHudOverview::STOMACH){ //stomach indicators, ux= ww-100, uy= 40
 						glColor3f(0,0.6,0);
 						glVertex3f(ux,uy-UID::CHARHEIGHT,0);
 						glVertex3f(ux,uy-(int)(UID::CHARHEIGHT*2/3),0);
@@ -3914,7 +3937,7 @@ void GLView::renderAllTiles()
 						glVertex3f(ux,uy,0);
 						glVertex3f(selected.stomach[Stomach::MEAT]*UID::HUDSWIDTH+ux,uy,0);
 						glVertex3f(selected.stomach[Stomach::MEAT]*UID::HUDSWIDTH+ux,uy-(int)(UID::CHARHEIGHT/3),0);
-					} else if (u==SADHudOverview::REPCOUNTER){ //repcounter indicator, ux=ww-200, uy=25
+					} else if (u==LADHudOverview::REPCOUNTER){ //repcounter indicator, ux=ww-200, uy=25
 						glColor3f(0,0.7,0.7);
 						glVertex3f(ux,uy,0);
 						glColor3f(0,0.5,0.6);
@@ -3923,14 +3946,14 @@ void GLView::renderAllTiles()
 						glVertex3f(cap(selected.repcounter/selected.maxrepcounter)*-UID::HUDSWIDTH+ux+UID::HUDSWIDTH,uy-UID::CHARHEIGHT,0);
 						glColor3f(0,0.5,0.6);
 						glVertex3f(cap(selected.repcounter/selected.maxrepcounter)*-UID::HUDSWIDTH+ux+UID::HUDSWIDTH,uy,0);
-					} else if (u==SADHudOverview::HEALTH){ //health indicator, ux=ww-300, uy=25
+					} else if (u==LADHudOverview::HEALTH){ //health indicator, ux=ww-300, uy=25
 						glColor3f(0,0.8,0);
 						glVertex3f(ux,uy-UID::CHARHEIGHT,0);
 						glVertex3f(selected.health/conf::HEALTH_CAP*UID::HUDSWIDTH+ux,uy-UID::CHARHEIGHT,0);
 						glColor3f(0,0.6,0);
 						glVertex3f(selected.health/conf::HEALTH_CAP*UID::HUDSWIDTH+ux,uy,0);
 						glVertex3f(ux,uy,0);
-					} else if (u==SADHudOverview::EXHAUSTION){ //Exhaustion/energy indicator ux=ww-100, uy=25
+					} else if (u==LADHudOverview::EXHAUSTION){ //Exhaustion/energy indicator ux=ww-100, uy=25
 						float exh= 2/(1+exp(selected.exhaustion));
 						glColor3f(0.8,0.8,0);
 						glVertex3f(ux,uy,0);
@@ -3944,7 +3967,7 @@ void GLView::renderAllTiles()
 				}
 
 				//extra color tile for gene color
-				if(u==SADHudOverview::CHAMOVID) {
+				if(u==LADHudOverview::CHAMOVID) {
 					glBegin(GL_QUADS);
 					glColor4f(0,0,0,0.7);
 					glVertex3f(ux-2+UID::HUDSWIDTH-UID::CHARHEIGHT,uy+1,0);
@@ -3962,32 +3985,32 @@ void GLView::renderAllTiles()
 
 				//write text and values
 				//VOLITILE TRAITS:
-				if(u==SADHudOverview::HEALTH){
+				if(u==LADHudOverview::HEALTH){
 					if(live_agentsvis==Visual::HEALTH) drawbox= true;
 					sprintf(buf, "Health: %.2f/%.0f", selected.health, conf::HEALTH_CAP);
 
-				} else if(u==SADHudOverview::REPCOUNTER){
+				} else if(u==LADHudOverview::REPCOUNTER){
 					if(live_agentsvis==Visual::REPCOUNTER) drawbox= true;
 					sprintf(buf, "Child: %.2f/%.0f", selected.repcounter, selected.maxrepcounter);
 				
-				} else if(u==SADHudOverview::EXHAUSTION){
+				} else if(u==LADHudOverview::EXHAUSTION){
 					if(selected.exhaustion>5) sprintf(buf, "Exhausted!");
 					else if (selected.exhaustion<2) sprintf(buf, "Energetic!");
 					else sprintf(buf, "Tired.");
 
-				} else if(u==SADHudOverview::AGE){
+				} else if(u==LADHudOverview::AGE){
 					sprintf(buf, "Age: %.1f days", (float)selected.age/10);
 
-				} else if(u==SADHudOverview::GIVING){
+				} else if(u==LADHudOverview::GIVING){
 					if(selected.isGiving()) sprintf(buf, "Generous");
 					else if(selected.give>conf::MAXSELFISH) sprintf(buf, "Autocentric");
 					else sprintf(buf, "Selfish");
 
-//				} else if(u==SADHudOverview::DHEALTH){
+//				} else if(u==LADHudOverview::DHEALTH){
 //					if(selected.dhealth==0) sprintf(buf, "Delta H: 0");
 //					else sprintf(buf, "Delta H: %.2f", selected.dhealth);
 
-				} else if(u==SADHudOverview::SPIKE){
+				} else if(u==LADHudOverview::SPIKE){
 					if(selected.health>0 && selected.isSpikey(world->SPIKELENGTH)){
 						float mw= selected.w1>selected.w2 ? selected.w1 : selected.w2;
 						if(mw<0) mw= 0;
@@ -3997,12 +4020,12 @@ void GLView::renderAllTiles()
 						else sprintf(buf, "Spike: ~%.2f h", val);
 					} else sprintf(buf, "Not Spikey");
 
-				} else if(u==SADHudOverview::SEXPROJECT){
+				} else if(u==LADHudOverview::SEXPROJECT){
 					if(selected.isMale()) sprintf(buf, "Sexting (M)");
 					else if(selected.isAsexual()) sprintf(buf, "Is Asexual");
 					else sprintf(buf, "Sexting (F)");
 
-				} else if(u==SADHudOverview::MOTION){
+				} else if(u==LADHudOverview::MOTION){
 					if(selected.isAirborne()) sprintf(buf, "Airborne!");
 					else if(selected.encumbered) sprintf(buf, "Encumbered");
 					else if(selected.boost) sprintf(buf, "Boosting");
@@ -4012,43 +4035,43 @@ void GLView::renderAllTiles()
 					else if(selected.health<=0) sprintf(buf, "Dead.");
 					else sprintf(buf, "Idle");
 
-				} else if(u==SADHudOverview::GRAB){
+				} else if(u==LADHudOverview::GRAB){
 					if(selected.isGrabbing()){
 						if(selected.grabID==-1) sprintf(buf, "Grabbing");
 						else sprintf(buf, "Hold %d (%.2f)", selected.grabID, selected.grabbing);
 					} else sprintf(buf, "Not Grabbing");
 
-				} else if(u==SADHudOverview::BITE){
+				} else if(u==LADHudOverview::BITE){
 					if(selected.jawrend!=0) sprintf(buf, "Bite: %.2f h", abs(selected.jawPosition*world->DAMAGE_JAWSNAP));
 					else sprintf(buf, "Not Biting");
 
-				} else if(u==SADHudOverview::WASTE){
+				} else if(u==LADHudOverview::WASTE){
 					if(selected.out[Output::WASTE_RATE]<0.05) sprintf(buf, "Has the Runs");
 					else if(selected.out[Output::WASTE_RATE]<0.3) sprintf(buf, "Incontinent");
 					else if(selected.out[Output::WASTE_RATE]>0.7) sprintf(buf, "Waste Prudent");
 					else sprintf(buf, "Avg Waste Rate");
 
-				} else if(u==SADHudOverview::VOLUME){
+				} else if(u==LADHudOverview::VOLUME){
 					if(live_agentsvis==Visual::VOLUME) drawbox= true;
 					if(selected.volume>0.8) sprintf(buf, "Loud! (%.3f)", selected.volume);
 					else if(selected.volume<=conf::RENDER_MINVOLUME) sprintf(buf, "Silent.");
 					else if(selected.volume<0.2) sprintf(buf, "Quiet (%.3f)", selected.volume);
 					else sprintf(buf, "Volume: %.3f", selected.volume);
 
-				} else if(u==SADHudOverview::TONE){
+				} else if(u==LADHudOverview::TONE){
 					sprintf(buf, "Tone: %.3f", selected.tone);
 
 
 				//STATS:
-				} else if(u==SADHudOverview::STAT_CHILDREN){
+				} else if(u==LADHudOverview::STAT_CHILDREN){
 					sprintf(buf, "Children: %d", selected.children);
 
-				} else if(u==SADHudOverview::STAT_KILLED){
+				} else if(u==LADHudOverview::STAT_KILLED){
 					sprintf(buf, "Has Killed: %d", selected.killed);
 
 
 				//FIXED TRAITS
-				} else if(u==SADHudOverview::STOMACH){
+				} else if(u==LADHudOverview::STOMACH){
 					if(live_agentsvis==Visual::STOMACH) drawbox= true;
 					if(selected.isHerbivore()) sprintf(buf, "\"Herbivore\"");
 					else if(selected.isFrugivore()) sprintf(buf, "\"Frugivore\"");
@@ -4056,12 +4079,12 @@ void GLView::renderAllTiles()
 					else sprintf(buf, "\"???\"...");
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::GENERATION){
+				} else if(u==LADHudOverview::GENERATION){
 					if(live_agentsvis==Visual::GENERATIONS) drawbox= true;
 					sprintf(buf, "Gen: %d", selected.gencount);
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::TEMPPREF){
+				} else if(u==LADHudOverview::TEMPPREF){
 					if(live_agentsvis==Visual::DISCOMFORT) drawbox= true;
 					if(selected.temperature_preference>0.8) sprintf(buf, "Hadean(%.1f)", selected.temperature_preference*100);
 					else if(selected.temperature_preference>0.6)sprintf(buf, "Tropical(%.1f)", selected.temperature_preference*100);
@@ -4070,69 +4093,77 @@ void GLView::renderAllTiles()
 					else sprintf(buf, "Temperate(%.1f)", selected.temperature_preference*100);
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::LUNGS){
+				} else if(u==LADHudOverview::LUNGS){
 					if(live_agentsvis==Visual::LUNGS) drawbox= true;
 					if(selected.isAquatic()) sprintf(buf, "Aquatic(%.3f)", selected.lungs);
 					else if (selected.isTerrestrial()) sprintf(buf, "Terran(%.3f)", selected.lungs);
 					else sprintf(buf, "Amphibian(%.2f)", selected.lungs);
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::SIZE){
+				} else if(u==LADHudOverview::SIZE){
 					sprintf(buf, "Radius: %.2f", selected.radius);	
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::MUTCHANCE){
-					if(live_agentsvis==Visual::MUTATION) drawbox= true;
-					sprintf(buf, "Mut-rate: %.3f", selected.MUTCHANCE);
+				} else if(u==LADHudOverview::BRAINMUTCHANCE){
+					if(live_agentsvis==Visual::BRAINMUTATION) drawbox= true;
+					sprintf(buf, "Brain ~%%: %.3f", selected.brain_mutation_chance);
 					isFixedTrait= true;
-				} else if(u==SADHudOverview::MUTSIZE){ 
-					if(live_agentsvis==Visual::MUTATION) drawbox= true;
-					sprintf(buf, "Mut-size: %.3f", selected.MUTSIZE);
+				} else if(u==LADHudOverview::BRAINMUTSIZE){ 
+					if(live_agentsvis==Visual::BRAINMUTATION) drawbox= true;
+					sprintf(buf, "Brain ~Sz: %.3f", selected.brain_mutation_size);
+					isFixedTrait= true;
+				} else if(u==LADHudOverview::GENEMUTCHANCE){
+					if(live_agentsvis==Visual::GENEMUTATION) drawbox= true;
+					sprintf(buf, "Gene ~%%: %.3f", selected.gene_mutation_chance);
+					isFixedTrait= true;
+				} else if(u==LADHudOverview::GENEMUTSIZE){ 
+					if(live_agentsvis==Visual::GENEMUTATION) drawbox= true;
+					sprintf(buf, "Gene ~Sz: %.3f", selected.gene_mutation_size);
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::CHAMOVID){
+				} else if(u==LADHudOverview::CHAMOVID){
 					if(live_agentsvis==Visual::RGB) drawbox= true;
 					sprintf(buf, "Camo: %.3f", selected.chamovid);
 					isFixedTrait= true;
 				
-				} else if(u==SADHudOverview::METABOLISM){
+				} else if(u==LADHudOverview::METABOLISM){
 					if(live_agentsvis==Visual::METABOLISM) drawbox= true;
 					sprintf(buf, "Metab: %.2f", selected.metabolism);
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::HYBRID){
+				} else if(u==LADHudOverview::HYBRID){
 					if(selected.hybrid) sprintf(buf, "Is Hybrid");
 					else if(selected.gencount==0) sprintf(buf, "Was Spawned");
 					else sprintf(buf, "Was Budded");
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::STRENGTH){
+				} else if(u==LADHudOverview::STRENGTH){
 					if(live_agentsvis==Visual::STRENGTH) drawbox= true;
 					if(selected.strength>0.7) sprintf(buf, "Strong!");
 					else if(selected.strength>0.3) sprintf(buf, "Not Weak");
 					else sprintf(buf, "Weak!");
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::NUMBABIES){
+				} else if(u==LADHudOverview::NUMBABIES){
 					sprintf(buf, "Num Babies: %d", selected.numbabies);
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::SPECIESID){
+				} else if(u==LADHudOverview::SPECIESID){
 					if(live_agentsvis==Visual::SPECIES) drawbox= true;
 					sprintf(buf, "Gene: %d", selected.species);
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::KINRANGE){
+				} else if(u==LADHudOverview::KINRANGE){
 					if(live_agentsvis==Visual::CROSSABLE) drawbox= true;
 					sprintf(buf, "Kin Range: %d", selected.kinrange);
 					isFixedTrait= true;
 
-				} else if(u==SADHudOverview::BRAINSIZE){
+				} else if(u==LADHudOverview::BRAINSIZE){
 					sprintf(buf, "Conns: %d", selected.brain.conns.size());
 					//isFixedTrait= true; //technically is an unchanging stat, but it's like, really important
 
-				} else if(u==SADHudOverview::DEATH && selected.health==0){
-					sprintf(buf, selected.death.c_str());
+//				} else if(u==LADHudOverview::DEATH && selected.health==0){
+//					sprintf(buf, selected.death.c_str());
 					//isFixedTrait= true; //technically is an unchanging stat, but every agent only ever gets just one, so let's keep it bright
 
 				} else sprintf(buf, "");
