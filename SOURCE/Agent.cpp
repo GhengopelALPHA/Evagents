@@ -271,9 +271,9 @@ Agent Agent::reproduce(
 	if (a2.radius<1) a2.radius= 1;
 	if (randf(0,1)<GMR) a2.strength= cap(randn(a2.strength, GMR2*2));
 	if (randf(0,1)<GMR*2) a2.chamovid= cap(randn(a2.chamovid, GMR2));
-	if (randf(0,1)<GMR*4) a2.gene_red= cap(randn(a2.gene_red, GMR2*4));
-	if (randf(0,1)<GMR*4) a2.gene_gre= cap(randn(a2.gene_gre, GMR2*4));
-	if (randf(0,1)<GMR*4) a2.gene_blu= cap(randn(a2.gene_blu, GMR2*4));
+	if (randf(0,1)<GMR*4) a2.gene_red= cap(randn(a2.gene_red, GMR2*2));
+	if (randf(0,1)<GMR*4) a2.gene_gre= cap(randn(a2.gene_gre, GMR2*2));
+	if (randf(0,1)<GMR*4) a2.gene_blu= cap(randn(a2.gene_blu, GMR2*2));
 	if (randf(0,1)<GMR*2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, GMR2*5), -1.0, 1.0);
 
 	if (randf(0,1)<conf::META_MUTCHANCE*2) a2.brain_mutation_chance= abs(randn(a2.brain_mutation_chance, conf::META_MUTSIZE*3));

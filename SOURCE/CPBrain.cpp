@@ -1,7 +1,6 @@
 #include "CPBrain.h"
-#include "helpers.h"
-using namespace std;
 
+using namespace std;
 
 CPBox::CPBox(int numboxes)
 {

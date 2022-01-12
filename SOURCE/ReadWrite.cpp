@@ -28,11 +28,6 @@
 
 #include "ReadWrite.h"
 
-#include "settings.h"
-#include "helpers.h"
-#include <stdio.h>
-#include <iostream>
-
 using namespace std;
 
 ReadWrite::ReadWrite()

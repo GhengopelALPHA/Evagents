@@ -690,7 +690,7 @@ void World::processClimate()
 				CLIMATEMULT = 0.85;
 				if(epochmult!=1.0) {
 					addEvent("2050 Climate Target Status:", EventColor::BLACK);
-					addEvent("     ???     ", EventColor:PURPLE);
+					addEvent("     ???     ", EventColor::PURPLE);
 				}
 			}
 
@@ -2032,7 +2032,7 @@ void World::processAgentInteractions()
 				} //end spike mechanics
 
 				//---JAWS---//
-				if(a->jawPosition>0 && d<=(sumrad+12.0)) { //only bots that are almost touching may chomp
+				if(a->jawPosition>0 && d <= (sumrad+12.0)) { //only bots that are almost touching may chomp
 					Vector2f v(1,0);
 					v.rotate(a->angle);
 					float diff= v.angle_between(a2->pos - a->pos);
@@ -3292,6 +3292,9 @@ void World::init()
 	tips.push_back("Zoom with middle mouse click&drag");
 	tips.push_back("Pan around with left click&drag");
 	tips.push_back("Dead agents make 8bit death sound");
+	tips.push_back("Green bar next to agents is Health");
+	tips.push_back("Yellow bar next to agents is Energy");
+	tips.push_back("Blue bar is Reproduction Counter");
 	tips.push_back("Press 'q' to recenter map & graphs");
 	tips.push_back("Press 'spacebar' to pause");
 	tips.push_back("Press 'h' for detailed interface help");

@@ -15,6 +15,7 @@
 #include <stdio.h>
 
 #include <wchar.h>
+#include <xutility>
 
 //OpenGL callbacks
 void gl_processNormalKeys(unsigned char key, int x, int y)
@@ -284,7 +285,7 @@ void GLView::processMouseActiveMotion(int x, int y)
 
 		if (downb[1]==1) {
 			//mouse wheel. Change scale
-			scalemult -= conf::ZOOM_SPEED*(y-mousey);
+			scalemult += conf::ZOOM_SPEED*((mousey-y) - (mousex-x));
 			if(scalemult<0.03) scalemult=0.03;
 		}
 
@@ -317,7 +318,7 @@ void GLView::processMousePassiveMotion(int x, int y)
 void GLView::handlePopup(int x, int y)
 {
 	int layers= getLayerDisplayCount();
-	if(layers>0 && layers<DisplayLayer::DISPLAYS) { //only show popup if less than 
+	if(layers>0 && layers < DisplayLayer::DISPLAYS) { //only show popup if less than 
 		//convert mouse x,y to world x,y
 		int worldcx= (int)((((float)x-wWidth*0.5)/scalemult-xtranslate));
 		int worldcy= (int)((((float)y-wHeight*0.5)/scalemult-ytranslate));
@@ -328,11 +329,11 @@ void GLView::handlePopup(int x, int y)
 			worldcx/= conf::CZ;
 			worldcy/= conf::CZ; //convert to cell coords
 
-			if(world->isDebug()) printf("worldcx: %d, worldcy %d\n", worldcx, worldcy);
 			popupReset(x+12, y); //clear and set popup position near mouse
 
 			sprintf(line, "Cell x: %d, y: %d", worldcx, worldcy);
 			popupAddLine(line);
+			if(world->isDebug()) printf("worldcx: %d, worldcy %d\n", worldcx, worldcy);
 			
 			if(live_layersvis[DisplayLayer::ELEVATION]) {
 				float landtype= ceilf(world->cells[layer][worldcx][worldcy]*10)*0.1;
@@ -1580,16 +1581,26 @@ void GLView::handleIdle()
 		//display tips
 		if(!live_fastmode){ //not while in fast mode
 			if(!world->NO_TIPS || world->isDebug()){ //and not if world says NO or is in debug mode
-				if(world->modcounter%conf::TIPS_PERIOD==conf::TIPS_DELAY) {
-					if(world->getDay()<7) {
+				if(world->modcounter % conf::TIPS_PERIOD == conf::TIPS_DELAY) {
+					int rand_tip = randi(0,world->tips.size());
+
+					if(world->getDay() < 7) {
 						//the first 7 game days show the first few tips from the array of tips
-						int rand_tip_end= randi(0,world->tips.size());
-						int min_tip= (int)(world->modcounter/conf::TIPS_PERIOD)<rand_tip_end ? (int)(world->modcounter/conf::TIPS_PERIOD) : rand_tip_end;
-						world->addEvent(world->tips[min_tip].c_str(), EventColor::YELLOW);
+						int min_tip_for_modcounter = (int)((float)world->modcounter/conf::TIPS_PERIOD);
+						int selected_tip = min_tip_for_modcounter < rand_tip ? min_tip_for_modcounter : rand_tip;
+						if (selected_tip > 0 && selected_tip == min_tip_for_modcounter - 1) {
+							//if we might have JUST displayed this tip, reset to the next expected one
+							selected_tip = min_tip_for_modcounter;
+						}
+
+						world->addEvent( world->tips[selected_tip].c_str(), EventColor::YELLOW );
 					} 
-					else world->addEvent(world->tips[randi(0,world->tips.size())].c_str(), EventColor::YELLOW);
+					else world->addEvent( world->tips[rand_tip].c_str(), EventColor::YELLOW );
 				}
-			} else if (world->modcounter==conf::TIPS_DELAY) world->addEvent("To re-enable tips, see settings.cfg", EventColor::YELLOW);
+			} else if (world->modcounter == conf::TIPS_DELAY) {
+				//provide a tip about re-enabling tips
+				world->addEvent("To re-enable tips, see settings.cfg", EventColor::YELLOW);
+			}
 		}
 	}
 

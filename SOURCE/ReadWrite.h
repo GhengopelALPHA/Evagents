@@ -4,6 +4,11 @@
 #include "World.h"
 #include <stdio.h>
 
+#include "settings.h"
+#include "helpers.h"
+#include <stdio.h>
+#include <iostream>
+
 class ReadWrite
 {
 
