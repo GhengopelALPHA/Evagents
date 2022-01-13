@@ -521,8 +521,7 @@ void GLView::menu(int key)
 //		world->selectedTrace(1);
 	} else if (key=='f') {
 		live_follow= !live_follow; //toggle follow selected agent
-	} else if (key=='m') { //drawing
-		world->setDemo(false);
+	} else if (key=='m') { //drawing / fast mode
 		live_fastmode= !live_fastmode;
 	} else if (key=='n') { //dismiss visible world events
 		world->dismissNextEvents(conf::EVENTS_DISP);
@@ -677,6 +676,7 @@ void GLView::menu(int key)
 	} else if (key==1010) { //reload config
 		world->readConfig();
 		//.cfg/.sav Update live variables
+		live_demomode= (int)(world->isDemo());
 		live_worldclosed= (int)(world->isClosed());
 		live_landspawns= (int)(world->DISABLE_LAND_SPAWN);
 		live_moonlight= (int)(world->MOONLIT);
@@ -690,7 +690,9 @@ void GLView::menu(int key)
 	} else if (key==1013) { //toggle demo mode
 		world->setDemo(!world->isDemo());
 	} else {
+		#if defined(_DEBUG)
 		printf("Unmatched key pressed: %i\n", key);
+		#endif
 	}
 }
 
@@ -699,12 +701,16 @@ void GLView::menuSpecial(int key) // special control keys
 {
 	if (key==GLUT_KEY_UP) {
 	   ytranslate+= 20/scalemult;
+	   live_follow= 0;
 	} else if (key==GLUT_KEY_LEFT) {
 		xtranslate+= 20/scalemult;
+		live_follow= 0;
 	} else if (key==GLUT_KEY_DOWN) {
 		ytranslate-= 20/scalemult;
+		live_follow= 0;
 	} else if (key==GLUT_KEY_RIGHT) {
 		xtranslate-= 20/scalemult;
+		live_follow= 0;
 	} else if (key==GLUT_KEY_PAGE_DOWN) {
 		if(world->setSelectionRelative(-1)) live_selection= Select::MANUAL;
 	} else if (key==GLUT_KEY_PAGE_UP) {
@@ -768,6 +774,7 @@ void GLView::gluiCreateMenu()
 	live_worldclosed= 0;
 	live_paused= 0;
 	live_playmusic= 1;
+	live_playsounds= 1;
 	live_fastmode= 0;
 	live_skipdraw= 1;
 	live_agentsvis= Visual::RGB;
@@ -781,6 +788,7 @@ void GLView::gluiCreateMenu()
 	live_grid= 0;
 	live_hidedead= 0;
 	live_hidegenz= 0;
+	live_demomode= (int)world->isDemo();
 	live_landspawns= (int)world->DISABLE_LAND_SPAWN;
 	live_moonlight= (int)world->MOONLIT;
 	live_oceanpercent= world->OCEANPERCENT;
@@ -930,7 +938,9 @@ void GLView::gluiCreateMenu()
 	Menu->add_button_to_panel(rollout_xyl, "Save Selected", RWOpen::BASICSAVEAGENT, glui_handleRW);
 	LoadAgentButton= Menu->add_button_to_panel(rollout_xyl, "Load Agent", RWOpen::BASICLOADAGENT, glui_handleRW);
 
-	Menu->add_checkbox("Play Music?",&live_playmusic);
+	Menu->add_checkbox("Play Music",&live_playmusic);
+	Menu->add_checkbox("Play Sounds",&live_playsounds);
+	Menu->add_checkbox("Demo Mode",&live_demomode);
 	Menu->add_checkbox("DEBUG",&live_debug);
 
 	//set to main graphics window
@@ -1508,6 +1518,7 @@ int GLView::getAgentRes(bool ghost){
 void GLView::syncLiveWithWorld()
 {
 	//.cfg/.sav make sure to put all saved world variables with GUI options here so they update properly!
+	live_demomode= (int)world->isDemo();
 	live_worldclosed= (int)world->isClosed();
 	live_landspawns= (int)world->DISABLE_LAND_SPAWN;
 	live_moonlight= (int)world->MOONLIT;
@@ -1533,6 +1544,7 @@ void GLView::handleIdle()
 	GLUI_Master.sync_live_all();
 
 	//after syncing all the live vars with GLUI_Master, set the vars they represent to their proper values.
+	world->setDemo(live_demomode);
 	world->setClosed(live_worldclosed);
 	world->DISABLE_LAND_SPAWN= (bool)live_landspawns;
 	world->MOONLIT=	(bool)live_moonlight;
@@ -1544,6 +1556,7 @@ void GLView::handleIdle()
 	world->CLIMATEBIAS= live_climatebias;
 	world->CLIMATEMULT= live_climatemult;
 	world->domusic= (bool)live_playmusic;
+	if (!live_fastmode) world->dosounds= (bool)live_playsounds;
 	world->setDebug((bool) live_debug);
 
 	#if defined(_DEBUG)
@@ -1585,7 +1598,7 @@ void GLView::handleIdle()
 					int rand_tip = randi(0,world->tips.size());
 
 					if(world->getDay() < 7) {
-						//the first 7 game days show the first few tips from the array of tips
+						//the first 7 game days show the first few tips from the array of tips, one right after another
 						int min_tip_for_modcounter = (int)((float)world->modcounter/conf::TIPS_PERIOD);
 						int selected_tip = min_tip_for_modcounter < rand_tip ? min_tip_for_modcounter : rand_tip;
 						if (selected_tip > 0 && selected_tip == min_tip_for_modcounter - 1) {
@@ -1595,7 +1608,9 @@ void GLView::handleIdle()
 
 						world->addEvent( world->tips[selected_tip].c_str(), EventColor::YELLOW );
 					} 
-					else world->addEvent( world->tips[rand_tip].c_str(), EventColor::YELLOW );
+					//the rest get displayed more rarely, until tips get turned off
+					else if(world->modcounter % (conf::TIPS_PERIOD*3) == conf::TIPS_DELAY) 
+						world->addEvent( world->tips[rand_tip].c_str(), EventColor::YELLOW );
 				}
 			} else if (world->modcounter == conf::TIPS_DELAY) {
 				//provide a tip about re-enabling tips
@@ -1643,7 +1658,7 @@ void GLView::handleIdle()
 	}
 
 	if (!live_fastmode) {
-		world->dosounds= true;
+		if(live_playsounds) world->dosounds= true;
 
 		if (live_skipdraw>0) {
 			if (modcounter%live_skipdraw==0) renderScene();	//increase fps by skipping drawing
@@ -1659,7 +1674,6 @@ void GLView::handleIdle()
 		//world->audio->stopAllSounds(); DON'T do this, too jarring to cut off all sounds
 		world->dosounds= false;
 
-		world->setDemo(false);
 		//in fast mode, our sim forgets to check nearest relative and reset the selection
 		if(live_selection==Select::RELATIVE) world->setSelection(live_selection);
 		//but we don't want to do this for all selection types because it slows fast mode down
@@ -2133,18 +2147,18 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 				glEnd();
 
 				//spike effective zone
-				if(agent.isSpikey(world->SPIKELENGTH)){
+				if(agent.isSpikey(world->SPIKE_LENGTH)){
 					glBegin(GL_POLYGON);
 					glColor4f(1,0,0,0.25);
 					glVertex3f(0,0,0);
-					glVertex3f((r+agent.spikeLength*world->SPIKELENGTH)*cos(agent.angle+M_PI/8),
-							   (r+agent.spikeLength*world->SPIKELENGTH)*sin(agent.angle+M_PI/8),0);
+					glVertex3f((r+agent.spikeLength*world->SPIKE_LENGTH)*cos(agent.angle+M_PI/8),
+							   (r+agent.spikeLength*world->SPIKE_LENGTH)*sin(agent.angle+M_PI/8),0);
 					glColor4f(1,0.25,0.25,0.75);
-					glVertex3f((r+agent.spikeLength*world->SPIKELENGTH)*cos(agent.angle),
-							   (r+agent.spikeLength*world->SPIKELENGTH)*sin(agent.angle),0);
+					glVertex3f((r+agent.spikeLength*world->SPIKE_LENGTH)*cos(agent.angle),
+							   (r+agent.spikeLength*world->SPIKE_LENGTH)*sin(agent.angle),0);
 					glColor4f(1,0,0,0.25);
-					glVertex3f((r+agent.spikeLength*world->SPIKELENGTH)*cos(agent.angle-M_PI/8),
-							   (r+agent.spikeLength*world->SPIKELENGTH)*sin(agent.angle-M_PI/8),0);
+					glVertex3f((r+agent.spikeLength*world->SPIKE_LENGTH)*cos(agent.angle-M_PI/8),
+							   (r+agent.spikeLength*world->SPIKE_LENGTH)*sin(agent.angle-M_PI/8),0);
 					glVertex3f(0,0,0);
 					glEnd();
 				}
@@ -2972,12 +2986,12 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		if(scalemult > .1 || ghost){
 
 			//spike, but only if sticking out
-			if (agent.isSpikey(world->SPIKELENGTH)) {
+			if (agent.isSpikey(world->SPIKE_LENGTH)) {
 				glBegin(GL_LINES);
 				glColor4f(0.7,0,0,blur);
 				glVertex3f(0,0,0);
-				glVertex3f((world->SPIKELENGTH*agent.spikeLength)*cos(agent.angle),
-						   (world->SPIKELENGTH*agent.spikeLength)*sin(agent.angle),
+				glVertex3f((world->SPIKE_LENGTH*agent.spikeLength)*cos(agent.angle),
+						   (world->SPIKE_LENGTH*agent.spikeLength)*sin(agent.angle),
 						   0);
 				glEnd();
 			}
@@ -4022,7 +4036,7 @@ void GLView::renderAllTiles()
 //					else sprintf(buf, "Delta H: %.2f", selected.dhealth);
 
 				} else if(u==LADHudOverview::SPIKE){
-					if(selected.health>0 && selected.isSpikey(world->SPIKELENGTH)){
+					if(selected.health>0 && selected.isSpikey(world->SPIKE_LENGTH)){
 						float mw= selected.w1>selected.w2 ? selected.w1 : selected.w2;
 						if(mw<0) mw= 0;
 						float val= world->DAMAGE_FULLSPIKE*selected.spikeLength*mw;

@@ -158,10 +158,12 @@ private:
 	World *world; //the WORLD
 	void syncLiveWithWorld(); //sync all important variables with their World counterparts, because they could have been changed by world
 	//live variable support via glui
+	int live_demomode; //are we in demo mode?
 	int live_mousemode; //what mode is the mouse using?
 	int live_worldclosed; //is the world closed?
 	int live_paused; //are we paused?
 	int live_playmusic; //is music allowed to play?
+	int live_playsounds; //are any sounds allowed to play at all?
 	int live_fastmode; //are we drawing?
 	int live_skipdraw; //are we skipping some frames?
 	int live_agentsvis; //are we drawing agents? If so, what's the scheme? see namespace "Visuals" in settings.h for details

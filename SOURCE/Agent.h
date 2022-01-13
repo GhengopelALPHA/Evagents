@@ -173,7 +173,7 @@ public:
 	bool isTerrestrial() const;
 	bool isAmphibious() const;
 	bool isAquatic() const;
-	bool isSpikey(float SPIKELENGTH) const;
+	bool isSpikey(float SPIKE_LENGTH) const;
 	bool isTiny() const;
 	bool isTinyEye(int eyenumber) const;
 	bool isAsexual() const;

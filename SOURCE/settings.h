@@ -510,14 +510,18 @@ namespace conf {
 	const char SFX_CHIRP1[]= "sounds/agents/chirp1.ogg";
 	const char SFX_CHIRP2[]= "sounds/agents/chirp2.ogg";
 	const char SFX_SMOOCH1[]= "sounds/agents/smooch1.ogg";
+	const char SFX_PURR1[]= "sounds/agents/purr1.ogg";
 	const char SFX_PLOP1[]= "sounds/agents/plop1.ogg";
 	const char SFX_DEATH1[]= "sounds/agents/death1.ogg";
 	const char SFX_STAB1[]= "sounds/agents/stab1.ogg";
+	const char SFX_CHOMP1[]= "sounds/agents/chomp1.ogg";
+	const char SFX_CHOMP2[]= "sounds/agents/chomp2.ogg";
 
 	const char SFX_BEACH1[]= "sounds/environment/beach1.ogg";
 
 	const char SFX_UI_RELATIVESELECT[]= "sounds/interaction/selection1.ogg";
 
+	const std::string MUSIC_FOLDER= "sounds/music/";
 	const std::string MAIN_SONG= "sounds/music/sleep no more - evanjones4.ogg";
 	const std::string ETHERAL_SONG= "sounds/music/pinecone-ambient-dark - evanjones4.ogg";
 	const std::string ENERGY_SONG= "sounds/music/endlessmotion - bensound.ogg";
@@ -529,7 +533,7 @@ namespace conf {
 	const std::string SHIMMER_SONG= "sounds/music/pinecone-ambient - evanjones4.ogg";
 	const std::string OVERGROWTH_SONG= "sounds/music/dunes - andrewkn.ogg";
 	const std::string STALE_SONG= "sounds/music/msfxp6-198-stretched-piano-1 - erokia.ogg";
-	const std::string INSPIRE_SONG= "cd-yang-001 - kevp888.ogg";
+	const std::string INSPIRE_SONG= "sounds/music/cd-yang-001 - kevp888.ogg";
 	const int NUM_SONGS= 12; // must increment when adding new songs above, and add ref to list below
 
 	const std::string SONGS[NUM_SONGS]= {MAIN_SONG,ETHERAL_SONG,ENERGY_SONG,BABY_SONG,ADAPT_SONG,PERSIST_SONG,RHYTHM_SONG,
@@ -665,8 +669,9 @@ namespace conf {
 
 	//distances
 	const float DIST= 400; //(.cfg)
-	const float SPIKELENGTH=30; //(.cfg)
-	const float TOOCLOSE=8; //(.cfg)
+	const float SPIKE_LENGTH=30; //(.cfg)
+	const float BITE_DISTANCE = 12; //(.cfg)
+	const float BUMP_DAMAGE_OVERLAP=8; //(.cfg)
 	const float FOOD_SHARING_DISTANCE= 60; //(.cfg)
 	const float SEXTING_DISTANCE= 60; //(.cfg)
 	const float GRABBING_DISTANCE= 40; //(.cfg)

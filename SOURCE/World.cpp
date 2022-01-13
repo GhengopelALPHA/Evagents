@@ -136,12 +136,13 @@ void World::reset()
 		printf("INITHAZARD: %i\n", INITHAZARD);
 	}
 
-	if(BRAINBOXES<(Output::OUTPUT_SIZE)) {
-		printf("BRAINBOXES config value was too small. It has been reset to min allowed (Inputs+Outputs)\n");
-		BRAINBOXES= Output::OUTPUT_SIZE;
+	if(BRAINBOXES < Output::OUTPUT_SIZE) {
+		printf("BRAINBOXES config value was too small. It has been reset to min allowed (number of Outputs)\n");
+		BRAINBOXES = Output::OUTPUT_SIZE;
 	}
 
-	NEAREST= max(max(max(FOOD_SHARING_DISTANCE, SEXTING_DISTANCE), GRABBING_DISTANCE), SPIKELENGTH+MEANRADIUS*3);
+	//set the highest distance config value as the distance within which we check if an agent is "near" another, for tree processing
+	NEAREST= max(max(max(max(FOOD_SHARING_DISTANCE, SEXTING_DISTANCE), GRABBING_DISTANCE), SPIKE_LENGTH + MEANRADIUS*3), BITE_DISTANCE + MEANRADIUS*3);
 
 	sanitize(); //clear all agents 
 
@@ -826,7 +827,7 @@ void World::findStats()
 					STATlowestgen= agents[i].gencount;
 			}
 
-			if (agents[i].isSpikey(SPIKELENGTH)) STATspiky++;
+			if (agents[i].isSpikey(SPIKE_LENGTH)) STATspiky++;
 
 			if (agents[i].hybrid) {
 				STAThybrids++;
@@ -1579,7 +1580,7 @@ void World::processOutputs(bool prefire)
 				a->jump= height;
 				if(!STATuserseenjumping) {
 					addDemoEvent("Selected Agent jumped!", EventColor::YELLOW, i);
-					STATuserseenjumping= true;
+					if (randf(0,1)<0.05) STATuserseenjumping= true;
 				}
 			}
 		} //do this before setting wheels
@@ -1616,7 +1617,7 @@ void World::processOutputs(bool prefire)
 		//jaw *snap* mechanic
 		float newjaw= cap(a->out[Output::JAW] - a->jawOldOutput)*exh; //new output has to be at least twice the old output to really trigger
 
-		if (a->jawPosition==0 && a->age>0 && newjaw>0.01) a->jawPosition= newjaw;
+		if (BITE_DISTANCE > 0 && a->jawPosition==0 && a->age>0 && newjaw>0.01) a->jawPosition= newjaw;
 		a->jawOldOutput= a->out[Output::JAW];
 
 		//clock 3 gets frequency set by output, but not immediately
@@ -1912,10 +1913,16 @@ void World::processAgentInteractions()
 						a->addDamage(conf::DEATH_GENEROSITY, healthrate);
 						a2->dhealth += healthrate; //only for drawing
 						a->dhealth -= healthrate;
+
+						//play a soft purring sound for the agent being given to
+						float purrx= a2->pos.x, purry= a2->pos.y;
+						if(a2->id==SELECTION) { purrx= 0; purry= 0; }
+						if((modcounter + a2->id + (int)a2->pos.x)%65==0) tryPlayAudio(conf::SFX_PURR1, purrx, purry, randn(1.0,0.2));
+
 						if(!STATuserseengenerosity && healthrate != 0){
 							addDemoEvent("Agent donated health!", EventColor::GREEN, i);
 							addDemoEvent("Agent received health donation!", EventColor::GREEN, j);
-							STATuserseengenerosity = true;
+							if (randf(0,1)<0.05) STATuserseengenerosity = true;
 						}
 					}
 				}
@@ -1925,7 +1932,7 @@ void World::processAgentInteractions()
 					//if inside each others radii and neither are jumping, fix physics
 					float ov= (sumrad-d);
 					if (ov > 0 && d > 0.00001) {
-						if (TOOCLOSE > 0 && ov > TOOCLOSE) {//if bots are too close, they get injured before being pushed away
+						if (BUMP_DAMAGE_OVERLAP > 0 && ov > BUMP_DAMAGE_OVERLAP) {//if bots are too close, they get injured before being pushed away
 							float invsumrad = 1/sumrad;
 							float aagemult = 1;
 							float a2agemult = 1;
@@ -1978,7 +1985,7 @@ void World::processAgentInteractions()
 
 				//---SPIKING---//
 				//small spike doesn't count. If the target is jumping in midair, can't attack them either
-				if(a->isSpikey(SPIKELENGTH) && d<=(a2->radius + SPIKELENGTH*a->spikeLength) && !a2->isAirborne()){
+				if(a->isSpikey(SPIKE_LENGTH) && d<=(a2->radius + SPIKE_LENGTH*a->spikeLength) && !a2->isAirborne()){
 					Vector2f v(1,0);
 					v.rotate(a->angle);
 					float diff= v.angle_between(a2->pos-a->pos);
@@ -2032,7 +2039,7 @@ void World::processAgentInteractions()
 				} //end spike mechanics
 
 				//---JAWS---//
-				if(a->jawPosition>0 && d <= (sumrad+12.0)) { //only bots that are almost touching may chomp
+				if(BITE_DISTANCE > 0 && a->jawPosition>0 && d <= (sumrad+BITE_DISTANCE)) { //only bots that are almost touching may chomp
 					Vector2f v(1,0);
 					v.rotate(a->angle);
 					float diff= v.angle_between(a2->pos - a->pos);
@@ -2046,6 +2053,9 @@ void World::processAgentInteractions()
 
 						a->hits++;
 						a->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5*DMG,1,1,0); //yellow splash means bot has chomped the other bot. ouch!
+
+						if(randf(0,1)>0.5) tryPlayAudio(conf::SFX_CHOMP1, a->pos.x, a->pos.y, randn(1.0,0.2));
+						else tryPlayAudio(conf::SFX_CHOMP2, a->pos.x, a->pos.y, randn(1.0,0.2));
 
 						if (a2->health==0){ 
 							//red splash means bot has killed the other bot. Murderer!
@@ -3228,8 +3238,9 @@ void World::init()
 	MAXWASTEFREQ= conf::MAXWASTEFREQ;
 
     DIST= conf::DIST;
-    SPIKELENGTH= conf::SPIKELENGTH;
-    TOOCLOSE= conf::TOOCLOSE;
+    SPIKE_LENGTH= conf::SPIKE_LENGTH;
+	BITE_DISTANCE = conf::BITE_DISTANCE;
+    BUMP_DAMAGE_OVERLAP= conf::BUMP_DAMAGE_OVERLAP;
     FOOD_SHARING_DISTANCE= conf::FOOD_SHARING_DISTANCE;
     SEXTING_DISTANCE= conf::SEXTING_DISTANCE;
     GRABBING_DISTANCE= conf::GRABBING_DISTANCE;
@@ -3291,20 +3302,19 @@ void World::init()
 	tips.push_back("Press 'f' to follow selected agent");
 	tips.push_back("Zoom with middle mouse click&drag");
 	tips.push_back("Pan around with left click&drag");
+	tips.push_back("Press 'q' to recenter map & graphs");
+	tips.push_back("Press 'spacebar' to pause");
 	tips.push_back("Dead agents make 8bit death sound");
 	tips.push_back("Green bar next to agents is Health");
 	tips.push_back("Yellow bar next to agents is Energy");
 	tips.push_back("Blue bar is Reproduction Counter");
-	tips.push_back("Press 'q' to recenter map & graphs");
-	tips.push_back("Press 'spacebar' to pause");
-	tips.push_back("Press 'h' for detailed interface help");
+	tips.push_back("These tips may repeat");
 	tips.push_back("Demo prevents report.txt changes");
-	tips.push_back("Patience, Epoch 0 species are rare");
 	tips.push_back("Agent 'whiskers' are eye orientations");
-	tips.push_back("These tips may repeat now");
-	tips.push_back("Autosave happens every 10 sim-days");
+	tips.push_back("Autosaves happen 10 sim days");
 	tips.push_back("Cycle layer views with 'k' & 'l'");
 	tips.push_back("Also zoom with '>' & '<'");
+	tips.push_back("Cycle layer views with 'k' & 'l'");
 	tips.push_back("View all layers again with 'o'");
 	tips.push_back("Press 'h' for detailed interface help");
 //	tips.push_back("Press 'g' for graphics details");
@@ -3322,10 +3332,10 @@ void World::init()
 	tips.push_back("Press 'm' to simulate at max speed");
 	tips.push_back("Overgrowth Epoch= more plants");
 	tips.push_back("Drought Epoch= less plant growth");
-	tips.push_back("Mutation x# Epoch= stronger mutations");
+	tips.push_back("Mutation # Epochs= stronger mutations");
 	tips.push_back("Use settings.cfg to change sim rules");
 	tips.push_back("'report.txt' logs useful data");
-	tips.push_back("Epoch 0 is boring. Press 'm'!");
+	tips.push_back("Dizzy? Spawned agents like to spin");
 	tips.push_back("The settings.cfg is FUN, isnt it?!");
 	tips.push_back("Hide dead with a UI option");
 	tips.push_back("Reports periodically saved to file");
@@ -3702,14 +3712,18 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=DIST) printf("DIST, ");
 				DIST= f;
-			}else if(strcmp(var, "SPIKELENGTH=")==0){
+			}else if(strcmp(var, "SPIKE_LENGTH=")==0 || strcmp(var, "SPIKELENGTH=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=SPIKELENGTH) printf("SPIKELENGTH, ");
-				SPIKELENGTH= f;
-			}else if(strcmp(var, "TOOCLOSE=")==0){
+				if(f!=SPIKE_LENGTH) printf("SPIKE_LENGTH, ");
+				SPIKE_LENGTH= f;
+			}else if(strcmp(var, "BITE_DISTANCE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=TOOCLOSE) printf("TOOCLOSE, ");
-				TOOCLOSE= f;
+				if(f!=BITE_DISTANCE) printf("BITE_DISTANCE, ");
+				BITE_DISTANCE= f;
+			}else if(strcmp(var, "BUMP_DAMAGE_OVERLAP=")==0 || strcmp(var, "TOOCLOSE=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=BUMP_DAMAGE_OVERLAP) printf("BUMP_DAMAGE_OVERLAP, ");
+				BUMP_DAMAGE_OVERLAP= f;
 			}else if(strcmp(var, "FOOD_SHARING_DISTANCE=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=FOOD_SHARING_DISTANCE) printf("FOOD_SHARING_DISTANCE, ");
@@ -3939,7 +3953,7 @@ void World::writeConfig()
 	fprintf(cf, "CONTINENTS= %i \t\t\t//number of 'continents' generated on the land layer. Not guaranteed to be accurate\n", conf::CONTINENTS);
 	fprintf(cf, "OCEANPERCENT= %f \t\t//decimal ratio of terrain layer which will be ocean. Approximately\n", conf::OCEANPERCENT);
 	fprintf(cf, "GRAVITYACCEL= %f \t\t//how fast an agent will 'fall' after jumping. 0= jump disabled, 0.1+ = super-gravity\n", conf::GRAVITYACCEL);
-	fprintf(cf, "BUMP_PRESSURE= %f \t//the restoring force between two colliding agents. 0= no reaction (disables TOOCLOSE and all collisions). I'd avoid negative values if I were you...\n", conf::BUMP_PRESSURE);
+	fprintf(cf, "BUMP_PRESSURE= %f \t//the restoring force between two colliding agents. 0= no reaction (disables all collisions). I'd avoid negative values if I were you...\n", conf::BUMP_PRESSURE);
 	fprintf(cf, "GRAB_PRESSURE= %f \t//the restoring force between and agent and its grab target. 0= no reaction (disables grab function), negative values make grabbing agents push others away instead\n", conf::GRAB_PRESSURE);
 	fprintf(cf, "SOUNDPITCHRANGE= %f \t//range below hearhigh and above hearlow within which external sounds fade in. Would not recommend extreme values near or beyond [0,0.5]\n", conf::SOUNDPITCHRANGE);
 	fprintf(cf, "\n");
@@ -3974,8 +3988,9 @@ void World::writeConfig()
 	fprintf(cf, "LIVE_MUTATE_CHANCE= %f \t//chance, per tick, that a given agent will be mutated alive. Not typically harmful. Can be increased by mutation events if enabled.\n", conf::LIVE_MUTATE_CHANCE);
 	fprintf(cf, "\n");
 	fprintf(cf, "DIST= %f \t\t//how far the senses can detect other agents or cells\n", conf::DIST);
-	fprintf(cf, "SPIKELENGTH= %f \t\t//full spike length. Should not be more than DIST. 0 disables interaction\n", conf::SPIKELENGTH);
-	fprintf(cf, "TOOCLOSE= %f \t\t//how much two agents can be overlapping before they take damage. 0 disables interaction\n", conf::TOOCLOSE);
+	fprintf(cf, "SPIKE_LENGTH= %f \t\t//full spike length. Should not be more than DIST. 0 disables interaction\n", conf::SPIKE_LENGTH);
+	fprintf(cf, "BITE_DISTANCE= %f \t\t//distance that the bite feature ranges out beyond agent radius. Should not be more than DIST. 0 disables interaction & rendering\n", conf::BITE_DISTANCE);
+	fprintf(cf, "BUMP_DAMAGE_OVERLAP= %f \t\t//how much two agents can be overlapping before they take damage. 0 disables interaction\n", conf::BUMP_DAMAGE_OVERLAP);
 	fprintf(cf, "FOOD_SHARING_DISTANCE= %f //how far away can food be shared between agents? Should not be more than DIST. 0 disables interaction\n", conf::FOOD_SHARING_DISTANCE);
 	fprintf(cf, "SEXTING_DISTANCE= %f \t//how far away can two agents sexually reproduce? Should not be more than DIST. 0 disables interaction\n", conf::SEXTING_DISTANCE);
 	fprintf(cf, "GRABBING_DISTANCE= %f \t//how far away can an agent grab another? Should not be more than DIST. 0 disables interaction\n", conf::GRABBING_DISTANCE);
@@ -3997,7 +4012,7 @@ void World::writeConfig()
 	fprintf(cf, "HEALTHLOSS_ASSEX= %f \t//multiplier for radius/MEANRADIUS penalty on mother for asexual reproduction. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_ASSEX, conf::DEATH_ASEXUAL);
 	fprintf(cf, "\n");
 	fprintf(cf, "DAMAGE_FULLSPIKE= %f \t//health multiplier of spike injury. Note: it is effected by spike length and relative velocity of the agents. When used against another agent, it causes the death cause '%s'.\n", conf::DAMAGE_FULLSPIKE, conf::DEATH_SPIKE);
-	fprintf(cf, "DAMAGE_COLLIDE= %f \t//how much health is lost upon collision. Note that =0 does not disable the event (see TOOCLOSE above). When used against another agent, it causes the death cause '%s'.\n", conf::DAMAGE_COLLIDE, conf::DEATH_COLLIDE);
+	fprintf(cf, "DAMAGE_COLLIDE= %f \t//how much health is lost upon collision. Note that =0 does not disable the event (see BUMP_DAMAGE_OVERLAP above). When used against another agent, it causes the death cause '%s'.\n", conf::DAMAGE_COLLIDE, conf::DEATH_COLLIDE);
 	fprintf(cf, "DAMAGE_JAWSNAP= %f \t//when jaws snap fully (0->1), this is the damage applied to agents in front. When used against another agent, it causes the death cause '%s'.\n", conf::DAMAGE_JAWSNAP, conf::DEATH_BITE);
 	fprintf(cf, "\n");
 	fprintf(cf, "STOMACH_EFF= %f \t\t//the worst possible multiplier produced from having at least two stomach types at 1. =0.1 is harsh. =1 disables (always full efficiency)\n", conf::STOMACH_EFF);

@@ -267,14 +267,14 @@ Agent Agent::reproduce(
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<GMR*8) a2.stomach[i]= cap(randn(a2.stomach[i], GMR2*4)); //*7 was a bit much
 	if (randf(0,1)<GMR*10) a2.species+= (int) (randn(0, 0.5+GMR2*50));
 	if (randf(0,1)<GMR*5 && OVERRIDE_KINRANGE<0) a2.kinrange= (int) abs(randn(a2.kinrange, 1+GMR2*5*(a2.kinrange+1)));
-	if (randf(0,1)<GMR*5) a2.radius= randn(a2.radius, GMR2*15);
+	if (randf(0,1)<GMR*6) a2.radius= randn(a2.radius, GMR2*15);
 	if (a2.radius<1) a2.radius= 1;
-	if (randf(0,1)<GMR) a2.strength= cap(randn(a2.strength, GMR2*2));
+	if (randf(0,1)<GMR) a2.strength= cap(randn(a2.strength, GMR2*4));
 	if (randf(0,1)<GMR*2) a2.chamovid= cap(randn(a2.chamovid, GMR2));
 	if (randf(0,1)<GMR*4) a2.gene_red= cap(randn(a2.gene_red, GMR2*2));
 	if (randf(0,1)<GMR*4) a2.gene_gre= cap(randn(a2.gene_gre, GMR2*2));
 	if (randf(0,1)<GMR*4) a2.gene_blu= cap(randn(a2.gene_blu, GMR2*2));
-	if (randf(0,1)<GMR*2) a2.sexprojectbias= capm(randn(a2.sexprojectbias, GMR2*5), -1.0, 1.0);
+	if (randf(0,1)<GMR*4) a2.sexprojectbias= capm(randn(a2.sexprojectbias, GMR2*5), -1.0, 1.0);
 
 	if (randf(0,1)<conf::META_MUTCHANCE*2) a2.brain_mutation_chance= abs(randn(a2.brain_mutation_chance, conf::META_MUTSIZE*3));
 	if (randf(0,1)<conf::META_MUTCHANCE) a2.brain_mutation_size= abs(randn(a2.brain_mutation_size, conf::META_MUTSIZE));
@@ -287,11 +287,17 @@ Agent Agent::reproduce(
 	if (randf(0,1)<GMR) a2.clockf2= randn(a2.clockf2, GMR2);
 	if (a2.clockf2<2) a2.clockf2= 2;
 
-	if (randf(0,1)<GMR) a2.smell_mod= abs(randn(a2.smell_mod, GMR2));
-	if (randf(0,1)<GMR) a2.hear_mod= abs(randn(a2.hear_mod, GMR2));
-	if (randf(0,1)<GMR) a2.eye_see_agent_mod= abs(randn(a2.eye_see_agent_mod, GMR2));
-//	if (randf(0,1)<GMR) a2.eye_see_cell_mod= abs(randn(a2.eye_see_cell_mod, GMR2));
-	if (randf(0,1)<GMR) a2.blood_mod= abs(randn(a2.blood_mod, GMR2));
+	if (randf(0,1)<GMR) a2.smell_mod= abs(randn(a2.smell_mod, GMR2*4));
+	if (randf(0,1)<GMR) a2.hear_mod= abs(randn(a2.hear_mod, GMR2*4));
+	if (randf(0,1)<GMR) a2.eye_see_agent_mod= abs(randn(a2.eye_see_agent_mod, GMR2*4));
+//	if (randf(0,1)<GMR) a2.eye_see_cell_mod= abs(randn(a2.eye_see_cell_mod, GMR2*4));
+	if (randf(0,1)<GMR) a2.blood_mod= abs(randn(a2.blood_mod, GMR2*4));
+	//sensory development failure: rare chance that the value of a sense gets cut down by roughly half, depending on mutation size
+	if (randf(0,1)<GMR/10) a2.smell_mod /= randf(1, 3+GMR2*50);
+	if (randf(0,1)<GMR/10) a2.hear_mod /= randf(1, 3+GMR2*50);
+	if (randf(0,1)<GMR/10) a2.eye_see_agent_mod /= randf(1, 3+GMR2*50);
+//	if (randf(0,1)<GMR/10) a2.eye_see_cell_mod /= randf(1, 3+GMR2*50);
+	if (randf(0,1)<GMR/10) a2.blood_mod /= randf(1, 3+GMR2*50);
 
 	if (randf(0,1)<GMR*2) a2.temperature_preference= cap(randn(a2.temperature_preference, GMR2/2));
 	if (randf(0,1)<GMR*3) a2.lungs= cap(randn(a2.lungs, GMR2));
@@ -710,9 +716,9 @@ bool Agent::isAquatic() const
 	return false;
 }
 
-bool Agent::isSpikey(float SPIKELENGTH) const
+bool Agent::isSpikey(float SPIKE_LENGTH) const
 {
-	if(spikeLength*SPIKELENGTH>=radius) return true;
+	if(spikeLength*SPIKE_LENGTH>=radius) return true;
 	return false;
 }
 

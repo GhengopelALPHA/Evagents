@@ -283,7 +283,7 @@ void CPBrain::initMutate(float MR, float MR2)
 		if (randf(0,1) < MR/100) {
 			//randomize target ID
 			boxes[boxRef(conns[i].tid)].seed = 0; //reset the tid's box before leaving it
-			conns[i].tid = min(randi(0,(int)boxes.size()), (int)boxes.size()-1);
+			conns[i].tid = capm(randi(0,(int)boxes.size()), 0, (int)boxes.size()-1);
 			conns[i].seed = 0;
 			boxes[boxRef(conns[i].tid)].seed = 0;
 		}
@@ -291,7 +291,7 @@ void CPBrain::initMutate(float MR, float MR2)
 		if (randf(0,1) < MR/50) {
 			//target ID bump: +/- 1
 			int oldid = conns[i].tid;
-			int newid = min(oldid + (int)(MR2*100*randi(-1,2)), (int)boxes.size()-1);
+			int newid = capm(oldid + (int)(MR2*100*randi(-1,2)), 0, (int)boxes.size()-1);
 			conns[i].tid = newid;
 			if (oldid != newid) {
 				conns[i].seed = 0;
