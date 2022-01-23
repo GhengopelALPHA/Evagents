@@ -633,12 +633,12 @@ void World::processClimate()
 			float epochmult= modcounter%FRAMES_PER_EPOCH == 0 ? conf::CLIMATE_INTENSITY_EPOCH_MULT : 1.0f;
 			//simple cap of bias - we can get stuck at the extremes 
 			CLIMATEBIAS= cap(randn(CLIMATEBIAS, CLIMATE_INTENSITY*epochmult));
-			//more complicated behavior of the mult - take abs randn and cap it
-			CLIMATEMULT= cap(abs(randn(CLIMATEMULT, CLIMATE_INTENSITY*epochmult)));
 			
-			//average the climate mult towards 0.5 occasionally
+			//more complicated behavior of the mult - first, average the climate mult towards 0.5 occasionally
 			if(modcounter%(int)(FRAMES_PER_EPOCH/2)==0)
 				CLIMATEMULT= (CLIMATEMULT*conf::CLIMATEMULT_WEIGHT + CLIMATEMULT_AVERAGE) / ((float)(conf::CLIMATEMULT_WEIGHT+1));
+			//next, take abs randn and cap it
+			CLIMATEMULT= cap(abs(randn(CLIMATEMULT, CLIMATE_INTENSITY*epochmult)));
 
 			if(current_epoch == 2050 && agents.size()>9000) {
 				CLIMATEBIAS = randf(0,1);
@@ -3328,23 +3328,23 @@ void World::init()
 	tips.push_back("Press 'spacebar' to pause");
 	tips.push_back("Dead agents make 8bit death sound");
 	tips.push_back("Early agents die from exhaustion a lot");
+	tips.push_back("Press '1' to select oldest agent");
+	tips.push_back("Oldest agent has good chances");
+	tips.push_back("Demo prevents report.txt changes");
+	tips.push_back("Autosaves happen 10 sim days");
+	tips.push_back("Cycle layer views with 'k' & 'l'");
+	tips.push_back("View all layers again with 'o'");
 	tips.push_back("Green bar next to agents is Health");
 	tips.push_back("Yellow bar next to agents is Energy");
 	tips.push_back("Blue bar is Reproduction Counter");
-	tips.push_back("Cycle layer views with 'k' & 'l'");
-	tips.push_back("View all layers again with 'o'");
-	tips.push_back("These tips may repeat");
-	tips.push_back("Demo prevents report.txt changes");
 	tips.push_back("Agent 'whiskers' are eye orientations");
-	tips.push_back("Autosaves happen 10 sim days");
 	tips.push_back("Press number keys for auto-selections");
+	tips.push_back("These tips may now repeat");
+	//20 tips. After this, they may start repeating. I suggest not adding or taking away from above without replacement
+	tips.push_back("Night and day are simulated");
 	tips.push_back("Also zoom with '>' & '<'");
 	tips.push_back("Press 'h' for detailed interface help");
-//	tips.push_back("Press 'g' for graphics details");
 	tips.push_back("Press 'm' to toggle Fast Mode");
-	tips.push_back("Moonlight lets agents see at night");
-	tips.push_back("Moonlight lets agents see at night");
-	tips.push_back("Moonlight lets agents see at night");
 	tips.push_back("Agents display splashes for events");
 	tips.push_back("Yellow spash = agent bit another");
 	tips.push_back("Orange spash= agent stabbed other");
@@ -3354,19 +3354,45 @@ void World::init()
 	tips.push_back("Purple spash = mutation occured");
 	tips.push_back("Grey spash = agent was just born");
 	tips.push_back("Press 'm' to simulate at max speed");
+	tips.push_back("Select 'New World' to end Demo");
+	tips.push_back("Use settings.cfg to change sim rules");
+	tips.push_back("Hide dead with a UI option or 'j'");
+	tips.push_back("Agents can hear each other moving");
+	tips.push_back("Agents can hear agents with volume");
+	tips.push_back("Agents can see each other's RGB");
+	tips.push_back("Agents can smell (count nearby)");
+	tips.push_back("Agents can sense blood (1-health)");
+	tips.push_back("Agents can boost and double speed");
+	tips.push_back("Agents have clock inputs");
+	tips.push_back("Agents have a rAnDoM input");
+	tips.push_back("Agents have a self-health input");
+	tips.push_back("Press 'e' to activate a unique input");
+	tips.push_back("Agents seeking grab have cyan limbs");
+	tips.push_back("Agents grabbing shows a cyan pulse");
+	tips.push_back("Grabbed agents get pushed around");
+	tips.push_back("Grab has an angle agents can control");
+	tips.push_back("Jumping agents appear closer");
+	tips.push_back("Jumping agents can't rotate mid-jump");
+	tips.push_back("Jumping agents can't be attacked");
+	tips.push_back("Jumping agents can still be seen");
+	//start with general world tips. These can be duplicated because it's more random chance once we get more than halfway
 	tips.push_back("Overgrowth = more plants, fruit");
 	tips.push_back("Overgrowth = more plants, fruit");
 	tips.push_back("Droughts = less plant growth");
 	tips.push_back("Droughts = less plant growth");
+	tips.push_back("Moonlight lets agents see at night");
+	tips.push_back("Moonlight lets agents see at night");
+	tips.push_back("Moonlight lets agents see at night");
 	tips.push_back("Hadean Epochs are HOT!");
 	tips.push_back("Hadean Epochs are HOT!");
 	tips.push_back("Ice Age Epochs are COOL!");
 	tips.push_back("Ice Age Epochs are COOL!");
+	tips.push_back("Lots of dead on Epoch 0? It's normal");
+	tips.push_back("Early agents die a lot");
+	tips.push_back("Lots of dead on Epoch 0 is normal");
 	tips.push_back("Mutation x# Epochs= more mutations");
 	tips.push_back("Mutation x2 = double mutations");
 	tips.push_back("Mutation x3 = tripple mutations");
-	tips.push_back("Select 'New World' to end Demo");
-	tips.push_back("Use settings.cfg to change sim rules");
 	tips.push_back("'report.txt' logs useful data");
 	tips.push_back("Dizzy? Spawned agents like to spin");
 	tips.push_back("Dizzy? Spawned agents like to spin");
@@ -3379,26 +3405,23 @@ void World::init()
 	tips.push_back("Tiny agents have fewer eyes, ears");
 	tips.push_back("Tiny agents have only one clock");
 	tips.push_back("Tiny agents can't wield spikes");
-	tips.push_back("Tiny agents can't wield spikes");
+	tips.push_back("Tiny agents can't have spikes");
 	tips.push_back("Tiny agents can only bite attack");
-	tips.push_back("Agents seeking grab have cyan limbs");
-	tips.push_back("Agents grabbing shows a cyan pulse");
-	tips.push_back("Grabbed agents can get pushed around");
-	tips.push_back("Grab has an angle agents can control");
 	tips.push_back("The settings.cfg is FUN, isnt it?!");
-	tips.push_back("Hide dead with a UI option or 'j'");
 	tips.push_back("Settings.cfg file can change constants");
+	tips.push_back("Use settings.cfg to change constants");
+	tips.push_back("Use settings.cfg to change constants");
+	tips.push_back("Use settings.cfg to change constants");
+	tips.push_back("Use settings.cfg to change constants");
+	tips.push_back("You can disable sounds in the UI");
 	tips.push_back("You can disable sounds in the UI");
 	tips.push_back("You can disable sounds in the UI");
 	tips.push_back("You can disable music in the UI");
 	tips.push_back("You can disable music in the UI");
+	tips.push_back("You can disable music in the UI");
 	tips.push_back("See more options with right-click");
 	tips.push_back("See more options with right-click");
 	tips.push_back("See more options with right-click");
-	tips.push_back("Use settings.cfg to change constants");
-	tips.push_back("Use settings.cfg to change constants");
-	tips.push_back("Use settings.cfg to change constants");
-	tips.push_back("Use settings.cfg to change constants");
 	tips.push_back("Contribute on Github!");
 	tips.push_back("Press 'h' for interface help");
 	tips.push_back("Tips will be disabled; see settings.cfg");

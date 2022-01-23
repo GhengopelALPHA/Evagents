@@ -25,7 +25,7 @@ CPConn::CPConn(int numboxes)
 	if (randf(0,1) < conf::BRAIN_DIRECTINPUTS) sid = randi(-Input::INPUT_SIZE, 0); //connect a portion of the brain directly to input (negative sid).
 	else sid = randi(-Input::INPUT_SIZE, numboxes);
 
-	tid = randi(max(0, sid), numboxes); //always connect forward in new brains, to emulate layering
+	tid = randi(max(0, min(sid + 1, numboxes - 1)), numboxes); //always connect forward in new brains, to emulate layering
 
 	type = 0;
 	if(randf(0,1) < conf::BRAIN_CHANGECONNS) type = 1; //some conns can be change sensitive synapses

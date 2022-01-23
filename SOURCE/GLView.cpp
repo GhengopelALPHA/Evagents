@@ -1598,23 +1598,23 @@ void GLView::handleIdle()
 		//display tips
 		if(!live_fastmode){ //not while in fast mode
 			if(!world->NO_TIPS || world->isDebug()){ //and not if world says NO or is in debug mode
-				if(world->modcounter % conf::TIPS_PERIOD == conf::TIPS_DELAY) {
+				if(world->events.size() < conf::EVENTS_DISP && world->modcounter % conf::TIPS_PERIOD == conf::TIPS_DELAY) {
+					//don't add tips if we got a lot of events showing
 					int rand_tip = randi(0,world->tips.size());
+					int tip_for_modcounter = (int)((float)world->modcounter/conf::TIPS_PERIOD);
 
-					if(world->getDay() < 7) {
-						//the first 7 game days show the first few tips from the array of tips, one right after another
-						int min_tip_for_modcounter = (int)((float)world->modcounter/conf::TIPS_PERIOD);
-						int selected_tip = min_tip_for_modcounter < rand_tip ? min_tip_for_modcounter : rand_tip;
-						if (selected_tip > 0 && selected_tip == min_tip_for_modcounter - 1) {
-							//if we might have JUST displayed this tip, reset to the next expected one
-							selected_tip = min_tip_for_modcounter;
-						}
-
+					if(world->getDay() <= 2) {
+						//based on the math of 2 day * 8000 ticks / day * 1 tip / TIPS_PERIOD ticks, we get 20 tips in linear fashion
+						int selected_tip = tip_for_modcounter < world->tips.size() ? tip_for_modcounter : rand_tip;
 						world->addEvent( world->tips[selected_tip].c_str(), EventColor::YELLOW );
-					} 
-					//the rest get displayed more rarely, until tips get turned off
-					else if(world->modcounter % (conf::TIPS_PERIOD*3) == conf::TIPS_DELAY) 
+					} else if (world->getDay() <= 7) {
+						//the next 5 game days show the first few tips from the array of tips, but with some randomness possible
+						int selected_tip = tip_for_modcounter < rand_tip ? tip_for_modcounter : rand_tip;
+						world->addEvent( world->tips[selected_tip].c_str(), EventColor::YELLOW );
+					} else if (world->modcounter % (conf::TIPS_PERIOD*2) == conf::TIPS_DELAY) {
+						//the rest get displayed more rarely, until tips get turned off
 						world->addEvent( world->tips[rand_tip].c_str(), EventColor::YELLOW );
+					}
 				}
 			} else if (world->modcounter == conf::TIPS_DELAY) {
 				//provide a tip about re-enabling tips
@@ -1630,12 +1630,12 @@ void GLView::handleIdle()
 	syncLiveWithWorld();	
 
 	//autosave world periodically, based on world time
-	if (live_autosave==1 && world->modcounter%(world->FRAMES_PER_DAY*10)==0){
+	if (live_autosave==1 && !world->isDemo() && world->modcounter%(world->FRAMES_PER_DAY*10)==0){
 		trySaveWorld(true,true);
 	}
 
 	//Do some recordkeeping and let's intelligently prevent users from simulating nothing
-	if(world->getAgents()<=0 && live_worldclosed==1) {
+	if(live_worldclosed==1 && world->getAgents()<=0) {
 		live_worldclosed= 0;
 		live_autosave= 0; //I'm gonna guess you don't want to save the world anymore
 		world->addEvent("Disabled Closed world, nobody was home!", EventColor::MINT);
@@ -1830,8 +1830,8 @@ Color3f GLView::setColorMetabolism(float metabolism)
 {
 	Color3f color;
 	color.red= 2*(1-metabolism);
-	color.gre= 5*(metabolism)*(1-metabolism)*(1.5-metabolism);
-	color.blu= 8*(1.5*metabolism-0.5)*(1-metabolism);
+	color.gre= 2*(metabolism-0.1)*(1.9-2*metabolism)*(2-metabolism);
+	color.blu= 4*(3*metabolism-1)*(1-metabolism);
 	return color;
 }
 

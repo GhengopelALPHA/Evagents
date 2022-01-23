@@ -591,7 +591,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult,
 				fprintf(ft, line);
 			}
 		} else {
-			printf("report.txt didn\'t exist. That\'s... odd...\n");
+			printf("report.txt didn\'t exist. That\'s... odd... Stanley, what did you do?!\n");
 		}
 		fclose(fr); fclose(ft);
 
@@ -600,10 +600,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult,
 			fopen("report.txt", "w");
 		}
 
-	} else printf("Demo mode was active; no report data was ready. We're recording starting now!\n");
-
-	//once we've saved, and checked if demo mode was active, we set it to false to make sure we start recording
-	world->setDemo(false);
+	} else printf("Demo mode was active; no report data was ready.\n");
 	
 	printf("World Saved!\n");
 }

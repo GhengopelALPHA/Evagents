@@ -536,7 +536,7 @@ namespace conf {
 	const std::string MUSIC_FOLDER= "sounds/music/";
 	const std::string MAIN_SONG= "sounds/music/sleep no more - evanjones4.ogg";
 	const std::string ETHERAL_SONG= "sounds/music/pinecone-ambient-dark - evanjones4.ogg";
-	const std::string ENERGY_SONG= "sounds/music/endlessmotion - bensound.ogg";
+	const std::string CELEBRATION_SONG= "sounds/music/endlessmotion - bensound.ogg";
 	const std::string BABY_SONG= "sounds/music/sad-heaven-piano-3 - psovod.ogg";
 	const std::string ADAPT_SONG= "sounds/music/sunny dream - kjartan-abel-com.ogg";
 	const std::string PERSIST_SONG= "sounds/music/ambient-03-08-19 - newagesoup.ogg";
@@ -548,7 +548,7 @@ namespace conf {
 	const std::string INSPIRE_SONG= "sounds/music/cd-yang-001 - kevp888.ogg";
 	const int NUM_SONGS= 12; // must increment when adding new songs above, and add ref to list below
 
-	const std::string SONGS[NUM_SONGS]= {MAIN_SONG,ETHERAL_SONG,ENERGY_SONG,BABY_SONG,ADAPT_SONG,PERSIST_SONG,RHYTHM_SONG,
+	const std::string SONGS[NUM_SONGS]= {MAIN_SONG,ETHERAL_SONG,CELEBRATION_SONG,BABY_SONG,ADAPT_SONG,PERSIST_SONG,RHYTHM_SONG,
 		SLEEPY_SONG,SHIMMER_SONG,OVERGROWTH_SONG,STALE_SONG,INSPIRE_SONG};
 
 	const float SNAP_SPEED = 0.2; //how fast snapping to an object of interest is; 1 is instant, 0.1 is smooth, 0 is pointless
@@ -762,7 +762,7 @@ namespace conf {
 	const float MEAT_DECAY= 0.000005; //(.cfg)
 	const float MEAT_WASTE= 0.0023; //(.cfg)
 	const float MEAT_VALUE= 1.0; //(.cfg)
-	const float MEAT_NON_FRESHKILL_MULT = 0.75; //(.cfg)
+	const float MEAT_NON_FRESHKILL_MULT = 0.5; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)
 
 	const int HAZARD_EVENT_FREQ= 30; //(.cfg)
