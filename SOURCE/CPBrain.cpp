@@ -52,6 +52,13 @@ CPBrain::CPBrain(int numboxes, int numconns)
 		CPConn a = CPConn(boxes.size());
 		conns.push_back(a);
 	}
+	for (int i=0; i < numconns*conf::BRAIN_MIRRORCONNS; i++) {
+		CPConn a = CPConn(boxes.size());
+		int randconnidx = randi(0,conns.size());
+		a.w = -conns[randconnidx].w;
+		a.tid = conns[randconnidx].tid;
+		conns.push_back(a);
+	}
 
 	resetBrain();
 }
@@ -186,9 +193,12 @@ void CPBrain::tick(vector< float >& in, vector< float >& out)
 		if (boxes[i].dead) continue;
 
 		CPBox* box = &boxes[i]; //DO NOT De-Pointer-ize! It causes glitches!
+
+		float presig = (box->acc + box->bias)*box->gw;
 		
-		//put value through sigmoid. very negative values -> 0, very positive values -> 1, values close to 0 -> near 0.5
-		box->target = 1.0 / (1.0 + exp( -(box->acc + box->bias)*box->gw ));
+		//put value through fast sigmoid. very negative values -> 0, very positive values -> 1, values close to 0 -> near 0.5
+		box->target = 0.5 * (presig / ( 1 + abs(presig)) + 1);
+		//box->target = 1.0 / (1.0 + exp( -(box->acc + box->bias)*box->gw )); //old sigmoid
 
 		//done with acc, reset it, and back up current out for each box
 		box->acc = 0;
@@ -202,7 +212,7 @@ void CPBrain::tick(vector< float >& in, vector< float >& out)
 			int outidx = i - ( (int)boxes.size() - Output::OUTPUT_SIZE );
 
 			//jump has different response because we've made it into a change sensitive output
-			if (outidx == Output::JUMP) out[outidx] = cap(100 * (box->out - box->oldout));
+			if (outidx == Output::JUMP) out[outidx] = cap(10 * (box->out - box->oldout));
 			else out[outidx] = box->out;
 		}
 	}
@@ -221,7 +231,8 @@ float CPBrain::getActivityRatio() const
 void CPBrain::initMutate(float MR, float MR2)
 {
 	//connection (conn) mutations.
-	//Rare: new conn, boxify, random type, random source ID, random target ID, source ID bump, target ID bump, mirror conn, split conn. 
+	//Extraordinary (/100+): new conn, boxify, random type, random source ID, random target ID,
+	//Rare (/10+): target ID bump, source ID bump, mirror conn, split conn. 
 	//Common: random weight, weight wither, weight jiggle
 	for(int i= 0; i<randi(1,6); i++){ //possibly add between 0 and 5 new connections
 		if (randf(0,1) < MR/100) {
@@ -233,6 +244,7 @@ void CPBrain::initMutate(float MR, float MR2)
 	}
 
 	for (int i=0; i < (int)conns.size(); i++){
+		//Extraordinary:
 		if (randf(0,1) < MR/300) {
 			//boxify: a dead box is located, reset to allow simple passing of input, and then a new conn and original conn is attached
 			//so that for [A]-a->[B], box [*C] and conn *b is created but without effecting the expected sum on [B]: [A]-a->[*C]-*b->[B]
@@ -288,10 +300,13 @@ void CPBrain::initMutate(float MR, float MR2)
 			boxes[boxRef(conns[i].tid)].seed = 0;
 		}
 
+		//Rare:
 		if (randf(0,1) < MR/50) {
 			//target ID bump: +/- 1
 			int oldid = conns[i].tid;
-			int newid = capm(oldid + (int)(MR2*100*randi(-1,2)), 0, (int)boxes.size()-1);
+			int range = (int)(MR2*100);
+			int newid = capm(oldid + randi(-range,range+1), 0, (int)boxes.size()-1);
+			//+ (int)(MR2*100*randi(-1,2)) this is a jump mutation; implement later
 			conns[i].tid = newid;
 			if (oldid != newid) {
 				conns[i].seed = 0;
@@ -303,7 +318,9 @@ void CPBrain::initMutate(float MR, float MR2)
 		if (randf(0,1) < MR/40) {
 			//source ID bump: +/- 1
 			int oldid = conns[i].sid;
-			int newid = capm(oldid + (int)(MR2*100*randi(-1,2)), -Input::INPUT_SIZE, boxes.size()-1);
+			int range = (int)(MR2*100);
+			int newid = capm(oldid + randi(-range,range+1), -Input::INPUT_SIZE, boxes.size()-1);
+			//+ (int)(MR2*100*randi(-1,2))
 			conns[i].sid = newid;
 			if (oldid != newid) {
 				conns[i].seed = 0;
@@ -312,11 +329,8 @@ void CPBrain::initMutate(float MR, float MR2)
 		}
 
 		if (randf(0,1) < MR/30) {
-			//mirror conn: new conn created with -w from old conn, same tid
-			CPConn newconn = CPConn(conf::BRAINBOXES);
-			newconn.w = -conns[i].w;
-			newconn.tid = conns[i].tid;
-			conns.push_back(newconn);
+			//mirror conn: conn gets -w
+			conns[i].w = -conns[i].w;
 		}
 
 		if (randf(0,1) < MR/20) {
@@ -327,7 +341,7 @@ void CPBrain::initMutate(float MR, float MR2)
 			conns.push_back(copy);
 		}
 
-		//More common connection mutations:
+		//Common:
 		if (randf(0,1) < MR/10) {
 			//randomize weight
 			CPConn dummy = CPConn(conf::BRAINBOXES);
@@ -353,12 +367,14 @@ void CPBrain::initMutate(float MR, float MR2)
 	}
 
 	//box mutations
-	//Rare: copy box, random bias, random global weight, random kp
-	//Common: kp jiggle, global weight jiggle, bias jiggle
+	//Extraordinary (/100+): copy box, random bias, random global weight
+	//Rare (/10+): mirror global weight, mirror bias
+	//Common: random kp, kp jiggle, global weight jiggle, bias jiggle
 	for (int i=0; i < (int)boxes.size(); i++){
 		CPBox* box= &boxes[i];
 
-		if (randf(0,1)<MR/100) {
+		//Extraordinary:
+		if (randf(0,1)<MR/150) {
 			//copy another box
 			int j = randi(0,boxes.size());
 			if(j != i) {
@@ -369,20 +385,35 @@ void CPBrain::initMutate(float MR, float MR2)
 			}
 		}
 
-		if (randf(0,1)<MR/50) {
+		if (randf(0,1)<MR/100) {
 			//random bias
 			CPBox dummy = CPBox(1);
 			box->bias = dummy.bias;
 			box->seed = 0;
 		}
 
-		if (randf(0,1)<MR/30) {
+		if (randf(0,1)<MR/100) {
 			//random global weight
 			CPBox dummy = CPBox(1);
 			box->gw = dummy.gw;
 			box->seed = 0;
 		}
 
+		//Rare:
+		if (randf(0,1)<MR/50) {
+			//mirror global weight
+			CPBox dummy = CPBox(1);
+			box->gw = -box->gw;
+			box->seed = 0;
+		}
+
+		if (randf(0,1)<MR/20) {
+			//mirror bias
+			box->bias = -box->bias;
+			box->seed = 0;
+		}
+
+		//Common:
 		if (randf(0,1)<MR/10) {
 			//random kp (dampening)
 			CPBox dummy = CPBox(1);
@@ -390,15 +421,14 @@ void CPBrain::initMutate(float MR, float MR2)
 			box->seed = 0;
 		}
 
-		//more common box mutations
 		if (randf(0,1)<MR/5) {
 			//global weight jiggle
-			box->gw += randn(0, MR2/5);
+			box->gw += randn(0, MR2/8);
 		}
 
 		if (randf(0,1)<MR/2) {
 			//jiggle kp (dampening)
-			box->kp = cap(randn(box->kp, MR2/10));
+			box->kp = cap(randn(box->kp, MR2/5));
 		}
 
 		if (randf(0,1)<MR) {

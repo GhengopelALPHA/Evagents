@@ -106,7 +106,8 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "smellmod= %f\n", a->smell_mod);
 	fprintf(file, "hearmod= %f\n", a->hear_mod);
 	fprintf(file, "bloodmod= %f\n", a->blood_mod);
-	fprintf(file, "eyemod= %f\n", a->eye_see_agent_mod);
+	fprintf(file, "eyemod_agent= %f\n", a->eye_see_agent_mod);
+	fprintf(file, "eyemod_cell= %f\n", a->eye_see_cell_mod);
 //		fprintf(file, "eyecellmod= %f\n", a->eye_see_cell_mod);
 	for(int q=0;q<a->eyedir.size();q++) {
 		fprintf(file, "<y>\n");
@@ -149,9 +150,11 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 		fprintf(file, "bias= %f\n", a->brain.boxes[b].bias);
 		fprintf(file, "seed= %i\n", a->brain.boxes[b].seed);
 		fprintf(file, "dead= %i\n", (int)a->brain.boxes[b].dead);
-		fprintf(file, "target= %f\n", a->brain.boxes[b].target);
-		fprintf(file, "out= %f\n", a->brain.boxes[b].out);
-		fprintf(file, "oldout= %f\n", a->brain.boxes[b].oldout);
+		if(!a->isDead()) {
+			fprintf(file, "target= %f\n", a->brain.boxes[b].target);
+			fprintf(file, "out= %f\n", a->brain.boxes[b].out);
+			fprintf(file, "oldout= %f\n", a->brain.boxes[b].oldout);
+		}
 		fprintf(file, "</x>\n"); //end of box
 	}
 	fprintf(file, "</b>\n"); //end of brain
@@ -293,12 +296,12 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "bloodmod=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.blood_mod= f;
-			}else if(strcmp(var, "eyemod=")==0){
+			}else if(strcmp(var, "eyemod_agent=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.eye_see_agent_mod= f;
-//				}else if(strcmp(var, "eyecellmod=")==0){
-//					sscanf(dataval, "%f", &f);
-//					xa.eye_see_cell_mod= f;
+			}else if(strcmp(var, "eyemod_cell=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.eye_see_cell_mod= f;
 			}else if(strcmp(var, "numbabies=")==0){
 				sscanf(dataval, "%i", &i);
 				xa.numbabies= i;
@@ -480,6 +483,8 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult,
 	fprintf(fs,"WIDTH= %i\n", conf::WIDTH);
 	fprintf(fs,"HEIGHT= %i\n", conf::HEIGHT);
 	fprintf(fs,"CELLSIZE= %i\n", conf::CZ); //these saved values up till now are mostly for version control for now
+	fprintf(fs,"AGENTS_SEE_CELLS= %i\n", world->AGENTS_SEE_CELLS);
+	fprintf(fs,"AGENTS_DONT_OVERDONATE= %i\n", world->AGENTS_DONT_OVERDONATE);
 	//save settings which have GUI controls
 	fprintf(fs,"MOONLIT= %i\n", world->MOONLIT);
 	fprintf(fs,"MOONLIGHTMULT= %f\n", world->MOONLIGHTMULT);
@@ -608,7 +613,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
 	std::string address;
 	char line[64], *pos;
-	char var[16];
+	char var[32];
 	char dataval[16];
 	int cxl= 0;
 	int cyl= 0;
@@ -707,6 +712,14 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 						printf("ALERT: Cell Size different! Issues WILL occur! Press enter to try and continue. . .\n");
 						cin.get();
 					}
+				}else if(strcmp(var, "AGENTS_SEE_CELLS=")==0){
+					sscanf(dataval, "%i", &i);
+					if(i==1) world->AGENTS_SEE_CELLS= true;
+					else world->AGENTS_SEE_CELLS= false;
+				}else if(strcmp(var, "AGENTS_DONT_OVERDONATE=")==0){
+					sscanf(dataval, "%i", &i);
+					if(i==1) world->AGENTS_DONT_OVERDONATE= true;
+					else world->AGENTS_DONT_OVERDONATE= false;
 				}else if(strcmp(var, "MOONLIT=")==0){
 					sscanf(dataval, "%i", &i);
 					if(i==1) world->MOONLIT= true;

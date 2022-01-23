@@ -39,12 +39,13 @@ Agent::Agent(
 	setIdealTempPref();
 	species= randi(-conf::SPECIESID_RANGE,conf::SPECIESID_RANGE);
 	kinrange= OVERRIDE_KINRANGE>=0 ? OVERRIDE_KINRANGE : randi(1,conf::SPECIESID_RANGE/10);
-	sexprojectbias= randf(-1,0); //purposefully excluding "male" biases (0,1), which are allowed, but for random spawn agents are detrimental
+	sexprojectbias= -1; //purposefully excluding "male" and "female" biases for random spawn agents
 	setRandomStomach();
 
 	//senses and sense-ability
 	//eyes
 	eye_see_agent_mod= randf(0.3, 3);
+	eye_see_cell_mod= randf(0.3, 3);
 	eyefov.resize(NUMEYES, 0);
 	eyedir.resize(NUMEYES, 0);
 	for(int i=0;i<NUMEYES;i++) {
@@ -228,7 +229,7 @@ Agent Agent::reproduce(
 	a2.smell_mod= randf(0,1)<0.5 ? this->smell_mod : that.smell_mod;
 	a2.hear_mod= randf(0,1)<0.5 ? this->hear_mod : that.hear_mod;
 	a2.eye_see_agent_mod= randf(0,1)<0.5 ? this->eye_see_agent_mod : that.eye_see_agent_mod;
-//	a2.eye_see_cell_mod= randf(0,1)<0.5 ? this->eye_see_cell_mod : that.eye_see_cell_mod;
+	a2.eye_see_cell_mod= randf(0,1)<0.5 ? this->eye_see_cell_mod : that.eye_see_cell_mod;
 	a2.blood_mod= randf(0,1)<0.5 ? this->blood_mod : that.blood_mod;
 
 	a2.temperature_preference= randf(0,1)<0.5 ? this->temperature_preference : that.temperature_preference;
@@ -264,7 +265,7 @@ Agent Agent::reproduce(
 	if (a2.numbabies<1) a2.numbabies= 1; //technically, 0 babies is perfectly logical, but in this sim it is pointless, so it's disallowed
 	a2.resetRepCounter(MEANRADIUS, REP_PER_BABY);
 	if (randf(0,1)<GMR/2) a2.metabolism= cap(randn(a2.metabolism, GMR2*2));
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<GMR*8) a2.stomach[i]= cap(randn(a2.stomach[i], GMR2*4)); //*7 was a bit much
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<GMR*6) a2.stomach[i]= cap(randn(a2.stomach[i], GMR2*3));
 	if (randf(0,1)<GMR*10) a2.species+= (int) (randn(0, 0.5+GMR2*50));
 	if (randf(0,1)<GMR*5 && OVERRIDE_KINRANGE<0) a2.kinrange= (int) abs(randn(a2.kinrange, 1+GMR2*5*(a2.kinrange+1)));
 	if (randf(0,1)<GMR*6) a2.radius= randn(a2.radius, GMR2*15);
@@ -290,14 +291,8 @@ Agent Agent::reproduce(
 	if (randf(0,1)<GMR) a2.smell_mod= abs(randn(a2.smell_mod, GMR2*4));
 	if (randf(0,1)<GMR) a2.hear_mod= abs(randn(a2.hear_mod, GMR2*4));
 	if (randf(0,1)<GMR) a2.eye_see_agent_mod= abs(randn(a2.eye_see_agent_mod, GMR2*4));
-//	if (randf(0,1)<GMR) a2.eye_see_cell_mod= abs(randn(a2.eye_see_cell_mod, GMR2*4));
+	if (randf(0,1)<GMR) a2.eye_see_cell_mod= abs(randn(a2.eye_see_cell_mod, GMR2*4));
 	if (randf(0,1)<GMR) a2.blood_mod= abs(randn(a2.blood_mod, GMR2*4));
-	//sensory development failure: rare chance that the value of a sense gets cut down by roughly half, depending on mutation size
-	if (randf(0,1)<GMR/10) a2.smell_mod /= randf(1, 3+GMR2*50);
-	if (randf(0,1)<GMR/10) a2.hear_mod /= randf(1, 3+GMR2*50);
-	if (randf(0,1)<GMR/10) a2.eye_see_agent_mod /= randf(1, 3+GMR2*50);
-//	if (randf(0,1)<GMR/10) a2.eye_see_cell_mod /= randf(1, 3+GMR2*50);
-	if (randf(0,1)<GMR/10) a2.blood_mod /= randf(1, 3+GMR2*50);
 
 	if (randf(0,1)<GMR*2) a2.temperature_preference= cap(randn(a2.temperature_preference, GMR2/2));
 	if (randf(0,1)<GMR*3) a2.lungs= cap(randn(a2.lungs, GMR2));
@@ -317,10 +312,10 @@ Agent Agent::reproduce(
 				if(randf(0,1)<GMR*3) a2.eyefov[i]= a2.eyefov[origeye];
 			}
 
-			if(randf(0,1)<GMR/2) a2.eyefov[i] = abs(randn(a2.eyefov[i], GMR2/2));
+			if(randf(0,1)<GMR) a2.eyefov[i] = abs(randn(a2.eyefov[i], GMR2));
 			if(a2.eyefov[i]>M_PI) a2.eyefov[i] = M_PI; //eyes cannot wrap around agent
 
-			if(randf(0,1)<GMR) a2.eyedir[i] = randn(a2.eyedir[i], GMR2*5);
+			if(randf(0,1)<GMR) a2.eyedir[i] = randn(a2.eyedir[i], GMR2*4);
 			if(a2.eyedir[i]<0) a2.eyedir[i] = 0;
 			if(a2.eyedir[i]>2*M_PI) a2.eyedir[i] = 2*M_PI;
 			//not going to loop coordinates; 0,2pi is agents' front again, so it provides a good point to "bounce" off of
@@ -341,7 +336,7 @@ Agent Agent::reproduce(
 				if(randf(0,1)<GMR*3) a2.hearhigh[i]= a2.hearhigh[origear];
 			}
 
-			if(randf(0,1)<GMR) a2.eardir[i] = randn(a2.eardir[i], GMR2*5);
+			if(randf(0,1)<GMR) a2.eardir[i] = randn(a2.eardir[i], GMR2*4);
 			if(a2.eardir[i]<0) a2.eardir[i] = 0;
 			if(a2.eardir[i]>2*M_PI) a2.eardir[i] = 2*M_PI;
 		} else { //IMPLEMENT WORLD SETTING FOR CONTROLLING THIS
@@ -366,6 +361,38 @@ Agent Agent::reproduce(
 	a2.initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0.8,0.8,0.8); //grey event means we were just born! Welcome!
 	
 	return a2;
+}
+
+void Agent::liveMutate(int MUTMULT)
+{
+	initSplash(conf::RENDER_MAXSPLASHSIZE*0.75,0.5,0,1.0);
+	
+	float BMR= this->gene_mutation_chance*MUTMULT;
+	float BMR2= this->gene_mutation_size;
+	float GMR= this->gene_mutation_chance*MUTMULT;
+	float GMR2= this->gene_mutation_size;
+	for(int i= 0; i<randi(1,6); i++){ //mutate between 1 and 5 brain boxes
+		this->brain.liveMutate(BMR, BMR2, this->out);
+	}
+
+	//change other live-mutable traits here
+	if (randf(0,1)<GMR) this->metabolism= cap(randn(this->metabolism, GMR2/5));
+	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<GMR*2) this->stomach[i]= cap(randn(this->stomach[i], GMR2));
+	if (randf(0,1)<conf::META_MUTCHANCE) this->brain_mutation_chance= abs(randn(this->brain_mutation_chance, conf::META_MUTSIZE*20)); 
+	if (randf(0,1)<conf::META_MUTCHANCE) this->brain_mutation_size= abs(randn(this->brain_mutation_size, conf::META_MUTSIZE/2));
+	if (randf(0,1)<conf::META_MUTCHANCE) this->gene_mutation_chance= abs(randn(this->gene_mutation_chance, conf::META_MUTSIZE*20)); 
+	if (randf(0,1)<conf::META_MUTCHANCE) this->gene_mutation_size= abs(randn(this->gene_mutation_size, conf::META_MUTSIZE/2));
+	//sensory failure: rare chance that the value of a sense gets cut down by roughly half, depending on mutation size
+	if (randf(0,1)<GMR/30) this->smell_mod /= randf(1, 2+GMR2*50);
+	if (randf(0,1)<GMR/30) this->hear_mod /= randf(1, 2+GMR2*50);
+	if (randf(0,1)<GMR/30) this->eye_see_agent_mod /= randf(1, 2+GMR2*50);
+	if (randf(0,1)<GMR/30) this->eye_see_cell_mod /= randf(1, 2+GMR2*50);
+	if (randf(0,1)<GMR/30) this->blood_mod /= randf(1, 2+GMR2*50);
+	if (randf(0,1)<GMR) this->clockf1= randn(this->clockf1, GMR2/2);
+	if (this->clockf1<2) this->clockf1= 2;
+	if (randf(0,1)<GMR) this->clockf2= randn(this->clockf2, GMR2/2);
+	if (this->clockf2<2) this->clockf2= 2;
+	if (randf(0,1)<GMR) this->temperature_preference= cap(randn(this->temperature_preference, GMR2/4));
 }
 
 void Agent::tick()
@@ -417,6 +444,7 @@ void Agent::printSelf()
 	//senses
 	printf("======================= senses ========================\n");
 	printf("eye_see_agent_mod: %f\n", eye_see_agent_mod);
+	printf("eye_see_cell_mod: %f\n", eye_see_cell_mod);
 //	std::vector<float> eyefov; //field of view for each eye
 //	std::vector<float> eyedir; //direction of each eye
 	printf("hear_mod: %f\n", hear_mod);
@@ -587,32 +615,6 @@ void Agent::resetRepCounter(float MEANRADIUS, float REP_PER_BABY)
 	this->repcounter= this->maxrepcounter;
 }
 
-void Agent::liveMutate(int MUTMULT)
-{
-	initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0.5,0,1.0);
-	
-	float BMR= this->gene_mutation_chance*MUTMULT;
-	float BMR2= this->gene_mutation_size;
-	float GMR= this->gene_mutation_chance*MUTMULT;
-	float GMR2= this->gene_mutation_size;
-	for(int i= 0; i<randi(1,6); i++){ //mutate between 1 and 5 brain boxes
-		this->brain.liveMutate(BMR, BMR2, this->out);
-	}
-
-	//change other live-mutable traits here
-	if (randf(0,1)<GMR) this->metabolism= cap(randn(this->metabolism, GMR2/5));
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<GMR*2) this->stomach[i]= cap(randn(this->stomach[i], GMR2));
-	if (randf(0,1)<conf::META_MUTCHANCE) this->brain_mutation_chance= abs(randn(this->brain_mutation_chance, conf::META_MUTSIZE*20)); 
-	if (randf(0,1)<conf::META_MUTCHANCE) this->brain_mutation_size= abs(randn(this->brain_mutation_size, conf::META_MUTSIZE/2));
-	if (randf(0,1)<conf::META_MUTCHANCE) this->gene_mutation_chance= abs(randn(this->gene_mutation_chance, conf::META_MUTSIZE*20)); 
-	if (randf(0,1)<conf::META_MUTCHANCE) this->gene_mutation_size= abs(randn(this->gene_mutation_size, conf::META_MUTSIZE/2));
-	if (randf(0,1)<GMR) this->clockf1= randn(this->clockf1, GMR2/2);
-	if (this->clockf1<2) this->clockf1= 2;
-	if (randf(0,1)<GMR) this->clockf2= randn(this->clockf2, GMR2/2);
-	if (this->clockf2<2) this->clockf2= 2;
-	if (randf(0,1)<GMR) this->temperature_preference= cap(randn(this->temperature_preference, GMR2/4));
-}
-
 void Agent::setHerbivore()
 {
 	this->stomach[Stomach::PLANT]= randf(0.5, 1);
@@ -678,6 +680,12 @@ void Agent::setIdealTempPref(float temp)
 void Agent::setIdealLungs(float target)
 {
 	lungs= cap(randn(target,0.05));
+}
+
+bool Agent::isDead() const
+{
+	if (health<=0) return true;
+	return false;
 }
 
 bool Agent::isHerbivore() const

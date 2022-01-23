@@ -55,6 +55,7 @@ public:
 	float sexprojectbias; //a physical bias trait, making sexual reproduction easier for some species/members. in range [0,1]
 	//senses
 	float eye_see_agent_mod;
+	float eye_see_cell_mod;
 	std::vector<float> eyefov; //field of view for each eye
 	std::vector<float> eyedir; //direction of each eye
 	float hear_mod;
@@ -167,6 +168,7 @@ public:
 	void setIdealTempPref(float temp= -1);
 	void setIdealLungs(float target);
 
+	bool isDead() const;
 	bool isHerbivore() const;
 	bool isCarnivore() const;
 	bool isFrugivore() const;

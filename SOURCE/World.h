@@ -56,6 +56,7 @@ public:
 
 	//following and selected agent stuff
 	int getSelectedID() const;
+	bool isAgentSelected(int id);
 
 	float pleft;
 	float pright;
@@ -65,7 +66,7 @@ public:
 	void setSelection(int type);
 	bool setSelectionRelative(int posneg);
 	void setSelectedAgent(int idx = -1);
-	int getSelectedAgentIndex() const;
+	int getSelectedAgentIndex();
 	Agent* getSelectedAgent();
 	int getClosestRelative(int idx = -1);
 	void selectedHeal();
@@ -143,7 +144,7 @@ public:
 
 	std::vector<std::pair <std::string ,std::pair <int,int> > > events; //short-term record of events happening in the sim. includes text, type, and counter
 	void addEvent(std::string text, int type= 0); //adds event to the event list. max of ~40 characters
-	void addDemoEvent(std::string text, int type, int agentIndex); //post an event only if we: A: are in demo mode, and B: have the current agent selected that matches the index passed
+	void addTipEvent(std::string text, int type, int agentId); //post an event only if we: A: are in demo mode, and B: have the current agent selected that matches the index passed
 	void dismissNextEvents(int count= 1); //dismisses next [count] events (starts their disappearing act, doesn't delete them!)
 
 	void setStatsAfterLoad();
@@ -211,6 +212,9 @@ public:
 	float OCEANPERCENT;
 	bool SPAWN_LAKES;
 	bool DISABLE_LAND_SPAWN;
+	float AMBIENT_LIGHT_PERCENT;
+	bool AGENTS_SEE_CELLS;
+	bool AGENTS_DONT_OVERDONATE;
 	bool MOONLIT;
 	float MOONLIGHTMULT; //saved multiplier of the desired moonlight mult
 	bool DROUGHTS;
@@ -226,7 +230,7 @@ public:
 	float CLIMATEMULT; //saved multiplier of the current epoch climate state. This can blend the poles and equator closer to CLIMATEBIAS
 	float CLIMATEMULT_AVERAGE;
 	float CLIMATE_INTENSITY;
-	float GRAVITYACCEL;
+	float GRAVITY_ACCELERATION;
 	float BUMP_PRESSURE;
 	float GRAB_PRESSURE;
 	int BRAINBOXES;
@@ -234,13 +238,14 @@ public:
 	float WHEEL_SPEED;
 	float JUMP_MOVE_BONUS_MULT;
 	float BOOST_MOVE_MULT;
-	float BOOSTEXAUSTMULT;
+	float BOOST_EXAUSTION_MULT;
 	int CORPSE_FRAMES;
 	float CORPSE_MEAT_MIN;
-	float SOUNDPITCHRANGE;
+	float SOUND_PITCH_RANGE;
+	float INV_SOUND_PITCH_RANGE;
 
 	float MEANRADIUS;
-	float FOODTRANSFER;
+	float GENEROCITY_RATE;
 	float BASEEXHAUSTION;
 	float EXHAUSTION_MULT_PER_OUTPUT;
 	float EXHAUSTION_MULT_PER_CONN;
@@ -250,6 +255,7 @@ public:
 
 	int FRESHKILLTIME;
 	int TENDERAGE;
+	float INV_TENDERAGE;
 	float MINMOMHEALTH;
 	float MIN_INTAKE_HEALTH_RATIO;
 	bool FUN;
@@ -268,7 +274,8 @@ public:
 	int MAXAGE;
 	int MAXWASTEFREQ;
 
-	float DIST;
+	float MAX_SENSORY_DISTANCE;
+	float INV_MAX_SENSORY_DISTANCE;
 	float SPIKE_LENGTH;
 	float BITE_DISTANCE;
 	float BUMP_DAMAGE_OVERLAP;
@@ -292,7 +299,7 @@ public:
 	float DAMAGE_COLLIDE;
 	float DAMAGE_JAWSNAP;
 
-	float STOMACH_EFF;
+	float STOMACH_EFFICIENCY;
 
 	float PLANT_INTAKE;
 	float PLANT_DECAY;
@@ -313,6 +320,7 @@ public:
 	float MEAT_DECAY;
 	float MEAT_WASTE;
 	float MEAT_VALUE;
+	float MEAT_NON_FRESHKILL_MULT;
 
 	int HAZARD_EVENT_FREQ;
 	float HAZARD_EVENT_MULT;

@@ -71,6 +71,7 @@ namespace UID {
 	const int HUDSWIDTH= 88; //the column width we are assuming when it comes to text space in the Selected Agent Display.
 	const int TILEMARGIN= 10; //what is the min margin between a sub-tile and the next tile above (or window if main tile)
 	const int TILEBEVEL= 5; //bevel size on tiles. 5 was scaled for the LAD; consider code for smaller tiles to have smaller bevels
+	const int TINYTILEWIDTH= 20; //the size of tiny tiles
 	const int LADWIDTH= 440; //Loaded / seLected Agent Display width. SHOULD be tied to HUDSWIDTH above, but there's a lot more stuff going on in there
 	const int BUFFER= 6; //extra buffer space, mostly for text
 	const int EVENTSWIDTH= 210; //Event toast width (length?)... x-dimension-size
@@ -385,6 +386,17 @@ const enum {
 	MALE
 };};
 
+//defines for sound types. Order changes nothing.
+namespace Hearing {
+const enum {
+	VOICE,
+	MOVEMENT,
+	//INTAKE,
+
+	//Don't add beyond this entry!
+	TYPES
+};};
+
 //defines for brain input code. Changing order here changes input-to-brain order and visualization order
 namespace Input {
 const enum {
@@ -572,21 +584,23 @@ namespace conf {
 
 	const int AGENTS_MIN_NOTCLOSED= 50; //(.cfg)
 	const int AGENTS_MAX_SPAWN= 400; //(.cfg)
-	const int AGENTSPAWN_FREQ= 100; //(.cfg)
+	const int AGENTSPAWN_FREQ= 75; //(.cfg)
 	const int AGENTS_MAX_NOOXYGEN= 2400; //(.cfg)
 	const int SPECIESID_RANGE= 9000; //species ID range between (-this,this) that agents will spawn with. Note it is not capped
 
-	const float GRAVITYACCEL= 0.010; //(.cfg)
+	const float GRAVITY_ACCELERATION= 0.010; //(.cfg)
 	const float BUMP_PRESSURE= 0.1; //(.cfg)
 	const float GRAB_PRESSURE= 0.1; //(.cfg)
-	const float SOUNDPITCHRANGE= 0.1; //(.cfg)
+	const float SOUND_PITCH_RANGE= 0.1; //(.cfg)
 	const float WHEEL_VOLUME= 0.1; //multiplier of the wheel speeds when being heard
 	const float WHEEL_TONE= 0.125; //tone value that wheels are heard at, in range [0,1]
-	const float LIGHT_AMBIENT_PERCENT= 0.25; //multiplier of the natural light level that eyes will always see. Be cautious with this.
+	const float AMBIENT_LIGHT_PERCENT= 0.25; //(.cfg)
+	const bool AGENTS_SEE_CELLS = true; //(.cfg & save)
+	const bool AGENTS_DONT_OVERDONATE = false; //(.cfg & save)
 
 	const bool DISABLE_LAND_SPAWN= true; //(.cfg & GUI)
 	const bool MOONLIT= true; //(.cfg, save, & GUI)
-	const float MOONLIGHTMULT= 0.1; //(.cfg & save)
+	const float MOONLIGHTMULT= 0.25; //(.cfg & save)
 	const bool DROUGHTS= true; //(.cfg, save, & GUI)
 	const float DROUGHT_STDDEV= 0.3; // The standard deviation of changes to the DROUGHTMULT
 	const int DROUGHT_WEIGHT_TO_RANDOM= 31; //the weight multiple of the current DROUGHTMULT when averaged DOWN (randf(0,1) has a weight of 1)
@@ -615,29 +629,29 @@ namespace conf {
 	const float BRAIN_DIRECTINPUTS= 0.4; //probability of random brain conns on average which will connect directly to inputs
 	const float BRAIN_DEADCONNS= 0.35; //probability of random brain conns which are "dead" (that is, weight = 0)
 	const float BRAIN_CHANGECONNS= 0.05; //probablility of random brain conns which are change sensitive
-	const float BRAIN_MEMCONNS= 0.01; //probablility of random brain conns which are memory type
-//	const float BRAIN_MIRRORCONNS= 0.05; //
+//	const float BRAIN_MEMCONNS= 0.01; //probablility of random brain conns which are memory type
+	const float BRAIN_MIRRORCONNS= 0.1; //BRAINCONNS*this additional connections will be made as mirror-compare connections with a random other connection
 	const float BRAIN_CONN_ID_MUTATION_STD_DEV= 1.0; //standard dev. for the brain connection ID change mutation. UNUSED! todo
 	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
 
 	//general settings
-	const float WHEEL_SPEED= 0.3; //(.cfg)
+	const float WHEEL_SPEED= 0.5; //(.cfg)
 	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
 	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
 	const float MEANRADIUS= 10.0; //(.cfg)
 	const float JUMP_MOVE_BONUS_MULT= 2.0; //(.cfg)
 	const float BOOST_MOVE_MULT= 2.0; //(.cfg)
-	const float BOOSTEXAUSTMULT= 1.5; //(.cfg)
+	const float BOOST_EXAUSTION_MULT= 1.2; //(.cfg)
 	const float BASEEXHAUSTION= -12; //(.cfg)
 	const float EXHAUSTION_MULT_PER_OUTPUT= 1.0; //(.cfg)
 	const float EXHAUSTION_MULT_PER_CONN= 0.02; //(.cfg)
 	const int MAXWASTEFREQ= 200; //(.cfg)
-	const float FOODTRANSFER= 0.1; //(.cfg)
+	const float GENEROCITY_RATE= 0.1; //(.cfg)
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
-	const float SPIKESPEED= 0.01; //(.cfg)
+	const float SPIKESPEED= 0.003; //(.cfg)
 	const float VELOCITYSPIKEMIN= 0.2; //minimum velocity difference between two agents in the positive direction to be spiked by the other
 	const bool SPAWN_MIRROR_EYES = true; //(.cfg)
-	const bool PRESERVE_MIRROR_EYES = false; //(.cfg)
+	const bool PRESERVE_MIRROR_EYES = true; //(.cfg)
 	const float MIN_TEMP_DISCOMFORT_THRESHOLD = 0.005; //minimum discomfort value below which it's just overridden to 0
 
 	//visual settings
@@ -662,13 +676,13 @@ namespace conf {
 	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
 	const float META_MUTSIZE= 0.003;
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
-	const float DEFAULT_BRAIN_MUTCHANCE= 0.05; //(.cfg)
-	const float DEFAULT_BRAIN_MUTSIZE= 0.03; //(.cfg)
+	const float DEFAULT_BRAIN_MUTCHANCE= 0.03; //(.cfg)
+	const float DEFAULT_BRAIN_MUTSIZE= 0.01; //(.cfg)
 	const float DEFAULT_GENE_MUTCHANCE= 0.05; //(.cfg)
 	const float DEFAULT_GENE_MUTSIZE= 0.03; //(.cfg)
 
 	//distances
-	const float DIST= 400; //(.cfg)
+	const float MAX_SENSORY_DISTANCE= 400; //(.cfg)
 	const float SPIKE_LENGTH=30; //(.cfg)
 	const float BITE_DISTANCE = 12; //(.cfg)
 	const float BUMP_DAMAGE_OVERLAP=8; //(.cfg)
@@ -688,10 +702,10 @@ namespace conf {
 	//Health losses
 	const int MAXAGE=10000; //(.cfg)
 	const float HEALTHLOSS_AGING = 0.0001; //(.cfg)
-	const float HEALTHLOSS_EXHAUSTION = 0.001; //(.cfg)
+	const float HEALTHLOSS_EXHAUSTION = 0.0001; //(.cfg)
 	const float HEALTHLOSS_WHEELS = 0.0; //(.cfg)
 	const float HEALTHLOSS_BOOSTMULT= 2.0; //(.cfg)
-	const float HEALTHLOSS_BADTEMP = 0.006; //(.cfg)
+	const float HEALTHLOSS_BADTEMP = 0.008; //(.cfg)
 	const float HEALTHLOSS_BRAINUSE= 0.0; //(.cfg)
 	const float HEALTHLOSS_SPIKE_EXT= 0.0; //(.cfg)
 	const float HEALTHLOSS_BADTERRAIN= 0.021; //(.cfg)
@@ -721,7 +735,7 @@ namespace conf {
 
 
 	//LAYERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LAYERS
-	const float STOMACH_EFF= 0.3; //(.cfg)
+	const float STOMACH_EFFICIENCY= 0.2; //(.cfg)
 	const float CARNIVORE_MEAT_EFF= 0.125; //0.05; //highest meat mult possible from full carnivores. The carivore stomach is sqrt-ed for even harsher punishment
 
 	const char PLANT_TEXT[]= "Plant Food";
@@ -744,10 +758,11 @@ namespace conf {
 	//Fruit is a quick and easy alternative to plants. Also partially randomly populated, harkening back to ScriptBots origins
 
 	const char MEAT_TEXT[]= "Meat Food";
-	const float MEAT_INTAKE= 0.1; //(.cfg)
-	const float MEAT_DECAY= 0.00001;//0.00001; //(.cfg)
-	const float MEAT_WASTE= 0.006; //0.0023; //(.cfg)
+	const float MEAT_INTAKE= 0.06; //(.cfg)
+	const float MEAT_DECAY= 0.000005; //(.cfg)
+	const float MEAT_WASTE= 0.0023; //(.cfg)
 	const float MEAT_VALUE= 1.0; //(.cfg)
+	const float MEAT_NON_FRESHKILL_MULT = 0.75; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)
 
 	const int HAZARD_EVENT_FREQ= 30; //(.cfg)

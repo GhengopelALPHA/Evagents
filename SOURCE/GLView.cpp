@@ -285,7 +285,7 @@ void GLView::processMouseActiveMotion(int x, int y)
 
 		if (downb[1]==1) {
 			//mouse wheel. Change scale
-			scalemult += conf::ZOOM_SPEED*((mousey-y) - (mousex-x));
+			scalemult += conf::ZOOM_SPEED*scalemult*((mousey-y) - (mousex-x));
 			if(scalemult<0.03) scalemult=0.03;
 		}
 
@@ -1547,7 +1547,11 @@ void GLView::handleIdle()
 	world->setDemo(live_demomode);
 	world->setClosed(live_worldclosed);
 	world->DISABLE_LAND_SPAWN= (bool)live_landspawns;
-	world->MOONLIT=	(bool)live_moonlight;
+	if((int)world->MOONLIT!=live_moonlight) {
+		if(live_moonlight) world->addEvent("Moon formation event!", EventColor::BLACK);
+		else world->addEvent("Moon, uh... explosion event?!", EventColor::BLACK);
+		world->MOONLIT = (bool)live_moonlight;
+	}
 	world->OCEANPERCENT= live_oceanpercent;
 	world->DROUGHTS= (bool)live_droughts;
 	world->DROUGHTMULT= live_droughtmult;
@@ -1578,9 +1582,9 @@ void GLView::handleIdle()
 			for(int i=0; i<MainTiles::TILES; i++){
 				if(i==MainTiles::LAD) {
 					createTile(wWidth-UID::LADWIDTH-UID::BUFFER, UID::BUFFER, UID::LADWIDTH, ladheight, "");
-					createTile(maintiles[MainTiles::LAD], 20, 20, "Follow", "F", true, false);
-					createTile(maintiles[MainTiles::LAD], 20, 20, "Damages", "D", false, true);
-					createTile(maintiles[MainTiles::LAD], 20, 20, "Intake", "I", false, true);
+					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Follow", "F", true, false);
+					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Damages", "D", false, true);
+					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Intake", "I", false, true);
 				} else if(i==MainTiles::TOOLBOX) {
 					createTile(UID::BUFFER, 190, 50, 300, "", "Tools");
 					createTile(maintiles[MainTiles::TOOLBOX], UID::BUFFER+UID::TILEMARGIN, 215, 30, 30, "UnpinUI", "UI.");
@@ -1798,9 +1802,9 @@ Color3f GLView::setColorStomach(const float stomach[Stomach::FOOD_TYPES])
 	float fruit= stomach[Stomach::FRUIT];
 	float meat= stomach[Stomach::MEAT];
 	Color3f color;
-	color.red= meat + fruit - pow(plant,2)/2;
-	color.gre= plant/2 + fruit - meat/2;
-	color.blu= meat*plant;
+	color.red= meat + fruit*0.9 - plant/4*(1 + fruit);
+	color.gre= plant/2 + fruit/3*(3 + 0.5*plant*(meat - 2) - meat);
+	color.blu= meat*plant*(0.45 + pow(fruit,2)); //these have been *carefully* selected and balanced
 	return color;
 }
 
@@ -1825,9 +1829,9 @@ Color3f GLView::setColorTempPref(float discomfort)
 Color3f GLView::setColorMetabolism(float metabolism)
 {
 	Color3f color;
-	color.red= 3*metabolism-1;
-	color.gre= 8*(metabolism)*(1-metabolism)*(metabolism-0.1);
-	color.blu= 8*(1-1.5*metabolism)*metabolism;
+	color.red= 2*(1-metabolism);
+	color.gre= 5*(metabolism)*(1-metabolism)*(1.5-metabolism);
+	color.blu= 8*(1.5*metabolism-0.5)*(1-metabolism);
 	return color;
 }
 
@@ -1890,7 +1894,7 @@ Color3f GLView::setColorCrossable(float species)
 Color3f GLView::setColorGenerocity(float give)
 {
 	Color3f color;
-	float val= cap(abs(give)*10/world->FOODTRANSFER)*2/3;
+	float val= cap(abs(give)*10/world->GENEROCITY_RATE)*2/3;
 	if(give>0) color.gre= val;
 	else color.red= val;
 	if(abs(give)<0.001) { color.blu= 0.75; color.gre= 0.5; }
@@ -2131,19 +2135,39 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 	float r= agent.radius;
 	float rp= agent.radius+2.8;
 
-	if ((live_agentsvis!=Visual::NONE && (live_hidedead==0 || agent.health>0) && (live_hidegenz==0 || agent.gencount>0)) || ghost) {
+	if ((live_agentsvis!=Visual::NONE && (live_hidedead==0 || !agent.isDead()) && (live_hidegenz==0 || agent.gencount>0)) || ghost) {
 		// don't render if visual set to NONE, or if we're hiding the agent for some reason
 
 		glPushMatrix(); //switch to local position coordinates
 		glTranslatef(x,y,0);
 
-		if(agent.id==world->getSelectedID() && !ghost){
+		if(world->isAgentSelected(agent.id) && !ghost){
+
+			if(live_profilevis==Profile::EYES || world->isDebug()){
+				//eyesight FOV's for the eyesight profile
+				for(int q=0;q<NUMEYES;q++) {
+					if(agent.isTiny() && !agent.isTinyEye(q)) continue;
+					float aa= agent.angle + agent.eyedir[q] + agent.eyefov[q];
+					glBegin(GL_POLYGON);
+
+					glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.15);
+
+					for (int n=0; n<4; n++) {
+						glVertex3f(world->MAX_SENSORY_DISTANCE*cos(aa), world->MAX_SENSORY_DISTANCE*sin(aa), 0);
+						aa-= agent.eyefov[q]/2;
+					}
+					glVertex3f(world->MAX_SENSORY_DISTANCE*cos(aa), world->MAX_SENSORY_DISTANCE*sin(aa), 0);
+					glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.5);
+					glVertex3f(0,0,0);
+					glEnd();
+				}
+			}
 
 			if(world->isDebug()){
 				//draw DIST range on selected in DEBUG
 				glBegin(GL_LINES);
 				glColor3f(1,0,1);
-				drawOutlineRes(0, 0, world->DIST, ceil(scalemult)+6);
+				drawOutlineRes(0, 0, world->MAX_SENSORY_DISTANCE, ceil(scalemult)+6);
 				glEnd();
 
 				//spike effective zone
@@ -2195,24 +2219,6 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glBegin(GL_POLYGON);
 					glColor4f(0,0.5,0,0.25);
 					drawCircle(0,0,sharedist);
-					glEnd();
-				}
-
-				//debug eyesight FOV's
-				for(int q=0;q<NUMEYES;q++) {
-					if(agent.isTiny() && !agent.isTinyEye(q)) break;
-					float aa= agent.angle+agent.eyedir[q]+agent.eyefov[q]/2;
-					glBegin(GL_POLYGON);
-
-					glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.15);
-
-					glVertex3f(world->DIST*cos(aa), world->DIST*sin(aa), 0);
-					aa-= agent.eyefov[q]/2;
-					glVertex3f(world->DIST*cos(aa), world->DIST*sin(aa), 0);
-					aa-= agent.eyefov[q]/2;
-					glVertex3f(world->DIST*cos(aa), world->DIST*sin(aa), 0);
-					glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.5);
-					glVertex3f(0,0,0);
 					glEnd();
 				}
 			}
@@ -2408,37 +2414,39 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glBegin(GL_QUADS);
 					glColor3f(0,0,0.1);
 					glVertex3f(0, 0, 0);
-					glVertex3f(0, 40, 0);
-					glVertex3f(180, 40, 0);
+					glVertex3f(0, 60, 0);
+					glVertex3f(180, 60, 0);
 					glVertex3f(180, 0, 0);
 					glEnd();
 
 					for(int q=0;q<NUMEYES;q++){
+						if(agent.isTiny() && !agent.isTinyEye(q)) continue;
+
 						float eyex= 165-agent.eyedir[q]/2/M_PI*150;
-						float eyer= 1+agent.eyefov[q]/M_PI*20;
+						float eyer= 1+agent.eyefov[q]/M_PI*40;
 						glBegin(GL_POLYGON);
 						glColor3f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3]);
-						drawCircle(eyex, 20, eyer);
+						drawCircle(eyex, 30, eyer);
 						glEnd();
 
 						glBegin(GL_LINES);
 						glColor3f(0.75,0.75,0.75);
-						drawOutlineRes(eyex, 20, eyer, 3);
+						drawOutlineRes(eyex, 30, eyer, 3);
 						glEnd();
 					}
 
 					glBegin(GL_LINES);
 					glColor3f(0.25,0.25,0.25);
-					glVertex3f(0, 40, 0);
-					glVertex3f(180, 40, 0);
+					glVertex3f(0, 60, 0);
+					glVertex3f(180, 60, 0);
 					glColor3f(agent.real_red,agent.real_gre,agent.real_blu);
 					glVertex3f(180, 0, 0);
 					glVertex3f(0, 0, 0);
 
 					glColor3f(0.7,0,0);
 					glVertex3f(0, 0, 0);
-					glVertex3f(0, 40, 0);
-					glVertex3f(180, 40, 0);
+					glVertex3f(0, 60, 0);
+					glVertex3f(180, 60, 0);
 					glVertex3f(180, 0, 0);
 					
 					glEnd();
@@ -2460,8 +2468,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 
 						//Draw a trapezoid indicating the full range the ear hears, including the limbs
 						float displace= (agent.hearhigh[q]-agent.hearlow[q])*0.5;
-						if(displace>world->SOUNDPITCHRANGE) displace= world->SOUNDPITCHRANGE;
-						float heightratio= 1-cap(displace/world->SOUNDPITCHRANGE); //when displace= the SOUNDPITCHRANGE, 
+						if(displace>world->SOUND_PITCH_RANGE) displace= world->SOUND_PITCH_RANGE;
+						float heightratio= 1-cap(displace*world->INV_SOUND_PITCH_RANGE); //when displace= the SOUND_PITCH_RANGE, 
 
 						glVertex3f(2+176*cap(agent.hearlow[q]+displace), 2+78*heightratio, 0); //top-left	 L  _______  H		    L___H
 						glVertex3f(2+176*cap(agent.hearlow[q]), 78, 0); //	bottom-left						   /|     |\*			  |
@@ -2628,13 +2636,13 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			float count= agent.tone*15+1;
 
 			for (int l=0; l<=(int)count; l++){
-				float dist= world->DIST*(l/count) + 2*(world->modcounter%(int)(world->DIST/2));
-				if (dist>world->DIST) dist-= world->DIST;
-				float distfratio= dist/world->DIST;
+				float dist= world->MAX_SENSORY_DISTANCE*(l/count) + 2*(world->modcounter%(int)(world->MAX_SENSORY_DISTANCE/2));
+				if (dist>world->MAX_SENSORY_DISTANCE) dist-= world->MAX_SENSORY_DISTANCE;
+				float distfratio= dist*world->INV_MAX_SENSORY_DISTANCE;
 				//this dist func works in 3 parts: first, we give it a displacement based on the l-th ring / count
 				//then, we take modcounter, and divide it by the distance, giving us a proportion of the radius
 				//The weird *2 and /2 bits are to increase the speed of the waves. Leave them
-				//finally, if the dist is too large, wrap it down by subtracting DIST. And we take a ratio value too to use later
+				//finally, if the dist is too large, wrap it down by subtracting MAX_SENSORY_DISTANCE. And we take a ratio value too to use later
 				glBegin(GL_LINES);
 				glColor4f(tonecolor.red, tonecolor.gre, tonecolor.blu, cap((conf::RENDER_MINVOLUME+1.2*volume-distfratio)));
 				drawOutlineRes(0, 0, dist, (int)(ceil(2*scalemult)+1+5*distfratio));
@@ -2718,7 +2726,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 		//end local coordinate stuff
 		glPopMatrix();
 
-		if(agent.id==world->getSelectedID() && !ghost) {//extra info for selected agent
+		if(world->isAgentSelected(agent.id) && !ghost) {//extra info for selected agent
 			//debug stuff
 			if(world->isDebug()) {
 				//debug sight lines: connect to anything selected agent sees
@@ -2738,10 +2746,10 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 				int scy= (int) (agent.pos.y/conf::CZ);
 
 				float distmult= conf::SMELL_DIST_MULT/(float)conf::CZ/2;
-				minx= (scx-world->DIST*distmult) > 0 ? (scx-world->DIST*distmult)*conf::CZ : 0;
-				maxx= (scx+1+world->DIST*distmult) < conf::WIDTH/conf::CZ ? (scx+1+world->DIST*distmult)*conf::CZ : conf::WIDTH;
-				miny= (scy-world->DIST*distmult) > 0 ? (scy-world->DIST*distmult)*conf::CZ : 0;
-				maxy= (scy+1+world->DIST*distmult) < conf::HEIGHT/conf::CZ ? (scy+1+world->DIST*distmult)*conf::CZ : conf::HEIGHT;
+				minx= (scx-world->MAX_SENSORY_DISTANCE*distmult) > 0 ? (scx-world->MAX_SENSORY_DISTANCE*distmult)*conf::CZ : 0;
+				maxx= (scx+1+world->MAX_SENSORY_DISTANCE*distmult) < conf::WIDTH/conf::CZ ? (scx+1+world->MAX_SENSORY_DISTANCE*distmult)*conf::CZ : conf::WIDTH;
+				miny= (scy-world->MAX_SENSORY_DISTANCE*distmult) > 0 ? (scy-world->MAX_SENSORY_DISTANCE*distmult)*conf::CZ : 0;
+				maxy= (scy+1+world->MAX_SENSORY_DISTANCE*distmult) < conf::HEIGHT/conf::CZ ? (scy+1+world->MAX_SENSORY_DISTANCE*distmult)*conf::CZ : conf::HEIGHT;
 
 				glColor3f(0,1,0);
 				glVertex3f(minx,miny,0);
@@ -2779,7 +2787,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 	glTranslatef(x,y,0);
 
 	//handle selected agent outliner
-	if (live_agentsvis!=Visual::NONE && agent.id==world->getSelectedID() && !ghost) {
+	if (live_agentsvis!=Visual::NONE && world->isAgentSelected(agent.id) && !ghost) {
 		//draw selection outline
 		glLineWidth(2);
 		glBegin(GL_LINES);
@@ -2789,7 +2797,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		glLineWidth(1);
 	}
 
-	if ((live_agentsvis!=Visual::NONE && (live_hidedead==0 || agent.health>0)) && (live_hidegenz==0 || agent.gencount>0) || ghost) {
+	if ((live_agentsvis!=Visual::NONE && (live_hidedead==0 || !agent.isDead())) && (live_hidegenz==0 || agent.gencount>0) || ghost) {
 		// don't render if visual set to NONE, or if we're hiding the agent for some reason
 
 		//agent body color assignment
@@ -2839,14 +2847,14 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 
 		}
 
-		if (agent.health<=0 || (scalemult <= 0.3 && !ghost) || live_agentsvis!=Visual::RGB) {
+		if (agent.isDead() || (scalemult <= 0.3 && !ghost) || live_agentsvis!=Visual::RGB) {
 			//when zoomed out too far to want to see agent details, or if agent is dead (either ghost render or not), draw center as solid
 			centeralpha= 1; 
 			centercmult= 1;
 		}
 		
 		//mult for dead agents, to display more uniform & transparent parts
-		float dead= agent.health==0 ? conf::RENDER_DEAD_ALPHA : 1;
+		float dead= agent.isDead() ? conf::RENDER_DEAD_ALPHA : 1;
 
 
 		//we are now ready to start drawing
@@ -2872,7 +2880,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				float aa= agent.angle + agent.eardir[q];
 				//the centers of ears are black
 				glColor4f(0,0,0,0.35);
-				glVertex3f(r*cos(aa), r*sin(aa),0);
+				glVertex3f(rad*cos(aa), rad*sin(aa),0);
 
 				//color ears differently if we are set on the sound profile or debug
 				if(live_profilevis==Profile::SOUND || world->isDebug()) {
@@ -2881,9 +2889,9 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					glColor4f(earcolor.first.red, earcolor.first.gre, earcolor.first.blu, 0.5*dead); 
 				} else glColor4f(agent.real_red,agent.real_gre,agent.real_blu,0.5*dead);
 
-				drawCircle(r*cos(aa), r*sin(aa), 2*agent.hear_mod);
+				drawCircle(rad*cos(aa), rad*sin(aa), 2*agent.hear_mod);
 				glColor4f(0,0,0,0.35);
-				glVertex3f(r*cos(aa), r*sin(aa),0);
+				glVertex3f(rad*cos(aa), rad*sin(aa),0);
 				glEnd();
 				if(agent.isTiny()) break; //tiny agents have only one ear
 			}
@@ -2951,12 +2959,15 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		if ((scalemult > .08 || ghost) && agent.jawrend>0) {
 			//dont render jaws if zoomed too far out, but always render them on ghosts, and only if they've been active within the last few ticks
 			glColor4f(0.9,0.9,0,blur);
-			float mult= 1-powf(abs(agent.jawPosition),0.5);
-			if(agent.jawrend==conf::JAWRENDERTIME) mult= 1; //at the start of the timer the jaws are rendered open for aesthetic
+
+			float jawangle = ( 1 - powf(abs(agent.jawPosition), 0.5) ) * M_PI/8;
+			if(agent.jawrend == conf::JAWRENDERTIME) jawangle = M_PI/8; //at the start of the timer the jaws are rendered open for aesthetic
+			float jawlength = world->BITE_DISTANCE - 2; //shave just a little bit off the jaw length
+
 			glVertex3f(rad*cos(agent.angle), rad*sin(agent.angle), 0);
-			glVertex3f((10+rad)*cos(agent.angle+M_PI/8*mult), (10+rad)*sin(agent.angle+M_PI/8*mult), 0);
+			glVertex3f((jawlength+rad)*cos(agent.angle+jawangle), (jawlength+rad)*sin(agent.angle+jawangle), 0);
 			glVertex3f(rad*cos(agent.angle), rad*sin(agent.angle), 0);
-			glVertex3f((10+rad)*cos(agent.angle-M_PI/8*mult), (10+rad)*sin(agent.angle-M_PI/8*mult), 0);
+			glVertex3f((jawlength+rad)*cos(agent.angle-jawangle), (jawlength+rad)*sin(agent.angle-jawangle), 0);
 		}
 		glEnd();
 
@@ -2972,7 +2983,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		}
 		glBegin(GL_LINES);
 
-		if (live_agentsvis!=Visual::HEALTH && agent.health<=0){ //draw outline as grey if dead, unless visualizing health
+		if (live_agentsvis!=Visual::HEALTH && agent.isDead()){ //draw outline as grey if dead, unless visualizing health
 			glColor4f(0.7,0.7,0.7,dead);
 
 		//otherwise, color as agent's body if zoomed out, color as above if normal zoomed
@@ -3044,19 +3055,27 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					if(agent.isTiny() && !agent.isTinyEye(q)) break;
 					if(	(world->modcounter+agent.id)%conf::BLINKDELAY>=q*10 && 
 						(world->modcounter+agent.id)%conf::BLINKDELAY<q*10+conf::BLINKTIME && 
-						agent.health>0) continue; //blink eyes ocasionally... DAWWWWWW
+						!agent.isDead()) continue; //blink eyes ocasionally... DAWWWWWW
+
+					float ca= agent.angle+agent.eyedir[q];
+
+					glBegin(GL_POLYGON);
+					glColor4f(0.85,0.85,0.85,1.0);
+					//whites of eyes indicate a > eye cell modifier
+					float eyewhitesize= capm(agent.eye_see_cell_mod/2,0.1,2);
+					drawCircle((rad-1-eyewhitesize/2)*cos(ca), (rad-1-eyewhitesize/2)*sin(ca), eyewhitesize);
+					glEnd();
 
 					glBegin(GL_POLYGON);
 					glColor4f(0,0,0,1.0);
-					float ca= agent.angle+agent.eyedir[q];
 					//the eyes are small and tiny if the agent has a low eye mod. otherwise they are big and buggie
-					float eyesize= capm(agent.eye_see_agent_mod/2,0.1,1);
-					drawCircle((rad-2+eyesize)*cos(ca), (rad-2+eyesize)*sin(ca), eyesize);
+					float eyesize= capm(agent.eye_see_agent_mod/2,0.1,2);
+					drawCircle((rad-1-eyesize/2)*cos(ca), (rad-1-eyesize/2)*sin(ca), eyesize);
 					glEnd();
 				}
 
 				//render grab target line if we have one
-				if(world->GRAB_PRESSURE!=0 && agent.isGrabbing() && agent.health>0 && agent.grabID!=-1 && !ghost){
+				if(world->GRAB_PRESSURE!=0 && agent.isGrabbing() && !agent.isDead() && agent.grabID!=-1 && !ghost){
 					glLineWidth(3);
 					glBegin(GL_LINES);
 
@@ -3873,8 +3892,8 @@ void GLView::renderAllTiles()
 			glVertex3f(tbx,tby,0);
 			glEnd();
 
-
-			float centery= (float)(th)/2;
+			float centery = (float)(th)/2+3;
+			float centerx = tx+centery-13;
 
 			if(live_cursormode == MouseMode::PLACE_AGENT){
 				RenderString(tx+centery-35, ty2-15, GLUT_BITMAP_HELVETICA_12, "Place me!", 0.8f, 1.0f, 1.0f);
@@ -3883,24 +3902,24 @@ void GLView::renderAllTiles()
 
 			//depending on the current LAD visual mode, we render something in our left-hand space
 			if(ui_ladmode == LADVisualMode::GHOST) {
-				drawPreAgent(selected, tx+centery, 5+centery, true);
-				drawAgent(selected, tx+centery, 5+centery, true);
+				drawPreAgent(selected, centerx, centery, true);
+				drawAgent(selected, centerx, centery, true);
 
 			} else if (ui_ladmode == LADVisualMode::DAMAGES) {
-				RenderString(tx+centery-45, ty+42, GLUT_BITMAP_HELVETICA_12, "Damage Taken:", 0.8f, 1.0f, 1.0f);
-				drawPieDisplay(tx+centery, 10+centery, 32, selected.damages);
+				RenderString(centerx-35, ty+40, GLUT_BITMAP_HELVETICA_12, "Damage Taken:", 0.8f, 1.0f, 1.0f);
+				drawPieDisplay(centerx, centery, 32, selected.damages);
 
 			} else if (ui_ladmode == LADVisualMode::INTAKES) {
-				RenderString(tx+centery-45, ty+42, GLUT_BITMAP_HELVETICA_12, "Food Intaken:", 0.8f, 1.0f, 1.0f);
-				drawPieDisplay(tx+centery, 10+centery, 32, selected.intakes);
+				RenderString(centerx-35, ty+40, GLUT_BITMAP_HELVETICA_12, "Food Intaken:", 0.8f, 1.0f, 1.0f);
+				drawPieDisplay(centerx, centery, 32, selected.intakes);
 			} //note NONE is an option and renders nothing, leaving space for other things...
 
 			//Agent ID
 			glBegin(GL_QUADS);
 			float idlength= 19+UID::CHARWIDTH*floorf(1.0+log10((float)selected.id+1.0));
-			float idboxx= tx+centery-idlength/2-5;
+			float idboxx= centerx-idlength/2-5;
 			float idboxy= ty+11;
-			float idboxx2= tx+centery+idlength/2+10;
+			float idboxx2= centerx+idlength/2+10;
 			float idboxy2= idboxy+14;
 
 			Color3f specie= setColorSpecies(selected.species);
@@ -3913,11 +3932,11 @@ void GLView::renderAllTiles()
 			glEnd();
 
 			sprintf(buf, "ID: %d", selected.id);
-			RenderString(tx+centery-idlength/2, idboxy2-3, GLUT_BITMAP_HELVETICA_12, buf, 0.8f, 1.0f, 1.0f);
+			RenderString(centerx-idlength/2, idboxy2-3, GLUT_BITMAP_HELVETICA_12, buf, 0.8f, 1.0f, 1.0f);
 
 			//Show cause of death if dead
-			if(selected.health==0){
-				RenderString(tbx+UID::BUFFER-2, idboxy2+3*UID::BUFFER, GLUT_BITMAP_HELVETICA_12, selected.death.c_str(), 0.8f, 1.0f, 1.0f);
+			if(selected.isDead()){
+				RenderString(tbx+UID::BUFFER-2, th-UID::TINYTILEWIDTH-UID::BUFFER-UID::TILEBEVEL*2, GLUT_BITMAP_HELVETICA_12, selected.death.c_str(), 0.8f, 1.0f, 1.0f);
 			}
 
 			Color3f defaulttextcolor(0.8,1,1);
@@ -4057,7 +4076,7 @@ void GLView::renderAllTiles()
 					else if(abs(selected.w1-selected.w2)>0.06) sprintf(buf, "Spinning...");
 					else if(abs(selected.w1)>0.2 || abs(selected.w2)>0.2) sprintf(buf, "Sprinting");
 					else if(abs(selected.w1)>0.03 || abs(selected.w2)>0.03) sprintf(buf, "Moving");
-					else if(selected.health<=0) sprintf(buf, "Dead.");
+					else if(selected.isDead()) sprintf(buf, "Dead.");
 					else sprintf(buf, "Idle");
 
 				} else if(u==LADHudOverview::GRAB){
@@ -4153,7 +4172,11 @@ void GLView::renderAllTiles()
 				
 				} else if(u==LADHudOverview::METABOLISM){
 					if(live_agentsvis==Visual::METABOLISM) drawbox= true;
-					sprintf(buf, "Metab: %.2f", selected.metabolism);
+					if(selected.metabolism>0.9) sprintf(buf, "Metab:%.2f ++C", selected.metabolism);
+					else if(selected.metabolism>0.6) sprintf(buf, "Metab: %.2f +C", selected.metabolism);
+					else if(selected.metabolism<0.1) sprintf(buf, "Metab:%.2f ++H", selected.metabolism);
+					else if(selected.metabolism<0.4) sprintf(buf, "Metab: %.2f +H", selected.metabolism);
+					else sprintf(buf, "Metab: %.2f B", selected.metabolism);
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::HYBRID){
@@ -4187,7 +4210,7 @@ void GLView::renderAllTiles()
 					sprintf(buf, "Conns: %d", selected.brain.conns.size());
 					//isFixedTrait= true; //technically is an unchanging stat, but it's like, really important
 
-//				} else if(u==LADHudOverview::DEATH && selected.health==0){
+//				} else if(u==LADHudOverview::DEATH && selected.isDead()){
 //					sprintf(buf, selected.death.c_str());
 					//isFixedTrait= true; //technically is an unchanging stat, but every agent only ever gets just one, so let's keep it bright
 
