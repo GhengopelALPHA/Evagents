@@ -444,7 +444,7 @@ namespace VMATH_NAMESPACE
 	    return (*this) + (r - (*this)) * fact;	
 	 }
 	
-	 //added functions
+	 //get universal angle (from x-axis) of the vector in the interval [-pi,+pi] radians
 	 float get_angle()
 	 {
 		if(x==0 && y==0) return 0;

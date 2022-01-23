@@ -1,7 +1,7 @@
 #ifndef AGENT_H
 #define AGENT_H
 
-#include "DRAWSBrain.h"
+#include "CPBrain.h"
 #include "vmath.h"
 
 #include <vector>
@@ -12,21 +12,35 @@ class Agent
 {
 //IMPORTANT: if ANY variables are added/removed, you MUST check ReadWrite.cpp to see how loading and saving will be effected!!!
 public:
-	Agent(int NUMBOXES, float MEANRADIUS, float REP_PER_BABY, float MUTARATE1, float MUTARATE2);
+	Agent(
+		int NUMBOXES, 
+		int NUMINITCONNS, 
+		bool SPAWN_MIRROR_EYES, 
+		int OVERRIDE_KINRANGE,
+		float MEANRADIUS, 
+		float REP_PER_BABY, 
+		float BRAIN_MUTATION_CHANCE, 
+		float BRAIN_MUTATION_SIZE,
+		float GENE_MUTATION_CHANCE,
+		float GENE_MUTATION_SIZE);
 	Agent();
 		
 	//Saved Variables
 	//simulation basics
 	int id;
 	Vector2f pos;
-	Vector2f dpos; //UNSAVED
+	Vector2f dpos; //UNSAVED, but LOADED (with the pos values)
+	float height; //TODO
 	float angle; //of the bot
 
 	//Genes! WIP
-	std::vector<std::pair<int, float> > genes; //NEW genes. First is type, second is value. All Values of same Type get averaged or added
+	std::vector< std::pair<int, float> > genes; //TODO: NEW genes. First is type, second is value. All Values of same Type get averaged or added
+	//REDO! make new structs instead. need more variables
 
-	float MUTCHANCE; //how often do mutations occur?
-	float MUTSIZE; //how significant are they?
+	float brain_mutation_chance; //how often do mutations occur?
+	float brain_mutation_size; //how significant are they?
+	float gene_mutation_chance; //same as above, but for genes
+	float gene_mutation_size;
 	int parentid; //who's your momma? Note that like mitochondrial DNA, this is only passed from mother to children
 	float radius; //radius of bot
 	float gene_red, gene_gre, gene_blu; //genetic color traits of the agent. can be hidden by chamovid= 1
@@ -41,6 +55,7 @@ public:
 	float sexprojectbias; //a physical bias trait, making sexual reproduction easier for some species/members. in range [0,1]
 	//senses
 	float eye_see_agent_mod;
+	float eye_see_cell_mod;
 	std::vector<float> eyefov; //field of view for each eye
 	std::vector<float> eyedir; //direction of each eye
 	float hear_mod;
@@ -50,8 +65,9 @@ public:
 	float clockf1, clockf2, clockf3; //the frequencies of the three clocks of this bot
 	float blood_mod;
 	float smell_mod;
+
 	//the BRAIN!!!
-	DRAWSBrain brain;
+	CPBrain brain;
 	std::vector<float> in; //see Input in settings.h
 	std::vector<float> out; //see Output in settings.h
 
@@ -89,7 +105,7 @@ public:
 	std::vector<std::string> mutations;
 	std::vector<std::pair<std::string, float>> damages; //tracker for sources of injury
 	std::vector<std::pair<std::string, float>> intakes; //tracker for sources of intake
-	std::string death; //the cause of death of this agent
+	std::string death; //the cause of death of this agent. Do not load-save without handling spaces
 	
 	
 	//outputs
@@ -128,7 +144,14 @@ public:
 	void addIntake(std::string sourcetext, float amount);
 	void writeIfKilled();
 
-	Agent reproduce(Agent that, float MEANRADIUS, float REP_PER_BABY);
+	Agent reproduce(
+		Agent that,
+		bool PRESERVE_MIRROR_EYES,
+		int OVERRIDE_KINRANGE,
+		float MEANRADIUS,
+		float REP_PER_BABY,
+		int baby
+	);
 	void resetRepCounter(float MEANRADIUS, float REP_PER_BABY);
 
 	void liveMutate(int MUTMULT= 1);
@@ -145,17 +168,19 @@ public:
 	void setIdealTempPref(float temp= -1);
 	void setIdealLungs(float target);
 
+	bool isDead() const;
 	bool isHerbivore() const;
 	bool isCarnivore() const;
 	bool isFrugivore() const;
 	bool isTerrestrial() const;
 	bool isAmphibious() const;
 	bool isAquatic() const;
-	bool isSpikey(float SPIKELENGTH) const;
+	bool isSpikey(float SPIKE_LENGTH) const;
 	bool isTiny() const;
 	bool isTinyEye(int eyenumber) const;
 	bool isAsexual() const;
 	bool isMale() const;
+	int getRepType() const;
 	bool isGrabbing() const;
 	bool isGiving() const;
 	bool isSelfish(float MAXSELFISH) const;

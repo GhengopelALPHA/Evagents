@@ -213,7 +213,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\SOURCE\DRAWSBrain.cpp"
+				RelativePath=".\SOURCE\CPBrain.cpp"
 				>
 			</File>
 			<File
@@ -255,7 +255,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\SOURCE\DRAWSBrain.h"
+				RelativePath=".\SOURCE\CPBrain.h"
 				>
 			</File>
 			<File

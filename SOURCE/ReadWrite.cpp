@@ -28,11 +28,6 @@
 
 #include "ReadWrite.h"
 
-#include "settings.h"
-#include "helpers.h"
-#include <stdio.h>
-#include <iostream>
-
 using namespace std;
 
 ReadWrite::ReadWrite()
@@ -70,33 +65,49 @@ void ReadWrite::loadSettings(const char *filename)
 void ReadWrite::saveAgent(Agent *a, FILE *file)
 {
 	//NOTE: this method REQUIRES "file" to be opened and closed outside
+	//flags: <a></a>= agent, <y>= eye, <e>= ear, <b>=brain, <n>= conn, <x>= box
 	fprintf(file, "<a>\n"); //signals the writing of a new agent
-//	fprintf(file, "id= %i\n", a->id); //id not loaded
+	//variables: changing values
 	fprintf(file, "posx= %f\nposy= %f\n", a->pos.x, a->pos.y);
 	fprintf(file, "angle= %f\n", a->angle);
+	fprintf(file, "age= %i\n", a->age);
+	fprintf(file, "gen= %i\n", a->gencount);
+	fprintf(file, "hybrid= %i\n", (int) a->hybrid);
 	fprintf(file, "health= %f\n", a->health);
+	fprintf(file, "exhaustion= %f\n", a->exhaustion);
+	fprintf(file, "repcounter= %f\n", a->repcounter);
+	fprintf(file, "carcasscount= %i\n", a->carcasscount);
+	fprintf(file, "freshkill= %i\n", a->freshkill);
+	fprintf(file, "spike= %f\n", a->spikeLength);
+	fprintf(file, "jump= %f\n", a->jump);
+	fprintf(file, "dhealth= %f\n", a->dhealth);
+
+	//traits: fixed values
+	fprintf(file, "species= %i\n", a->species);
+	fprintf(file, "kinrange= %i\n", a->kinrange);
+	fprintf(file, "radius= %f\n", a->radius);
 	fprintf(file, "gene_red= %f\ngene_gre= %f\ngene_blu= %f\n", a->gene_red, a->gene_gre, a->gene_blu);
 	fprintf(file, "chamovid= %f\n", a->chamovid);
 	fprintf(file, "sexprojectbias= %f\n", a->sexprojectbias);
 	fprintf(file, "herb= %f\n", a->stomach[Stomach::PLANT]);
 	fprintf(file, "carn= %f\n", a->stomach[Stomach::MEAT]);
 	fprintf(file, "frug= %f\n", a->stomach[Stomach::FRUIT]);
-	fprintf(file, "exhaustion= %f\n", a->exhaustion);
-	fprintf(file, "carcasscount= %i\n", a->carcasscount);
-	fprintf(file, "species= %i\n", a->species);
-	fprintf(file, "kinrange= %i\n", a->kinrange);
-	fprintf(file, "radius= %f\n", a->radius);
-	fprintf(file, "spike= %f\n", a->spikeLength);
-	fprintf(file, "jump= %f\n", a->jump);
-	fprintf(file, "dhealth= %f\n", a->dhealth);
-	fprintf(file, "age= %i\n", a->age);
-	fprintf(file, "gen= %i\n", a->gencount);
-	fprintf(file, "hybrid= %i\n", (int) a->hybrid);
+	fprintf(file, "numbabies= %i\n", a->numbabies);
+	fprintf(file, "metab= %f\n", a->metabolism);
+	fprintf(file, "temppref= %f\n", a->temperature_preference);
+	fprintf(file, "lungs= %f\n", a->lungs);
+	fprintf(file, "brain_mutchance= %f\n", a->brain_mutation_chance);
+	fprintf(file, "brain_mutsize= %f\n", a->brain_mutation_size);
+	fprintf(file, "gene_mutchance= %f\n", a->gene_mutation_chance);
+	fprintf(file, "gene_mutsize= %f\n", a->gene_mutation_size);
+	fprintf(file, "parentid= %i\n", a->parentid);
+	fprintf(file, "strength= %f\n", a->strength);
 	fprintf(file, "cl1= %f\ncl2= %f\n", a->clockf1, a->clockf2);
 	fprintf(file, "smellmod= %f\n", a->smell_mod);
 	fprintf(file, "hearmod= %f\n", a->hear_mod);
 	fprintf(file, "bloodmod= %f\n", a->blood_mod);
-	fprintf(file, "eyemod= %f\n", a->eye_see_agent_mod);
+	fprintf(file, "eyemod_agent= %f\n", a->eye_see_agent_mod);
+	fprintf(file, "eyemod_cell= %f\n", a->eye_see_cell_mod);
 //		fprintf(file, "eyecellmod= %f\n", a->eye_see_cell_mod);
 	for(int q=0;q<a->eyedir.size();q++) {
 		fprintf(file, "<y>\n");
@@ -113,37 +124,36 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 		fprintf(file, "hearhigh= %f\n", a->hearhigh[q]);
 		fprintf(file, "</e>\n");
 	}
-	fprintf(file, "numbabies= %i\n", a->numbabies);
-	fprintf(file, "metab= %f\n", a->metabolism);
-	fprintf(file, "repc= %f\n", a->repcounter);
-	fprintf(file, "temppref= %f\n", a->temperature_preference);
-	fprintf(file, "lungs= %f\n", a->lungs);
+	//Note: Stats aren't saved
 //	fprintf(file, "indicator= %f\n", a->indicator);
 //	fprintf(file, "ir= %f\nig= %f\nib= %f\n", a->ir, a->ig, a->ib);
-//	fprintf(file, "give= %f\n", a->give);
-	fprintf(file, "mutchance= %f\nmutsize= %f\n", a->MUTCHANCE, a->MUTSIZE);
-	fprintf(file, "parentid= %i\n", a->parentid);
-	fprintf(file, "freshkill= %i\n", a->freshkill);
-	fprintf(file, "strength= %f\n", a->strength);
 	fprintf(file, "<b>\n"); //signals the writing of the brain (more for organization than proper loading)
+	fprintf(file, "boxes= %i\n", a->brain.boxes.size());
+	fprintf(file, "conns= %i\n", a->brain.conns.size());
+
+	for(int c=0;c<a->brain.conns.size();c++){
+		fprintf(file, "<n>\n"); //signals the writing of a specific numbered conn
+		fprintf(file, "conn#= %i\n", c);
+		fprintf(file, "type= %i\n", a->brain.conns[c].type);
+		fprintf(file, "w= %f\n", a->brain.conns[c].w);
+		fprintf(file, "sid= %i\n", a->brain.conns[c].sid);
+		fprintf(file, "tid= %i\n", a->brain.conns[c].tid);
+		fprintf(file, "seed= %i\n", a->brain.conns[c].seed);
+		fprintf(file, "</n>\n"); //end of conn
+	}
 
 	for(int b=0;b<a->brain.boxes.size();b++){
 		fprintf(file, "<x>\n"); //signals the writing of a specific numbered box
 		fprintf(file, "box#= %i\n", b);
 		fprintf(file, "kp= %f\n", a->brain.boxes[b].kp);
+		fprintf(file, "globalw= %f\n", a->brain.boxes[b].gw);
 		fprintf(file, "bias= %f\n", a->brain.boxes[b].bias);
 		fprintf(file, "seed= %i\n", a->brain.boxes[b].seed);
-		fprintf(file, "globalw= %f\n", a->brain.boxes[b].gw);
-		fprintf(file, "target= %f\n", a->brain.boxes[b].target);
-		fprintf(file, "out= %f\n", a->brain.boxes[b].out);
-		fprintf(file, "oldout= %f\n", a->brain.boxes[b].oldout);
-		for(int c=0;c<CONNS;c++){
-			fprintf(file, "<n>\n"); //signals the writing of a specific connection for a specific box
-			fprintf(file, "conn#= %i\n", c);
-			fprintf(file, "type= %i\n", a->brain.boxes[b].type[c]);
-			fprintf(file, "w= %f\n", a->brain.boxes[b].w[c]);
-			fprintf(file, "cid= %i\n", a->brain.boxes[b].id[c]);
-			fprintf(file, "</n>\n"); //end of connection
+		fprintf(file, "dead= %i\n", (int)a->brain.boxes[b].dead);
+		if(!a->isDead()) {
+			fprintf(file, "target= %f\n", a->brain.boxes[b].target);
+			fprintf(file, "out= %f\n", a->brain.boxes[b].out);
+			fprintf(file, "oldout= %f\n", a->brain.boxes[b].oldout);
 		}
 		fprintf(file, "</x>\n"); //end of box
 	}
@@ -157,14 +167,25 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 	//loadexact is flag for loading agent EXACTLY is same pos, same health, exhaustion, etc, if set to false we give it random spawn settings for non-genes
 	char address[32];
 	char line[64], *pos;
-	char var[16];
+	char var[32];
 	char dataval[16];
-	int mode= 2;//loading mode: -1= off, 0= world, 1= cell, 2= agent, 3= box, 4= connection, 5= eyes, 6= ears
+	int mode= ReadWriteMode::READY;
 
-	Agent xa(world->BRAINSIZE, world->MEANRADIUS, world->REP_PER_BABY, world->DEFAULT_MUTCHANCE, world->DEFAULT_MUTSIZE); //mock agent. gets moved and deleted after loading
+	Agent xa(
+		world->BRAINBOXES,
+		world->BRAINCONNS,
+		world->SPAWN_MIRROR_EYES,
+		world->OVERRIDE_KINRANGE,
+		world->MEANRADIUS,
+		world->REP_PER_BABY,
+		world->DEFAULT_BRAIN_MUTCHANCE,
+		world->DEFAULT_BRAIN_MUTSIZE,
+		world->DEFAULT_GENE_MUTCHANCE,
+		world->DEFAULT_GENE_MUTSIZE
+	); //Agent::Agent //mock agent. gets moved and deleted after loading
 	bool t2= false; //triggers for keeping track of where exactly we are
 
-	int eyenum= -1; //counters
+	int eyenum= -1; //temporary index holders
 	int earnum= -1;
 	int boxnum= -1;
 	int connnum= -1;
@@ -176,22 +197,26 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 		fgets(line, sizeof(line), file);
 		pos= strtok(line,"\n");
 		sscanf(line, "%s%s", var, dataval);
+
+		if(mode==ReadWriteMode::READY) {
+			if(strcmp(var, "<a>")==0){
+				mode = ReadWriteMode::AGENT;
+			}
+		}
 		
-		if(mode==2){
+		if(mode==ReadWriteMode::AGENT){
 			if(strcmp(var, "</a>")==0){
 				//end agent tag is checked for, and when found, copies agent xa to the world
-				//first, check a few compatability issues for old saves:
-				if(fileversion<0.065) xa.kinrange= conf::MAXDEVIATION;
-
 				if(loadexact) world->addAgent(xa);
 				else world->loadedagent= xa; //if we are loading a single agent, push it to buffer
-
 			}else if(strcmp(var, "posx=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.pos.x= f;
+				xa.dpos.x= f;
 			}else if(strcmp(var, "posy=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.pos.y= f;
+				xa.dpos.y= f;
 			}else if(strcmp(var, "angle=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.angle= f;
@@ -271,34 +296,39 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "bloodmod=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.blood_mod= f;
-			}else if(strcmp(var, "eyemod=")==0){
+			}else if(strcmp(var, "eyemod_agent=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.eye_see_agent_mod= f;
-//				}else if(strcmp(var, "eyecellmod=")==0){
-//					sscanf(dataval, "%f", &f);
-//					xa.eye_see_cell_mod= f;
+			}else if(strcmp(var, "eyemod_cell=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.eye_see_cell_mod= f;
 			}else if(strcmp(var, "numbabies=")==0){
 				sscanf(dataval, "%i", &i);
 				xa.numbabies= i;
 			}else if(strcmp(var, "metab=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.metabolism= f;
-			}else if(strcmp(var, "repc=")==0){
+			}else if(strcmp(var, "repcounter=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.repcounter= f;
 			}else if(strcmp(var, "temppref=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.temperature_preference= f;
-				if(fileversion<0.055) xa.temperature_preference= 1-f; //invert temp preference number from version 0.05 or before
 			}else if(strcmp(var, "lungs=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.lungs= f;
-			}else if(strcmp(var, "mutchance=")==0 || strcmp(var, "mutrate1=")==0){
+			}else if(strcmp(var, "brain_mutchance=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.MUTCHANCE= f;
-			}else if(strcmp(var, "mutsize=")==0 || strcmp(var, "mutrate2=")==0){
+				xa.brain_mutation_chance= f;
+			}else if(strcmp(var, "brain_mutsize=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.MUTSIZE= f;
+				xa.brain_mutation_size= f;
+			}else if(strcmp(var, "gene_mutchance=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.gene_mutation_chance= f;
+			}else if(strcmp(var, "gene_mutsize=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.gene_mutation_size= f;
 			}else if(strcmp(var, "parentid=")==0){
 				sscanf(dataval, "%i", &i);
 				xa.parentid= i;
@@ -308,16 +338,24 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "strength=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.strength= f;
+//			}else if(strcmp(var, "boxes=")==0){
+//				sscanf(dataval, "%i", &i);
+//				xa.brain.boxes.resize(i);
+			}else if(strcmp(var, "conns=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.brain.conns.resize(i);
 			}else if(strcmp(var, "<y>")==0){
-				mode= 5; //eye mode
+				mode= ReadWriteMode::EYE; //eye mode
+			}else if(strcmp(var, "<n>")==0){
+				mode= ReadWriteMode::CONN; //brain connection mode
 			}else if(strcmp(var, "<x>")==0){
-				mode= 3; //brain mode
+				mode= ReadWriteMode::BOX; //brain box mode
 			}else if(strcmp(var, "<e>")==0){
-				mode= 6; //ear mode
+				mode= ReadWriteMode::EAR; //ear mode
 			}
-		}else if(mode==5){ //mode @ 5 = eye (of agent)
+		}else if(mode==ReadWriteMode::EYE){
 			if(strcmp(var, "</y>")==0){
-				mode= 2;
+				mode= ReadWriteMode::AGENT; //revert to agent mode
 			}else if(strcmp(var, "eye#=")==0){
 				sscanf(dataval, "%i", &i);
 				eyenum= i;
@@ -328,9 +366,9 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 				sscanf(dataval, "%f", &f);
 				xa.eyefov[eyenum]= f;
 			}
-		}else if(mode==6){ //mode @ 6 = ear (of agent)
+		}else if(mode==ReadWriteMode::EAR){
 			if(strcmp(var, "</e>")==0){
-				mode= 2;
+				mode= ReadWriteMode::AGENT; //revert to agent mode
 			}else if(strcmp(var, "ear#=")==0){
 				sscanf(dataval, "%i", &i);
 				earnum= i;
@@ -344,24 +382,28 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 				sscanf(dataval, "%f", &f);
 				xa.hearhigh[earnum]= f;
 			}
-		}else if(mode==3){ //mode @ 3 = brain box (of agent)
+		}else if(mode==ReadWriteMode::BOX){
 			if(strcmp(var, "</x>")==0){
-				mode= 2;
+				mode= ReadWriteMode::AGENT; //revert to agent mode
 			}else if(strcmp(var, "box#=")==0){
 				sscanf(dataval, "%i", &i);
 				boxnum= i;
-			}else if(strcmp(var, "seed=")==0){
-				sscanf(dataval, "%i", &i);
-				xa.brain.boxes[boxnum].seed= i;
 			}else if(strcmp(var, "kp=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.brain.boxes[boxnum].kp= f;
-			}else if(strcmp(var, "bias=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.brain.boxes[boxnum].bias= f;
 			}else if(strcmp(var, "globalw=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.brain.boxes[boxnum].gw= f;
+			}else if(strcmp(var, "bias=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.brain.boxes[boxnum].bias= f;
+			}else if(strcmp(var, "seed=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.brain.boxes[boxnum].seed= i;
+			}else if(strcmp(var, "dead=")==0){
+				sscanf(dataval, "%i", &i);
+				if(i>=1) xa.brain.boxes[boxnum].dead= true;
+				else xa.brain.boxes[boxnum].dead= false;
 			}else if(strcmp(var, "target=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.brain.boxes[boxnum].target= f;
@@ -371,24 +413,28 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "oldout=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.brain.boxes[boxnum].oldout= f;
-			}else if(strcmp(var, "<n>")==0){
-				mode= 4;
 			}
-		}else if(mode==4){ //mode @ 4 = connection (of brain box of agent)
+		}else if(mode==ReadWriteMode::CONN){
 			if(strcmp(var, "</n>")==0){
-				mode= 3;
+				mode= ReadWriteMode::AGENT; //revert to agent mode
 			}else if(strcmp(var, "conn#=")==0){
 				sscanf(dataval, "%i", &i);
 				connnum= i;
 			}else if(strcmp(var, "type=")==0){
 				sscanf(dataval, "%i", &i);
-				xa.brain.boxes[boxnum].type[connnum]= i;
+				xa.brain.conns[connnum].type = i;
 			}else if(strcmp(var, "w=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.brain.boxes[boxnum].w[connnum]= f;
-			}else if(strcmp(var, "cid=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.brain.boxes[boxnum].id[connnum]= f;
+				xa.brain.conns[connnum].w = f;
+			}else if(strcmp(var, "sid=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.brain.conns[connnum].sid = i;
+			}else if(strcmp(var, "tid=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.brain.conns[connnum].tid = i;
+			}else if(strcmp(var, "seed=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.brain.conns[connnum].seed = i;
 			}
 		}
 	}
@@ -410,7 +456,7 @@ void ReadWrite::loadAgentFile(World *world, const char *address)
 }
 
 
-void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *filename)
+void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult, const char *filename)
 {
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
 	std::string addressSAV;
@@ -431,13 +477,14 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 	//start with saving world settings to compare with current
 	fprintf(fs,"<world>\n");
 	fprintf(fs,"V= %.2f\n",conf::VERSION);
-	fprintf(fs,"BRAINSIZE= %i\n", world->BRAINSIZE);
+	fprintf(fs,"BRAINBOXES= %i\n", world->BRAINBOXES);
 	fprintf(fs,"INPUTS= %i\n", Input::INPUT_SIZE);
 	fprintf(fs,"OUTPUTS= %i\n", Output::OUTPUT_SIZE);
-	fprintf(fs,"CONNECTIONS= %i\n", CONNS);
 	fprintf(fs,"WIDTH= %i\n", conf::WIDTH);
 	fprintf(fs,"HEIGHT= %i\n", conf::HEIGHT);
 	fprintf(fs,"CELLSIZE= %i\n", conf::CZ); //these saved values up till now are mostly for version control for now
+	fprintf(fs,"AGENTS_SEE_CELLS= %i\n", world->AGENTS_SEE_CELLS);
+	fprintf(fs,"AGENTS_DONT_OVERDONATE= %i\n", world->AGENTS_DONT_OVERDONATE);
 	//save settings which have GUI controls
 	fprintf(fs,"MOONLIT= %i\n", world->MOONLIT);
 	fprintf(fs,"MOONLIGHTMULT= %f\n", world->MOONLIGHTMULT);
@@ -453,7 +500,8 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 	fprintf(fs,"epoch= %i\n", world->current_epoch);
 	fprintf(fs,"mod= %i\n", world->modcounter);
 	fprintf(fs,"xpos= %f\n", xpos);
-	fprintf(fs,"ypos= %f\n", ypos); //GLView xtranslate and ytranslate
+	fprintf(fs,"ypos= %f\n", ypos);
+	fprintf(fs,"scale= %f\n", scalemult); //GLView xtranslate and ytranslate and scalemult
 	for(int cx=0;cx<world->CW;cx++){ //start with the layers
 		for(int cy=0;cy<world->CH;cy++){
 			float food= world->cells[Layer::PLANTS][cx][cy];
@@ -488,39 +536,45 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 	if(!world->isDemo()){
 		char line[1028], *pos;
 
-		//first, check if the last epoch in the saved report matches or is one less than the first one in the current report
+		//first, check if the last epoch and day in the saved report matches or is one less than the first one in the current report
 		FILE* fr = fopen("report.txt", "r"); 
 		FILE* ft = fopen(addressREP.c_str(), "r"); 
 		bool append= false;
-		char text[8]; //for checking
-		int epoch= 0;
-		int maxepoch= 0;
+		char epochtext[8], daytext[8]; //for checking
+		int epoch;
+		int maxepoch= -1;
+		int day;
+		int maxday= -1;
 
 		if(ft){
+			printf("Old report.txt found, ");
 			while(!feof(ft)){
 				fgets(line, sizeof(line), ft);
 				pos= strtok(line,"\n");
-				sscanf(line, "%s%i%*s", &text, &epoch);
-				if (strcmp(text, "Epoch:")==0) {
-					if (epoch>maxepoch) maxepoch= epoch;
+				sscanf(line, "%s%i%s%i%*s", &epochtext, &epoch, &daytext, &day);
+				if (strcmp(epochtext, "Epoch:")==0) {
+					if (epoch>=maxepoch) {
+						maxepoch= epoch;
+						maxday = day;
+					}
 				}
 			}
 			fclose(ft);
 
-			if(world->isDebug()) printf("Old report.txt found, and its last epoch was %i.\n", maxepoch);
+			if(world->isDebug()) printf("its last epoch was %i and day was %i.\n", maxepoch, maxday);
 			
 			//now compare the max epoch from original with the first entry of the new
 			if(fr){
 				fgets(line, sizeof(line), fr);
 				pos= strtok(line,"\n");
-				sscanf(line, "%s%i%*s", &text, &epoch);
-				if (strcmp(text, "Epoch:")==0) {
+				sscanf(line, "%s%i%s%i%*s", &epochtext, &epoch, &daytext, &day);
+				if (strcmp(epochtext, "Epoch:")==0) {
 					//if it is, we append, because this is (very likely) a continuation of that save
-					if(world->isDebug())printf("Our report.txt starts at epoch %i. ", epoch);
-					if (epoch==maxepoch || epoch==maxepoch+1){
+					if(world->isDebug()) printf("Our report.txt starts at epoch %i and day %i, ", epoch, day);
+					if ((epoch==maxepoch || epoch==maxepoch+1) && (day==maxday || day==maxday+1 || (maxday==1 && day>1))){
 						append= true;
-						printf("Old report.txt found with matching Epoch numbers. Apending to it.\n");
-					} else printf("Old report.txt found. Replacing it.\n");
+						printf("epoch and day numbers match. Apending to it.\n");
+					} else printf("Replacing it.\n");
 				}
 				rewind(fr);
 			}
@@ -537,32 +591,34 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, const char *file
 				fprintf(ft, line);
 			}
 		} else {
-			printf("report.txt didn\'t exist. That\'s... odd...\n");
+			printf("report.txt didn\'t exist. That\'s... odd... Stanley, what did you do?!\n");
 		}
 		fclose(fr); fclose(ft);
-	} else printf("Demo mode was active; no report data was ready\n");
 
-	//once we've saved, and checked if demo mode was active, we set it to false to make sure we start recording
-	world->setDemo(false);
+		if(append) {
+			//if we appended, then clear the current report so that we can save to the saved file's report once again if we don't restart the program
+			fopen("report.txt", "w");
+		}
+
+	} else printf("Demo mode was active; no report data was ready.\n");
 	
 	printf("World Saved!\n");
 }
 
-void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, const char *filename)
+void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, float &scalemult, const char *filename)
 {
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
 	std::string address;
 	char line[64], *pos;
-	char var[16];
+	char var[32];
 	char dataval[16];
 	int cxl= 0;
 	int cyl= 0;
-	int mode= -1;//loading mode: -1= off, 0= world, 1= cell, 2= agent, 3= box, 4= connection, 5= eyes, 6= ears
+	int mode= ReadWriteMode::READY;//loading mode: -1= off, 0= world, 1= cell, 2= agent, 3= box, 4= connection, 5= eyes, 6= ears
 
 	bool t1= false; //triggers for keeping track of where exactly we are
 
 	float fileversion= 0; //version 0.05+ upgrade tool
-	int cellmult= 1; //version 0.04 upgrade tool
 	int i; //integer buffer
 	float f; //float buffer
 
@@ -584,20 +640,27 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 			pos= strtok(line,"\n");
 			sscanf(line, "%s%s", var, dataval);
 
-			if(mode==-1){ //mode @ -1 = off
+			if(mode==ReadWriteMode::READY){
 				if(strcmp(var, "<world>")==0){ //strcmp= 0 when the arguements equal
 					//if we find a <world> tag, enable world loading and reset. simple
-					mode= 0;
+					mode= ReadWriteMode::WORLD;
 					world->reset();
 					printf("discovered world.\n"); //report status
+				} else if(strcmp(var, "<a>")==0){ //UNUSED
+					//if we instead immediately find an <a> tag, switch to agent loading mode - this save was only made with agents and we're meant to only load them
+					mode= ReadWriteMode::AGENT;
+					world->sanitize();
+					printf("discovered agent database.\n"); //report status
 				}
-			}else if(mode==0){ //mode @ 0 = world
-				if(strcmp(var, "V=")==0){
+			}else if(mode==ReadWriteMode::WORLD){
+				if(strcmp(var, "</world>")==0){ //check for end of world flag, indicating we're done
+					mode= ReadWriteMode::OFF;
+				}else if(strcmp(var, "V=")==0){
 					//version number
 					sscanf(dataval, "%f", &f);
 					if(f!=conf::VERSION) {
 						printf("ALERT: Version Number different! Expected V= %.2f, found V= %.2f\n", conf::VERSION, f);
-						if(f<0.04) {
+/*						if(f<0.04) {
 							printf("ALERT: version number < 0.04 detected! Multiplying all cell values by 2!\n");
 							cellmult= 2;
 						} if (f<0.06) {
@@ -607,12 +670,12 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 							printf("ALERT: version number < 0.07 detected! World temperature variables are being corrected and Global Climate change is %s!\n", climatestatus);
 							world->CLIMATEBIAS= 0.5;
 							world->CLIMATEMULT= 1; //these settings ensure global climate matches what was used in versions less than 0.07
-						}
+						}*/ //we are not converting old saves in version 0.07
 					}
 					fileversion= f;
-				}else if(strcmp(var, "BRAINSIZE=")==0){
+				}else if(strcmp(var, "BRAINBOXES=")==0){
 					sscanf(dataval, "%i", &i);
-					world->BRAINSIZE= i;
+					world->BRAINBOXES= i;
 				}else if(strcmp(var, "INPUTS=")==0){
 					sscanf(dataval, "%i", &i);
 					if(i!=Input::INPUT_SIZE) {
@@ -623,12 +686,6 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					sscanf(dataval, "%i", &i);
 					if(i!=Output::OUTPUT_SIZE) {
 						printf("ALERT: Brain Output size different! Issues WILL occur! Press enter to try and continue. . .\n");
-						cin.get();
-					}
-				}else if(strcmp(var, "CONNECTIONS=")==0){
-					sscanf(dataval, "%i", &i);
-					if(i!=CONNS) {
-						printf("ALERT: Brain CONNS per brain box different! Issues WILL occur! Press enter to try and continue. . .\n");
 						cin.get();
 					}
 				}else if(strcmp(var, "WIDTH=")==0){
@@ -652,6 +709,14 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 						printf("ALERT: Cell Size different! Issues WILL occur! Press enter to try and continue. . .\n");
 						cin.get();
 					}
+				}else if(strcmp(var, "AGENTS_SEE_CELLS=")==0){
+					sscanf(dataval, "%i", &i);
+					if(i==1) world->AGENTS_SEE_CELLS= true;
+					else world->AGENTS_SEE_CELLS= false;
+				}else if(strcmp(var, "AGENTS_DONT_OVERDONATE=")==0){
+					sscanf(dataval, "%i", &i);
+					if(i==1) world->AGENTS_DONT_OVERDONATE= true;
+					else world->AGENTS_DONT_OVERDONATE= false;
 				}else if(strcmp(var, "MOONLIT=")==0){
 					sscanf(dataval, "%i", &i);
 					if(i==1) world->MOONLIT= true;
@@ -705,7 +770,6 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					//mod count
 					sscanf(dataval, "%i", &i);
 					world->modcounter= i;
-					world->ptr= floor((float)i*world->REPORTS_PER_EPOCH/world->FRAMES_PER_EPOCH); //fix for loading saves breaking the epoch alignment of the data graph
 				}else if(strcmp(var, "CLOSED=")==0){
 					//closed state
 					sscanf(dataval, "%i", &i);
@@ -717,25 +781,29 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 //					if (i==1) ;
 //					else ;
 				}else if(strcmp(var, "xpos=")==0){
-					//veiw screen location x
+					//view screen location x
 					sscanf(dataval, "%f", &f);
 					xtranslate= f;
 				}else if(strcmp(var, "ypos=")==0){
-					//veiw screen location y
+					//view screen location y
 					sscanf(dataval, "%f", &f);
 					ytranslate= f;
+				}else if(strcmp(var, "scale=")==0){
+					//view screen scalemult
+					sscanf(dataval, "%f", &f);
+					scalemult= f;
 				}else if(strcmp(var, "<c>")==0){
 					//cells tag activates cell reading mode
-					mode= 1;
+					mode= ReadWriteMode::CELL;
 				}else if(strcmp(var, "<a>")==0){
 					//agent tag activates agent reading mode
 					//version 0.05: this is no longer a mode, but rather a whole another method. Should function identically
 					loadAgents(world, fl, fileversion); //when we leave here, should be EOF					
 				}
-			}else if(mode==1){ //mode @ 1 = cell
+			}else if(mode==ReadWriteMode::CELL){
 				if(strcmp(var, "</c>")==0){
-					//end_cell tag is checked for first, because of else condition
-					mode= 0;
+					//"end cell" tag is checked for first, because of else condition
+					mode= ReadWriteMode::WORLD;
 					if (!t1) printf("loading cells.\n"); //report status
 					t1= true;
 				}else if(strcmp(var, "cx=")==0){
@@ -746,16 +814,16 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 					cyl= i;
 				}else if(strcmp(var, "food=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::PLANTS][cxl][cyl]= f*cellmult; //cellmult is version 0.04 upgrade tool
+					world->cells[Layer::PLANTS][cxl][cyl]= f;
 				}else if(strcmp(var, "meat=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::MEATS][cxl][cyl]= f*cellmult;
+					world->cells[Layer::MEATS][cxl][cyl]= f;
 				}else if(strcmp(var, "hazard=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::HAZARDS][cxl][cyl]= f*cellmult;
+					world->cells[Layer::HAZARDS][cxl][cyl]= f;
 				}else if(strcmp(var, "fruit=")==0){
 					sscanf(dataval, "%f", &f);
-					world->cells[Layer::FRUITS][cxl][cyl]= f*cellmult;
+					world->cells[Layer::FRUITS][cxl][cyl]= f;
 				}else if(strcmp(var, "land=")==0){
 					sscanf(dataval, "%f", &f);
 					world->cells[Layer::ELEVATION][cxl][cyl]= f;
@@ -765,7 +833,11 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, co
 		fclose(fl);
 
 		printf("WORLD LOADED!\n");
+		world->addEvent("World Loaded!", EventColor::MINT);
 
+		world->setStatsAfterLoad();
+
+		world->processCells(true);
 		world->setInputs();
 		world->brainsTick();
 		world->processOutputs(true);

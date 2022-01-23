@@ -3,8 +3,8 @@
 
 #include "Agent.h"
 #include "settings.h"
-//#include "ReadWrite.h"
 #include <vector>
+#include <sstream>
 
 #include <irrKlang.h>
 using namespace irrklang;
@@ -56,6 +56,7 @@ public:
 
 	//following and selected agent stuff
 	int getSelectedID() const;
+	bool isAgentSelected(int id);
 
 	float pleft;
 	float pright;
@@ -65,7 +66,8 @@ public:
 	void setSelection(int type);
 	bool setSelectionRelative(int posneg);
 	void setSelectedAgent(int idx = -1);
-	int getSelectedAgent() const;
+	int getSelectedAgentIndex();
+	Agent* getSelectedAgent();
 	int getClosestRelative(int idx = -1);
 	void selectedHeal();
 	void selectedKill();
@@ -89,17 +91,17 @@ public:
 	bool processMouse(int button, int state, int x, int y, float scale);
     
 	//graph stuff
-    int numHerbivore[conf::RECORD_SIZE];
-	int numCarnivore[conf::RECORD_SIZE];
-	int numFrugivore[conf::RECORD_SIZE];
-	int numTerrestrial[conf::RECORD_SIZE];
-	int numAmphibious[conf::RECORD_SIZE];
-	int numAquatic[conf::RECORD_SIZE];
-	int numHybrid[conf::RECORD_SIZE];
-	int numDead[conf::RECORD_SIZE];
-	int numTotal[conf::RECORD_SIZE];
-	int ptr;
-	int lastptr;
+	std::vector<int> graphGuides;
+	std::vector<int> numTotal;
+	std::vector<int> numDead;
+	std::vector<int> numHerbivore;
+	std::vector<int> numCarnivore;
+	std::vector<int> numFrugivore;
+	std::vector<int> numTerrestrial;
+	std::vector<int> numAmphibious;
+	std::vector<int> numAquatic;
+	std::vector<int> numHybrid;
+	std::vector<int> numSpiky; //UNUSED
 
 	//counters
 	int modcounter;
@@ -110,12 +112,24 @@ public:
 	std::vector<Agent> agents;
 	Agent loadedagent;
 
+	void processWorldTick(); //handle all tick/day/report/epoch opperations
+	void processNewEpoch();
+	void processClimate();
+	void processMutationEvent();
+	void processReporting();
+	void triggerStatEvents(bool showevents= true);
+	void processCells(bool prefire= false);
+	void tryPlayMusic(); //CONTROL.CPP!!!
 	void setInputs();
 	void brainsTick();  //takes in[] to out[] for every agent
+	void processCounters(); //handle most agent counter variables and do other stuff before processOutputs and healthTick
     void processOutputs(bool prefire= false); //prefire used to run post-load sim restoration before restart
-	void processInteractions(); //does the final causes of death and interactions with cells and agents
-
-	void healthTick();
+	void healthTick(); //process agent health
+	void processReproduction(); //handle all agent's reproduction needs
+	void processCellInteractions(); //does interactions of agents with cells
+	void processAgentInteractions(); //does interactions of agents with agents
+	void processDeath(); //manage the distribution of meat, alerts, and death system functions
+	void processRandomSpawn(); //handle spawning of random agents; gotta keep the world filled!
 
 	void addAgent(Agent &agent);
 	bool addLoadedAgent(float x, float y);
@@ -130,7 +144,10 @@ public:
 
 	std::vector<std::pair <std::string ,std::pair <int,int> > > events; //short-term record of events happening in the sim. includes text, type, and counter
 	void addEvent(std::string text, int type= 0); //adds event to the event list. max of ~40 characters
+	void addTipEvent(std::string text, int type, int agentId); //post an event only if we: A: are in demo mode, and B: have the current agent selected that matches the index passed
 	void dismissNextEvents(int count= 1); //dismisses next [count] events (starts their disappearing act, doesn't delete them!)
+
+	void setStatsAfterLoad();
 
 	//helper functions to give us counts of agents and cells
     int getHerbivores() const;
@@ -162,6 +179,13 @@ public:
 	float cells[Layer::LAYERS][conf::WIDTH/conf::CZ][conf::HEIGHT/conf::CZ]; //[LAYER][CELL_X][CELL_Y]
 	std::vector<std::vector<float> > Tcells[Layer::LAYERS]; //test cell layer: array of 2-d vectors. Array portion is immutable layer data. 2-d size is adjustable
 
+	//public stats
+	int STAThighestgen; //highest and lowest generation (excluding gen 0 unless that's all there is)
+	int STATlowestgen;
+	float STATinvgenrange; //range of generation values, with high-gen forcast, inverted (1/this)
+	int MINPOP;
+	int MAXPOP;
+	bool MAXAFTERMIN; //if max is set after min (pop rise), this returns true, otherwise false (pop fall)
 
 	//reloadable "constants"
 	int MIN_PLANT;
@@ -188,6 +212,9 @@ public:
 	float OCEANPERCENT;
 	bool SPAWN_LAKES;
 	bool DISABLE_LAND_SPAWN;
+	float AMBIENT_LIGHT_PERCENT;
+	bool AGENTS_SEE_CELLS;
+	bool AGENTS_DONT_OVERDONATE;
 	bool MOONLIT;
 	float MOONLIGHTMULT; //saved multiplier of the desired moonlight mult
 	bool DROUGHTS;
@@ -198,29 +225,37 @@ public:
 	int MUTEVENTMULT; //saved multiplier of the current epoch mutation chance & count multiplier (min always 1)
 	int MUTEVENT_MAX;
 	bool CLIMATE;
-	bool CLIMATE_KILL_FLORA;
+	bool CLIMATE_AFFECT_FLORA;
 	float CLIMATEBIAS; //saved bias of the current epoch climate state. This can push the entire planet towards 0 or 1 temperature
 	float CLIMATEMULT; //saved multiplier of the current epoch climate state. This can blend the poles and equator closer to CLIMATEBIAS
 	float CLIMATEMULT_AVERAGE;
 	float CLIMATE_INTENSITY;
-	float GRAVITYACCEL;
+	float GRAVITY_ACCELERATION;
 	float BUMP_PRESSURE;
 	float GRAB_PRESSURE;
-	int BRAINSIZE;
+	int BRAINBOXES;
+	int BRAINCONNS;
 	float WHEEL_SPEED;
-	float BOOSTSIZEMULT;
-	float BOOSTEXAUSTMULT;
+	float JUMP_MOVE_BONUS_MULT;
+	float BOOST_MOVE_MULT;
+	float BOOST_EXAUSTION_MULT;
 	int CORPSE_FRAMES;
 	float CORPSE_MEAT_MIN;
-	float SOUNDPITCHRANGE;
+	float SOUND_PITCH_RANGE;
+	float INV_SOUND_PITCH_RANGE;
 
-	float FOODTRANSFER;
-	float BASEEXHAUSTION;
-	float EXHAUSTION_MULT;
 	float MEANRADIUS;
+	float GENEROCITY_RATE;
+	float BASEEXHAUSTION;
+	float EXHAUSTION_MULT_PER_OUTPUT;
+	float EXHAUSTION_MULT_PER_CONN;
 	float SPIKESPEED;
+	bool SPAWN_MIRROR_EYES;
+	bool PRESERVE_MIRROR_EYES;
+
 	int FRESHKILLTIME;
 	int TENDERAGE;
+	float INV_TENDERAGE;
 	float MINMOMHEALTH;
 	float MIN_INTAKE_HEALTH_RATIO;
 	bool FUN;
@@ -230,16 +265,20 @@ public:
 	float REP_PER_BABY;
 	float OVERHEAL_REPFILL;
 //	float LEARNRATE;
-	float MAXDEVIATION;
-	float DEFAULT_MUTCHANCE;
-	float DEFAULT_MUTSIZE;
+	int OVERRIDE_KINRANGE;
+	float DEFAULT_BRAIN_MUTCHANCE;
+	float DEFAULT_BRAIN_MUTSIZE;
+	float DEFAULT_GENE_MUTCHANCE;
+	float DEFAULT_GENE_MUTSIZE;
 	float LIVE_MUTATE_CHANCE;
 	int MAXAGE;
 	int MAXWASTEFREQ;
 
-	float DIST;
-	float SPIKELENGTH;
-	float TOOCLOSE;
+	float MAX_SENSORY_DISTANCE;
+	float INV_MAX_SENSORY_DISTANCE;
+	float SPIKE_LENGTH;
+	float BITE_DISTANCE;
+	float BUMP_DAMAGE_OVERLAP;
 	float FOOD_SHARING_DISTANCE;
 	float SEXTING_DISTANCE;
 	float GRABBING_DISTANCE;
@@ -249,6 +288,7 @@ public:
 	float HEALTHLOSS_BOOSTMULT;
 	float HEALTHLOSS_BADTEMP;
 	float HEALTHLOSS_AGING;
+	float HEALTHLOSS_EXHAUSTION;
 	float HEALTHLOSS_BRAINUSE;
 	float HEALTHLOSS_SPIKE_EXT;
 	float HEALTHLOSS_BADTERRAIN;
@@ -259,40 +299,42 @@ public:
 	float DAMAGE_COLLIDE;
 	float DAMAGE_JAWSNAP;
 
-	float STOMACH_EFF;
+	float STOMACH_EFFICIENCY;
 
-	float FOODINTAKE;
-	float FOODDECAY;
-	float FOODGROWTH;
-	float FOODWASTE;
-	int FOODADDFREQ;
-	float FOODSPREAD;
-	int FOODRANGE;
+	float PLANT_INTAKE;
+	float PLANT_DECAY;
+	float PLANT_GROWTH;
+	float PLANT_WASTE;
+	int PLANT_ADD_FREQ;
+	float PLANT_SPREAD;
+	int PLANT_RANGE;
+	float PLANT_TENACITY;
 
-	float FRUITINTAKE;
-	float FRUITDECAY;
-	float FRUITWASTE;
-	int FRUITADDFREQ;
-	float FRUITREQUIRE;
+	float FRUIT_INTAKE;
+	float FRUIT_DECAY;
+	float FRUIT_WASTE;
+	int FRUIT_ADD_FREQ;
+	float FRUIT_PLANT_REQUIRE;
 
-	float MEATINTAKE;
-	float MEATDECAY;
-	float MEATWASTE;
-	float MEATVALUE;
+	float MEAT_INTAKE;
+	float MEAT_DECAY;
+	float MEAT_WASTE;
+	float MEAT_VALUE;
+	float MEAT_NON_FRESHKILL_MULT;
 
-	int HAZARDFREQ;
-	float HAZARDEVENT_MULT;
-	float HAZARDDECAY;
-	float HAZARDDEPOSIT;
-	float HAZARDDAMAGE;
-	float HAZARDPOWER;
+	int HAZARD_EVENT_FREQ;
+	float HAZARD_EVENT_MULT;
+	float HAZARD_DECAY;
+	float HAZARD_DEPOSIT;
+	float HAZARD_DAMAGE;
+	float HAZARD_POWER;
 
 	std::vector<std::string> tips;//list of tips to display every once in a while (more frequently at epoch=0)
     
 private:
     void writeReport();
 	    
-    void reproduce(int ai, int bi);
+	void reproduce(int ai, int bi);
 
 	void cellsRandomFill(int layer, float amount, int number);
 	void cellsLandMasses();
@@ -334,6 +376,8 @@ private:
 	float STATallmeat; //exact number sum of all plant matter
 	float STATallhazard; //exact number sum of all plant matter
 
+	bool STATuserseengenerosity; //true if the user was shown an event when an agent sent health via generosity
+	bool STATuserseenjumping; //true if the user has seen jumping
 	bool STATuseracted; //true if the user took control of an agent
 	bool STATfirstspecies; //true if we have had at least one agent with a generation =5 during a report
 	bool STATfirstpopulation; //true if we had a population count of > AGENTS_MAX_SPAWN

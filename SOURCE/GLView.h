@@ -35,6 +35,7 @@ void glui_handleCloses(int action);
 struct Color3f
 {
 	Color3f() : red(0), gre(0), blu(0.1) {} //navy-blue default color
+	Color3f(float v) : red(v), gre(v), blu(v) {}
 	Color3f(float r, float g) : red(r), gre(g), blu(0.1) {}
 	Color3f(float r, float g, float b) : red(r), gre(g), blu(b) {}
 	void mix(Color3f ocolor) {
@@ -113,9 +114,14 @@ private:
 	Color3f setColorSpecies(float species);
 	Color3f setColorCrossable(float species);
 	Color3f setColorGenerocity(float give);
-	Color3f setColorRepCount(float repcount, bool asexual);
-	Color3f setColorMutations(float rate, float size);
 	Color3f setColorStrength(float strength);
+	Color3f setColorRepType(int type);
+	Color3f setColorRepCount(float repcount, int type);
+	Color3f setColorMutations(float rate, float size);
+	Color3f setColorGeneration(int gen);
+
+	//3f agent part color defs
+	std::pair<Color3f,float> setColorEar(int index);
 
 	//3f cell color defs
 	Color3f setColorCellsAll(const float values[Layer::LAYERS]);
@@ -152,10 +158,12 @@ private:
 	World *world; //the WORLD
 	void syncLiveWithWorld(); //sync all important variables with their World counterparts, because they could have been changed by world
 	//live variable support via glui
+	int live_demomode; //are we in demo mode?
 	int live_mousemode; //what mode is the mouse using?
 	int live_worldclosed; //is the world closed?
 	int live_paused; //are we paused?
 	int live_playmusic; //is music allowed to play?
+	int live_playsounds; //are any sounds allowed to play at all?
 	int live_fastmode; //are we drawing?
 	int live_skipdraw; //are we skipping some frames?
 	int live_agentsvis; //are we drawing agents? If so, what's the scheme? see namespace "Visuals" in settings.h for details
@@ -167,6 +175,7 @@ private:
 	int live_autosave; //are we allowing autosaves?
 	int live_grid; //override usual grid behavior and always draw grid?
 	int live_hidedead; //hide dead agents?
+	int live_hidegenz; //hide generation zero agents? (no hard feelings)
 	int live_landspawns; // are landspawns enabled
 	int live_moonlight; //is moonlight enabled?
 	float live_oceanpercent; //what is the setting for the percentage of water in the world?
@@ -217,7 +226,7 @@ private:
 	bool uiclicked; //was the ui clicked recently? used to disable drag fuctions if inital click was on UI
 
 	int ui_layerpreset; //user can select a preset of layer displays using this
-	int ui_sadmode; //what rendering mode are we using for the Selected Agent Display? 0= off (text only), 1= normal agent view, 2= damage pie chart
+	int ui_ladmode; //what rendering mode are we using for the Loaded Agent Display?
 	bool ui_movetiles; //are we allowing tiles to be moved?
 	std::vector<UIElement> maintiles; //list of interactive tile buttons! WIP
 
