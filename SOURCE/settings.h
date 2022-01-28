@@ -583,7 +583,7 @@ namespace conf {
 	const bool SPAWN_LAKES= true; //(.cfg)
 
 	const int AGENTS_MIN_NOTCLOSED= 50; //(.cfg)
-	const int AGENTS_MAX_SPAWN= 400; //(.cfg)
+	const int AGENTS_MAX_SPAWN= 600; //(.cfg)
 	const int AGENTSPAWN_FREQ= 75; //(.cfg)
 	const int AGENTS_MAX_NOOXYGEN= 2400; //(.cfg)
 	const int SPECIESID_RANGE= 9000; //species ID range between (-this,this) that agents will spawn with. Note it is not capped
@@ -646,7 +646,7 @@ namespace conf {
 	const float EXHAUSTION_MULT_PER_OUTPUT= 1.0; //(.cfg)
 	const float EXHAUSTION_MULT_PER_CONN= 0.02; //(.cfg)
 	const int MAXWASTEFREQ= 200; //(.cfg)
-	const float GENEROCITY_RATE= 0.1; //(.cfg)
+	const float GENEROSITY_RATE= 0.1; //(.cfg)
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
 	const float SPIKESPEED= 0.003; //(.cfg)
 	const float VELOCITYSPIKEMIN= 0.2; //minimum velocity difference between two agents in the positive direction to be spiked by the other
@@ -673,8 +673,8 @@ namespace conf {
 	const int OVERRIDE_KINRANGE= -1; //(.cfg)
 	const int VISUALIZE_RELATED_RANGE= 30; // what's the range in addition to agent's kinrange that we go ahead and say maybe they were related
 	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
-	const float META_MUTCHANCE= 0.1; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
-	const float META_MUTSIZE= 0.003;
+	const float META_MUTCHANCE= 0.08; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
+	const float META_MUTSIZE= 0.002;
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
 	const float DEFAULT_BRAIN_MUTCHANCE= 0.03; //(.cfg)
 	const float DEFAULT_BRAIN_MUTSIZE= 0.01; //(.cfg)
@@ -689,7 +689,7 @@ namespace conf {
 	const float FOOD_SHARING_DISTANCE= 60; //(.cfg)
 	const float SEXTING_DISTANCE= 60; //(.cfg)
 	const float GRABBING_DISTANCE= 40; //(.cfg)
-	const float SMELL_DIST_MULT= 0.5; //multiplier for cell and agent smell distance
+	const float SMELL_DIST_MULT= 0.5; //additional multiplier for cell and agent smell distance.
 //	const float BLOOD_SENSE_DISTANCE= 50; //(.cfg)
 
 	//life and death things
@@ -759,7 +759,7 @@ namespace conf {
 
 	const char MEAT_TEXT[]= "Meat Food";
 	const float MEAT_INTAKE= 0.06; //(.cfg)
-	const float MEAT_DECAY= 0.000005; //(.cfg)
+	const float MEAT_DECAY= 0.00002; //(.cfg)
 	const float MEAT_WASTE= 0.0023; //(.cfg)
 	const float MEAT_VALUE= 1.0; //(.cfg)
 	const float MEAT_NON_FRESHKILL_MULT = 0.5; //(.cfg)

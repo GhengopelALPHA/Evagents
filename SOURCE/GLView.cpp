@@ -1829,9 +1829,9 @@ Color3f GLView::setColorTempPref(float discomfort)
 Color3f GLView::setColorMetabolism(float metabolism)
 {
 	Color3f color;
-	color.red= 2*(1-metabolism);
-	color.gre= 2*(metabolism-0.1)*(1.9-2*metabolism)*(2-metabolism);
-	color.blu= 4*(3*metabolism-1)*(1-metabolism);
+	color.red= 8*(0.8-metabolism)*(metabolism);
+	color.gre= 3*(metabolism-0.2)*(2.2-2*metabolism);
+	color.blu= 2*(5*metabolism-2);
 	return color;
 }
 
@@ -1894,7 +1894,7 @@ Color3f GLView::setColorCrossable(float species)
 Color3f GLView::setColorGenerocity(float give)
 {
 	Color3f color;
-	float val= cap(abs(give)*10/world->GENEROCITY_RATE)*2/3;
+	float val= cap(abs(give)*10/world->GENEROSITY_RATE)*2/3;
 	if(give>0) color.gre= val;
 	else color.red= val;
 	if(abs(give)<0.001) { color.blu= 0.75; color.gre= 0.5; }
@@ -2740,16 +2740,15 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 				world->linesB.resize(0);
 				
 				//debug cell smell box: outlines all cells the selected agent is "smelling"
-				
-				int minx, maxx, miny, maxy;
+
 				int scx= (int) (agent.pos.x/conf::CZ);
 				int scy= (int) (agent.pos.y/conf::CZ);
 
-				float distmult= conf::SMELL_DIST_MULT/(float)conf::CZ/2;
-				minx= (scx-world->MAX_SENSORY_DISTANCE*distmult) > 0 ? (scx-world->MAX_SENSORY_DISTANCE*distmult)*conf::CZ : 0;
-				maxx= (scx+1+world->MAX_SENSORY_DISTANCE*distmult) < conf::WIDTH/conf::CZ ? (scx+1+world->MAX_SENSORY_DISTANCE*distmult)*conf::CZ : conf::WIDTH;
-				miny= (scy-world->MAX_SENSORY_DISTANCE*distmult) > 0 ? (scy-world->MAX_SENSORY_DISTANCE*distmult)*conf::CZ : 0;
-				maxy= (scy+1+world->MAX_SENSORY_DISTANCE*distmult) < conf::HEIGHT/conf::CZ ? (scy+1+world->MAX_SENSORY_DISTANCE*distmult)*conf::CZ : conf::HEIGHT;
+				int celldist = (int)ceil( world->MAX_SENSORY_DISTANCE*conf::SMELL_DIST_MULT/(float)conf::CZ/2 );
+				int minx = std::max(scx - celldist, 0)*conf::CZ;
+				int maxx = std::min(scx+1 + celldist, world->CW)*conf::CZ;
+				int miny = std::max(scy - celldist, 0)*conf::CZ;
+				int maxy = std::min(scy+1 + celldist, world->CH)*conf::CZ;
 
 				glColor3f(0,1,0);
 				glVertex3f(minx,miny,0);

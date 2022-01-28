@@ -409,7 +409,7 @@ void Agent::printSelf()
 	printf("pos & angle: (%f,%f), %f\n", pos.x, pos.y, angle);
 	printf("health, age, & gencount: %f, %.1f, %i\n", health, (float)age/10, gencount);
 	printf("brain_mutation_chance: %f, brain_mutation_size: %f\n", brain_mutation_chance, brain_mutation_size);
-	printf("parent ID: &i\n", parentid);
+	printf("parent ID: %i\n", parentid);
 	printf("radius: %f\n", radius);
 	printf("strength: %f\n", strength);
 	printf("camo: %f\n", chamovid);

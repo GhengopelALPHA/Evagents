@@ -21,4 +21,5 @@ settings.cfg
 report.txt
 *.xlsm
 *.docx
+*.tmp
 *.rtf

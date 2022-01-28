@@ -59,7 +59,9 @@ void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitc
 {
 	//try to play audio at location x,y if specified (if not, just play 2D audio), and with a specified pitch change multiple
 	if(dosounds){ //dosounds is set by GLView and disables when rendering is disabled
-		if(DEBUG) printf("Trying to play sound '%s' ... ", soundFileName);
+		#if defined(_DEBUG)
+			if(DEBUG) printf("Trying to play sound '%s' ... ", soundFileName);
+		#endif
 		#pragma omp critical
 		if(soundFileName!=NULL){
 			ISound* play = 0;
@@ -71,7 +73,9 @@ void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitc
 				play->setVolume(volume);
 			}
 		}
-		if(DEBUG) printf("success!\n");
+		#if defined(_DEBUG)
+			if(DEBUG) printf("success!\n");
+		#endif
 	}
 }
 
@@ -1148,9 +1152,6 @@ void World::tryPlayMusic()
 					if(last5songs[i]==-1) {
 						last5songs[(i+4)%5]= -1; // this little do-dad will set the next index to -1, allowing us to cycle!
 						last5songs[i]= songindex;
-						#if defined(_DEBUG)
-						printf(", added to list of recent songs\n");
-						#endif
 						break;
 					}
 				}
@@ -1202,7 +1203,7 @@ void World::setInputs()
 		vector<float> r(NUMEYES, 0);
 		vector<float> g(NUMEYES, 0);
 		vector<float> b(NUMEYES, 0);
-		if (!AGENTS_SEE_CELLS && a->isTiny()) {
+		if (!AGENTS_SEE_CELLS) {
 			r.assign(NUMEYES, AMBIENT_LIGHT_PERCENT*light);
 			g.assign(NUMEYES, AMBIENT_LIGHT_PERCENT*light);
 			b.assign(NUMEYES, AMBIENT_LIGHT_PERCENT*light);
@@ -1214,11 +1215,11 @@ void World::setInputs()
 		float fruit= 0, meat= 0, hazard= 0, water= 0;
 
 		//cell sense min-max's
-		float distmult= conf::SMELL_DIST_MULT/(float)conf::CZ/2;
-		int minx= max((scx-MAX_SENSORY_DISTANCE*distmult),(float)0);
-		int maxx= min((scx+1+MAX_SENSORY_DISTANCE*distmult),(float)CW);
-		int miny= max((scy-MAX_SENSORY_DISTANCE*distmult),(float)0);
-		int maxy= min((scy+1+MAX_SENSORY_DISTANCE*distmult),(float)CH);
+		int celldist= ceil(MAX_SENSORY_DISTANCE*conf::SMELL_DIST_MULT/(float)conf::CZ/2);
+		int minx= max((scx - celldist), 0);
+		int maxx= min((scx+1 + celldist), CW);
+		int miny= max((scy - celldist), 0);
+		int maxy= min((scy+1 + celldist), CH);
 
 		//---AGENT-CELL SENSES---//
 		for(int tcx= minx; tcx<maxx; tcx++){
@@ -1243,6 +1244,9 @@ void World::setInputs()
 
 					for(int q=0;q<NUMEYES;q++){
 						if(a->isTiny() && !a->isTinyEye(q)){ //small agents have half-count of eyes, the rest just keep the ambient light values they got
+							r[q] = AMBIENT_LIGHT_PERCENT*light;
+							g[q] = AMBIENT_LIGHT_PERCENT*light;
+							b[q] = AMBIENT_LIGHT_PERCENT*light;
 							continue;
 						}						
 
@@ -1263,19 +1267,32 @@ void World::setInputs()
 							//we see the cell with this eye. Accumulate stats
 							float sight_mult= AMBIENT_LIGHT_PERCENT*cap(lightmult*((fov - eye_target_angle)/fov)*(1-d*d*invDIST*invDIST));
 
-							float seen_r = 0, seen_g = 0, seen_b = 0;
+							for (int l=0; l < Layer::LAYERS; l++) {
+								float seen_r = 0, seen_g = 0, seen_b = 0;
 
-							seen_r += sight_mult*cells[Layer::MEATS][tcx][tcy]; //meat looks red
-							seen_g += sight_mult*cells[Layer::PLANTS][tcx][tcy]; //plants are green
-							seen_r += sight_mult*cells[Layer::FRUITS][tcx][tcy]; //fruit looks yellow
-							seen_g += sight_mult*cells[Layer::FRUITS][tcx][tcy];
-							seen_r += sight_mult*cells[Layer::HAZARDS][tcx][tcy]; //hazards are purple
-							seen_b += sight_mult*cells[Layer::HAZARDS][tcx][tcy];
-							seen_b += sight_mult*(cells[Layer::ELEVATION][tcx][tcy]<Elevation::BEACH_MID ? 1.0 : 0.0); //water is blue
+								if (l == Layer::PLANTS) { 
+									//plants are green
+									seen_g = sight_mult*cells[Layer::PLANTS][tcx][tcy];
+								} else if (l == Layer::FRUITS) { 
+									//fruit looks yellow
+									seen_r = sight_mult*cells[Layer::FRUITS][tcx][tcy]; 
+									seen_g = sight_mult*cells[Layer::FRUITS][tcx][tcy];
+								} else if (l == Layer::MEATS) { 
+									//meat looks red
+									seen_r = sight_mult*cells[Layer::MEATS][tcx][tcy]; 
+								} else if (l == Layer::HAZARDS) { 
+									//hazards are purple
+									seen_r = sight_mult*cells[Layer::HAZARDS][tcx][tcy]; 
+									seen_b = sight_mult*cells[Layer::HAZARDS][tcx][tcy];
+								} else if (l == Layer::ELEVATION) { 
+									//water is blue
+									seen_b = sight_mult*(cells[Layer::ELEVATION][tcx][tcy]<Elevation::BEACH_MID ? 1.0 : 0.0); 
+								}
 
-							if(r[q]<seen_r) r[q]= seen_r;
-							if(g[q]<seen_g) g[q]= seen_g;
-							if(b[q]<seen_b) b[q]= seen_b;
+								if(r[q]<seen_r) r[q]= seen_r;
+								if(g[q]<seen_g) g[q]= seen_g;
+								if(b[q]<seen_b) b[q]= seen_b;
+							}
 
 							if(isAgentSelected(a->id) && isDebug()){
 								linesA.push_back(a->pos);
@@ -1900,7 +1917,7 @@ void World::processAgentInteractions()
 
 				//---HEALTH GIVING---//
 
-				if (FOOD_SHARING_DISTANCE>0 && GENEROCITY_RATE!=0 && !a->isSelfish(conf::MAXSELFISH) && a2->health+GENEROCITY_RATE<2) {
+				if (FOOD_SHARING_DISTANCE>0 && GENEROSITY_RATE!=0 && !a->isSelfish(conf::MAXSELFISH) && a2->health+GENEROSITY_RATE<2) {
 					//all non-selfish agents allow health trading to anyone within their kin range
 					float deviation = abs(a->species - a2->species);
 
@@ -1908,9 +1925,9 @@ void World::processAgentInteractions()
 					//rd is the max range allowed to agent j. If generous, range allowed, otherwise bots must basically touch
 
 					if (d <= rd && deviation <= a->kinrange) {
-						float healthrate = a->isGiving() ? GENEROCITY_RATE*a->give : GENEROCITY_RATE*2*a->give;
+						float healthrate = a->isGiving() ? GENEROSITY_RATE*a->give : GENEROSITY_RATE*2*a->give;
 						//healthrate goes from 0->1 for give [0,0.5], and from 0.5->1 for give (0.5,1]...
-						if(d <= sumrad + 1 && a->isGiving()) healthrate = GENEROCITY_RATE;
+						if(d <= sumrad + 1 && a->isGiving()) healthrate = GENEROSITY_RATE;
 						//...it is maxxed when touching and generous...
 						if(a->give != 1 && AGENTS_DONT_OVERDONATE) healthrate = capm(healthrate, 0, cap(a->health - a2->health)/2);
 						//...and can't give more than half the diff in health if agent is max giving (if they are, it is possible to give till they die)
@@ -2196,7 +2213,7 @@ void World::processReproduction()
 						if(distance>SEXTING_DISTANCE) continue;
 
 						//prepare to add agents[i].numbabies to world, with two parents
-						if(DEBUG) printf("/nAttempting to have children...");
+						if(DEBUG) printf("Attempting to have children...");
 
 						reproduce(mother, father);
 
@@ -2208,7 +2225,7 @@ void World::processReproduction()
 					}
 				} else {
 					//this adds mother's numbabies to world, but with just one parent (budding)
-					if(DEBUG) printf("/nAttempting budding...");
+					if(DEBUG) printf("Attempting budding...");
 
 					reproduce(mother, mother);
 
@@ -2504,18 +2521,38 @@ int World::getClosestRelative(int idx)
 		for (int i=0; i<(int)agents.size(); i++) {
 			if(idx==i) continue;
 
-			if(!agents[i].isDead() && abs(agents[idx].species - agents[i].species) < agents[i].kinrange){
+			if(!agents[i].isDead() && abs(agents[idx].species - agents[i].species) <= agents[idx].kinrange){
 				//choose an alive agent that is within kin range; closer the better
-				meta= 1+agents[i].kinrange-abs(agents[idx].species-agents[i].species);
-			} else continue; //if you aren't related, you're off to a very bad start if we're trying to find relatives... skip!
+				meta= 1 - abs(agents[idx].species - agents[i].species);
+			} else continue; //if you aren't related, or dead, you're off to a very bad start if we're trying to find relatives... skip!
 
-			if(agents[i].age<TENDERAGE) meta+= 3; //choose young agents at least
-			if(agents[idx].gencount+1==agents[i].gencount) { meta+= 3; bestrelative= "youngling"; } //choose children or nephews and nieces
-			else if(agents[idx].gencount==agents[i].gencount) { meta+= 2; bestrelative= "cousin"; } //at least choose cousins... 
-			else if(agents[idx].gencount==agents[i].gencount+1) { meta+= 1; bestrelative= "elder"; } //...or parents/aunts/uncles
-			if(agents[idx].parentid==agents[i].parentid) { meta+= 100; bestrelative= "sibling"; } //...note this gets +102 b/c of cousin above
-			if(agents[idx].parentid==agents[i].id) { meta+= 100; bestrelative= "mother"; } //...note this gets +101 b/c of elder above
-			if(agents[idx].id==agents[i].parentid) { meta+= 100; bestrelative= "daughter"; } //...note this gets +103 b/c of youngling above
+			if(agents[i].age<TENDERAGE) meta+= 1; //choose young agents at least
+
+			std::string temprelative= "";
+
+  			if ((agents[idx].gencount+1) == agents[i].gencount) { //choose children or nephews and nieces
+				meta+= 5;
+				temprelative.assign("youngling");
+			} else if (agents[idx].gencount == agents[i].gencount) { //at least choose cousins/siblings... 
+				meta+= 3;
+				temprelative.assign("cousin");
+			} else if (agents[idx].gencount == (agents[i].gencount+1)) { //...or parents/aunts/uncles
+				meta+= 2;
+				temprelative.assign("elder");
+			} 
+
+			if (agents[idx].parentid == agents[i].parentid) { 
+				meta+= 100; //...note this gets +103 b/c of cousin above
+				temprelative.assign("sibling");
+			}
+			if (agents[idx].parentid == agents[i].id) {
+				meta+= 100; //...note this gets +102 b/c of elder above
+				temprelative.assign("mother");
+			}
+			if (agents[idx].id == agents[i].parentid) {
+				meta+= 100; //...note this gets +105 b/c of youngling above
+				temprelative.assign("daughter");
+			}
 
 			for(int j=0; j<Stomach::FOOD_TYPES; j++){ //penalize mis-matching stomach types harshly
 				meta-= ceilf(5*abs(agents[idx].stomach[j]-agents[i].stomach[j])); //diff of 0.2 scales to a -1 penalty, max possible= -15
@@ -2528,6 +2565,7 @@ int World::getClosestRelative(int idx)
 			if(meta>metamax){
 				nidx= i;
 				metamax= meta;
+				bestrelative = temprelative;
 			}
 		}
 	}
@@ -3228,7 +3266,7 @@ void World::init()
 	SOUND_PITCH_RANGE= conf::SOUND_PITCH_RANGE;
 	INV_SOUND_PITCH_RANGE = 1/SOUND_PITCH_RANGE;
 
-    GENEROCITY_RATE= conf::GENEROCITY_RATE;
+    GENEROSITY_RATE= conf::GENEROSITY_RATE;
 	BASEEXHAUSTION= conf::BASEEXHAUSTION;
 	EXHAUSTION_MULT_PER_CONN= conf::EXHAUSTION_MULT_PER_CONN;
 	EXHAUSTION_MULT_PER_OUTPUT= conf::EXHAUSTION_MULT_PER_OUTPUT;
@@ -3679,10 +3717,10 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=SOUND_PITCH_RANGE) printf("SOUND_PITCH_RANGE, ");
 				SOUND_PITCH_RANGE= f;
-			}else if(strcmp(var, "GENEROCITY_RATE=")==0 || strcmp(var, "FOODTRANSFER=")==0){
+			}else if(strcmp(var, "GENEROSITY_RATE=")==0 || strcmp(var, "GENEROCITY_RATE=")==0 || strcmp(var, "FOODTRANSFER=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=GENEROCITY_RATE) printf("GENEROCITY_RATE, ");
-				GENEROCITY_RATE= f;
+				if(f!=GENEROSITY_RATE) printf("GENEROSITY_RATE, ");
+				GENEROSITY_RATE= f;
 			}else if(strcmp(var, "BASEEXHAUSTION=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=BASEEXHAUSTION) printf("BASEEXHAUSTION, ");
@@ -4056,10 +4094,10 @@ void World::writeConfig()
 //	fprintf(cf, "SPAWN_LAKES= %i \t\t\t//if true (=1), and if terrain generation forms too much or too little land, the generator takes a moment to put in lakes (or islands)\n", conf::SPAWN_LAKES);
 	fprintf(cf, "DISABLE_LAND_SPAWN= %i \t\t//true-false flag for disabling agents from spawning on land. 0= land spawn allowed, 1= not allowed. Is GUI-controllable. This value is whatever was set in program when this file was saved\n", DISABLE_LAND_SPAWN);
 	fprintf(cf, "AMBIENT_LIGHT_PERCENT= %f //multiplier of the natural light level that eyes will see. Be cautious with this; too high (>0.5) and cells will wash out agents. Note, if AGENTS_SEE_CELLS is enabled, then this gets applied to the cell colors instead\n", conf::AMBIENT_LIGHT_PERCENT);
-	fprintf(cf, "AGENTS_SEE_CELLS= %i \t\t//true-false flag for letting agents see cells. 0= agents only see other agents and an ambient day/night brightness, 1= agents see agents and cells with day/night brightness applied, and is considerably laggier. Is saved/loaded. Default is 1.\n", conf::AGENTS_SEE_CELLS);
-	fprintf(cf, "AGENTS_DONT_OVERDONATE= %i \t//true-false flag for letting agents over-donate heath to others. 0= agents will give freely as long as they want to, even to death, 1= agents will only give up to half the difference in health, meaning everyone gets equal amounts of health. Default is 0.\n", conf::AGENTS_DONT_OVERDONATE);
+	fprintf(cf, "AGENTS_SEE_CELLS= %i \t\t//true-false flag for letting agents see cells. 0= agents only see other agents and an ambient day/night brightness, 1= agents see agents and cells with day/night brightness applied, and is considerably laggier. Is saved/loaded.\n", conf::AGENTS_SEE_CELLS);
+	fprintf(cf, "AGENTS_DONT_OVERDONATE= %i \t//true-false flag for letting agents over-donate heath to others. 0= agents will give freely as long as they want to, even to death, 1= agents will only give up to half the difference in health, meaning everyone gets equal amounts of health.\n", conf::AGENTS_DONT_OVERDONATE);
 	fprintf(cf, "MOONLIT= %i \t\t\t//true-false flag for letting agents see other agents at night. 0= no eyesight, 1= see agents at half light. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", MOONLIT);
-	fprintf(cf, "MOONLIGHTMULT= %f \t//the amount of minimum light MOONLIT provides. If set to 1, daylight cycles are not processed at all and the world becomes bathed in eternal sunlight. 0.1 default\n", conf::MOONLIGHTMULT);
+	fprintf(cf, "MOONLIGHTMULT= %f \t//the amount of minimum light MOONLIT provides. If set to 1, daylight cycles are not processed at all and the world becomes bathed in eternal sunlight.\n", conf::MOONLIGHTMULT);
 	fprintf(cf, "DROUGHTS= %i \t\t\t//true-false flag for if the drought/overgrowth mechanic is enabled. 0= constant normal growth, 1= variable. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", DROUGHTS);
 	fprintf(cf, "DROUGHT_MIN= %f \t\t//minimum multiplier value of droughts, below which it gets pushed back toward 1.0\n", conf::DROUGHT_MIN);
 	fprintf(cf, "DROUGHT_MAX= %f \t\t//maximum multiplier value of droughts (overgrowth), above which it gets pushed back toward 1.0\n", conf::DROUGHT_MAX);
@@ -4067,8 +4105,8 @@ void World::writeConfig()
 	fprintf(cf, "MUTEVENT_MAX= %i \t\t//integer max possible multiplier for mutation event mechanic. =1 effectively disables. =0 enables 50%% chance of no live mutations epoch. Negative values increase this chance (-1 => 66%%, -2 => 75%%, etc), thereby decreasing the chance of any live mutations at all. Positive values are useful if you want to increase base mutation rates.\n", conf::MUTEVENT_MAX);
 	fprintf(cf, "CLIMATE= %i \t\t\t//true-false flag for if the global climate mechanic is enabled. 0= temperature ranges are locked in at spawn, 1= variable temp over time. Is GUI-controllable and saved/loaded. This value is whatever was set in program when this file was saved\n", CLIMATE);
 	fprintf(cf, "CLIMATE_INTENSITY= %f \t//intensity multiplier of climate changes (effects both bias and mult). If this is too large (>0.01) climate will swing wildly. GUI-controlable, NOT saved with worlds. This value is whatever was set in program when this file was saved.\n", CLIMATE_INTENSITY);
-	fprintf(cf, "CLIMATEMULT_AVERAGE= %f \t//the value that the climate multiplier gets pushed back towards every 0.5 epochs. Reminder: A CLIMATEMULT of 0 means uniform temp everywhere, =1 and no matter what the CLIMATEBIAS is, the full possible range of temperature exists. This value is whatever was set in program when this file was saved. Default= 0.5\n", CLIMATEMULT_AVERAGE);
-	fprintf(cf, "CLIMATE_AFFECT_FLORA= %i \t//true-false flag for if the global climate destroys plant life at the extremes. 0= temperature has no affect, 1= plant life dies at extreme temperatures (V0.06- behavior). Default= 1 when writing a new config\n", 1);
+	fprintf(cf, "CLIMATEMULT_AVERAGE= %f \t//the value that the climate multiplier gets pushed back towards every 0.5 epochs. Reminder: A CLIMATEMULT of 0 means uniform temp everywhere, =1 and no matter what the CLIMATEBIAS is, the full possible range of temperature exists. This value is whatever was set in program when this file was saved.\n", CLIMATEMULT_AVERAGE);
+	fprintf(cf, "CLIMATE_AFFECT_FLORA= %i \t//true-false flag for if the global climate destroys plant life at the extremes. 0= temperature has no affect, 1= plant life dies at extreme temperatures (V0.06- behavior).\n", 1);
 	fprintf(cf, "\n");
 	fprintf(cf, "MINFOOD= %i \t\t\t//Minimum number of food cells which must have food during simulation. 0= off\n", conf::MIN_PLANT);
 	fprintf(cf, "INITFOODDENSITY= %f \t//initial density of full food cells. Is a decimal percentage of the world cells. Use 'INITFOOD= #' to set a number\n", conf::INITPLANTDENSITY);
@@ -4096,7 +4134,7 @@ void World::writeConfig()
 	fprintf(cf, "SOUND_PITCH_RANGE= %f \t//range below hearhigh and above hearlow within which external sounds fade in. Would not recommend extreme values near or beyond [0,0.5]\n", conf::SOUND_PITCH_RANGE);
 	fprintf(cf, "\n");
 	fprintf(cf, "BRAINBOXES= %i \t\t\t//number boxes in every agent brain. Note: the sim will NEVER make brains smaller than # of Outputs. Saved per world, loaded worlds will override this value. You cannot change this value for worlds already in progress; either use New World options or restart\n", conf::BRAINBOXES);
-	fprintf(cf, "BRAINCONNS= %i \t\t//number connections attempted for every init agent brain. Sim may make brains with less than this number, due to trimming. Changing this value will only effect newly spawned agents. Default= %i\n", conf::BRAINCONNS, conf::BRAINCONNS);
+	fprintf(cf, "BRAINCONNS= %i \t\t//number connections attempted for every init agent brain. Sim may make brains with less than this number, due to trimming. Changing this value will only effect newly spawned agents.\n", conf::BRAINCONNS);
 	fprintf(cf, "WHEEL_SPEED= %f \t\t//fastest possible speed of agents. This effects so much of the sim I dont advise changing it\n", conf::WHEEL_SPEED);
 	fprintf(cf, "MEANRADIUS= %f \t\t//\"average\" agent radius, range [0.2*this,2.2*this) (only applies to random agents, no limits on mutations). This effects SOOOO much stuff, and I would not recommend setting negative unless you like crashing programs.\n", conf::MEANRADIUS);
 	fprintf(cf, "JUMP_MOVE_BONUS_MULT= %f \t//how much speed boost do agents get when jump is active? This is not the main feature of jumpping. Value of 1 gives no bonus move speed.\n", conf::JUMP_MOVE_BONUS_MULT);
@@ -4105,8 +4143,8 @@ void World::writeConfig()
 	fprintf(cf, "BASEEXHAUSTION= %f \t//base value of exhaustion. When negative, is essentially the sum amount of output allowed before healthloss. Would not recommend positive values\n", conf::BASEEXHAUSTION);
 	fprintf(cf, "EXHAUSTION_MULT_PER_OUTPUT= %f //multiplier applied to the sum value of all outputs; effectively, the cost multiplier of performing actions. Increase to pressure agents to chose their output more carefully\n", conf::EXHAUSTION_MULT_PER_OUTPUT);
 	fprintf(cf, "EXHAUSTION_MULT_PER_CONN= %f //multiplier applied to the count of brain connections; effectively, the cost multiplier of maintaining each synapse in the brain. Increase to pressure agents to make more efficient brains.\n", conf::EXHAUSTION_MULT_PER_CONN);
-	fprintf(cf, "MAXWASTEFREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. Default= 200, 1= no agent control allowed, 0= program crash\n", conf::MAXWASTEFREQ);
-	fprintf(cf, "GENEROCITY_RATE= %f \t\t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::GENEROCITY_RATE);
+	fprintf(cf, "MAXWASTEFREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. 1= no agent control allowed, 0= program crash\n", conf::MAXWASTEFREQ);
+	fprintf(cf, "GENEROSITY_RATE= %f \t\t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::GENEROSITY_RATE);
 	fprintf(cf, "SPIKESPEED= %f \t\t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKESPEED);
 	fprintf(cf, "SPAWN_MIRROR_EYES= %i \t\t//true-false flag for if random spawn agents have mirrored eyes. 0= asymmetry, 1= symmetry\n", (int)conf::SPAWN_MIRROR_EYES);
 	fprintf(cf, "PRESERVE_MIRROR_EYES= %i \t//true-false flag for if mutations can break mirrored eye symmetry. 0= mutations do not preserve symmetry, 1= agents always have mirrored eyes\n", (int)conf::PRESERVE_MIRROR_EYES);
