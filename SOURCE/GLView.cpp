@@ -152,7 +152,7 @@ GLView::GLView(World *s) :
 	xtranslate= 0.0;
 	ytranslate= 0.0;
 	scalemult= 0.2;
-	downb[0]=0;downb[1]=0;downb[2]=0;
+	downb[GLMouse::LEFT]=0; downb[GLMouse::MIDDLE]=0; downb[GLMouse::RIGHT]=0;
 	mousex=0;mousey=0;
 
 	popupReset();
@@ -271,11 +271,11 @@ void GLView::processMouse(int button, int state, int x, int y)
 void GLView::processMouseActiveMotion(int x, int y)
 //Control.cpp
 {
-	if(world->isDebug()) printf("MOUSE MOTION x=%i y=%i, buttons: %i %i %i\n", x, y, downb[0], downb[1], downb[2]);
+	if(world->isDebug()) printf("MOUSE MOTION x=%i y=%i, buttons: LEFT: %i MIDDLE: %i RIGHT: %i\n", x, y, downb[GLMouse::LEFT], downb[GLMouse::MIDDLE], downb[GLMouse::RIGHT]);
 	
 	if(!uiclicked){ //if ui was not clicked
 
-		if (downb[0]==1) {
+		if (downb[GLMouse::LEFT]==1) {
 			//left mouse button drag: pan around
 			xtranslate += (x-mousex)/scalemult;
 			ytranslate += (y-mousey)/scalemult;
@@ -283,13 +283,13 @@ void GLView::processMouseActiveMotion(int x, int y)
 			//for releasing follow if the mouse is used to drag screen, but there's a threshold
 		}
 
-		if (downb[1]==1) {
+		if (downb[GLMouse::MIDDLE]==1) {
 			//mouse wheel. Change scale
 			scalemult += conf::ZOOM_SPEED*scalemult*((mousey-y) - (mousex-x));
 			if(scalemult<0.03) scalemult=0.03;
 		}
 
-	/*	if(downb[2]==1){ //disabled
+	/*	if(downb[GLMouse::RIGHT]==1){ //disabled
 			//right mouse button. currently used for context menu
 		}*/
 	}
@@ -2780,7 +2780,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 	float rad= r;
 
 	//jumping agents appear magnified
-	if (agent.jump>0) rad+= (agent.jump+1)*3;
+	if (agent.pos.z > 0) rad+= (agent.pos.z + 1)*3;
 
 	glPushMatrix(); //switch to local position coordinates
 	glTranslatef(x,y,0);
@@ -2898,7 +2898,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			//boost blur
 			//this needs a rework if we're going to keep agent transparency a thing (used for asexual mode indicator)
 			if (agent.boost){
-				Vector2f displace= agent.dpos - agent.pos;
+				Vector3f displace= agent.dpos - agent.pos;
 				for(int q=1;q<4;q++){
 					glBegin(GL_POLYGON);
 					glColor4f(color.red,color.gre,color.blu,dead*centeralpha*0.1);

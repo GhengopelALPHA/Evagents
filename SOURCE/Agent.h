@@ -28,8 +28,8 @@ public:
 	//Saved Variables
 	//simulation basics
 	int id;
-	Vector2f pos;
-	Vector2f dpos; //UNSAVED, but LOADED (with the pos values)
+	Vector3f pos;
+	Vector3f dpos; //UNSAVED, but LOADED (with the pos values)
 	float height; //TODO
 	float angle; //of the bot
 
@@ -113,7 +113,7 @@ public:
 	float w1; //wheel speeds. in range [-1,1]
 	float w2;
 	bool boost; //is this agent boosting?
-	float jump; //what "height" this bot is at after jumping
+	float zvelocity; //velocity of the vertical (z-axis) movement produced by jumping
 	float real_red, real_gre, real_blu; //real colors of the agent
 	float volume; //sound volume of this bot. It can scream, or be very sneaky.
 	float tone; //sound tone of this bot. it can be low pitched (<0.5) or high (>0.5), where only bots with hearing in range of tone will hear
@@ -162,6 +162,7 @@ public:
 	void setFrugivore();
 	void setRandomStomach();
 	void setPos(float x, float y);
+	void setPos(float x, float y, float z);
 	void setPosRandom(float maxx, float maxy);
 	void borderRectify();
 

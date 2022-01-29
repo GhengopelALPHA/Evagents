@@ -115,7 +115,7 @@ Agent::Agent(
 	w1= 0;
 	w2= 0;
 	boost= false;
-	jump= 0;
+	zvelocity= 0;
 	real_red= 0.5;
 	real_gre= 0.5;
 	real_blu= 0.5;
@@ -198,9 +198,9 @@ Agent Agent::reproduce(
 	//spawn the baby somewhere closeby behind the mother
 	//we want to spawn behind so that agents dont accidentally kill their young right away
 	//note that this relies on bots actally driving forward, not backward. We'll let natural selection choose who lives and who dies
-	Vector2f fb(this->radius*randf(1.9, 2.5),0);
+	Vector3f fb(this->radius*randf(1.9, 2.5), 0, 0);
 	float floatrange = 0.4;
-	fb.rotate(this->angle + M_PI*(1 + floatrange - 2*floatrange*(baby+1)/(this->numbabies+1)));
+	fb.rotate(0, 0, this->angle + M_PI*(1 + floatrange - 2*floatrange*(baby+1)/(this->numbabies+1)));
 	a2.pos= this->pos + fb;
 	a2.dpos= a2.pos;
 	a2.borderRectify();
@@ -405,28 +405,23 @@ void Agent::printSelf()
 	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 	//print all Variables
 	//bot basics
-	printf("AGENT, ID: %i\n", id);
-	printf("pos & angle: (%f,%f), %f\n", pos.x, pos.y, angle);
+	printf("SELECTED AGENT REPORT, ID: %i\n", id);
+	printf("pos & angle: (%f, %f, %f), %f\n", pos.x, pos.y, pos.z, angle);
 	printf("health, age, & gencount: %f, %.1f, %i\n", health, (float)age/10, gencount);
+	printf("repcounter: %f\n", repcounter);
+	printf("exhaustion: %f\n", exhaustion);
+
+	//traits
+	printf("======================= traits =======================\n");
 	printf("brain_mutation_chance: %f, brain_mutation_size: %f\n", brain_mutation_chance, brain_mutation_size);
-	printf("parent ID: %i\n", parentid);
+	printf("gene_mutation_chance: %f, gene_mutation_size: %f\n", gene_mutation_chance, gene_mutation_size);
+	printf("species id: %i, kin_range: +/-%i\n", species, kinrange);
 	printf("radius: %f\n", radius);
 	printf("strength: %f\n", strength);
-	printf("camo: %f\n", chamovid);
-	printf("gene_red: %f\ngene_gre: %f\ngene_blu: %f\n", gene_red, gene_gre, gene_blu);
-
-	//triggers, counters, and layer interaction
-	printf("====== triggers, counters, and layer interaction ======\n");
-	if(near) printf("PRESENTLY NEAR\n");
-	else printf("PRESENTLY NOT NEAR (not interaction-processed)\n");
-	printf("freshkill: %i\n", freshkill);
-	printf("carcasscount: %i\n", carcasscount);
-	printf("species id: %i\n", species);
-	printf("kin_range: %i\n", kinrange);
+	printf("camo: %f, gene_red: %f, gene_gre: %f, gene_blu: %f\n", chamovid, gene_red, gene_gre, gene_blu);
 	printf("num_babies: %f\n", numbabies);
-	printf("maxrepcounter: %f\n", maxrepcounter);
-	printf("sexprojectbias: %f\n", sexprojectbias);
-	printf("repcounter: %f\n", repcounter);
+	printf("max_repcounter: %f\n", maxrepcounter);
+	printf("sex_project_bias: %f\n", sexprojectbias);
 	printf("temp_preference: %f\n", temperature_preference);
 	printf("temp_discomfort: %f\n", discomfort);
 	printf("lungs: %f\n", lungs);
@@ -437,10 +432,7 @@ void Agent::printSelf()
 	if (isHerbivore()) printf("Herbivore\n");
 	if (isCarnivore()) printf("Carnivore\n");
 	if (isFrugivore()) printf("Frugivore\n");
-	printf("exhaustion: %f\n", exhaustion);
-	if(encumbered) printf("encumbered\n");
-	else printf("not encumbered\n");
-
+	
 	//senses
 	printf("======================= senses ========================\n");
 	printf("eye_see_agent_mod: %f\n", eye_see_agent_mod);
@@ -502,14 +494,22 @@ void Agent::printSelf()
 	
 	//stats
 	printf("======================== stats ========================\n");
+	if(near) printf("PRESENTLY NEAR\n");
+	else printf("PRESENTLY NOT NEAR (not interaction-processed)\n");
+	printf("freshkill: %i\n", freshkill);
+	printf("carcasscount: %i\n", carcasscount);
+	if(encumbered) printf("encumbered\n");
+	else printf("not encumbered\n");
 	if(hybrid) printf("is hybrid\n");
 	else printf("is budded\n");
-//	const char * death; //the cause of death of this agent
+	if(isDead()) printf("Killed by %s\n", death);
+	else printf("STILL ALIVE (o)\n");
+	printf("parent ID: %i\n", parentid);
 	printf("children, killed, hits: %i, %i, %i\n", children, killed, hits);
 	printf("indicator size, rgb: %f, %f, %f, %f\n", indicator, ir, ig, ib); 
 	printf("give health gfx magnitude, pos: %f, (%f,%f)\n", dhealth, dhealthx, dhealthy);
 	printf("grab gfx pos: (%f,%f)\n", grabx, graby);
-	printf("jaw gfx counter: %f\n", jawrend); //render counter for jaw. Past ~10 ticks of no jaw action, it is "retracted" visually
+	printf("jaw gfx counter: %f\n", jawrend);
 	printf("mutations:\n");
 		for (int i=0; i<(int)mutations.size(); i++) {
 		cout << mutations[i] << endl;
@@ -656,11 +656,19 @@ void Agent::setPos(float x, float y)
 	this->borderRectify();
 }
 
-void Agent::setPosRandom(float maxx, float maxy)
+void Agent::setPos(float x, float y, float z)
 {
-	this->pos= Vector2f(randf(0,maxx),randf(0,maxy));
+	this->pos.x= x;
+	this->pos.y= y;
+	this->pos.z= z;
 	this->borderRectify();
 }
+
+void Agent::setPosRandom(float maxx, float maxy)
+{
+	this->pos= Vector3f(randf(0,maxx), randf(0,maxy), 0);
+	this->borderRectify();
+} //currently I see no need for a maxz setting/overload; all agents are spawned on the ground for now
 
 void Agent::borderRectify()
 {
@@ -781,7 +789,7 @@ bool Agent::isSelfish(float MAXSELFISH) const
 
 bool Agent::isAirborne() const
 {
-	if(jump>0) return true;
+	if(pos.z>0) return true;
 	return false;
 }
 

@@ -220,7 +220,7 @@ private:
 	//REF: scalemult= 5.0 is VERY zoomed in, 1= every detail should be visible, 0.0859= current default zoom, 0.03= minimum scale
 	//many details stop rendering at scale= .3
 	float xtranslate, ytranslate; //the viewer's x and y position
-	int downb[3]; //the three buttons and their states
+	int downb[GLMouse::BUTTONS]; //the three buttons and their states
 	int mousex, mousey;
 	bool mousedrag; //was the mouse dragged recently? used to disable button click activity when click-moving
 	bool uiclicked; //was the ui clicked recently? used to disable drag fuctions if inital click was on UI

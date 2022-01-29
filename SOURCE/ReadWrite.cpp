@@ -68,7 +68,7 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	//flags: <a></a>= agent, <y>= eye, <e>= ear, <b>=brain, <n>= conn, <x>= box
 	fprintf(file, "<a>\n"); //signals the writing of a new agent
 	//variables: changing values
-	fprintf(file, "posx= %f\nposy= %f\n", a->pos.x, a->pos.y);
+	fprintf(file, "posx= %f\nposy= %f\nposz= %f\n", a->pos.x, a->pos.y, a->pos.z);
 	fprintf(file, "angle= %f\n", a->angle);
 	fprintf(file, "age= %i\n", a->age);
 	fprintf(file, "gen= %i\n", a->gencount);
@@ -79,7 +79,7 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "carcasscount= %i\n", a->carcasscount);
 	fprintf(file, "freshkill= %i\n", a->freshkill);
 	fprintf(file, "spike= %f\n", a->spikeLength);
-	fprintf(file, "jump= %f\n", a->jump);
+	fprintf(file, "zvelocity= %f\n", a->zvelocity);
 	fprintf(file, "dhealth= %f\n", a->dhealth);
 
 	//traits: fixed values
@@ -217,6 +217,10 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 				sscanf(dataval, "%f", &f);
 				xa.pos.y= f;
 				xa.dpos.y= f;
+			}else if(strcmp(var, "posz=")==0 && loadexact){
+				sscanf(dataval, "%f", &f);
+				xa.pos.z= f;
+				xa.dpos.z= f;
 			}else if(strcmp(var, "angle=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.angle= f;
@@ -265,9 +269,9 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "spike=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.spikeLength= f;
-			}else if(strcmp(var, "jump=")==0 && loadexact){
+			}else if(strcmp(var, "zvelocity=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
-				xa.jump= f;
+				xa.zvelocity= f;
 			}else if((strcmp(var, "dfood=")==0 || strcmp(var, "dhealth=")==0) && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.dhealth= f;

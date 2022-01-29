@@ -15,6 +15,15 @@ const enum {
 	TOGGLE_PLACEAGENTS
 };};
 
+//defines for GL mouse buttons. We don't have any control over this really, it's an OpenGL thing, and it only supports 3 mouse buttons
+namespace GLMouse {
+const enum {
+	LEFT= 0,
+	MIDDLE,
+	RIGHT,
+	BUTTONS
+};};
+
 //defines for reading/writing GUI handles. Order changes nothing
 namespace RWOpen {
 const enum {

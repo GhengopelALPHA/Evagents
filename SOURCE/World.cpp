@@ -1221,6 +1221,8 @@ void World::setInputs()
 		int miny= max((scy - celldist), 0);
 		int maxy= min((scy+1 + celldist), CH);
 
+		Vector2f flatagentpos = Vector2f(a->pos.x, a->pos.y);
+
 		//---AGENT-CELL SENSES---//
 		for(int tcx= minx; tcx<maxx; tcx++){
 			for(int tcy= miny; tcy<maxy; tcy++){
@@ -1237,13 +1239,15 @@ void World::setInputs()
 				if(AGENTS_SEE_CELLS && light != 0) {
 					float lightmult = light*a->eye_see_cell_mod;
 
-					Vector2f cellpos = Vector2f((float)(tcx*conf::CZ+conf::CZ/2),(float)(tcy*conf::CZ+conf::CZ/2)); //find midpoint of the cell
-					float d = max((a->pos - cellpos).length(), a->radius); // can't see cells as being inside of us; they're around us
+					Vector2f cellpos = Vector2f((float)(tcx*conf::CZ+conf::CZ/2), (float)(tcy*conf::CZ+conf::CZ/2));
+					//find midpoint of the cell, relative to agent z-axis
+					float d = max((flatagentpos - cellpos).length(), a->radius); // can't see cells as being inside of us; they're around us
 
-					float ang= (cellpos - a->pos).get_angle();
+					float ang= flatagentpos.angle_between(cellpos);
 
 					for(int q=0;q<NUMEYES;q++){
-						if(a->isTiny() && !a->isTinyEye(q)){ //small agents have half-count of eyes, the rest just keep the ambient light values they got
+						if(a->isTiny() && !a->isTinyEye(q)){
+							//small agents have half-count of eyes, the rest just keep the ambient light values they got
 							r[q] = AMBIENT_LIGHT_PERCENT*light;
 							g[q] = AMBIENT_LIGHT_PERCENT*light;
 							b[q] = AMBIENT_LIGHT_PERCENT*light;
@@ -1295,7 +1299,7 @@ void World::setInputs()
 							}
 
 							if(isAgentSelected(a->id) && isDebug()){
-								linesA.push_back(a->pos);
+								linesA.push_back(flatagentpos);
 								linesB.push_back(cellpos);
 							}
 						}
@@ -1330,7 +1334,9 @@ void World::setInputs()
 			if (a->pos.x<a2->pos.x-MAX_SENSORY_DISTANCE || a->pos.x>a2->pos.x+MAX_SENSORY_DISTANCE
 				|| a->pos.y>a2->pos.y+MAX_SENSORY_DISTANCE || a->pos.y<a2->pos.y-MAX_SENSORY_DISTANCE) continue;
 
-			float d= (a->pos-a2->pos).length();
+			Vector2d flata2pos = Vector2f(a2->pos.x, a2->pos.y);
+
+			float d= (flatagentpos - flata2pos).length();
 
 			if (d<MAX_SENSORY_DISTANCE) {
 				float invDIST = INV_MAX_SENSORY_DISTANCE;
@@ -1348,9 +1354,9 @@ void World::setInputs()
 						Vector2f v(a->radius, 0);
 						v.rotate(a->angle + a->eardir[q]);
 
-						Vector2f earpos = a->pos+ v;
+						Vector2f earpos = flatagentpos + v;
 
-						float eardist = (earpos-a2->pos).length();
+						float eardist = (earpos - flata2pos).length();
 
 						for(int n=0; n < Hearing::TYPES; n++){
 							float otone = 0, ovolume = 0;
@@ -1389,7 +1395,7 @@ void World::setInputs()
 				}
 
 				//current angle between bots, in the interval [-pi,pi] radians (a-> is at origin). Used for both Blood and Eyesight
-				float ang= (a2->pos - a->pos).get_angle();
+				float ang = flatagentpos.angle_between(flata2pos);
 
 				//---AGENT-AGENT EYESIGHT---//
 				if(light!=0){//we will skip all eyesight if our agent is in the dark (light==0)
@@ -1433,8 +1439,8 @@ void World::setInputs()
 							if(b[q]<seen_b) b[q]= seen_b;
 
 							if(isAgentSelected(a->id) && isDebug()){ //debug sight lines, get coords
-								linesA.push_back(a->pos);
-								linesB.push_back(a2->pos);
+								linesA.push_back(flatagentpos);
+								linesB.push_back(flata2pos);
 							}
 						}
 					}
@@ -1589,16 +1595,16 @@ void World::processOutputs(bool prefire)
 		}
 
 		//return to processing outputs now
-		float exh= 1.0/(1.0+a->exhaustion); //*exh reduces agent output->physical action rates for high exhaustion values
+		float exh = 1.0/(1.0+a->exhaustion); //*exh reduces agent output->physical action rates for high exhaustion values
 
-		//jump gets set to 2*((jump output) - 0.5) if itself is zero (the bot is on the ground) and if jump output is greater than 0.5
-		if(GRAVITY_ACCELERATION>0 && a->jump==0 && a->age>0){
-			float height= (a->out[Output::JUMP]*exh - 0.5)*2;
-			if (height>0){
-				a->jump= height;
+		//jump sets the zvelocity value instantaneously if it was zero, otherwise we increase the height (pos.z) and decrease the zvelocity by GRAVITY
+		if(GRAVITY_ACCELERATION > 0 && a->zvelocity == 0 && a->age > 0){
+			a->zvelocity = cap(a->out[Output::JUMP] - 0.5)*2*exh; //jump output needs to be > 0.5 to activate, and after pushing back into (0,1), gets exhaustion applied
+			if (a->zvelocity > 0){
+				a->pos.z = a->zvelocity; //give us some initial height
 				if(!STATuserseenjumping) {
 					addTipEvent("Selected Agent jumped!", EventColor::YELLOW, a->id);
-					if (randf(0,1)<0.05) STATuserseenjumping= true;
+					if (randf(0,1) < 0.05) STATuserseenjumping = true;
 				}
 			}
 		} //do this before setting wheels
@@ -1658,8 +1664,8 @@ void World::processOutputs(bool prefire)
 		}
 
 		//backup previous x & y pos's This is done as a prefire on purpose (it's not saved)
-		a->dpos.x= a->pos.x;
-		a->dpos.y= a->pos.y;
+		a->dpos.x = a->pos.x;
+		a->dpos.y = a->pos.y;
 	}
 
 	//move bots if this is not a prefire
@@ -1667,11 +1673,16 @@ void World::processOutputs(bool prefire)
 		float invMEANRADIUS= 1/MEANRADIUS;
 
 		#pragma omp parallel for schedule(dynamic)
-		for (int i=0; i<(int)agents.size(); i++) {
-			Agent* a= &agents[i];
+		for (int i = 0; i < (int)agents.size(); i++) {
+			Agent* a = &agents[i];
 
-			if(a->jump>-1) a->jump-= GRAVITY_ACCELERATION; //-1 because we will be nice and give a "recharge" time between jumps
-			else a->jump= 0;
+			if(a->pos.z > 0) {
+				a->zvelocity -= GRAVITY_ACCELERATION;
+				a->pos.z += a->zvelocity;
+			} else {
+				a->zvelocity = 0;
+				a->pos.z = 0;
+			}
 
 			//first calculate the exact wheel scalar values
 			float basewheel= WHEEL_SPEED;
@@ -1696,7 +1707,9 @@ void World::processOutputs(bool prefire)
 			//I believe this was done to make large values have less impact than smaller ones, perhaps encouraging fine-tuning behavior
 			vwheelleft.rotate(-BW1*M_PI);
 			vwheelright.rotate(BW2*M_PI);
-			a->pos+= (vwheelleft - vleft) + (vwheelright + vleft);
+
+			a->pos.x += (vwheelleft.x - vleft.x) + (vwheelright.x + vleft.x);
+			a->pos.y += (vwheelleft.y - vleft.y) + (vwheelright.y + vleft.y);
 
 			//angle bots
 			if (!a->isAirborne()) {
@@ -1736,74 +1749,75 @@ void World::processCellInteractions()
 		#endif
 
 		if(!a->isDead()){
-			if (!a->isAirborne() && !a->boost){ //no intake if jumping or boosting
-				float intake= 0;
-				float speedmult= pow(1 - max(abs(a->w1), abs(a->w2)),3); //penalty for moving
-				speedmult/= (1.0+a->exhaustion); //exhaustion reduces agent physical actions including all intake
+			if (!a->isAirborne()){ //no interaction if jumping
+				if (!a->boost) { //no intake if boosting
+					float intake= 0;
+					float speedmult= pow(1 - max(abs(a->w1), abs(a->w2)),3); //penalty for moving
+					speedmult/= (1.0+a->exhaustion); //exhaustion reduces agent physical actions including all intake
 
-				float invmult= 1-STOMACH_EFFICIENCY;
-				float invplant=1-a->stomach[Stomach::PLANT]*invmult;
-				float invmeat= 1-a->stomach[Stomach::MEAT]*invmult;
-				float invfruit=1-a->stomach[Stomach::FRUIT]*invmult;
-				//inverted stomach vals, with the efficiency mult applied
+					float invmult= 1-STOMACH_EFFICIENCY;
+					float invplant=1-a->stomach[Stomach::PLANT]*invmult;
+					float invmeat= 1-a->stomach[Stomach::MEAT]*invmult;
+					float invfruit=1-a->stomach[Stomach::FRUIT]*invmult;
+					//inverted stomach vals, with the efficiency mult applied
 
-				//---START FOOD---//
-				//plant food
-				float food= cells[Layer::PLANTS][scx][scy];
-				if (food>0) { //agent eats the food
-					//Plant intake is proportional to plant stomach, inverse to speed & exhaustion
-					//min rate is the actual amount of food we can take. Otherwise, apply wasterate
-					float planttake= min(food, PLANT_WASTE*a->stomach[Stomach::PLANT]*invmeat*invfruit*speedmult);
-					//unique for plant food: the less there is, the harder it is to eat, but not impossible
-					planttake*= max(food,PLANT_TENACITY);
-					//decrease cell content
-					cells[Layer::PLANTS][scx][scy]-= planttake;
-					//now convert the taken food into intake for the agent, applying inverted stomach mults
-					intake+= PLANT_INTAKE*planttake/PLANT_WASTE;
-					//this way, it's possible to eat a lot of something from the world, but if stomach isn't efficient, it's wasted
-					a->addIntake(conf::PLANT_TEXT, planttake);
-				}
+					//---START FOOD---//
+					//plant food
+					float food= cells[Layer::PLANTS][scx][scy];
+					if (food>0) { //agent eats the food
+						//Plant intake is proportional to plant stomach, inverse to speed & exhaustion
+						//min rate is the actual amount of food we can take. Otherwise, apply wasterate
+						float planttake= min(food, PLANT_WASTE*a->stomach[Stomach::PLANT]*invmeat*invfruit*speedmult);
+						//unique for plant food: the less there is, the harder it is to eat, but not impossible
+						planttake*= max(food,PLANT_TENACITY);
+						//decrease cell content
+						cells[Layer::PLANTS][scx][scy]-= planttake;
+						//now convert the taken food into intake for the agent, applying inverted stomach mults
+						intake+= PLANT_INTAKE*planttake/PLANT_WASTE;
+						//this way, it's possible to eat a lot of something from the world, but if stomach isn't efficient, it's wasted
+						a->addIntake(conf::PLANT_TEXT, planttake);
+					}
 
-				//meat food
-				float meat= cells[Layer::MEATS][scx][scy];
-				if (meat>0) { //agent eats meat
-					float meattake= min(meat,MEAT_WASTE*a->stomach[Stomach::MEAT]*invplant*invfruit*speedmult);
-					cells[Layer::MEATS][scx][scy]-= meattake;
-					intake+= MEAT_INTAKE*meattake/MEAT_WASTE;
-					a->addIntake(conf::MEAT_TEXT, meattake);
-				}
+					//meat food
+					float meat= cells[Layer::MEATS][scx][scy];
+					if (meat>0) { //agent eats meat
+						float meattake= min(meat,MEAT_WASTE*a->stomach[Stomach::MEAT]*invplant*invfruit*speedmult);
+						cells[Layer::MEATS][scx][scy]-= meattake;
+						intake+= MEAT_INTAKE*meattake/MEAT_WASTE;
+						a->addIntake(conf::MEAT_TEXT, meattake);
+					}
 
-				//Fruit food
-				float fruit= cells[Layer::FRUITS][scx][scy];
-				if (fruit>0) { //agent eats fruit
-					float fruittake= min(fruit,FRUIT_WASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*cap(speedmult-0.5)*2);
-					//unique for fruit - speed penalty is more extreme, being completely 0 until agents slow down <0.25
-					cells[Layer::FRUITS][scx][scy]-= fruittake;
-					intake+= FRUIT_INTAKE*fruittake/FRUIT_WASTE;
-					a->addIntake(conf::FRUIT_TEXT, fruittake);
-				}
+					//Fruit food
+					float fruit= cells[Layer::FRUITS][scx][scy];
+					if (fruit>0) { //agent eats fruit
+						float fruittake= min(fruit,FRUIT_WASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*cap(speedmult-0.5)*2);
+						//unique for fruit - speed penalty is more extreme, being completely 0 until agents slow down <0.25
+						cells[Layer::FRUITS][scx][scy]-= fruittake;
+						intake+= FRUIT_INTAKE*fruittake/FRUIT_WASTE;
+						a->addIntake(conf::FRUIT_TEXT, fruittake);
+					}
 
-				// proportion intake via metabolism
-				float metabmult = a->metabolism*(1 - MIN_INTAKE_HEALTH_RATIO);
-				a->repcounter -= metabmult*intake;
-				if (a->repcounter < 0) a->encumbered = true;
-				else a->encumbered = false;
+					// proportion intake via metabolism
+					float metabmult = a->metabolism*(1 - MIN_INTAKE_HEALTH_RATIO);
+					a->repcounter -= metabmult*intake;
+					if (a->repcounter < 0) a->encumbered = true;
+					else a->encumbered = false;
 
-				a->health += (1 - metabmult)*intake;
-				//for default settings, metabolism splits intake this way
-				// M=0		M=0.5	 M=1
-				//H: 1		0.75	 0.5
-				//R: 0		0.25	 0.5
-				// Using a MIN_INTAKE_HEALTH_RATIO of 0, the above table becomes
-				// M=0		M=0.5	 M=1
-				//H: 1		0.5		 0
-				//R: 0		0.5		 1
-				// Using a ratio of 1, the table is always H: 1 and R: 0, no babies ever will be born, because all agents take 100% intake for health
+					a->health += (1 - metabmult)*intake;
+					//for default settings, metabolism splits intake this way
+					// M=0		M=0.5	 M=1
+					//H: 1		0.75	 0.5
+					//R: 0		0.25	 0.5
+					// Using a MIN_INTAKE_HEALTH_RATIO of 0, the above table becomes
+					// M=0		M=0.5	 M=1
+					//H: 1		0.5		 0
+					//R: 0		0.5		 1
+					// Using a ratio of 1, the table is always H: 1 and R: 0, no babies ever will be born, because all agents take 100% intake for health
 
-				//---END FOOD---//
+					//---END FOOD---//
 
-				//if (isAgentSelected(a->id)) printf("intake/sum(rates)= %f\n", 6*intake/(PLANT_INTAKE + FRUIT_INTAKE + MEAT_INTAKE));
-
+					//if (isAgentSelected(a->id)) printf("intake/sum(rates)= %f\n", 6*intake/(PLANT_INTAKE + FRUIT_INTAKE + MEAT_INTAKE));
+				} //end if boosting
 
 				//hazards
 				float hazard= cells[Layer::HAZARDS][scx][scy];
@@ -1904,15 +1918,18 @@ void World::processAgentInteractions()
 
 			Agent* a = &agents[i];
 
+			Vector2f flatagentpos = Vector2f(a->pos.x, a->pos.y);
+			float ainvrad = 1/a->radius;
+
 			for (int j=0; j<(int)agents.size(); j++) {
 				if (i==j || !agents[j].near) continue;
 				if(agents[j].health == 0) continue; //health == because we want to weed out bots who died already via other causes, but not ones in process of dying
 
 				Agent* a2 = &agents[j];
 
-				float d = (a->pos-a2->pos).length();
-				float sumrad = a->radius+a2->radius;
-				float ainvrad = 1/a->radius;
+				Vector2f flata2pos = Vector2f(a2->pos.x, a2->pos.y);
+				float d = (flatagentpos - flata2pos).length();
+				float sumrad = a->radius + a2->radius;
 				float a2invrad = 1/a2->radius;
 
 				//---HEALTH GIVING---//
@@ -2014,7 +2031,7 @@ void World::processAgentInteractions()
 				if(a->isSpikey(SPIKE_LENGTH) && d<=(a2->radius + SPIKE_LENGTH*a->spikeLength) && !a2->isAirborne()){
 					Vector2f v(1,0);
 					v.rotate(a->angle);
-					float diff= v.angle_between(a2->pos-a->pos);
+					float diff= v.angle_between(flata2pos - flatagentpos);
 					if (fabs(diff)<M_PI/2){ //need to be in front
 						float spikerange= d*abs(sin(diff)); //get range to agent from spike, closest approach
 						if (a2->radius>spikerange) { //other agent is properly aligned and in range!!! getting close now...
@@ -2023,7 +2040,7 @@ void World::processAgentInteractions()
 							Vector2f velocitya2(a2->pos.x-a2->dpos.x, a2->pos.y-a2->dpos.y);
 
 							velocitya-= velocitya2;
-							float diff2= velocitya.angle_between(a2->pos-a->pos);
+							float diff2= velocitya.angle_between(flata2pos - flatagentpos);
 							float veldiff= velocitya.length()*cap(cos(diff2));
 
 							if(veldiff>conf::VELOCITYSPIKEMIN){
@@ -2069,7 +2086,7 @@ void World::processAgentInteractions()
 				if(BITE_DISTANCE > 0 && a->jawPosition>0 && d <= (sumrad+BITE_DISTANCE)) { //only bots that are almost touching may chomp
 					Vector2f v(1,0);
 					v.rotate(a->angle);
-					float diff= v.angle_between(a2->pos - a->pos);
+					float diff= v.angle_between(flata2pos - flatagentpos);
 					if (fabs(diff)<M_PI/6) { //advantage over spike: wide AOE
 						float DMG= DAMAGE_JAWSNAP*a->jawPosition*(a->radius*a2invrad); //advantage over spike: large agents do more damage to smaller agents
 
@@ -2103,8 +2120,8 @@ void World::processAgentInteractions()
 				if(GRAB_PRESSURE!=0 && GRABBING_DISTANCE>0 && a->isGrabbing() && !a2->isDead()) {
 					if(d<=GRABBING_DISTANCE+a->radius){
 						Vector2f v(1,0);
-						v.rotate(a->angle+a->grabangle);
-						float diff= v.angle_between(a2->pos-a->pos);
+						v.rotate(a->angle + a->grabangle);
+						float diff= v.angle_between(flata2pos - flatagentpos);
 
 						//check init grab
 						if(a->grabID==-1){
@@ -2209,7 +2226,10 @@ void World::processReproduction()
 						float deviation= abs(agents[mother].species - agents[father].species); //species deviation check
 						if (deviation>=agents[mother].kinrange) continue; //uses mother's kinrange; if outside, skip
 
-						float distance= (agents[mother].pos - agents[father].pos).length();
+						Vector2f flatmotherpos = Vector2f(agents[mother].pos.x, agents[mother].pos.y);
+						Vector2f flatfatherpos = Vector2f(agents[father].pos.x, agents[father].pos.y);
+
+						float distance= (flatmotherpos - flatfatherpos).length();
 						if(distance>SEXTING_DISTANCE) continue;
 
 						//prepare to add agents[i].numbabies to world, with two parents
