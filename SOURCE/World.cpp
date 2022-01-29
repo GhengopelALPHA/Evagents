@@ -2531,13 +2531,13 @@ int World::getClosestRelative(int idx)
 			std::string temprelative= "";
 
   			if ((agents[idx].gencount+1) == agents[i].gencount) { //choose children or nephews and nieces
-				meta+= 5;
+				meta+= 10;
 				temprelative.assign("youngling");
 			} else if (agents[idx].gencount == agents[i].gencount) { //at least choose cousins/siblings... 
-				meta+= 3;
+				meta+= 6;
 				temprelative.assign("cousin");
 			} else if (agents[idx].gencount == (agents[i].gencount+1)) { //...or parents/aunts/uncles
-				meta+= 2;
+				meta+= 4;
 				temprelative.assign("elder");
 			} 
 
@@ -2557,8 +2557,8 @@ int World::getClosestRelative(int idx)
 			for(int j=0; j<Stomach::FOOD_TYPES; j++){ //penalize mis-matching stomach types harshly
 				meta-= ceilf(5*abs(agents[idx].stomach[j]-agents[i].stomach[j])); //diff of 0.2 scales to a -1 penalty, max possible= -15
 			}
-			meta-= ceilf(20*abs(agents[idx].lungs-agents[i].lungs)); //penalize mis-matching lung types, max possible= -20
-			meta-= ceilf(10*abs(agents[idx].temperature_preference-agents[i].temperature_preference)); //penalize mis-matching temp preference, max possible: -10
+			meta-= ceilf(10*abs(agents[idx].lungs-agents[i].lungs)); //penalize mis-matching lung types, max possible= -10
+			meta-= ceilf(5*abs(agents[idx].temperature_preference-agents[i].temperature_preference)); //penalize mis-matching temp preference, max possible: -5
 			
 			//if the meta counter is better than the best selection so far*, return our new target
 			//*note that it has to do better than MAXDEVIATION as a baseline because we want ONLY relatives, and if no matches, we return -1
