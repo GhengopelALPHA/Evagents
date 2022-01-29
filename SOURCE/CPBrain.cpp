@@ -179,9 +179,9 @@ void CPBrain::tick(vector< float >& in, vector< float >& out)
 		if (conns[i].sid < 0) value = in[inRef(conns[i].sid)];
 		else value = boxes[boxRef(conns[i].sid)].out;
 		
-		if(conns[i].type == 1 && conns[i].sid >= 0){ //change sensitive conn compares to old value, and gets magnified by *100 (arbitrary)
+		if(conns[i].type == 1 && conns[i].sid >= 0){ //change sensitive conn compares to old value, and gets magnified by *10 (arbitrary)
 			value -= boxes[boxRef(conns[i].sid)].oldout;
-			value *= 100;
+			value *= 10;
 		}
 
 		//multiply by weight and add to the accumulation of the target box
@@ -231,11 +231,11 @@ float CPBrain::getActivityRatio() const
 void CPBrain::initMutate(float MR, float MR2)
 {
 	//connection (conn) mutations.
-	//Extraordinary (/100+): new conn, boxify, random type, random source ID, random target ID,
-	//Rare (/10+): target ID bump, source ID bump, mirror conn, split conn. 
+	//Extraordinary (/100+): boxify, random type, random source ID, random target ID,
+	//Rare (/10+): new conn, target ID bump, source ID bump, mirror conn, split conn. 
 	//Common: random weight, weight wither, weight jiggle
 	for(int i= 0; i<randi(1,6); i++){ //possibly add between 0 and 5 new connections
-		if (randf(0,1) < MR/100) {
+		if (randf(0,1) < MR/50) {
 			//Add conn
 			CPConn a = CPConn((int)boxes.size());
 			conns.push_back(a);
@@ -350,10 +350,10 @@ void CPBrain::initMutate(float MR, float MR2)
 			boxes[boxRef(conns[i].tid)].seed = 0;
 		}
 
-		if (randf(0,1) < MR/2) {
+		if (randf(0,1) < MR) {
 			//weight wither
-			if(randf(0,1) > fabs(conns[i].w)*0.2) {
-				//the closer to 0 it already is, the higher the chance it gets set to 0. *0.2 rescales it from range (-5,5)
+			if(randf(0,1) > fabs(conns[i].w)*2) {
+				//the closer to 0 it already is, the higher the chance it gets set to 0. *2 rescales it to range (-0.5,0.5), outside this the mutation is impossible
 				conns[i].w = 0;
 				conns[i].seed = 0;
 				boxes[boxRef(conns[i].tid)].seed = 0;
