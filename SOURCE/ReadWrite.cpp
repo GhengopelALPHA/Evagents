@@ -79,6 +79,7 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "carcasscount= %i\n", a->carcasscount);
 	fprintf(file, "freshkill= %i\n", a->freshkill);
 	fprintf(file, "spike= %f\n", a->spikeLength);
+	fprintf(file, "encumbered= %i\n", a->encumbered);
 	fprintf(file, "zvelocity= %f\n", a->zvelocity);
 	fprintf(file, "dhealth= %f\n", a->dhealth);
 
@@ -109,19 +110,19 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "eyemod_agent= %f\n", a->eye_see_agent_mod);
 	fprintf(file, "eyemod_cell= %f\n", a->eye_see_cell_mod);
 //		fprintf(file, "eyecellmod= %f\n", a->eye_see_cell_mod);
-	for(int q=0;q<a->eyedir.size();q++) {
+	for(int q=0;q<a->eyes.size();q++) {
 		fprintf(file, "<y>\n");
 		fprintf(file, "eye#= %i\n", q);
-		fprintf(file, "eyedir= %f\n", a->eyedir[q]);
-		fprintf(file, "eyefov= %f\n", a->eyefov[q]);
+		fprintf(file, "eyedir= %f\n", a->eyes[q].dir);
+		fprintf(file, "eyefov= %f\n", a->eyes[q].fov);
 		fprintf(file, "</y>\n");
 	}
 	for(int q=0;q<NUMEARS;q++) {
 		fprintf(file, "<e>\n");
 		fprintf(file, "ear#= %i\n", q);
-		fprintf(file, "eardir= %f\n", a->eardir[q]);
-		fprintf(file, "hearlow= %f\n", a->hearlow[q]);
-		fprintf(file, "hearhigh= %f\n", a->hearhigh[q]);
+		fprintf(file, "eardir= %f\n", a->ears[q].dir);
+		fprintf(file, "hearlow= %f\n", a->ears[q].low);
+		fprintf(file, "hearhigh= %f\n", a->ears[q].high);
 		fprintf(file, "</e>\n");
 	}
 	//Note: Stats aren't saved
@@ -269,6 +270,9 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "spike=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.spikeLength= f;
+			}else if(strcmp(var, "encumbered=")==0 && loadexact){
+				sscanf(dataval, "%i", &i);
+				xa.encumbered= i;
 			}else if(strcmp(var, "zvelocity=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.zvelocity= f;
@@ -365,10 +369,10 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 				eyenum= i;
 			}else if(strcmp(var, "eyedir=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.eyedir[eyenum]= f;
+				xa.eyes[eyenum].dir= f;
 			}else if(strcmp(var, "eyefov=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.eyefov[eyenum]= f;
+				xa.eyes[eyenum].fov= f;
 			}
 		}else if(mode==ReadWriteMode::EAR){
 			if(strcmp(var, "</e>")==0){
@@ -378,13 +382,13 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 				earnum= i;
 			}else if(strcmp(var, "eardir=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.eardir[earnum]= f;
+				xa.ears[earnum].dir= f;
 			}else if(strcmp(var, "hearlow=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.hearlow[earnum]= f;
+				xa.ears[earnum].low= f;
 			}else if(strcmp(var, "hearhigh=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.hearhigh[earnum]= f;
+				xa.ears[earnum].high= f;
 			}
 		}else if(mode==ReadWriteMode::BOX){
 			if(strcmp(var, "</x>")==0){

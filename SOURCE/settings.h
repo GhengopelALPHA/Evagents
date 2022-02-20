@@ -472,39 +472,38 @@ const enum {
 
 //defines for genes. every agent can have any number of genes, even 0 (typically defaults the trait to 1.0)
 //each gene also adds to the reproduction cost
-//GOAL is to make it so that each of these represents a "node" or organ, and maybe allow for node growths later (actual physical body parts)
 namespace Genetypes {
 const enum {
-	ADD_STRUCT_NODE= 0, //UNUSED
-	MULT_MAXHEALTH, //UNUSED
-	ADD_INT_MAXAGE, //UNUSED
-	MULT_BRAIN_MUTCHANCE, //old MUTRATE1
-	MULT_BRAIN_MUTSIZE, //old MUTRATE2
-	MULT_RADIUS,
-	MULT_RED,
-	MULT_GREEN,
-	MULT_BLUE,
-	MULT_CHAMOVID,
-	MULT_WHEELSTRENGTH,
-	ADD_INT_BABY,
-	ADD_FLOAT_THERMAL, //UNUSED
-	MULT_THERMAL,
-	MULT_LUNG,
-	MULT_METABOLISM,
-	MULT_STOMACH_H,
-	MULT_STOMACH_F,
-	MULT_STOMACH_M,
-	ADD_FLOAT_MAXREPCOUNTER, //will this be used?
-	ADD_FLOAT_SEXPROJECT,
-	MULT_EYE_SEE_AGENT,
-	ADD_STRUCT_EYE, //UNUSED
-	MULT_EAR_HEAR_AGENT,
-	ADD_STRUCT_EAR, //UNUSED
-	MULT_CLOCK1,
-	MULT_CLOCK2,
-	MULT_CLOCK3,
-	MULT_SENSE_BLOOD,
-	MULT_SMELL_AGENTS,
+	BRAIN_MUTCHANCE,
+	BRAIN_MUTSIZE,
+	GENE_MUTCHANCE,
+	GENE_MUTSIZE,
+	RADIUS,
+	RED,
+	GREEN,
+	BLUE,
+	CHAMOVID,
+	STRENGTH,
+	NUM_BABIES,
+	THERMAL_PREF,
+	LUNGS,
+	METABOLISM,
+	STOMACH_H,
+	STOMACH_F,
+	STOMACH_M,
+	MAX_REPCOUNTER, //will this be used?
+	SEX_PROJECT_BIAS,
+	EYE_SEE_AGENTS,
+	EYE_SEE_CELLS,
+	STRUCT_EYE, //UNUSED
+	EAR_HEAR_AGENT,
+	STRUCT_EAR, //UNUSED
+	CLOCK1,
+	CLOCK2,
+	CLOCK3,
+	SENSE_BLOOD,
+	SMELL_AGENTS,
+	SMELL_CELLS,
 	
 	
 	//don't add beyond this entry!
@@ -560,6 +559,7 @@ namespace conf {
 	const std::string SONGS[NUM_SONGS]= {MAIN_SONG,ETHERAL_SONG,CELEBRATION_SONG,BABY_SONG,ADAPT_SONG,PERSIST_SONG,RHYTHM_SONG,
 		SLEEPY_SONG,SHIMMER_SONG,OVERGROWTH_SONG,STALE_SONG,INSPIRE_SONG};
 
+	//ui & other display standards
 	const float SNAP_SPEED = 0.2; //how fast snapping to an object of interest is; 1 is instant, 0.1 is smooth, 0 is pointless
 	const float ZOOM_SPEED = 0.002; //how fast zoom actions change the magnification
 	const int EVENTS_DISP= 8; //how many events to display at once, at max. Will not miss events that exceed this; they'll wait
@@ -585,18 +585,21 @@ namespace conf {
 	const float INITMEATDENSITY= 0.001; //(.cfg)
 	const float INITHAZARDDENSITY= 0.003; //(.cfg)
 
+	//terrain gen
 	const int CONTINENTS= 2; //(.cfg)
 	const int CONTINENT_SPREAD= 20; //how many cells each continent "seed" will, at max, spread from another
 	const float LOWER_ELEVATION_CHANCE= 0.08; //what's the chance that the terrain will drop a level instead of stay the same when "spreading"?
 	const float OCEANPERCENT= 0.65; //(.cfg)
 	const bool SPAWN_LAKES= true; //(.cfg)
 
+	//simulation standards
 	const int AGENTS_MIN_NOTCLOSED= 50; //(.cfg)
 	const int AGENTS_MAX_SPAWN= 600; //(.cfg)
 	const int AGENTSPAWN_FREQ= 75; //(.cfg)
 	const int AGENTS_MAX_NOOXYGEN= 2400; //(.cfg)
-	const int SPECIESID_RANGE= 9000; //species ID range between (-this,this) that agents will spawn with. Note it is not capped
+	const int SPECIESID_RANGE= 9000; //species ID range between (-this,this) that agents will spawn with. Note mutations may take individuals beyond this range
 
+	//physics
 	const float GRAVITY_ACCELERATION= 0.010; //(.cfg)
 	const float BUMP_PRESSURE= 0.1; //(.cfg)
 	const float GRAB_PRESSURE= 0.1; //(.cfg)
@@ -607,6 +610,7 @@ namespace conf {
 	const bool AGENTS_SEE_CELLS = true; //(.cfg & save)
 	const bool AGENTS_DONT_OVERDONATE = false; //(.cfg & save)
 
+	//World settings
 	const bool DISABLE_LAND_SPAWN= true; //(.cfg & GUI)
 	const bool MOONLIT= true; //(.cfg, save, & GUI)
 	const float MOONLIGHTMULT= 0.25; //(.cfg & save)
@@ -635,18 +639,19 @@ namespace conf {
 	const int BRAINCONNS= 300; //(.cfg)
 	const float LEARNRATE= 0.001; // CHANGE TO LEARN FROM USER INPUT
 	const bool ENABLE_LEARNING= true; //
-	const float BRAIN_DIRECTINPUTS= 0.4; //probability of random brain conns on average which will connect directly to inputs
+	const float BRAIN_DIRECTINPUTS= 0.3; //probability of random brain conns on average which will connect directly to inputs
 	const float BRAIN_DEADCONNS= 0.35; //probability of random brain conns which are "dead" (that is, weight = 0)
 	const float BRAIN_CHANGECONNS= 0.05; //probablility of random brain conns which are change sensitive
 //	const float BRAIN_MEMCONNS= 0.01; //probablility of random brain conns which are memory type
-	const float BRAIN_MIRRORCONNS= 0.1; //BRAINCONNS*this additional connections will be made as mirror-compare connections with a random other connection
-	const float BRAIN_CONN_ID_MUTATION_STD_DEV= 1.0; //standard dev. for the brain connection ID change mutation. UNUSED! todo
+	const float BRAIN_MIRRORCONNS= 0.2; //BRAINCONNS*this additional connections will be made as mirror-compare connections with a random other connection
+//	const float BRAIN_CONN_ID_MUTATION_STD_DEV= 1.0; //standard dev. for the brain connection ID change mutation. UNUSED! todo
 	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
 
 	//general settings
-	const float WHEEL_SPEED= 0.5; //(.cfg)
+	const float WHEEL_SPEED= 1.0; //(.cfg)
+	const float JUMP_VELOCITY_MULT= 0.5; //this value multiplies in to the final velocity value for the jump when getting set. Otherwise, velocities are in range (0,1) for jump > (0.5, 1)
 	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
-	const float ENCUMBEREDMULT= 0.3; //speed multiplier for being encumbered
+	const float ENCUMBERED_MOVE_MULT= 0.3; //(.cfg)
 	const float MEANRADIUS= 10.0; //(.cfg)
 	const float JUMP_MOVE_BONUS_MULT= 2.0; //(.cfg)
 	const float BOOST_MOVE_MULT= 2.0; //(.cfg)

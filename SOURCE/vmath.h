@@ -882,6 +882,14 @@ namespace VMATH_NAMESPACE
 	 {
 	    return (T)std::sqrt(x * x + y * y + z * z);
 	 }
+
+	 /**
+	  * Get 2D!!! (x,y) length of vector.
+	  */
+	 T length2d() const 
+	 {
+	    return (T)std::sqrt(x * x + y * y);
+	 }
 	
 	 /**
 	  * Return square of length.
@@ -909,24 +917,31 @@ namespace VMATH_NAMESPACE
 	 //------------[ other operations ]---------------------------
 	 /**
 	  * Rotate vector around three axis.
-	  * @param ax Angle (in degrees) to be rotated around X-axis.
-	  * @param ay Angle (in degrees) to be rotated around Y-axis.
-	  * @param az Angle (in degrees) to be rotated around Z-axis.
+	  * @param ax Angle to be rotated around X-axis.
+	  * @param ay Angle to be rotated around Y-axis.
+	  * @param az Angle to be rotated around Z-axis.
 	  */
 	 void rotate(T ax, T ay, T az) 
 	 {
-	    T a = cos(DEG2RAD(ax));
-	    T b = sin(DEG2RAD(ax));
-	    T c = cos(DEG2RAD(ay));
-	    T d = sin(DEG2RAD(ay));
-	    T e = cos(DEG2RAD(az));
-	    T f = sin(DEG2RAD(az));
+	    T a = cos(ax);
+	    T b = sin(ax);
+	    T c = cos(ay);
+	    T d = sin(ay);
+	    T e = cos(az);
+	    T f = sin(az);
 	    T nx = c * e * x - c * f * y + d * z;
 	    T ny = (a * f + b * d * e) * x + (a * e - b * d * f) * y - b * c * z;
 	    T nz = (b * f - a * d * e) * x + (a * d * f + b * e) * y + a * c * z;
 	    x = nx; y = ny; z = nz;
 		
 		
+	 }
+
+	 //return the 2D!!! angle this vector makes with the other one
+	 float angle_between2d(const Vector3<T>& other){
+		 float cross= x*other.y - y*other.x;
+		 float dot= x*other.x + y*other.y;
+		 return atan2(cross,dot);
 	 }
 	
 	 /**

@@ -36,6 +36,7 @@ public:
 	void spawn();
 	void update();
 	void cellsRoundTerrain();
+	void setSTATLandRatio();
     
 	//world status
     bool isClosed() const;
@@ -51,8 +52,8 @@ public:
 	//debug stuff
 	bool isDebug() const;
 	void setDebug(bool state);
-	std::vector<Vector2f> linesA;
-	std::vector<Vector2f> linesB;
+	std::vector<Vector3f> linesA;
+	std::vector<Vector3f> linesB;
 
 	//following and selected agent stuff
 	int getSelectedID() const;
@@ -244,6 +245,7 @@ public:
 	float SOUND_PITCH_RANGE;
 	float INV_SOUND_PITCH_RANGE;
 
+	float ENCUMBERED_MOVE_MULT;
 	float MEANRADIUS;
 	float GENEROSITY_RATE;
 	float BASEEXHAUSTION;

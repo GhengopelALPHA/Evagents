@@ -46,40 +46,28 @@ Agent::Agent(
 	//eyes
 	eye_see_agent_mod= randf(0.3, 3);
 	eye_see_cell_mod= randf(0.3, 3);
-	eyefov.resize(NUMEYES, 0);
-	eyedir.resize(NUMEYES, 0);
 	for(int i=0;i<NUMEYES;i++) {
-		if(!SPAWN_MIRROR_EYES || i%2==0) { //init and every other eye gets unique values
-			eyedir[i] = randf(0, 2*M_PI);
-			eyefov[i] = randf(0.001, 1.25);
-		}
-		else { //every other eye mirrors the angle of the last, and copies the fov
-			eyedir[i]= 2*M_PI-eyedir[i-1];
-			eyefov[i] = eyefov[i-1];
+		Eye eye = Eye();
+		eyes.push_back(eye);
+	}
+	for(int i=0;i<NUMEYES;i++) {
+		if(SPAWN_MIRROR_EYES && i%2==1) { //if enabled, every other eye mirrors the angle of the last, and copies the fov
+			eyes[i].dir= 2*M_PI-eyes[i-1].dir;
+			eyes[i].fov = eyes[i-1].fov;
 		}
 	}
 
 	//ears
 	hear_mod= randf(0.1, 3);
-	eardir.resize(NUMEARS, 0);
-	hearlow.resize(NUMEARS, 0);
-	hearhigh.resize(NUMEARS, 0);
 	for(int i=0;i<NUMEARS;i++) {
-		if(i%NUMEARS==NUMEARS/2) { //every NUMEARS/2 ear is an mirrored position
-			eardir[i]= 2*M_PI-eardir[i-1];
-		} else if(i%2==0) { //init and every other ear gets unique position
-			eardir[i]= randf(0, 2*M_PI);
-		} else { //every other ear matches the last's position, leaving us with NUMEARS/2 sensors on either side of the agent
-			eardir[i]= eardir[i-1];
-		}
-		float temp1= randf(0,1);
-		float temp2= randf(0,1);
-		if(temp1>temp2){
-			hearlow[i]= temp2;
-			hearhigh[i]= temp1;
-		} else {
-			hearlow[i]= temp1;
-			hearhigh[i]= temp2;
+		Ear ear = Ear();
+		ears.push_back(ear);
+	}
+	for(int i=0;i<NUMEARS;i++) {
+		if(i%NUMEARS == NUMEARS/2) { //every NUMEARS/2 ear is a mirrored position
+			ears[i].dir = 2*M_PI - ears[i-1].dir;
+		} else if(i%2 == 1) { //every other ear matches the last's position, leaving us with NUMEARS/2 sensors on either side of the agent
+			ears[i].dir= ears[i-1].dir;
 		}
 	}
 
@@ -106,7 +94,7 @@ Agent::Agent(
 	near= false;
 	resetRepCounter(MEANRADIUS, REP_PER_BABY); //make sure numbabies is set before this!
 	discomfort= 0;
-	encumbered= false;
+	encumbered= 0;
 	exhaustion= 0;
 	carcasscount= -1;
 
@@ -236,27 +224,21 @@ Agent Agent::reproduce(
 	a2.discomfort= this->discomfort;
 	a2.lungs= randf(0,1)<0.5 ? this->lungs : that.lungs;
 	
-	for (int i=0; i<eardir.size(); i++) { //replace with list of ear objects if/when the time comes
+	for (int i=0; i<ears.size(); i++) {
 		//inherrit individual ears
-		if(randf(0,1)<0.5) {
-			a2.eardir[i]= this->eardir[i];
-			a2.hearlow[i]= this->hearlow[i];
-			a2.hearhigh[i]= this->hearhigh[i];
+		if(randf(0,1) < 0.5) {
+			a2.ears[i] = this->ears[i];
 		} else {
-			a2.eardir[i]= that.eardir[i];
-			a2.hearlow[i]= that.hearlow[i];
-			a2.hearhigh[i]= that.hearhigh[i];
+			a2.ears[i] = that.ears[i];
 		}
 	}
 
-	for (int i=0; i<eyedir.size(); i++) { //replace with list of eye objects when the time comes
+	for (int i=0; i<eyes.size(); i++) {
 		//inherrit individual eyes
-		if(randf(0,1)<0.5) {
-			a2.eyefov[i]= this->eyefov[i];
-			a2.eyedir[i]= this->eyedir[i];
+		if(randf(0,1) < 0.5) {
+			a2.eyes[i] = this->eyes[i];
 		} else {
-			a2.eyefov[i]= that.eyefov[i];
-			a2.eyedir[i]= that.eyedir[i];
+			a2.eyes[i] = that.eyes[i];
 		}
 	}
 
@@ -295,63 +277,57 @@ Agent Agent::reproduce(
 	if (randf(0,1)<GMR) a2.blood_mod= abs(randn(a2.blood_mod, GMR2*4));
 
 	if (randf(0,1)<GMR*2) a2.temperature_preference= cap(randn(a2.temperature_preference, GMR2/2));
-	if (randf(0,1)<GMR*3) a2.lungs= cap(randn(a2.lungs, GMR2));
+	if (randf(0,1)<GMR*4) a2.lungs= cap(randn(a2.lungs, GMR2/2));
 
-	for(int i=0;i<eyedir.size();i++){
-		if(!PRESERVE_MIRROR_EYES || i%2==0) {
+	for(int i=0;i<eyes.size();i++){
+		if(PRESERVE_MIRROR_EYES && i%2==1) {
+			eyes[i].dir= 2*M_PI - eyes[i-1].dir;
+			eyes[i].fov = eyes[i-1].fov;
+		} else {
 			if (randf(0,1)<GMR/60) {
 				//LOW-CHANCE EYE COPY MUTATION
-				int origeye= randi(0,eyedir.size());
-				a2.eyedir[i]= a2.eyedir[origeye];
-				if(randf(0,1)<GMR*3) a2.eyefov[i]= a2.eyefov[origeye];
+				int origeye = randi(0,eyes.size());
+				a2.eyes[i].dir = a2.eyes[origeye].dir;
+				if(randf(0,1)<GMR*3) a2.eyes[i].fov = a2.eyes[origeye].fov;
 			}
 			if (randf(0,1)<GMR/40) {
 				//MIRROR EYE COPY MUTATION
-				int origeye= randi(0,eyedir.size());
-				a2.eyedir[i]= 2*M_PI - a2.eyedir[origeye];
-				if(randf(0,1)<GMR*3) a2.eyefov[i]= a2.eyefov[origeye];
+				int origeye= randi(0,eyes.size());
+				a2.eyes[i].dir= 2*M_PI - a2.eyes[origeye].dir;
+				if(randf(0,1)<GMR*3) a2.eyes[i].fov= a2.eyes[origeye].fov;
 			}
 
-			if(randf(0,1)<GMR) a2.eyefov[i] = abs(randn(a2.eyefov[i], GMR2));
-			if(a2.eyefov[i]>M_PI) a2.eyefov[i] = M_PI; //eyes cannot wrap around agent
+			if(randf(0,1)<GMR) a2.eyes[i].fov = abs(randn(a2.eyes[i].fov, GMR2));
+			if(a2.eyes[i].fov>M_PI) a2.eyes[i].fov = M_PI; //eyes cannot wrap around agent
 
-			if(randf(0,1)<GMR) a2.eyedir[i] = randn(a2.eyedir[i], GMR2*4);
-			if(a2.eyedir[i]<0) a2.eyedir[i] = 0;
-			if(a2.eyedir[i]>2*M_PI) a2.eyedir[i] = 2*M_PI;
+			if(randf(0,1)<GMR) a2.eyes[i].dir = randn(a2.eyes[i].dir, GMR2*4);
+			if(a2.eyes[i].dir<0) a2.eyes[i].dir = 0;
+			if(a2.eyes[i].dir>2*M_PI) a2.eyes[i].dir = 2*M_PI;
 			//not going to loop coordinates; 0,2pi is agents' front again, so it provides a good point to "bounce" off of
-		}
-		else {
-			eyedir[i]= 2*M_PI - eyedir[i-1];
-			eyefov[i] = eyefov[i-1];
 		}
 	}
 
-	for(int i=0;i<NUMEARS;i++){
+	for(int i=0;i<ears.size();i++){
 		if(i%2==0) {
 			if (randf(0,1)<GMR/40) {
-				//LOW-CHANCE COPY EVENT
-				int origear= randi(0,NUMEARS);
-	//			if(randf(0,1)<GMR*3) a2.eardir[i]= a2.eardir[origear];
-				if(randf(0,1)<GMR*3) a2.hearlow[i]= a2.hearlow[origear];
-				if(randf(0,1)<GMR*3) a2.hearhigh[i]= a2.hearhigh[origear];
+				//LOW-CHANCE COPY EVENT, only copies the hearing ranges
+				int origear = randi(0,ears.size());
+				if(randf(0,1)<GMR*3) a2.ears[i].low = a2.ears[origear].low;
+				if(randf(0,1)<GMR*3) a2.ears[i].high = a2.ears[origear].high;
 			}
 
-			if(randf(0,1)<GMR) a2.eardir[i] = randn(a2.eardir[i], GMR2*4);
-			if(a2.eardir[i]<0) a2.eardir[i] = 0;
-			if(a2.eardir[i]>2*M_PI) a2.eardir[i] = 2*M_PI;
+			if(randf(0,1)<GMR) a2.ears[i].dir = randn(a2.ears[i].dir, GMR2*4);
+			if(a2.ears[i].dir < 0) a2.ears[i].dir = 0;
+			if(a2.ears[i].dir > 2*M_PI) a2.ears[i].dir = 2*M_PI;
 		} else { //IMPLEMENT WORLD SETTING FOR CONTROLLING THIS
-			eardir[i]= eardir[i-1];
+			ears[i].dir = ears[i-1].dir;
 		}
 		
-		if(randf(0,1)<GMR/2) a2.hearlow[i]= randn(a2.hearlow[i], GMR2*2);
-		if(randf(0,1)<GMR/2) a2.hearhigh[i]= randn(a2.hearhigh[i], GMR2*2);
+		if(randf(0,1)<GMR/2) a2.ears[i].low = randn(a2.ears[i].low, GMR2*2);
+		if(randf(0,1)<GMR/2) a2.ears[i].high = randn(a2.ears[i].high, GMR2*2);
 
 		//restore order if lost
-		if (a2.hearlow[i]>a2.hearhigh[i]) {
-			float temp= a2.hearlow[i];
-			a2.hearlow[i]= a2.hearhigh[i];
-			a2.hearhigh[i]= temp;
-		}
+		a2.ears[i].order();
 	}
 	
 	//create brain here
@@ -498,8 +474,7 @@ void Agent::printSelf()
 	else printf("PRESENTLY NOT NEAR (not interaction-processed)\n");
 	printf("freshkill: %i\n", freshkill);
 	printf("carcasscount: %i\n", carcasscount);
-	if(encumbered) printf("encumbered\n");
-	else printf("not encumbered\n");
+	printf("encumbered x%i\n", encumbered);
 	if(hybrid) printf("is hybrid\n");
 	else printf("is budded\n");
 	if(isDead()) printf("Killed by %s\n", death);
@@ -607,6 +582,11 @@ float Agent::getOutputSum() const
 		sum+= out[op];
 	}
 	return sum;
+}
+
+float Agent::getWheelOutputSum() const
+{
+	return out[Output::RIGHT_WHEEL_F] + out[Output::RIGHT_WHEEL_B] + out[Output::LEFT_WHEEL_F] + out[Output::LEFT_WHEEL_B];
 }
 
 void Agent::resetRepCounter(float MEANRADIUS, float REP_PER_BABY)

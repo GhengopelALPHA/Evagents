@@ -497,16 +497,16 @@ void GLView::menu(int key)
 {
 	if (key==27 || key==32) { //[esc](27) or [spacebar](32) - pause
 		live_paused= !live_paused;
-	} else if (key==43 || key=='+') { //[+] - speed up sim
+	} else if (key==43 || key=='+' || key=='=') { //[+] - speed up sim
 		live_skipdraw++;
 	} else if (key==45 || key=='-') { //[-] - slow down sim
 		live_skipdraw--;
 	} else if(key==')') {
 		world->setSelectedAgent(randi(0,world->agents.size())); //select random agent, among all
 		live_selection= Select::MANUAL;
-	} else if (key==62) { //[>] - zoom+
+	} else if (key==62 || key=='.') { //[>] - zoom+
 		scalemult += 10*conf::ZOOM_SPEED;
-	} else if (key==60) { //[<] - zoom-
+	} else if (key==60 || key==',') { //[<] - zoom-
 		scalemult -= 10*conf::ZOOM_SPEED;
 		if(scalemult<0.03) scalemult=0.03;
 	} else if (key==9) { //[tab] - press sets select mode to off, and sets cursor mode to default
@@ -1808,6 +1808,17 @@ Color3f GLView::setColorStomach(const float stomach[Stomach::FOOD_TYPES])
 	return color;
 }
 
+Color3f GLView::setColorStomach(float plant, float fruit, float meat)
+{
+	float stomach[Stomach::FOOD_TYPES];
+	for (int i=0; i < Stomach::FOOD_TYPES; i++) {
+		if (i == Stomach::PLANT) stomach[i] = plant;
+		else if (i == Stomach::FRUIT) stomach[i] = fruit;
+		else if (i == Stomach::MEAT) stomach[i] = meat;
+	}
+	return setColorStomach(stomach);
+}
+
 Color3f GLView::setColorTempPref(float discomfort)
 {
 	Color3f color;
@@ -2018,6 +2029,7 @@ Color3f GLView::setColorTerrain(float val)
 
 Color3f GLView::setColorHeight(float val)
 {
+	if (val<1) val *= 0.95;
 	Color3f color(val,val,val);
 	return color;
 }
@@ -2147,16 +2159,17 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 				//eyesight FOV's for the eyesight profile
 				for(int q=0;q<NUMEYES;q++) {
 					if(agent.isTiny() && !agent.isTinyEye(q)) continue;
-					float aa= agent.angle + agent.eyedir[q] + agent.eyefov[q];
+					float aa= agent.angle + agent.eyes[q].dir + agent.eyes[q].fov;
 					glBegin(GL_POLYGON);
 
 					glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.15);
 
+					float rangemult= 1.0; //TODO: different types will show shorter ranges
 					for (int n=0; n<4; n++) {
-						glVertex3f(world->MAX_SENSORY_DISTANCE*cos(aa), world->MAX_SENSORY_DISTANCE*sin(aa), 0);
-						aa-= agent.eyefov[q]/2;
+						glVertex3f(rangemult*world->MAX_SENSORY_DISTANCE*cos(aa), rangemult*world->MAX_SENSORY_DISTANCE*sin(aa), 0);
+						aa-= agent.eyes[q].fov/2;
 					}
-					glVertex3f(world->MAX_SENSORY_DISTANCE*cos(aa), world->MAX_SENSORY_DISTANCE*sin(aa), 0);
+					glVertex3f(rangemult*world->MAX_SENSORY_DISTANCE*cos(aa), rangemult*world->MAX_SENSORY_DISTANCE*sin(aa), 0);
 					glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.5);
 					glVertex3f(0,0,0);
 					glEnd();
@@ -2422,8 +2435,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					for(int q=0;q<NUMEYES;q++){
 						if(agent.isTiny() && !agent.isTinyEye(q)) continue;
 
-						float eyex= 165-agent.eyedir[q]/2/M_PI*150;
-						float eyer= 1+agent.eyefov[q]/M_PI*40;
+						float eyex= 165-agent.eyes[q].dir/2/M_PI*150;
+						float eyer= 1+agent.eyes[q].fov/M_PI*40;
 						glBegin(GL_POLYGON);
 						glColor3f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3]);
 						drawCircle(eyex, 30, eyer);
@@ -2467,21 +2480,21 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						glColor4f(earcolor.first.red, earcolor.first.gre, earcolor.first.blu, earcolor.second); 
 
 						//Draw a trapezoid indicating the full range the ear hears, including the limbs
-						float displace= (agent.hearhigh[q]-agent.hearlow[q])*0.5;
-						if(displace>world->SOUND_PITCH_RANGE) displace= world->SOUND_PITCH_RANGE;
-						float heightratio= 1-cap(displace*world->INV_SOUND_PITCH_RANGE); //when displace= the SOUND_PITCH_RANGE, 
+						float displace = (agent.ears[q].high - agent.ears[q].low)*0.5;
+						if(displace > world->SOUND_PITCH_RANGE) displace = world->SOUND_PITCH_RANGE;
+						float heightratio = 1 - cap(displace*world->INV_SOUND_PITCH_RANGE); //when displace= the SOUND_PITCH_RANGE, 
 
-						glVertex3f(2+176*cap(agent.hearlow[q]+displace), 2+78*heightratio, 0); //top-left	 L  _______  H		    L___H
-						glVertex3f(2+176*cap(agent.hearlow[q]), 78, 0); //	bottom-left						   /|     |\*			  |
-						glVertex3f(2+176*cap(agent.hearhigh[q]), 78, 0); //bottom-right						  / |h    | \* but also  /|\*
-						glVertex3f(2+176*cap(agent.hearhigh[q]-displace), 2+78*heightratio, 0); // top-right /_d|_____|__\*			/d|_\*
+						glVertex3f(2+176*cap(agent.ears[q].low + displace), 2 + 78*heightratio, 0); //top-left	  L  _______  H		     L___H
+						glVertex3f(2+176*cap(agent.ears[q].low), 78, 0); //	bottom-left							    /|     |\*			   |
+						glVertex3f(2+176*cap(agent.ears[q].high), 78, 0); //bottom-right						   / |h    | \* but also  /|\*
+						glVertex3f(2+176*cap(agent.ears[q].high - displace), 2 + 78*heightratio, 0); // top-right /_d|_____|__\*		 /d|_\*
 					
-						if(agent.hearlow[q]+displace*2 < agent.hearhigh[q]) {
+						if(agent.ears[q].low+displace*2 < agent.ears[q].high) {
 							//draw a box that indicates the zone that this ear hears at full volume
-							glVertex3f(2+176*cap(agent.hearlow[q]+displace), 2, 0);
-							glVertex3f(2+176*cap(agent.hearlow[q]+displace), 78, 0);
-							glVertex3f(2+176*cap(agent.hearhigh[q]-displace), 78, 0);
-							glVertex3f(2+176*cap(agent.hearhigh[q]-displace), 2, 0);
+							glVertex3f(2+176*cap(agent.ears[q].low + displace), 2, 0);
+							glVertex3f(2+176*cap(agent.ears[q].low + displace), 78, 0);
+							glVertex3f(2+176*cap(agent.ears[q].high - displace), 78, 0);
+							glVertex3f(2+176*cap(agent.ears[q].high - displace), 2, 0);
 						} 
 
 						if(agent.isTiny()) break; //only one ear for tiny agents
@@ -2780,7 +2793,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 	float rad= r;
 
 	//jumping agents appear magnified
-	if (agent.pos.z > 0) rad+= (agent.pos.z + 1)*3;
+	if (agent.pos.z > 0) rad+= (agent.pos.z + 1);
 
 	glPushMatrix(); //switch to local position coordinates
 	glTranslatef(x,y,0);
@@ -2862,13 +2875,13 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			//draw eye lines
 			for(int q=0;q<NUMEYES;q++) {
 				if(agent.isTiny() && !agent.isTinyEye(q)) break; //skip extra eyes for tinies
-				float aa= agent.angle+agent.eyedir[q];
+				float aa= agent.angle+agent.eyes[q].dir;
 				
 				glBegin(GL_LINES);
 				glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.75*dead);
 
-				glVertex3f(r*cos(aa), r*sin(aa),0);
-				glVertex3f((2*r+30)*cos(aa), (2*r+30)*sin(aa), 0); //this draws whiskers. Don't get rid of or change these <3
+				glVertex3f(rad*cos(aa), rad*sin(aa),0);
+				glVertex3f((2*rad+30)*cos(aa), (2*rad+30)*sin(aa), 0); //this draws whiskers. Don't get rid of or change these <3
 
 				glEnd();
 			}
@@ -2876,7 +2889,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			//ears
 			for(int q=0;q<NUMEARS;q++) {
 				glBegin(GL_POLYGON);
-				float aa= agent.angle + agent.eardir[q];
+				float aa= agent.angle + agent.ears[q].dir;
 				//the centers of ears are black
 				glColor4f(0,0,0,0.35);
 				glVertex3f(rad*cos(aa), rad*sin(aa),0);
@@ -2971,22 +2984,35 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		glEnd();
 
 		//outline
-		float out_red= 0,out_gre= 0,out_blu= 0;
-		if (agent.isTiny()){
-			out_red= 1.0;
-			out_gre= 1.0;
-			out_blu= 1.0;
-		}
 		if (agent.isAirborne() && scalemult > scale4ksupport) { //draw jumping as a thick outline no matter what
 			glLineWidth(3);
 		}
 		glBegin(GL_LINES);
 
-		if (live_agentsvis!=Visual::HEALTH && agent.isDead()){ //draw outline as grey if dead, unless visualizing health
+		if (live_agentsvis != Visual::HEALTH && agent.isDead()){ //draw outline as grey if dead, unless visualizing health
 			glColor4f(0.7,0.7,0.7,dead);
 
-		//otherwise, color as agent's body if zoomed out, color as above if normal zoomed
-		} else glColor4f(cap(out_red*blur + (1-blur)*color.red), cap(out_gre*blur + (1-blur)*color.gre), cap(out_blu*blur + (1-blur)*color.blu), dead);
+		} else {
+			//otherwise, color as agent's body if zoomed out, color as above if normal zoomed
+			Color3f close_outline_color = Color3f(0);
+			if (agent.isTiny()){
+				close_outline_color = Color3f(1);
+			}
+
+			//if visualizing stomachs, make the outline show the stomach class instead
+			Color3f outline_color = color;
+			if (live_agentsvis==Visual::STOMACH) {
+				if (agent.isHerbivore()) outline_color = setColorStomach(1,0,0);
+				else if (agent.isFrugivore()) outline_color = setColorStomach(0,1,0);
+				else if (agent.isCarnivore()) outline_color = setColorStomach(0,0,1);
+			}
+
+			glColor4f(
+			cap(close_outline_color.red*blur + (1-blur)*outline_color.red),
+			cap(close_outline_color.gre*blur + (1-blur)*outline_color.gre),
+			cap(close_outline_color.blu*blur + (1-blur)*outline_color.blu),
+			dead);
+		}
 		drawOutlineRes(0, 0, rad, getAgentRes(ghost));
 		glEnd();
 		glLineWidth(1);
@@ -3056,7 +3082,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 						(world->modcounter+agent.id)%conf::BLINKDELAY<q*10+conf::BLINKTIME && 
 						!agent.isDead()) continue; //blink eyes ocasionally... DAWWWWWW
 
-					float ca= agent.angle+agent.eyedir[q];
+					float ca= agent.angle+agent.eyes[q].dir;
 
 					glBegin(GL_POLYGON);
 					glColor4f(0.85,0.85,0.85,1.0);
@@ -4070,7 +4096,7 @@ void GLView::renderAllTiles()
 
 				} else if(u==LADHudOverview::MOTION){
 					if(selected.isAirborne()) sprintf(buf, "Airborne!");
-					else if(selected.encumbered) sprintf(buf, "Encumbered");
+					else if(selected.encumbered > 0) sprintf(buf, "Encumbered x%i", selected.encumbered);
 					else if(selected.boost) sprintf(buf, "Boosting");
 					else if(abs(selected.w1-selected.w2)>0.06) sprintf(buf, "Spinning...");
 					else if(abs(selected.w1)>0.2 || abs(selected.w2)>0.2) sprintf(buf, "Sprinting");

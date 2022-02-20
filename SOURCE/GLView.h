@@ -48,6 +48,7 @@ struct Color3f
 		this->gre= (this->gre+g)*0.5;
 		this->blu= (this->blu+b)*0.5;
 	}
+
 	float red;
 	float gre;
 	float blu;
@@ -107,6 +108,7 @@ private:
 	//3f agent color defs
 	Color3f setColorHealth(float health);
 	Color3f setColorStomach(const float stomach[Stomach::FOOD_TYPES]);
+	Color3f setColorStomach(float plant, float fruit, float meat);
 	Color3f setColorTempPref(float discomfort);
 	Color3f setColorMetabolism(float metabolism);
 	Color3f setColorTone(float tone);
