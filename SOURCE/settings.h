@@ -591,6 +591,7 @@ namespace conf {
 	const float LOWER_ELEVATION_CHANCE= 0.08; //what's the chance that the terrain will drop a level instead of stay the same when "spreading"?
 	const float OCEANPERCENT= 0.65; //(.cfg)
 	const bool SPAWN_LAKES= true; //(.cfg)
+	const int FEATURES_TO_SPAWN = 1; //(.cfg)
 
 	//simulation standards
 	const int AGENTS_MIN_NOTCLOSED= 50; //(.cfg)

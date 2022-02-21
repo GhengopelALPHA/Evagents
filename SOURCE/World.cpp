@@ -378,14 +378,14 @@ void World::cellsLandMasses()
 		}
 
 		//form islands/lakes if leftcount is low and we're missing our target
-		if(SPAWN_LAKES && leftcount < 0.02*CW*CH && leftcount > 0.01*CW*CH) {
+		if(SPAWN_LAKES && leftcount < 0.035*CW*CH && leftcount > 0.03*CW*CH) {
 			setSTATLandRatio();
 
 			for(int i=0;i<CW;i++) {
 				for(int j=0;j<CH;j++) {
-					if (cells[Layer::ELEVATION][i][j]==-1 && randf(0,1)<0.1) {
-						if(STATlandratio - (float)leftcount/CW/CH < (1-OCEANPERCENT) && randf(0,1)<0.9) {
-							if (randf(0,1)<0.75) cells[Layer::ELEVATION][i][j] = Elevation::HILL;
+					if (cells[Layer::ELEVATION][i][j]==-1 && randf(0,1)<0.025) {
+						if(STATlandratio - (float)leftcount/CW/CH < (1-OCEANPERCENT) && randf(0,1)<0.5) {
+							if (randf(0,1)<0.5) cells[Layer::ELEVATION][i][j] = Elevation::HILL;
 							else cells[Layer::ELEVATION][i][j] = Elevation::PLAINS;
 						} else cells[Layer::ELEVATION][i][j] = Elevation::SHALLOWWATER;
 					}
@@ -394,11 +394,13 @@ void World::cellsLandMasses()
 		}
 	}
 
-//	if (randf(0,1)<0.02) {
+	for (int n=0; n<FEATURES_TO_SPAWN; n++) {
 		//what's this? What's going on? Why is the sky all lit up?
 		int cx=randi(20,CW-20);
 		int cy=randi(20,CH-20);
-		int radius= randi(7,15);
+		int radius= randi(7,16);
+		bool peak = randf(0,1)<0.5;
+		bool flatter = randf(0,1)<0.5;
 
 		for(int i=0;i<2*radius;i++) {
 			for(int j=0;j<2*radius;j++) {
@@ -407,27 +409,34 @@ void World::cellsLandMasses()
 				float length = vector.length();
 				float pression = cells[Layer::ELEVATION][i+cx][j+cy];
 
-				if (length < radius*0.1 && randf(0,1)<0.5) pression += 0.2;
-				else if (length < radius*0.2) pression -= 0.2;
-				else if (length < radius*0.5) pression -= 0.4;
-				else if (length < radius*0.7) pression -= 0.1;
-				else if (length < radius*0.75) pression += 0;
-				else if (length < radius*0.8) pression += 0.1;
-				else if (length < radius*0.95) pression += 0.3;
+				if (length < radius*0.05 && peak) pression += 0.2;
+				else if (length < radius*0.1 && peak) pression += 0.1;
+				else if (length < radius*0.15 && peak) pression -= 0;
+				else if (length < radius*0.25 && peak && !flatter) pression -= 0.1;
+				//
+				else if (length < radius*0.55 && !flatter) pression -= 0.2;
+				else if (length < radius*0.65 && !flatter) pression -= 0.1;
+				else if (length < radius*0.7) pression += 0;
+				else if (length < radius*0.75) pression += 0.1;
+				else if (length < radius*0.85) pression += 0.2;
+				else if (length < radius*0.9 && !flatter) pression += 0.3;
+				else if (length < radius*0.95) pression += 0.2;
 				else if (length < radius) pression += 0.1;
 				//N#!P3s%eg9 G9!O&mo7iM I2^E6Om sCVb()S@E\GM)(En!Mg
+
 				if (length < radius) {
-					pression -= (float)(randi(0,2))/10;
-					if (pression > Elevation::BEACH_MID-0.1 && pression < Elevation::BEACH_MID+0.1) pression = Elevation::BEACH_MID;
+					if (pression > cells[Layer::ELEVATION][i+cx][j+cy]) pression -= (float)(randi(0,3))/10;
+					if (pression > Elevation::BEACH_MID-0.05 && pression < Elevation::BEACH_MID+0.05) pression = Elevation::BEACH_MID;
 				}
 
+				//*WOOOOOOOOSH*
 				if (pression > Elevation::DEEPWATER_LOW && pression < Elevation::SHALLOWWATER) pression = Elevation::DEEPWATER_LOW;
 				else if (pression > Elevation::SHALLOWWATER && pression < Elevation::BEACH_MID) pression = Elevation::SHALLOWWATER;
 
 				cells[Layer::ELEVATION][i+cx][j+cy] = cap(pression);
 			}
 		}
-
+	}
 
 
 	printf("...rolling hills...\n");
@@ -1706,7 +1715,7 @@ void World::processOutputs(bool prefire)
 			//first calculate the exact wheel scalar values
 			float basewheel = 1;
 			if (a->encumbered > 0) {
-				for (int x = 0; x < a->encumbered; x++) basewheel *= ENCUMBERED_MOVE_MULT;
+				basewheel *= powf(ENCUMBERED_MOVE_MULT, a->encumbered);
 				//reset the encumberment
 				a->encumbered = 0;
 			} else if (a->boost) basewheel *= BOOST_MOVE_MULT;
@@ -3259,6 +3268,7 @@ void World::init()
 	//ALL .cfg constants must be initially declared in world.h and defined here.
 	NO_TIPS= false;
 	SPAWN_LAKES= conf::SPAWN_LAKES;
+	FEATURES_TO_SPAWN= conf::FEATURES_TO_SPAWN;
 	DISABLE_LAND_SPAWN= conf::DISABLE_LAND_SPAWN;
 	AMBIENT_LIGHT_PERCENT = conf::AMBIENT_LIGHT_PERCENT;
 	AGENTS_SEE_CELLS = conf::AGENTS_SEE_CELLS;
@@ -3554,6 +3564,10 @@ void World::readConfig()
 				if(i!=(int)SPAWN_LAKES) printf("SPAWN_LAKES, ");
 				if(i==1) SPAWN_LAKES= true;
 				else SPAWN_LAKES= false;
+			}else if(strcmp(var, "FEATURES_TO_SPAWN=")==0){
+				sscanf(dataval, "%i", &i);
+				if(i!=FEATURES_TO_SPAWN) printf("FEATURES_TO_SPAWN, ");
+				FEATURES_TO_SPAWN= i;
 			}else if(strcmp(var, "DISABLE_LAND_SPAWN=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=(int)DISABLE_LAND_SPAWN) printf("DISABLE_LAND_SPAWN, ");
@@ -4136,6 +4150,7 @@ void World::writeConfig()
 	fprintf(cf, "NO_TIPS= %i \t\t\t//if true (=1), prevents tips from being displayed. Default= 1 when writing a new config\n", 1);
 	fprintf(cf, "NO_DEMO= %i \t\t\t//if true (=1), this will start Evagents normally. Demo Mode prevents the report.txt from being overwritten during Epoch 0, and always disables itself on Epoch 1. Meant to prevent deletion of previous report.txts if you forgot to make a copy. Set to 0 to allow Demo Mode to start when you relaunch the program.\n", 1);
 	fprintf(cf, "SPAWN_LAKES= %i \t\t\t//if true (=1), and if terrain generation forms too much or too little land, the generator takes a moment to put in lakes (or islands)\n", conf::SPAWN_LAKES);
+	fprintf(cf, "FEATURES_TO_SPAWN= %i \t\t//integer number of terrain features to try and generate (not all are guarenteed to appear). Set to 0 to disable\n", conf::FEATURES_TO_SPAWN);
 	fprintf(cf, "DISABLE_LAND_SPAWN= %i \t\t//true-false flag for disabling agents from spawning on land. 0= land spawn allowed, 1= not allowed. Is GUI-controllable. This value is whatever was set in program when this file was saved\n", DISABLE_LAND_SPAWN);
 	fprintf(cf, "AMBIENT_LIGHT_PERCENT= %f //multiplier of the natural light level that eyes will see. Be cautious with this; too high (>0.5) and cells will wash out agents. Note, if AGENTS_SEE_CELLS is enabled, then this gets applied to the cell colors instead\n", conf::AMBIENT_LIGHT_PERCENT);
 	fprintf(cf, "AGENTS_SEE_CELLS= %i \t\t//true-false flag for letting agents see cells. 0= agents only see other agents and an ambient day/night brightness, 1= agents see agents and cells with day/night brightness applied, and is considerably laggier. Is saved/loaded.\n", conf::AGENTS_SEE_CELLS);

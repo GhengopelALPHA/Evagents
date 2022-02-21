@@ -1652,8 +1652,9 @@ void GLView::handleIdle()
 			//we technically are rendering if just paused tho, so this check should stay here
 		} else ratemode='F';
 
-		sprintf( buf, "Evagents - %cPS: %d Alive: %d Epoch: %d Day %d",
-			ratemode, frames, world->getAgents()-world->getDead(), world->getEpoch(), world->getDay() );
+		sprintf( buf, "Evagents - %cPS: %d Alive: %d Herbi: %d Carni: %d Frugi: %d Epoch: %d Day %d",
+			ratemode, frames, world->getAgents()-world->getDead(), world->getHerbivores(), world->getCarnivores(),
+			world->getFrugivores(), world->getEpoch(), world->getDay() );
 		glutSetWindowTitle( buf );
 
 		world->timenewsong--; //reduce our song delay timer
@@ -3005,6 +3006,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				if (agent.isHerbivore()) outline_color = setColorStomach(1,0,0);
 				else if (agent.isFrugivore()) outline_color = setColorStomach(0,1,0);
 				else if (agent.isCarnivore()) outline_color = setColorStomach(0,0,1);
+				close_outline_color = outline_color;
 			}
 
 			glColor4f(
