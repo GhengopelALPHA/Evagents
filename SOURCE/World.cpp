@@ -4204,7 +4204,7 @@ void World::writeConfig()
 	fprintf(cf, "EXHAUSTION_MULT_PER_OUTPUT= %f //multiplier applied to the sum value of all outputs; effectively, the cost multiplier of performing actions. Increase to pressure agents to chose their output more carefully\n", conf::EXHAUSTION_MULT_PER_OUTPUT);
 	fprintf(cf, "EXHAUSTION_MULT_PER_CONN= %f //multiplier applied to the count of brain connections; effectively, the cost multiplier of maintaining each synapse in the brain. Increase to pressure agents to make more efficient brains.\n", conf::EXHAUSTION_MULT_PER_CONN);
 	fprintf(cf, "MAXWASTEFREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. 1= no agent control allowed, 0= program crash\n", conf::MAXWASTEFREQ);
-	fprintf(cf, "GENEROSITY_RATE= %f \t\t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::GENEROSITY_RATE);
+	fprintf(cf, "GENEROSITY_RATE= %f \t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::GENEROSITY_RATE);
 	fprintf(cf, "SPIKESPEED= %f \t\t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKESPEED);
 	fprintf(cf, "SPAWN_MIRROR_EYES= %i \t\t//true-false flag for if random spawn agents have mirrored eyes. 0= asymmetry, 1= symmetry\n", (int)conf::SPAWN_MIRROR_EYES);
 	fprintf(cf, "PRESERVE_MIRROR_EYES= %i \t//true-false flag for if mutations can break mirrored eye symmetry. 0= mutations do not preserve symmetry, 1= agents always have mirrored eyes\n", (int)conf::PRESERVE_MIRROR_EYES);

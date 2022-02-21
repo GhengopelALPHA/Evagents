@@ -777,7 +777,7 @@ namespace conf {
 	const float MEAT_DECAY= 0.00002; //(.cfg)
 	const float MEAT_WASTE= 0.0023; //(.cfg)
 	const float MEAT_VALUE= 1.0; //(.cfg)
-	const float MEAT_NON_FRESHKILL_MULT = 0.5; //(.cfg)
+	const float MEAT_NON_FRESHKILL_MULT = 0.75; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)
 
 	const int HAZARD_EVENT_FREQ= 30; //(.cfg)
