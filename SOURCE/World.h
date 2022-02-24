@@ -79,6 +79,8 @@ public:
 	void selectedTrace(int mode);
 	void selectedInput(bool state);
 	void getFollowLocation(float &xi, float &yi);
+	std::vector<Vector3f> lifepath; //list of positions by the selected agent over time. resets when we select someone, or decay
+	bool recordlifepath;
 
 	bool isAutoselecting() const;
 	void setAutoselect(bool state);
@@ -128,6 +130,7 @@ public:
 	void healthTick(); //process agent health
 	void processReproduction(); //handle all agent's reproduction needs
 	void processCellInteractions(); //does interactions of agents with cells
+	float getMetabolismRatio(float metabolism);
 	void processAgentInteractions(); //does interactions of agents with agents
 	void processDeath(); //manage the distribution of meat, alerts, and death system functions
 	void processRandomSpawn(); //handle spawning of random agents; gotta keep the world filled!
@@ -210,8 +213,10 @@ public:
 
 	bool NO_TIPS; //if the config value is set true, no tips will be displayed
 	int CONTINENTS;
+	int CONTINENT_ROUGHNESS;
 	float OCEANPERCENT;
 	bool SPAWN_LAKES;
+	float ISLANDNESS;
 	int FEATURES_TO_SPAWN;
 
 	bool DISABLE_LAND_SPAWN;

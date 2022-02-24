@@ -26,6 +26,7 @@ World::World() :
 		pright(0),
 		pleft(0),
 		dosounds(true),
+		recordlifepath(false),
 		timenewsong(10),
 		currentsong(0)
 {
@@ -151,6 +152,8 @@ void World::reset()
 	numAquatic.assign(REPORTS_PER_EPOCH, 0);
 	numHybrid.assign(REPORTS_PER_EPOCH, 0);
 
+	lifepath.clear();
+
 	//reset achievements
 	STATuseracted= false;
 	STATfirstspecies= false;
@@ -234,10 +237,10 @@ void World::spawn()
 	//spawn land masses
 	cellsLandMasses();
 
-	//change climate settings
+	//init climate settings
 	if(CLIMATE) {
 		printf("...(un)freezing glaciers...\n");
-		CLIMATEBIAS= randf(0.25,0.75);
+		CLIMATEBIAS= randf(0.3,0.7);
 		CLIMATEMULT= randf(0.4,0.8);
 		if(DEBUG) printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
 		if(CLIMATEMULT<0.75) {
@@ -268,7 +271,7 @@ void World::cellsLandMasses()
 
 	if(OCEANPERCENT<1){
 		int lastcx, lastcy;
-		for (int i=0; i<CONTINENTS*3; i++) { //give ourselves more iterations to do extra stuff
+		for (int i=0; i<CONTINENTS*CONTINENT_ROUGHNESS; i++) { //give ourselves more iterations to do extra stuff
 			int lowcx= 0;
 			int lowcy= 0;
 			int highcx= CW;
@@ -299,28 +302,34 @@ void World::cellsLandMasses()
 		}
 	}
 
-	for (int i=0;i<4.0*(powf((float)CW*CH,1/3)/10*pow((float)(CONTINENTS+2),(float)(OCEANPERCENT+1.2))) ;i++) {
-		//spawn oceans (water= 0)
-		int cx=randi(0,CW);
-		int cy=randi(0,CH);
-		cells[Layer::ELEVATION][cx][cy]= i<=1 ? Elevation::SHALLOWWATER : Elevation::DEEPWATER_LOW;
+	if (OCEANPERCENT > 0) {
+		for (int i=0;i<(0.8+CONTINENT_ROUGHNESS)*(powf((float)CW*CH,1/3)/10*pow((float)(CONTINENTS+2),(float)(OCEANPERCENT+1.2))) ;i++) {
+			//spawn oceans (water= 0)
+			int cx=randi(0,CW);
+			int cy=randi(0,CH);
+			cells[Layer::ELEVATION][cx][cy]= i<=1 ? Elevation::SHALLOWWATER : Elevation::DEEPWATER_LOW;
+		}
 	}
 
 	printf("...moving tectonic plates...\n");
+	int bumbler = 0;
 	while(leftcount!=0){
+		bumbler++;
 		for(int i=0;i<CW;i++) {
 			for(int j=0;j<CH;j++) {
 				float height= cells[Layer::ELEVATION][i][j];
 				//land spread
-				if (height>Elevation::BEACH_MID){
+				if (height > Elevation::BEACH_MID){
 					int ox= randi(i-1,i+2);
 					int oy= randi(j-1,j+2); //+2 to correct for randi [x,y)
 					if (ox<0) ox+= CW;
 					if (ox>CW-1) ox-= CW;
 					if (oy<0) oy+= CH;
 					if (oy>CH-1) oy-= CH;
-					if (cells[Layer::ELEVATION][ox][oy]==-1 && randf(0,1)>OCEANPERCENT*0.5-0.25) {//chance to spread tied to desired ocean percentage
-						if(height<=Elevation::PLAINS){ //will not reduce level 0.6 and below, allowing us to create beaches (0.5) later
+					if (cells[Layer::ELEVATION][ox][oy]==-1 && randf(0,1)>OCEANPERCENT/max(CONTINENT_ROUGHNESS-0.15,0.001)) {
+						//chance to spread tied to desired ocean percentage
+						if(height <= Elevation::PLAINS){
+							//will not reduce level 0.6 and below, allowing us to create beaches (0.5) later
 							cells[Layer::ELEVATION][ox][oy]= height;
 						} else cells[Layer::ELEVATION][ox][oy]= randf(0,1)>conf::LOWER_ELEVATION_CHANCE ? height : height - 0.1;
 						//there's a chance we reduce the next terrain cell by 0.1 in elevation, to produce variation!
@@ -378,20 +387,23 @@ void World::cellsLandMasses()
 		}
 
 		//form islands/lakes if leftcount is low and we're missing our target
-		if(SPAWN_LAKES && leftcount < 0.035*CW*CH && leftcount > 0.03*CW*CH) {
+		float startphase = ISLANDNESS+0.05;
+		float endphase = startphase*3/4;
+		if(SPAWN_LAKES && OCEANPERCENT>0 && leftcount < startphase*CW*CH && leftcount > endphase*CW*CH) {
 			setSTATLandRatio();
 
 			for(int i=0;i<CW;i++) {
 				for(int j=0;j<CH;j++) {
-					if (cells[Layer::ELEVATION][i][j]==-1 && randf(0,1)<0.025) {
-						if(STATlandratio - (float)leftcount/CW/CH < (1-OCEANPERCENT) && randf(0,1)<0.5) {
-							if (randf(0,1)<0.5) cells[Layer::ELEVATION][i][j] = Elevation::HILL;
+					if (cells[Layer::ELEVATION][i][j] == -1 && randf(0,1) < pow(ISLANDNESS, 2)/16 + 0.015) {
+						if(STATlandratio - (float)leftcount/CW/CH*0.5 < (1-OCEANPERCENT) && randf(0,1) < (ISLANDNESS/4 + 0.3)) {
+							if (randf(0,1) < 0.25) cells[Layer::ELEVATION][i][j] = Elevation::HILL;
 							else cells[Layer::ELEVATION][i][j] = Elevation::PLAINS;
 						} else cells[Layer::ELEVATION][i][j] = Elevation::SHALLOWWATER;
 					}
 				}
 			}
 		}
+		if (bumbler > 5000) leftcount = 0;
 	}
 
 	for (int n=0; n<FEATURES_TO_SPAWN; n++) {
@@ -1580,6 +1592,10 @@ void World::processCounters()
 			else if(a->isMale()) a->centerrender -= 0.01*(a->centerrender-2);
 			else a->centerrender -= 0.01*(a->centerrender-1);
 			a->centerrender = cap(a->centerrender*0.5)*2; //duck the counter under a cap to allow range [0,2]
+
+			if (recordlifepath && isAgentSelected(a->id)) {
+				if (modcounter%conf::RENDER_LIFEPATH_INTERVAL==0) lifepath.push_back(a->pos);
+			}
 		}
 	}
 }
@@ -1830,7 +1846,7 @@ void World::processCellInteractions()
 					}
 
 					// proportion intake via metabolism
-					float metabmult = a->metabolism*(1 - MIN_INTAKE_HEALTH_RATIO);
+					float metabmult = getMetabolismRatio(a->metabolism);
 					a->repcounter -= metabmult*intake;
 					if (a->repcounter < 0) a->encumbered += 1;
 
@@ -1904,6 +1920,11 @@ void World::processCellInteractions()
 		}
 
 	}
+}
+
+float World::getMetabolismRatio(float metabolism)
+{
+	return metabolism*(1 - MIN_INTAKE_HEALTH_RATIO);
 }
 
 void World::processAgentInteractions()
@@ -2242,17 +2263,17 @@ void World::processReproduction()
 {
 	//the reasoning for this seems to be that if we process every tick, it opens up weird memory reference inaccessible issues, so we mod it
 	if(modcounter%2==0) {
-		for (int mother=0; mother<(int)agents.size(); mother++) {
+		for (int mother=0; mother < (int)agents.size(); mother++) {
 			if (agents[mother].repcounter<0 && agents[mother].health>=MINMOMHEALTH) { 
 				//agent is healthy and is ready to reproduce. Now to decide how...
 
 				if(SEXTING_DISTANCE>0 && !agents[mother].isAsexual()){
 					if(agents[mother].isMale()) continue;; //'fathers' cannot themselves reproduce, only be reproduced with
 
-					for (int father=0; father<(int)agents.size(); father++) {
+					for (int father=0; father < (int)agents.size(); father++) {
 						if (mother == father) continue;
 
-						if (agents[father].isAsexual() || agents[father].repcounter>0) continue;
+						if (agents[father].isAsexual()) continue;
 
 						float deviation= abs(agents[mother].species - agents[father].species); //species deviation check
 						if (deviation>=agents[mother].kinrange) continue; //uses mother's kinrange; if outside, skip
@@ -2260,16 +2281,19 @@ void World::processReproduction()
 						float distance= (agents[mother].pos - agents[father].pos).length2d();
 						if(distance>SEXTING_DISTANCE) continue;
 
-						//prepare to add agents[i].numbabies to world, with two parents
-						if(DEBUG) printf("Attempting to have children...");
+						if(agents[father].repcounter>0){
+							//prepare to add agents[i].numbabies to world, with two parents
+							if(DEBUG) printf("Attempting to have children...");
 
-						reproduce(mother, father);
+							reproduce(mother, father);
 
-						addTipEvent("Agent Sexually Reproduced", EventColor::BLUE, agents[mother].id);
-						addTipEvent("Agent Sexually Reproduced", EventColor::BLUE, agents[father].id);
-						tryPlayAudio(conf::SFX_SMOOCH1, agents[mother].pos.x, agents[mother].pos.y, randn(1.0,0.15));
+							addTipEvent("Agent Sexually Reproduced", EventColor::BLUE, agents[mother].id);
+							addTipEvent("Agent Sexually Reproduced", EventColor::BLUE, agents[father].id);
+							tryPlayAudio(conf::SFX_SMOOCH1, agents[mother].pos.x, agents[mother].pos.y, randn(1.0,0.15));
 
-						if(DEBUG) printf(" Success!\n");
+							if(DEBUG) printf(" Success!\n");
+							break;
+						}
 					}
 				} else {
 					//this adds mother's numbabies to world, but with just one parent (budding)
@@ -2281,6 +2305,7 @@ void World::processReproduction()
 					tryPlayAudio(conf::SFX_PLOP1, agents[mother].pos.x, agents[mother].pos.y, randn(1.0,0.15));
 
 					if(DEBUG) printf(" Success!\n");
+					break;
 				}
 			}
 			if(FUN && randf(0,1)<0.3){
@@ -2331,7 +2356,10 @@ void World::processDeath()
 	vector<Agent>::iterator iter= agents.begin();
 	while (iter != agents.end()) {
 		if (iter->isDead() && iter->carcasscount >= conf::CORPSE_FRAMES) {
-			if(isAgentSelected(iter->id) && isDemo()) addEvent("The Selected Agent decayed", EventColor::BROWN);
+			if(isAgentSelected(iter->id)) {
+				lifepath.clear();
+				if (isDemo()) addEvent("The Selected Agent decayed", EventColor::BROWN);
+			}
 			iter= agents.erase(iter);
 		} else {
 			++iter;
@@ -2526,6 +2554,7 @@ void World::setSelectedAgent(int idx)
 {
 	if (isAgentSelected(agents[idx].id)) SELECTION= -1; //toggle selection if already selected
 	else SELECTION= agents[idx].id; //otherwise, select as normal
+	lifepath.clear();
 
 	if(!agents[idx].isDead()) agents[idx].initSplash(10,1.0,1.0,1.0);
 	setControl(false);
@@ -2869,8 +2898,6 @@ void World::reproduce(int mother, int father)
 	//Reset the MOTHER's repcounter ONLY (added bonus of sexual rep and allows possible dichotomy of sexes)
 	agents[mother].resetRepCounter(MEANRADIUS, REP_PER_BABY);
 
-	if (isAgentSelected(agents[mother].id)) printf("The Selected Agent has Reproduced and had %i Babies!\n", numbabies);
-
 	//do not omp
 	for (int i=0;i<numbabies;i++) {
 		Agent daughter= agents[mother].reproduce(agents[father], PRESERVE_MIRROR_EYES, OVERRIDE_KINRANGE, MEANRADIUS, REP_PER_BABY, i);
@@ -2883,6 +2910,7 @@ void World::reproduce(int mother, int father)
 
 		addAgent(daughter);
 	}
+	if (isAgentSelected(agents[mother].id)) printf("The Selected Agent has Reproduced and had %i Babies!\n", numbabies);
 }
 
 void World::writeReport()
@@ -3267,7 +3295,11 @@ void World::init()
 
 	//ALL .cfg constants must be initially declared in world.h and defined here.
 	NO_TIPS= false;
+	CONTINENTS= conf::CONTINENTS;
+	CONTINENT_ROUGHNESS= conf::CONTINENT_ROUGHNESS;
+    OCEANPERCENT= conf::OCEANPERCENT;
 	SPAWN_LAKES= conf::SPAWN_LAKES;
+	ISLANDNESS= conf::ISLANDNESS;
 	FEATURES_TO_SPAWN= conf::FEATURES_TO_SPAWN;
 	DISABLE_LAND_SPAWN= conf::DISABLE_LAND_SPAWN;
 	AMBIENT_LIGHT_PERCENT = conf::AMBIENT_LIGHT_PERCENT;
@@ -3299,9 +3331,7 @@ void World::init()
     FRAMES_PER_EPOCH= conf::FRAMES_PER_EPOCH;
     FRAMES_PER_DAY= conf::FRAMES_PER_DAY;
 
-	CONTINENTS= conf::CONTINENTS;
-    OCEANPERCENT= conf::OCEANPERCENT;
-    GRAVITY_ACCELERATION= conf::GRAVITY_ACCELERATION;
+	GRAVITY_ACCELERATION= conf::GRAVITY_ACCELERATION;
     BUMP_PRESSURE= conf::BUMP_PRESSURE;
 	GRAB_PRESSURE= conf::GRAB_PRESSURE;
 	BRAINBOXES= conf::BRAINBOXES;
@@ -3559,11 +3589,28 @@ void World::readConfig()
 					readConfig();
 					break;
 				}
+			}else if(strcmp(var, "CONTINENTS=")==0){
+				sscanf(dataval, "%i", &i);
+				if(i!=CONTINENTS) printf("CONTINENTS, ");
+				CONTINENTS= i;
+			}else if(strcmp(var, "CONTINENT_ROUGHNESS=")==0){
+				sscanf(dataval, "%i", &i);
+				if(i!=CONTINENT_ROUGHNESS) printf("CONTINENT_ROUGHNESS, ");
+				CONTINENT_ROUGHNESS= i;
+			}else if(strcmp(var, "OCEANPERCENT=")==0 && agents.size() == 0){ //ok so what am I doing here: need to ONLY load this value
+				//if this is the first load of the config. Since agents should be non-empty and we haven't sanitized yet, it doubles as a flag
+				sscanf(dataval, "%f", &f);
+				if(f!=OCEANPERCENT) printf("OCEANPERCENT, ");
+				OCEANPERCENT= f;
 			}else if(strcmp(var, "SPAWN_LAKES=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=(int)SPAWN_LAKES) printf("SPAWN_LAKES, ");
 				if(i==1) SPAWN_LAKES= true;
 				else SPAWN_LAKES= false;
+			}else if(strcmp(var, "ISLANDNESS=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=ISLANDNESS) printf("ISLANDNESS, ");
+				ISLANDNESS= f;
 			}else if(strcmp(var, "FEATURES_TO_SPAWN=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=FEATURES_TO_SPAWN) printf("FEATURES_TO_SPAWN, ");
@@ -3710,14 +3757,6 @@ void World::readConfig()
 				sscanf(dataval, "%i", &i);
 				if(i!=FRAMES_PER_DAY) printf("FRAMES_PER_DAY, ");
 				FRAMES_PER_DAY= i;
-			}else if(strcmp(var, "CONTINENTS=")==0){
-				sscanf(dataval, "%i", &i);
-				if(i!=CONTINENTS) printf("CONTINENTS, ");
-				CONTINENTS= i;
-			}else if(strcmp(var, "OCEANPERCENT=")==0){
-				sscanf(dataval, "%f", &f);
-				if(f!=OCEANPERCENT) printf("OCEANPERCENT, ");
-				OCEANPERCENT= f;
 			}else if(strcmp(var, "GRAVITY_ACCELERATION=")==0 || strcmp(var, "GRAVITYACCEL=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=GRAVITY_ACCELERATION) printf("GRAVITY_ACCELERATION, ");
@@ -4149,8 +4188,14 @@ void World::writeConfig()
 	fprintf(cf, "\n");
 	fprintf(cf, "NO_TIPS= %i \t\t\t//if true (=1), prevents tips from being displayed. Default= 1 when writing a new config\n", 1);
 	fprintf(cf, "NO_DEMO= %i \t\t\t//if true (=1), this will start Evagents normally. Demo Mode prevents the report.txt from being overwritten during Epoch 0, and always disables itself on Epoch 1. Meant to prevent deletion of previous report.txts if you forgot to make a copy. Set to 0 to allow Demo Mode to start when you relaunch the program.\n", 1);
+	fprintf(cf, "\n");
+	fprintf(cf, "CONTINENTS= %i \t\t\t//number of 'continents' generated on the land layer. Not guaranteed to be accurate\n", conf::CONTINENTS);
+	fprintf(cf, "CONTINENT_ROUGHNESS= %i \t\t//multiplier for number of 'seed' points for BOTH continents and ocean. Higher values will result in more 'granular' continent shapes and possibly more 'continents' than the above value indicates. 0 will make no continents at all, only ocean.\n", conf::CONTINENT_ROUGHNESS);
+	fprintf(cf, "OCEANPERCENT= %f \t\t//decimal ratio of terrain layer which will be ocean. Approximately\n", conf::OCEANPERCENT);
 	fprintf(cf, "SPAWN_LAKES= %i \t\t\t//if true (=1), and if terrain generation forms too much or too little land, the generator takes a moment to put in lakes (or islands)\n", conf::SPAWN_LAKES);
+	fprintf(cf, "ISLANDNESS= %f \t\t//how much of the terrain, roughly, is going to be lakes/islands. 0 means lakes and islands will not generate, 0.5 means 50%% of the world will be islands/lakes.\n", conf::ISLANDNESS);
 	fprintf(cf, "FEATURES_TO_SPAWN= %i \t\t//integer number of terrain features to try and generate (not all are guarenteed to appear). Set to 0 to disable\n", conf::FEATURES_TO_SPAWN);
+	fprintf(cf, "\n");
 	fprintf(cf, "DISABLE_LAND_SPAWN= %i \t\t//true-false flag for disabling agents from spawning on land. 0= land spawn allowed, 1= not allowed. Is GUI-controllable. This value is whatever was set in program when this file was saved\n", DISABLE_LAND_SPAWN);
 	fprintf(cf, "AMBIENT_LIGHT_PERCENT= %f //multiplier of the natural light level that eyes will see. Be cautious with this; too high (>0.5) and cells will wash out agents. Note, if AGENTS_SEE_CELLS is enabled, then this gets applied to the cell colors instead\n", conf::AMBIENT_LIGHT_PERCENT);
 	fprintf(cf, "AGENTS_SEE_CELLS= %i \t\t//true-false flag for letting agents see cells. 0= agents only see other agents and an ambient day/night brightness, 1= agents see agents and cells with day/night brightness applied, and is considerably laggier. Is saved/loaded.\n", conf::AGENTS_SEE_CELLS);
@@ -4185,8 +4230,6 @@ void World::writeConfig()
 	fprintf(cf, "FRAMES_PER_EPOCH= %i \t//number of frames before epoch is incremented by 1\n", conf::FRAMES_PER_EPOCH);
 	fprintf(cf, "FRAMES_PER_DAY= %i \t\t//number of frames it takes for the daylight cycle to go completely around the map\n", conf::FRAMES_PER_DAY);
 	fprintf(cf, "\n");
-	fprintf(cf, "CONTINENTS= %i \t\t\t//number of 'continents' generated on the land layer. Not guaranteed to be accurate\n", conf::CONTINENTS);
-	fprintf(cf, "OCEANPERCENT= %f \t\t//decimal ratio of terrain layer which will be ocean. Approximately\n", conf::OCEANPERCENT);
 	fprintf(cf, "GRAVITY_ACCELERATION= %f \t//how fast an agent will 'fall' after jumping. 0= jump disabled, 0.1+ = super-gravity\n", conf::GRAVITY_ACCELERATION);
 	fprintf(cf, "BUMP_PRESSURE= %f \t//the restoring force between two colliding agents. 0= no reaction (disables all collisions). I'd avoid negative values if I were you...\n", conf::BUMP_PRESSURE);
 	fprintf(cf, "GRAB_PRESSURE= %f \t//the restoring force between and agent and its grab target. 0= no reaction (disables grab function), negative values make grabbing agents push others away instead\n", conf::GRAB_PRESSURE);

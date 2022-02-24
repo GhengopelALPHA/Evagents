@@ -66,6 +66,7 @@ public:
 	void drawAgent(const Agent &a, float x, float y, bool ghost= 0);
 	void drawCell(int x, int y, const float values[Layer::LAYERS]); //draws the background boxes
 	void drawData(); //draws info in the left side of the sim
+	void drawFinalData(); //draws some data on the world after cells but before agents
 	void drawStatic(); //draws viewer-static objects
 	void drawPieDisplay(float x, float y, float size, std::vector<std::pair<std::string, float>> values); //draw a pie chart at specified screen x and y
 
@@ -172,6 +173,7 @@ private:
 	int live_layersvis[DisplayLayer::DISPLAYS]; //list of bools keeping track of which layers we're displaying.
 	int live_waterfx; //are we rendering water effects?
 	int live_profilevis; //what visualization profile are we displaying next to the selected agent? see namespace "Profiles"
+	int live_lifepath; //are we collecting and showing the agent lifepath data?
 	int live_selection; //what bot catagory are we currently trying to autoselect? see namespace "Select" in settings.h
 	int live_follow; //are we following the selected agent?
 	int live_autosave; //are we allowing autosaves?

@@ -75,6 +75,17 @@ void pop_front(std::vector<T>& v)
     v.erase(v.begin());
 }
 
+//sum up the second in a vector of pairs
+template <typename T>
+float getSum(std::vector< std::pair< T, float > > values)
+{
+	float sum= 0;
+	for(int i=0; i<values.size(); i++){
+		sum+= values[i].second;
+	}
+	return sum;
+}
+
 //Passed arrays store different data types
 template <typename T, typename U, int size1, int size2>
 inline bool matchArrays(T (&arr1)[size1], U (&arr2)[size2] ){

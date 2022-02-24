@@ -663,7 +663,7 @@ void GLView::menu(int key)
 		glutSetMenu(m_id);*/
 	}else if (key==1006) { //force-reset config
 		world->writeConfig();
-	}else if (key==1007) { // reset
+	}else if (key==1007) { // reset (new world)
 		world->setDemo(false);
 		world->reset();
 		world->spawn();
@@ -781,6 +781,7 @@ void GLView::gluiCreateMenu()
 	for(int i=0; i<DisplayLayer::DISPLAYS; i++) live_layersvis[i]= 1;
 	live_waterfx= 1;
 	live_profilevis= Profile::NONE;
+	live_lifepath= 0;
 	live_selection= Select::MANUAL;
 	live_follow= 0;
 	live_autosave= 1;
@@ -878,13 +879,16 @@ void GLView::gluiCreateMenu()
 		else if(i==Profile::EYES) strcpy(text, "Eyesight");
 		else if(i==Profile::INOUT) strcpy(text, "In's/Out's");
 		else if(i==Profile::SOUND) strcpy(text, "Sounds");
+		else if(i==Profile::METABOLISM) strcpy(text, "Metabolism");
 		else strcpy(text, "UNKNOWN_Profile");
 		
 		new GLUI_RadioButton(group_profiles,text);
 	}
 
+	Menu->add_checkbox_to_panel(rollout_vis, "Show Lifepath", &live_lifepath);
+
 	Menu->add_column_to_panel(rollout_vis,true);
-	GLUI_RadioGroup *group_agents= new GLUI_RadioGroup(rollout_vis,&live_agentsvis);
+	GLUI_RadioGroup *group_agents= new GLUI_RadioGroup(rollout_vis, &live_agentsvis);
 	new GLUI_StaticText(rollout_vis,"Agents");
 
 	for(int i=0; i<Visual::VISUALS; i++){
@@ -906,7 +910,7 @@ void GLView::gluiCreateMenu()
 //		else if(i==Visual::REPMODE) strcpy(text, "Rep. Mode");
 		else strcpy(text, "UNKNOWN_Visual");
 
-		new GLUI_RadioButton(group_agents,text);
+		new GLUI_RadioButton(group_agents, text);
 	}
 	Menu->add_checkbox_to_panel(rollout_vis, "Hide Dead", &live_hidedead);
 	Menu->add_checkbox_to_panel(rollout_vis, "Hide Gen 0", &live_hidegenz);
@@ -1522,7 +1526,7 @@ void GLView::syncLiveWithWorld()
 	live_worldclosed= (int)world->isClosed();
 	live_landspawns= (int)world->DISABLE_LAND_SPAWN;
 	live_moonlight= (int)world->MOONLIT;
-	live_oceanpercent= world->OCEANPERCENT;
+	//live_oceanpercent= world->OCEANPERCENT;
 	live_droughts= (int)world->DROUGHTS;
 	live_droughtmult= world->DROUGHTMULT;
 	live_mutevents= (int)world->MUTEVENTS;
@@ -1561,6 +1565,8 @@ void GLView::handleIdle()
 	world->CLIMATEMULT= live_climatemult;
 	world->domusic= (bool)live_playmusic;
 	if (!live_fastmode) world->dosounds= (bool)live_playsounds;
+	world->recordlifepath = (bool)live_lifepath;
+	if (!live_lifepath) world->lifepath.clear();
 	world->setDebug((bool) live_debug);
 
 	#if defined(_DEBUG)
@@ -1760,6 +1766,8 @@ void GLView::renderScene()
 			}
 		}
 	}
+
+	if(live_lifepath) drawFinalData();
 	
 	//draw all agents, also culled if unseen
 	std::vector<Agent>::const_iterator it;
@@ -2420,10 +2428,10 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glEnd();
 
 					glTranslatef(70,0,0); //translate back for brain displays (see top of this block)
-				}
-
 				
-				if (live_profilevis==Profile::EYES){
+				// endif brain profiles
+
+				} else if (live_profilevis==Profile::EYES){
 					//eyesight profile. Draw a box with colored disks
 					glBegin(GL_QUADS);
 					glColor3f(0,0,0.1);
@@ -2464,6 +2472,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glVertex3f(180, 0, 0);
 					
 					glEnd();
+
+				// endif eye profile
 
 				} else if (live_profilevis==Profile::SOUND) {
 					//sound profiler
@@ -2557,7 +2567,79 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						}
 					}
 					glEnd();
+				
+				// endif sound profile
+
+				} else if (live_profilevis==Profile::METABOLISM) {
+					//metabolism profiler: provides a "key" showing all possible colors, an indicator for intake, for health and rep counter distribution, and labels!
+					glBegin(GL_QUADS);
+					glColor3f(0.1,0.1,0.1);
+					glVertex3f(0, 0, 0);
+					glVertex3f(0, 80, 0);
+					glVertex3f(180, 80, 0);
+					glVertex3f(180, 0, 0);
+					glEnd();
+
+					//draw a series of circles for the "key", colored for the real metabolism colors
+					for (int n=0; n<=100; n++) {
+						glBegin(GL_POLYGON);
+						float factor = (float)n/100;
+						Color3f col = setColorMetabolism(factor);
+						glColor4f(col.red, col.gre, col.blu, 0.4);
+						drawCircleRes(40 + n, 5, 3, 1);
+						glEnd();
+					}
+
+					// marker showing the selected agent's metabolism
+					glBegin(GL_POLYGON);
+					glColor3f(1,1,1);
+					glVertex3f(40 + 100*agent.metabolism, 9, 0);
+					glVertex3f(40 + 100*agent.metabolism - 2, 13, 0);
+					glVertex3f(40 + 100*agent.metabolism + 2, 13, 0);
+					glEnd();
+
+					//draw vertical bars showing max possible intake, and for real intake now (TODO)
+					float metabmult = world->getMetabolismRatio(agent.metabolism);
+					glBegin(GL_QUADS); //repcount
+					glColor3f(0.1,0.3,0.3);
+					glVertex3f(110, 65 - 50*metabmult, 0);
+					glVertex3f(110, 65, 0);
+					glVertex3f(160, 65, 0);
+					glVertex3f(160, 65 - 50*metabmult, 0);
+
+					glBegin(GL_QUADS); //health
+					glColor3f(0.1,0.3,0.1);
+					glVertex3f(20, 65 - 50*(1-metabmult), 0);
+					glVertex3f(20, 65, 0);
+					glVertex3f(70, 65, 0);
+					glVertex3f(70, 65 - 50*(1-metabmult), 0);
+					glEnd();
+
+					//TODO: live intake
+
+					//draw divider line and MIN_INTAKE_HEALTH_RATIO threshold
+					glBegin(GL_LINES);
+					glColor3f(0.5,0.5,0.5);
+					glVertex3f(90, 20, 0);
+					glVertex3f(90, 70, 0);
+
+					float minhealth = world->MIN_INTAKE_HEALTH_RATIO;
+					if (minhealth > 0) {
+						glColor3f(0.1,0.8,0.1);
+						glVertex3f(20, 65 - 50*minhealth, 0);
+						glVertex3f(70, 65 - 50*minhealth, 0);
+					}
+					glEnd();
+
+					//some text descriptions
+					if(scalemult > .7){
+						RenderString(20, 75, GLUT_BITMAP_HELVETICA_12, "Health", 0.1f, 0.8f, 0.1f);
+						RenderString(180-68, 75, GLUT_BITMAP_HELVETICA_12, "Rep-count", 0.1f, 0.9f, 0.9f);
+						if (minhealth < 0.2) minhealth = 0.2; //at this point, this val is only used for the text
+						RenderString(22, 65 - 50*minhealth + UID::CHARHEIGHT, GLUT_BITMAP_HELVETICA_12, "min ratio", 0.1f, 0.8f, 0.1f);
+					}
 				}
+
 			}
 			glTranslatef(90,-24-0.5*r,0); //return to agent location for later stuff
 
@@ -2818,7 +2900,10 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		if (live_agentsvis==Visual::RGB || (live_agentsvis==Visual::NONE && ghost)){ //real rgb values
 			color= Color3f(agent.real_red, agent.real_gre, agent.real_blu);
 		} else if (live_agentsvis==Visual::STOMACH){
-			color= setColorStomach(agent.stomach);
+			if (agent.isHerbivore()) color = setColorStomach(1,0,0);
+			else if (agent.isFrugivore()) color = setColorStomach(0,1,0);
+			else if (agent.isCarnivore()) color = setColorStomach(0,0,1);
+			else color = setColorStomach(0,0,0);
 		} else if (live_agentsvis==Visual::DISCOMFORT){
 			color= setColorTempPref(agent.discomfort);
 		} else if (live_agentsvis==Visual::VOLUME) {
@@ -3002,10 +3087,8 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 
 			//if visualizing stomachs, make the outline show the stomach class instead
 			Color3f outline_color = color;
-			if (live_agentsvis==Visual::STOMACH) {
-				if (agent.isHerbivore()) outline_color = setColorStomach(1,0,0);
-				else if (agent.isFrugivore()) outline_color = setColorStomach(0,1,0);
-				else if (agent.isCarnivore()) outline_color = setColorStomach(0,0,1);
+			if (live_agentsvis == Visual::STOMACH) {
+				outline_color = setColorStomach(agent.stomach);
 				close_outline_color = outline_color;
 			}
 
@@ -3336,6 +3419,7 @@ void GLView::drawData()
 	}
 
 	if(getLayerDisplayCount()>0){
+		//draw dark background if we have at least one layer displayed, for gridlines
 		glBegin(GL_QUADS);
 		glColor4f(0,0,0.1,1);
 		glVertex3f(0,0,0);
@@ -3359,6 +3443,26 @@ void GLView::drawData()
 	glEnd();
 }
 
+
+void GLView::drawFinalData()
+{
+	if (live_lifepath) {
+		//render lifepath data!
+		glLineWidth(2);
+		glBegin(GL_LINES);
+		glColor3f(0.5,0.75,0.75);
+		for (int i = 1; i < world->lifepath.size(); i++) {
+			float colmul = (float)i/std::max((float)i, (float)world->lifepath.size() - 100);
+			glColor3f(0.5*colmul,0.75*colmul,0.75*colmul); //color gradually changes from cyan to black, starting with first indexes
+			glVertex3f(world->lifepath[i-1].x, world->lifepath[i-1].y ,0);
+			glVertex3f(world->lifepath[i].x, world->lifepath[i].y ,0);
+		}
+		if (world->lifepath.size() > 10000) pop_front(world->lifepath); //limit the vector so we don't eat the user's memory sticks
+
+		glEnd();
+		glLineWidth(1);
+	} //end lifepath
+}
 
 void GLView::drawStatic()
 {
@@ -3683,10 +3787,7 @@ void GLView::drawStatic()
 void GLView::drawPieDisplay(float x, float y, float size, std::vector<std::pair<std::string,float> > values)
 {
 	//Draw a pie display: first, get the current sum of all values
-	float sum= 0;
-	for(int i=0; i<values.size(); i++){
-		sum+= values[i].second;
-	}
+	float sum = getSum(values);
 
 	//skip stuff if sum is zero or negative
 	if(sum>0) {

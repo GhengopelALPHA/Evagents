@@ -246,6 +246,7 @@ const enum {
 	BRAIN,
 	SOUND,
 	EYES,
+	METABOLISM,
 
 	//Don't add beyond this entry!
 	PROFILES
@@ -569,6 +570,7 @@ namespace conf {
 	const float RENDER_DEAD_ALPHA= 0.5; //the transparency of dead agents
 	const float RENDER_MAXSPLASHSIZE= 35.0; //max indicator splash size on any agent
 	const float RENDER_MINVOLUME= 0.01; //min volume below which the agent is considered silent (for visualizing purposes, not real)
+	const int RENDER_LIFEPATH_INTERVAL= 10; //number of ticks before recording the agent's location
 
 	const int REPORTS_PER_EPOCH = 500; //(.cfg)
 	const int FRAMES_PER_EPOCH = 400000; //(.cfg)
@@ -587,10 +589,12 @@ namespace conf {
 
 	//terrain gen
 	const int CONTINENTS= 2; //(.cfg)
+	const int CONTINENT_ROUGHNESS = 3; //(.cfg)
 	const int CONTINENT_SPREAD= 20; //how many cells each continent "seed" will, at max, spread from another
 	const float LOWER_ELEVATION_CHANCE= 0.08; //what's the chance that the terrain will drop a level instead of stay the same when "spreading"?
 	const float OCEANPERCENT= 0.65; //(.cfg)
 	const bool SPAWN_LAKES= true; //(.cfg)
+	const float ISLANDNESS = 0.05; //(.cfg)
 	const int FEATURES_TO_SPAWN = 1; //(.cfg)
 
 	//simulation standards
@@ -627,7 +631,7 @@ namespace conf {
 	const float MUTEVENT_CHANCE= 0.25; //chance of a mutation event that has a multiple other than 1
 	const bool CLIMATE= true; //(.cfg, save, & GUI)
 	const float CLIMATE_INTENSITY= 0.009; //(.cfg & GUI)
-	const float CLIMATE_INTENSITY_EPOCH_MULT= 8.0; //multiplier applied to the above value when selecting new climate values at start of epochs
+	const float CLIMATE_INTENSITY_EPOCH_MULT= 6.0; //multiplier applied to the above value when selecting new climate values at start of epochs
 	const float CLIMATEMULT_AVERAGE= 0.5; //value that the world's climate mult tries to average back towards
 	const int CLIMATEMULT_WEIGHT= 3; // the weight multiple of the current CLIMATEMULT when averaged (CLIMATEMULT_AVERAGE has a weight of 1)
 	const bool CLIMATE_AFFECT_FLORA= true; //(.cfg)
