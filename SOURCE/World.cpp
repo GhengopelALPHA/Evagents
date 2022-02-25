@@ -782,6 +782,7 @@ void World::findStats()
 	STAThybrids= 0;
 	STAThighestgen= 0;
 	STATlowestgen= INT_MAX;
+	STAThighestage = 0;
 	STATbestherbi= 0;
 	STATbestfrugi= 0;
 	STATbestcarni= 0;
@@ -830,6 +831,8 @@ void World::findStats()
 				|| (STATlowestgen==INT_MAX && i==agents.size()-1)){ //...UNLESS there were no agents that had any other gen value
 					STATlowestgen= agents[i].gencount;
 			}
+
+			if (agents[i].age > STAThighestage) STAThighestage = agents[i].age;
 
 			if (agents[i].isSpikey(SPIKE_LENGTH)) STATspiky++;
 

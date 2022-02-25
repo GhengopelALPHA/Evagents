@@ -187,6 +187,7 @@ public:
 	int STAThighestgen; //highest and lowest generation (excluding gen 0 unless that's all there is)
 	int STATlowestgen;
 	float STATinvgenrange; //range of generation values, with high-gen forcast, inverted (1/this)
+	int STAThighestage; //highest age
 	int MINPOP;
 	int MAXPOP;
 	bool MAXAFTERMIN; //if max is set after min (pop rise), this returns true, otherwise false (pop fall)
