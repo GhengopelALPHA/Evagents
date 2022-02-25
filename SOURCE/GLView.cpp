@@ -501,7 +501,41 @@ void GLView::menu(int key)
 		live_skipdraw++;
 	} else if (key==45 || key=='-') { //[-] - slow down sim
 		live_skipdraw--;
-	} else if(key==')') {
+	} else if (key>48 && key<=57) { //number keys: select mode
+		//'0':48, '1':49, '2':50, ..., '9':57
+		//please note that even if we add more Select options, this code means we can never have more than the 10th one (not including NONE)
+		//be accessible with number keys
+		if(live_selection!=key-47) live_selection= key-47; 
+		else live_selection= Select::NONE;
+	} else if (key==48) { //number key 0: select random from alive
+		int count = 0;
+		while(count<10000){ //select random agent, among alive
+			int idx= randi(0,world->agents.size());
+			if (world->agents[idx].health>0.1) {
+				world->setSelectedAgent(idx);
+				live_selection= Select::MANUAL;
+				break;
+			} else count++;
+		}
+	} else if (key=='!') {
+		menu(1048); //convert to numerical in order to handle below
+	} else if (key=='@') {
+		menu(1049); //convert to numerical in order to handle below
+	} else if (key=='#') {
+		menu(1050); //convert to numerical in order to handle below
+	} else if (key=='$') {
+		menu(1051); //convert to numerical in order to handle below
+	} else if (key=='%') {
+		menu(1052); //convert to numerical in order to handle below
+	} else if (key=='^') {
+		menu(1053); //convert to numerical in order to handle below
+	} else if (key=='&') {
+		menu(1054); //convert to numerical in order to handle below
+	} else if (key=='*') {
+		menu(1055); //convert to numerical in order to handle below
+	} else if (key=='(') {
+		menu(1056); //convert to numerical in order to handle below
+	} else if (key==')') {
 		world->setSelectedAgent(randi(0,world->agents.size())); //select random agent, among all
 		live_selection= Select::MANUAL;
 	} else if (key==62 || key=='.') { //[>] - zoom+
@@ -572,23 +606,7 @@ void GLView::menu(int key)
 		if (world->isClosed()) glutChangeToMenuEntry(4, "Open World", 'c');
 		else glutChangeToMenuEntry(4, "Close World", 'c');
 		glutSetMenu(m_id);*/
-	} else if(key>48 && key<Select::SELECT_TYPES+48 && key<=57) { //number keys: select mode
-		//'0':48, '1':49, '2':50, ..., '9':57
-		//please note that even if we add more Select options, this code means we can never have more than the 10th one (not including NONE)
-		//be accessible with number keys
-		if(live_selection!=key-47) live_selection= key-47; 
-		else live_selection= Select::NONE;
-	} else if(key==48) { //number key 0: select random from alive
-		int count = 0;
-		while(count<10000){ //select random agent, among alive
-			int idx= randi(0,world->agents.size());
-			if (world->agents[idx].health>0.1) {
-				world->setSelectedAgent(idx);
-				live_selection= Select::MANUAL;
-				break;
-			} else count++;
-		}
-
+	
 	//user controls:
 	}else if (key==119 && world->getSelectedID()!=-1) { //w (move faster)
 		world->pcontrol= true;
@@ -689,6 +707,9 @@ void GLView::menu(int key)
 		world->selectedPrint();
 	} else if (key==1013) { //toggle demo mode
 		world->setDemo(!world->isDemo());
+	} else if (key>=1048 && key<1057) { //shift + number keys: select mode (cont)
+		if(live_selection!=key-1037) live_selection= key-1037; //1047+10; 
+		else live_selection= Select::NONE;
 	} else {
 		#if defined(_DEBUG)
 		printf("Unmatched key pressed: %i\n", key);
@@ -869,9 +890,9 @@ void GLView::gluiCreateMenu()
 	}
 	Menu->add_button_to_panel(panel_layers,"Toggle All", GUIButtons::TOGGLE_LAYERS, glui_handleButtons);
 
-	new GLUI_Separator(rollout_vis);
 	GLUI_RadioGroup *group_profiles= new GLUI_RadioGroup(rollout_vis,&live_profilevis);
 	new GLUI_StaticText(rollout_vis,"Selected");
+	new GLUI_Separator(rollout_vis);
 
 	for(int i=0; i<Profile::PROFILES; i++){
 		if(i==Profile::NONE) strcpy(text, "off");
@@ -886,10 +907,13 @@ void GLView::gluiCreateMenu()
 	}
 
 	Menu->add_checkbox_to_panel(rollout_vis, "Show Lifepath", &live_lifepath);
+	Menu->add_checkbox_to_panel(rollout_vis, "Grid on", &live_grid);
+	Menu->add_checkbox_to_panel(rollout_vis, "Water FX", &live_waterfx);
 
 	Menu->add_column_to_panel(rollout_vis,true);
 	GLUI_RadioGroup *group_agents= new GLUI_RadioGroup(rollout_vis, &live_agentsvis);
 	new GLUI_StaticText(rollout_vis,"Agents");
+	new GLUI_Separator(rollout_vis);
 
 	for(int i=0; i<Visual::VISUALS; i++){
 		if(i==Visual::NONE) strcpy(text, "off");
@@ -903,10 +927,11 @@ void GLView::gluiCreateMenu()
 		else if(i==Visual::REPCOUNTER) strcpy(text, "Rep. Counter");
 		else if(i==Visual::METABOLISM) strcpy(text, "Metabolism");
 		else if(i==Visual::STRENGTH) strcpy(text, "Strength");
-		else if(i==Visual::BRAINMUTATION) strcpy(text, "Brain Mutability");
-		else if(i==Visual::GENEMUTATION) strcpy(text, "Gene Mutability");
+		else if(i==Visual::BRAINMUTATION) strcpy(text, "Brain Mut.");
+		else if(i==Visual::GENEMUTATION) strcpy(text, "Gene Mut.");
 		else if(i==Visual::LUNGS) strcpy(text, "Lungs");
 		else if(i==Visual::GENERATIONS) strcpy(text, "Generation");
+		else if(i==Visual::AGE_HYBRID) strcpy(text, "Age/Hybrids");
 //		else if(i==Visual::REPMODE) strcpy(text, "Rep. Mode");
 		else strcpy(text, "UNKNOWN_Visual");
 
@@ -914,8 +939,6 @@ void GLView::gluiCreateMenu()
 	}
 	Menu->add_checkbox_to_panel(rollout_vis, "Hide Dead", &live_hidedead);
 	Menu->add_checkbox_to_panel(rollout_vis, "Hide Gen 0", &live_hidegenz);
-	Menu->add_checkbox_to_panel(rollout_vis, "Grid on", &live_grid);
-	Menu->add_checkbox_to_panel(rollout_vis, "Water FX", &live_waterfx);
 	
 	GLUI_Rollout *rollout_xyl= new GLUI_Rollout(Menu,"Selection Mode",false);
 	GLUI_RadioGroup *group_select= new GLUI_RadioGroup(rollout_xyl,&live_selection);
@@ -933,6 +956,13 @@ void GLView::gluiCreateMenu()
 		else if(i==Select::BEST_HERBIVORE) strcpy(text, "Best Herbivore");
 		else if(i==Select::BEST_FRUGIVORE) strcpy(text, "Best Frugivore");
 		else if(i==Select::BEST_CARNIVORE) strcpy(text, "Best Carnivore");
+		else if(i==Select::BEST_AQUATIC) strcpy(text, "Best Aquatic");
+		else if(i==Select::BEST_AMPHIBIAN) strcpy(text, "Best Amphibian");
+		else if(i==Select::BEST_TERRESTRIAL) strcpy(text, "Best Terran");
+		else if(i==Select::FASTEST) strcpy(text, "Fastest");
+		else if(i==Select::SEXIEST) strcpy(text, "Sexiest");
+		else if(i==Select::GENEROUS_EST) strcpy(text, "Most Generous");
+		else if(i==Select::KINRANGE_EST) strcpy(text, "Largest Kinrange");
 		else strcpy(text, "UNKNOWN_Select");
 
 		new GLUI_RadioButton(group_select,text);
@@ -1991,6 +2021,14 @@ Color3f GLView::setColorGeneration(int gen)
 	return color;
 }
 
+Color3f GLView::setColorAgeHybrid(int age, bool hybrid)
+{
+	float agefact = 1 - (float)age/50; // 50 is 5 days
+	Color3f color(agefact);
+	if (hybrid) { color.red = 0; color.gre = 0; }
+	return color;
+}
+
 std::pair<Color3f,float> GLView::setColorEar(int index)
 {
 	float alp= 0;
@@ -2900,10 +2938,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		if (live_agentsvis==Visual::RGB || (live_agentsvis==Visual::NONE && ghost)){ //real rgb values
 			color= Color3f(agent.real_red, agent.real_gre, agent.real_blu);
 		} else if (live_agentsvis==Visual::STOMACH){
-			if (agent.isHerbivore()) color = setColorStomach(1,0,0);
-			else if (agent.isFrugivore()) color = setColorStomach(0,1,0);
-			else if (agent.isCarnivore()) color = setColorStomach(0,0,1);
-			else color = setColorStomach(0,0,0);
+			color = setColorStomach(agent.stomach);
 		} else if (live_agentsvis==Visual::DISCOMFORT){
 			color= setColorTempPref(agent.discomfort);
 		} else if (live_agentsvis==Visual::VOLUME) {
@@ -2928,7 +2963,10 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			color= setColorLungs(agent.lungs);
 		} else if (live_agentsvis==Visual::GENERATIONS){
 			color= setColorGeneration(agent.gencount);
+		} else if (live_agentsvis==Visual::AGE_HYBRID){
+			color= setColorAgeHybrid(agent.age, agent.hybrid);
 		}
+		
 
 		//the center gets its own alpha and darkness multiplier. For now, tied to reproduction mode (asexual, sexual F, or sexual M). See centerrender def
 		float centeralpha= cap(agent.centerrender);
@@ -3085,12 +3123,8 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				close_outline_color = Color3f(1);
 			}
 
-			//if visualizing stomachs, make the outline show the stomach class instead
+			//if zoomed out, want to blur with our center color
 			Color3f outline_color = color;
-			if (live_agentsvis == Visual::STOMACH) {
-				outline_color = setColorStomach(agent.stomach);
-				close_outline_color = outline_color;
-			}
 
 			glColor4f(
 			cap(close_outline_color.red*blur + (1-blur)*outline_color.red),
@@ -3452,7 +3486,7 @@ void GLView::drawFinalData()
 		glBegin(GL_LINES);
 		glColor3f(0.5,0.75,0.75);
 		for (int i = 1; i < world->lifepath.size(); i++) {
-			float colmul = (float)i/std::max((float)i, (float)world->lifepath.size() - 100);
+			float colmul = (float)i/std::max((float)i, (float)world->lifepath.size() - 300);
 			glColor3f(0.5*colmul,0.75*colmul,0.75*colmul); //color gradually changes from cyan to black, starting with first indexes
 			glVertex3f(world->lifepath[i-1].x, world->lifepath[i-1].y ,0);
 			glVertex3f(world->lifepath[i].x, world->lifepath[i].y ,0);
@@ -3528,6 +3562,20 @@ void GLView::drawStatic()
 					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Frugi. Autoselect", 0.5f, 0.8f, 0.5f);
 				} else if(live_selection==Select::BEST_HERBIVORE) {
 					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Herbi. Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::BEST_AQUATIC) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Aquatic Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::BEST_AMPHIBIAN) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Amphibian Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::BEST_TERRESTRIAL) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Terran Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::FASTEST) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Fastest Agent Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::SEXIEST) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Sexual Projection Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::GENEROUS_EST) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Most Generous Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::KINRANGE_EST) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Highest Kin Range Autoselect", 0.5f, 0.8f, 0.5f);
 				}
 				currentline++;
 			}
@@ -4171,6 +4219,7 @@ void GLView::renderAllTiles()
 					else sprintf(buf, "Tired.");
 
 				} else if(u==LADHudOverview::AGE){
+					if(live_agentsvis==Visual::AGE_HYBRID) drawbox= true;
 					sprintf(buf, "Age: %.1f days", (float)selected.age/10);
 
 				} else if(u==LADHudOverview::GIVING){
@@ -4308,6 +4357,7 @@ void GLView::renderAllTiles()
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::HYBRID){
+					if(live_agentsvis==Visual::AGE_HYBRID) drawbox= true;
 					if(selected.hybrid) sprintf(buf, "Is Hybrid");
 					else if(selected.gencount==0) sprintf(buf, "Was Spawned");
 					else sprintf(buf, "Was Budded");

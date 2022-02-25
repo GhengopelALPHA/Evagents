@@ -2281,7 +2281,7 @@ void World::processReproduction()
 						float distance= (agents[mother].pos - agents[father].pos).length2d();
 						if(distance>SEXTING_DISTANCE) continue;
 
-						if(agents[father].repcounter>0){
+						if(agents[father].repcounter<=0){
 							//prepare to add agents[i].numbabies to world, with two parents
 							if(DEBUG) printf("Attempting to have children...");
 
@@ -2418,7 +2418,7 @@ void World::setSelection(int type)
 			   }
 			}
 		} else if(type==Select::HEALTHY){
-			//Healthiest: this one's tricky, and part of the reason this is on mod-5, otherwise it bounces constantly
+			//Healthiest: this one's tricky, and part of the reason this is on mod % 15, otherwise it bounces constantly
 			float maxhealth= 0;
 			for (int i=0; i<(int)agents.size(); i++) {
 				if (agents[i].health>maxhealth) {
@@ -2498,6 +2498,77 @@ void World::setSelection(int type)
 				float index= agents[i].stomach[Stomach::MEAT] - 0.5*agents[i].stomach[Stomach::FRUIT] - 0.5*agents[i].stomach[Stomach::PLANT];
 				if (!agents[i].isDead() && agents[i].gencount>0 && index>maxindex) {
 					maxindex= index;
+					maxi= i;
+				}
+			}
+		} else if (type == Select::BEST_AQUATIC) {
+			//best aquatic (lung=0) living with gen > 0, earliest born if multiple
+			float minlung= 1000;
+			for (int i=0; i<(int)agents.size(); i++) {
+				float lung= agents[i].lungs;
+				if (!agents[i].isDead() && agents[i].gencount>0 && lung < minlung) {
+					minlung= lung;
+					maxi= i;
+				}
+			}
+		} else if (type == Select::BEST_AMPHIBIAN) {
+			//best amphibian (lung=0.5, or whatever Elevation::BEACH_MID is) living with gen > 0
+			float minindex= 1000;
+			for (int i=0; i<(int)agents.size(); i++) {
+				float index= abs(agents[i].lungs - Elevation::BEACH_MID);
+				if (!agents[i].isDead() && agents[i].gencount>0 && index < minindex) {
+					minindex= index;
+					maxi= i;
+				}
+			}
+		} else if (type == Select::BEST_TERRESTRIAL) {
+			//best terrestrial (lung=1) living with gen > 0, earliest born if multiple
+			float maxlung= -1;
+			for (int i=0; i<(int)agents.size(); i++) {
+				float lung= agents[i].lungs;
+				if (!agents[i].isDead() && agents[i].gencount>0 && lung > maxlung) {
+					maxlung= lung;
+					maxi= i;
+				}
+			}
+		} else if (type == Select::FASTEST) {
+			//fastest agent moving (boost also taken into account)
+			float maxspeed= 0;
+			for (int i=0; i<(int)agents.size(); i++) {
+				float speed= abs(agents[i].w1 + agents[i].w2);
+				if (agents[i].boost) speed*= BOOST_MOVE_MULT;
+				if (!agents[i].isDead() && speed > maxspeed) {
+					maxspeed= speed;
+					maxi= i;
+				}
+			}
+		} else if (type == Select::SEXIEST) {
+			//most sex-projecting agent. Will most likely be male if any exist (most male-ness?), and will exclude assexual agents
+			float maxproj= 0;
+			for (int i=0; i<(int)agents.size(); i++) {
+				float proj= agents[i].sexproject;
+				if (!agents[i].isDead() && proj > maxproj) {
+					maxproj= proj;
+					maxi= i;
+				}
+			}
+		} else if (type == Select::GENEROUS_EST) {
+			//most generous agent (by their give output)
+			float maxgive= 0;
+			for (int i=0; i<(int)agents.size(); i++) {
+				float give= agents[i].give;
+				if (!agents[i].isDead() && give > maxgive) {
+					maxgive= give;
+					maxi= i;
+				}
+			}
+		} else if (type == Select::KINRANGE_EST) {
+			//widest kinrange of all alive
+			float maxrange= 0;
+			for (int i=0; i<(int)agents.size(); i++) {
+				float range= agents[i].kinrange;
+				if (!agents[i].isDead() && range > maxrange) {
+					maxrange= range;
 					maxi= i;
 				}
 			}
@@ -2884,7 +2955,7 @@ void World::reproduce(int mother, int father)
 
 		agents[mother].initSplash(conf::RENDER_MAXSPLASHSIZE,0,0.8,0); //green splash means agent asexually reproduced
 
-	}else{ //otherwise, it's sexual
+	} else { //otherwise, it's sexual
 		hybridoffspring= true;
 		agents[mother].initSplash(conf::RENDER_MAXSPLASHSIZE,0,0,0.8);
 		agents[father].initSplash(conf::RENDER_MAXSPLASHSIZE,0,0,0.8); //blue splashes mean agents sexually reproduced.

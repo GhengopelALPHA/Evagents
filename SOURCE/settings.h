@@ -231,6 +231,7 @@ const enum {
 	BRAINMUTATION,
 	GENEMUTATION,
 	GENERATIONS,
+	AGE_HYBRID,
 	SPECIES,
 	CROSSABLE,
 	
@@ -373,6 +374,7 @@ namespace Select {
 const enum {
 	NONE= 0,
 	MANUAL,
+	RELATIVE,
 	OLDEST,
 	BEST_GEN,
 	BEST_HERBIVORE,
@@ -380,9 +382,16 @@ const enum {
 	BEST_CARNIVORE,
 	HEALTHY,
 	ENERGETIC,
+	FASTEST, //After the 10th entry, these selection modes keys are shift + top number keys
 	PRODUCTIVE,
 	AGGRESSIVE,
-	RELATIVE,
+	//TILES, //UNUSED
+	BEST_AQUATIC,
+	BEST_AMPHIBIAN,
+	BEST_TERRESTRIAL,
+	SEXIEST,
+	GENEROUS_EST,
+	KINRANGE_EST,
 
 	//Don't add beyond this entry!
 	SELECT_TYPES
@@ -653,7 +662,7 @@ namespace conf {
 	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
 
 	//general settings
-	const float WHEEL_SPEED= 1.0; //(.cfg)
+	const float WHEEL_SPEED= 1.5; //(.cfg)
 	const float JUMP_VELOCITY_MULT= 0.5; //this value multiplies in to the final velocity value for the jump when getting set. Otherwise, velocities are in range (0,1) for jump > (0.5, 1)
 	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
 	const float ENCUMBERED_MOVE_MULT= 0.3; //(.cfg)
@@ -729,7 +738,7 @@ namespace conf {
 	const float HEALTHLOSS_SPIKE_EXT= 0.0; //(.cfg)
 	const float HEALTHLOSS_BADTERRAIN= 0.021; //(.cfg)
 	const float HEALTHLOSS_NOOXYGEN= 0.0001; //(.cfg)
-	const float HEALTHLOSS_ASSEX= 0.15; //(.cfg)
+	const float HEALTHLOSS_ASSEX= 0.20; //(.cfg)
 
 	const float DAMAGE_FULLSPIKE= 4.0; //(.cfg)
 	const float DAMAGE_COLLIDE= 2.0; //(.cfg)

@@ -122,6 +122,7 @@ private:
 	Color3f setColorRepCount(float repcount, int type);
 	Color3f setColorMutations(float rate, float size);
 	Color3f setColorGeneration(int gen);
+	Color3f setColorAgeHybrid(int age, bool hybrid);
 
 	//3f agent part color defs
 	std::pair<Color3f,float> setColorEar(int index);
