@@ -388,6 +388,7 @@ private:
 
 	bool STATuserseengenerosity; //true if the user was shown an event when an agent sent health via generosity
 	bool STATuserseenjumping; //true if the user has seen jumping
+	bool STATuserseengrab; //true if the user has seen grabbing
 	bool STATuseracted; //true if the user took control of an agent
 	bool STATfirstspecies; //true if we have had at least one agent with a generation =5 during a report
 	bool STATfirstpopulation; //true if we had a population count of > AGENTS_MAX_SPAWN

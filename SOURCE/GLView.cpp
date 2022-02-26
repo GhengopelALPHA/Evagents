@@ -2023,11 +2023,19 @@ Color3f GLView::setColorGeneration(int gen)
 
 Color3f GLView::setColorAgeHybrid(int age, bool hybrid)
 {
-	float agefact = 1 - (float)age/std::max(world->STAThighestage, 10);
+	float agefact = pow(1.1 - (float)age/std::max(world->STAThighestage, 10), 2);
 	Color3f color(agefact);
 
-	if (world->FUN && age == world->STAThighestage) color= Color3f(randf(0,1),randf(0,1),randf(0,1));
-	if (hybrid) { color.red = 0; color.gre = 0; }
+	if (age == world->STAThighestage) {
+		if (world->modcounter%10 >= 5) color= Color3f(1.0);
+		if (world->FUN) color= Color3f(randf(0,1),randf(0,1),randf(0,1));
+	}
+	if (hybrid) { 
+		color.red = 0;
+		color.blu+= 0.1;
+		color.gre = color.blu>1 ? 5*(color.blu-1) : 0;
+		
+	}
 	return color;
 }
 

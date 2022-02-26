@@ -135,10 +135,12 @@ void World::reset()
 
 		STATuserseengenerosity= true;
 		STATuserseenjumping= true;
+		STATuserseengrab = true;
 	} else {
-		//only reset generosity stat if in demo mode
+		//only reset demo stats if in demo mode
 		STATuserseengenerosity= false;
 		STATuserseenjumping= false;
+		STATuserseengrab = false;
 	}
 
 	graphGuides.assign(REPORTS_PER_EPOCH, GuideLine::NONE);
@@ -1555,27 +1557,27 @@ void World::processCounters()
 		Agent* a = &agents[i];
 
 		//process indicator, used in drawing
-		if(a->indicator > 0) a->indicator -= 0.5;
-		if(a->indicator < 0) a->indicator -= 1;
+		if (a->indicator > 0) a->indicator -= 0.5;
+		if (a->indicator < 0) a->indicator -= 1;
 
 		//process jaw renderer
-		if(a->jawrend > 0 && a->jawPosition == 0 || a->jawrend == conf::JAWRENDERTIME) a->jawrend -= 1;
+		if (a->jawrend > 0 && a->jawPosition == 0 || a->jawrend == conf::JAWRENDERTIME) a->jawrend -= 1;
 
 		//process carcass counter, which keeps dead agents on the world while meat is under them
-		if(a->carcasscount >= 0) a->carcasscount++;
+		if (a->carcasscount >= 0) a->carcasscount++;
 
 		//if alive...
-		if(!a->isDead()){
+		if (!a->isDead()) {
 			//reduce fresh kill flag
 			if(a->freshkill > 0) a->freshkill -= 1;
 
 			//Live mutations
-			for(int m = 0; m < MUTEVENTMULT; m++) {
-				if(randf(0,1) < LIVE_MUTATE_CHANCE){
+			for (int m = 0; m < MUTEVENTMULT; m++) {
+				if (randf(0,1) < LIVE_MUTATE_CHANCE) {
 					a->liveMutate(MUTEVENTMULT);
 					addTipEvent("Selected Agent Was Mutated!", EventColor::PURPLE, a->id); //control.cpp - want this to be supressed when in fast mode
-					STATlivemutations++;
-					if(DEBUG) printf("Live Mutation Event\n");
+					if (!isDemo()) STATlivemutations++;
+					if (DEBUG) printf("Live Mutation Event\n");
 				}
 			}
 
@@ -1583,7 +1585,7 @@ void World::processCounters()
 			if (modcounter%(FRAMES_PER_DAY/10) == 0) a->age += 1;
 
 			//update jaw
-			if(a->jawPosition > 0) {
+			if (a->jawPosition > 0) {
 				a->jawPosition *= -1; //jaw is an instantaneous source of damage. Reset to a negative number if positive
 				a->jawrend = conf::JAWRENDERTIME; //set render timer
 
@@ -1591,8 +1593,8 @@ void World::processCounters()
 			} else if (a->jawPosition < 0) a->jawPosition = min(0.0, a->jawPosition + 0.01*(2 + a->jawPosition));
 
 			//update center render mode. Asexual pulls toward 0, female sexual pulls toward 1, male sexual towards 2
-			if(a->isAsexual()) a->centerrender -= 0.01*(a->centerrender);
-			else if(a->isMale()) a->centerrender -= 0.01*(a->centerrender-2);
+			if (a->isAsexual()) a->centerrender -= 0.01*(a->centerrender);
+			else if (a->isMale()) a->centerrender -= 0.01*(a->centerrender-2);
 			else a->centerrender -= 0.01*(a->centerrender-1);
 			a->centerrender = cap(a->centerrender*0.5)*2; //duck the counter under a cap to allow range [0,2]
 
@@ -2182,8 +2184,11 @@ void World::processAgentInteractions()
 						if(a->grabID==-1){
 							if (fabs(diff)<M_PI/4 && randf(0,1)<0.3) { //very wide AOE centered on a's grabangle, 30% chance any one bot is picked
 								a->grabID= a2->id;
-								addTipEvent("Agent grabbed another", EventColor::CYAN, a->id);
-								addTipEvent("Agent was grabbed", EventColor::CYAN, a2->id);
+								if(!STATuserseengrab) {
+									addTipEvent("Agent grabbed another", EventColor::CYAN, a->id);
+									addTipEvent("Agent was grabbed", EventColor::CYAN, a2->id);
+									if (randf(0,1)<0.05) STATuserseengrab = true;
+								}
 							}
 						} 
 
