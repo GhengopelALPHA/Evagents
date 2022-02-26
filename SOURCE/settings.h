@@ -700,7 +700,7 @@ namespace conf {
 	//mutations
 	const int OVERRIDE_KINRANGE= -1; //(.cfg)
 	const int VISUALIZE_RELATED_RANGE= 30; // what's the range in addition to agent's kinrange that we go ahead and say maybe they were related
-	const int BRAINSEEDHALFTOLERANCE= 5; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
+	const int BRAINSEEDHALFTOLERANCE= 3; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
 	const float META_MUTCHANCE= 0.08; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
 	const float META_MUTSIZE= 0.002;
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)

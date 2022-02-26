@@ -274,30 +274,43 @@ void CPBrain::initMutate(float MR, float MR2)
 				a.w = 1.0;
 				a.type = 0;
 				conns.push_back(a);
+
+				conns[i].seed = 0; //reset seeds
 				boxes[boxRef(targetid)].seed = 0;
 			}
 		}
 
 		if (randf(0,1) < MR/200) {
 			//randomize type
+			int oldtype = conns[i].type;
 			conns[i].type = randi(0,2); //remember randi is [a,b). Current options are: 0,1
-			conns[i].seed = 0;
-			boxes[boxRef(conns[i].tid)].seed = 0;
+			if (oldtype != conns[i].type) {
+				conns[i].seed = 0;
+				boxes[boxRef(conns[i].tid)].seed = 0;
+			}
 		}
 
 		if (randf(0,1) < MR/100) {
 			//randomize source ID
-			conns[i].sid = capm(randi(0,(int)boxes.size()), -Input::INPUT_SIZE, boxes.size()-1);
-			conns[i].seed = 0;
-			boxes[boxRef(conns[i].tid)].seed = 0;
+			int oldid = conns[i].sid;
+			int newid = capm(randi(0,(int)boxes.size()), -Input::INPUT_SIZE, boxes.size()-1);
+			if (oldid != newid) {
+				conns[i].sid = newid;
+				conns[i].seed = 0;
+				boxes[boxRef(conns[i].tid)].seed = 0;
+			}
 		}
 
 		if (randf(0,1) < MR/100) {
 			//randomize target ID
-			boxes[boxRef(conns[i].tid)].seed = 0; //reset the tid's box before leaving it
-			conns[i].tid = capm(randi(0,(int)boxes.size()), 0, (int)boxes.size()-1);
-			conns[i].seed = 0;
-			boxes[boxRef(conns[i].tid)].seed = 0;
+			int oldid = conns[i].tid;
+			int newid = capm(randi(0,(int)boxes.size()), 0, (int)boxes.size()-1);
+			if (oldid != newid) {
+				conns[i].tid = newid;
+				conns[i].seed = 0;
+				boxes[boxRef(newid)].seed = 0;
+				boxes[boxRef(oldid)].seed = 0;
+			}
 		}
 
 		//Rare:
@@ -307,8 +320,8 @@ void CPBrain::initMutate(float MR, float MR2)
 			int range = (int)(MR2*100);
 			int newid = capm(oldid + randi(-range,range+1), 0, (int)boxes.size()-1);
 			//+ (int)(MR2*100*randi(-1,2)) this is a jump mutation; implement later
-			conns[i].tid = newid;
 			if (oldid != newid) {
+				conns[i].tid = newid;
 				conns[i].seed = 0;
 				boxes[boxRef(oldid)].seed = 0;
 				boxes[boxRef(newid)].seed = 0;
@@ -321,8 +334,8 @@ void CPBrain::initMutate(float MR, float MR2)
 			int range = (int)(MR2*100);
 			int newid = capm(oldid + randi(-range,range+1), -Input::INPUT_SIZE, boxes.size()-1);
 			//+ (int)(MR2*100*randi(-1,2))
-			conns[i].sid = newid;
 			if (oldid != newid) {
+				conns[i].sid = newid;
 				conns[i].seed = 0;
 				boxes[boxRef(conns[i].tid)].seed = 0;
 			}
@@ -331,12 +344,12 @@ void CPBrain::initMutate(float MR, float MR2)
 		if (randf(0,1) < MR/30) {
 			//mirror conn: conn gets -w
 			conns[i].w = -conns[i].w;
+			conns[i].seed = 0;
 		}
 
 		if (randf(0,1) < MR/20) {
 			//split conn: new conn created from old conn, both get weight / 2
 			conns[i].w /= 2;
-			conns[i].seed = 0;
 			CPConn copy = conns[i];
 			conns.push_back(copy);
 		}

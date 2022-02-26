@@ -279,10 +279,10 @@ Agent Agent::reproduce(
 	if (randf(0,1)<GMR*2) a2.temperature_preference= cap(randn(a2.temperature_preference, GMR2/2));
 	if (randf(0,1)<GMR*4) a2.lungs= cap(randn(a2.lungs, GMR2/2));
 
-	for(int i=0;i<eyes.size();i++){
+	for (int i=0 ; i < eyes.size(); i++) {
 		if(PRESERVE_MIRROR_EYES && i%2==1) {
-			eyes[i].dir= 2*M_PI - eyes[i-1].dir;
-			eyes[i].fov = eyes[i-1].fov;
+			a2.eyes[i].dir = 2*M_PI - a2.eyes[i-1].dir;
+			a2.eyes[i].fov = a2.eyes[i-1].fov;
 		} else {
 			if (randf(0,1)<GMR/60) {
 				//LOW-CHANCE EYE COPY MUTATION
