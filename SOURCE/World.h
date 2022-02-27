@@ -36,6 +36,7 @@ public:
 	void spawn();
 	void update();
 	void cellsRoundTerrain();
+	void setSTATLandRatio();
     
 	//world status
     bool isClosed() const;
@@ -51,8 +52,8 @@ public:
 	//debug stuff
 	bool isDebug() const;
 	void setDebug(bool state);
-	std::vector<Vector2f> linesA;
-	std::vector<Vector2f> linesB;
+	std::vector<Vector3f> linesA;
+	std::vector<Vector3f> linesB;
 
 	//following and selected agent stuff
 	int getSelectedID() const;
@@ -78,6 +79,8 @@ public:
 	void selectedTrace(int mode);
 	void selectedInput(bool state);
 	void getFollowLocation(float &xi, float &yi);
+	std::vector<Vector3f> lifepath; //list of positions by the selected agent over time. resets when we select someone, or decay
+	bool recordlifepath;
 
 	bool isAutoselecting() const;
 	void setAutoselect(bool state);
@@ -127,6 +130,7 @@ public:
 	void healthTick(); //process agent health
 	void processReproduction(); //handle all agent's reproduction needs
 	void processCellInteractions(); //does interactions of agents with cells
+	float getMetabolismRatio(float metabolism);
 	void processAgentInteractions(); //does interactions of agents with agents
 	void processDeath(); //manage the distribution of meat, alerts, and death system functions
 	void processRandomSpawn(); //handle spawning of random agents; gotta keep the world filled!
@@ -183,6 +187,7 @@ public:
 	int STAThighestgen; //highest and lowest generation (excluding gen 0 unless that's all there is)
 	int STATlowestgen;
 	float STATinvgenrange; //range of generation values, with high-gen forcast, inverted (1/this)
+	int STAThighestage; //highest age
 	int MINPOP;
 	int MAXPOP;
 	bool MAXAFTERMIN; //if max is set after min (pop rise), this returns true, otherwise false (pop fall)
@@ -209,8 +214,12 @@ public:
 
 	bool NO_TIPS; //if the config value is set true, no tips will be displayed
 	int CONTINENTS;
+	int CONTINENT_ROUGHNESS;
 	float OCEANPERCENT;
 	bool SPAWN_LAKES;
+	float ISLANDNESS;
+	int FEATURES_TO_SPAWN;
+
 	bool DISABLE_LAND_SPAWN;
 	float AMBIENT_LIGHT_PERCENT;
 	bool AGENTS_SEE_CELLS;
@@ -244,6 +253,7 @@ public:
 	float SOUND_PITCH_RANGE;
 	float INV_SOUND_PITCH_RANGE;
 
+	float ENCUMBERED_MOVE_MULT;
 	float MEANRADIUS;
 	float GENEROSITY_RATE;
 	float BASEEXHAUSTION;
@@ -378,6 +388,7 @@ private:
 
 	bool STATuserseengenerosity; //true if the user was shown an event when an agent sent health via generosity
 	bool STATuserseenjumping; //true if the user has seen jumping
+	bool STATuserseengrab; //true if the user has seen grabbing
 	bool STATuseracted; //true if the user took control of an agent
 	bool STATfirstspecies; //true if we have had at least one agent with a generation =5 during a report
 	bool STATfirstpopulation; //true if we had a population count of > AGENTS_MAX_SPAWN

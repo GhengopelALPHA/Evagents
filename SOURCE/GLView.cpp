@@ -152,7 +152,7 @@ GLView::GLView(World *s) :
 	xtranslate= 0.0;
 	ytranslate= 0.0;
 	scalemult= 0.2;
-	downb[0]=0;downb[1]=0;downb[2]=0;
+	downb[GLMouse::LEFT]=0; downb[GLMouse::MIDDLE]=0; downb[GLMouse::RIGHT]=0;
 	mousex=0;mousey=0;
 
 	popupReset();
@@ -271,11 +271,11 @@ void GLView::processMouse(int button, int state, int x, int y)
 void GLView::processMouseActiveMotion(int x, int y)
 //Control.cpp
 {
-	if(world->isDebug()) printf("MOUSE MOTION x=%i y=%i, buttons: %i %i %i\n", x, y, downb[0], downb[1], downb[2]);
+	if(world->isDebug()) printf("MOUSE MOTION x=%i y=%i, buttons: LEFT: %i MIDDLE: %i RIGHT: %i\n", x, y, downb[GLMouse::LEFT], downb[GLMouse::MIDDLE], downb[GLMouse::RIGHT]);
 	
 	if(!uiclicked){ //if ui was not clicked
 
-		if (downb[0]==1) {
+		if (downb[GLMouse::LEFT]==1) {
 			//left mouse button drag: pan around
 			xtranslate += (x-mousex)/scalemult;
 			ytranslate += (y-mousey)/scalemult;
@@ -283,13 +283,13 @@ void GLView::processMouseActiveMotion(int x, int y)
 			//for releasing follow if the mouse is used to drag screen, but there's a threshold
 		}
 
-		if (downb[1]==1) {
+		if (downb[GLMouse::MIDDLE]==1) {
 			//mouse wheel. Change scale
 			scalemult += conf::ZOOM_SPEED*scalemult*((mousey-y) - (mousex-x));
 			if(scalemult<0.03) scalemult=0.03;
 		}
 
-	/*	if(downb[2]==1){ //disabled
+	/*	if(downb[GLMouse::RIGHT]==1){ //disabled
 			//right mouse button. currently used for context menu
 		}*/
 	}
@@ -497,16 +497,50 @@ void GLView::menu(int key)
 {
 	if (key==27 || key==32) { //[esc](27) or [spacebar](32) - pause
 		live_paused= !live_paused;
-	} else if (key==43 || key=='+') { //[+] - speed up sim
+	} else if (key==43 || key=='+' || key=='=') { //[+] - speed up sim
 		live_skipdraw++;
 	} else if (key==45 || key=='-') { //[-] - slow down sim
 		live_skipdraw--;
-	} else if(key==')') {
+	} else if (key>48 && key<=57) { //number keys: select mode
+		//'0':48, '1':49, '2':50, ..., '9':57
+		//please note that even if we add more Select options, this code means we can never have more than the 10th one (not including NONE)
+		//be accessible with number keys
+		if(live_selection!=key-47) live_selection= key-47; 
+		else live_selection= Select::NONE;
+	} else if (key==48) { //number key 0: select random from alive
+		int count = 0;
+		while(count<10000){ //select random agent, among alive
+			int idx= randi(0,world->agents.size());
+			if (world->agents[idx].health>0.1) {
+				world->setSelectedAgent(idx);
+				live_selection= Select::MANUAL;
+				break;
+			} else count++;
+		}
+	} else if (key=='!') {
+		menu(1048); //convert to numerical in order to handle below
+	} else if (key=='@') {
+		menu(1049); //convert to numerical in order to handle below
+	} else if (key=='#') {
+		menu(1050); //convert to numerical in order to handle below
+	} else if (key=='$') {
+		menu(1051); //convert to numerical in order to handle below
+	} else if (key=='%') {
+		menu(1052); //convert to numerical in order to handle below
+	} else if (key=='^') {
+		menu(1053); //convert to numerical in order to handle below
+	} else if (key=='&') {
+		menu(1054); //convert to numerical in order to handle below
+	} else if (key=='*') {
+		menu(1055); //convert to numerical in order to handle below
+	} else if (key=='(') {
+		menu(1056); //convert to numerical in order to handle below
+	} else if (key==')') {
 		world->setSelectedAgent(randi(0,world->agents.size())); //select random agent, among all
 		live_selection= Select::MANUAL;
-	} else if (key==62) { //[>] - zoom+
+	} else if (key==62 || key=='.') { //[>] - zoom+
 		scalemult += 10*conf::ZOOM_SPEED;
-	} else if (key==60) { //[<] - zoom-
+	} else if (key==60 || key==',') { //[<] - zoom-
 		scalemult -= 10*conf::ZOOM_SPEED;
 		if(scalemult<0.03) scalemult=0.03;
 	} else if (key==9) { //[tab] - press sets select mode to off, and sets cursor mode to default
@@ -572,23 +606,7 @@ void GLView::menu(int key)
 		if (world->isClosed()) glutChangeToMenuEntry(4, "Open World", 'c');
 		else glutChangeToMenuEntry(4, "Close World", 'c');
 		glutSetMenu(m_id);*/
-	} else if(key>48 && key<Select::SELECT_TYPES+48 && key<=57) { //number keys: select mode
-		//'0':48, '1':49, '2':50, ..., '9':57
-		//please note that even if we add more Select options, this code means we can never have more than the 10th one (not including NONE)
-		//be accessible with number keys
-		if(live_selection!=key-47) live_selection= key-47; 
-		else live_selection= Select::NONE;
-	} else if(key==48) { //number key 0: select random from alive
-		int count = 0;
-		while(count<10000){ //select random agent, among alive
-			int idx= randi(0,world->agents.size());
-			if (world->agents[idx].health>0.1) {
-				world->setSelectedAgent(idx);
-				live_selection= Select::MANUAL;
-				break;
-			} else count++;
-		}
-
+	
 	//user controls:
 	}else if (key==119 && world->getSelectedID()!=-1) { //w (move faster)
 		world->pcontrol= true;
@@ -663,7 +681,7 @@ void GLView::menu(int key)
 		glutSetMenu(m_id);*/
 	}else if (key==1006) { //force-reset config
 		world->writeConfig();
-	}else if (key==1007) { // reset
+	}else if (key==1007) { // reset (new world)
 		world->setDemo(false);
 		world->reset();
 		world->spawn();
@@ -689,6 +707,9 @@ void GLView::menu(int key)
 		world->selectedPrint();
 	} else if (key==1013) { //toggle demo mode
 		world->setDemo(!world->isDemo());
+	} else if (key>=1048 && key<1057) { //shift + number keys: select mode (cont)
+		if(live_selection!=key-1037) live_selection= key-1037; //1047+10; 
+		else live_selection= Select::NONE;
 	} else {
 		#if defined(_DEBUG)
 		printf("Unmatched key pressed: %i\n", key);
@@ -781,6 +802,7 @@ void GLView::gluiCreateMenu()
 	for(int i=0; i<DisplayLayer::DISPLAYS; i++) live_layersvis[i]= 1;
 	live_waterfx= 1;
 	live_profilevis= Profile::NONE;
+	live_lifepath= 0;
 	live_selection= Select::MANUAL;
 	live_follow= 0;
 	live_autosave= 1;
@@ -868,9 +890,9 @@ void GLView::gluiCreateMenu()
 	}
 	Menu->add_button_to_panel(panel_layers,"Toggle All", GUIButtons::TOGGLE_LAYERS, glui_handleButtons);
 
-	new GLUI_Separator(rollout_vis);
 	GLUI_RadioGroup *group_profiles= new GLUI_RadioGroup(rollout_vis,&live_profilevis);
 	new GLUI_StaticText(rollout_vis,"Selected");
+	new GLUI_Separator(rollout_vis);
 
 	for(int i=0; i<Profile::PROFILES; i++){
 		if(i==Profile::NONE) strcpy(text, "off");
@@ -878,14 +900,20 @@ void GLView::gluiCreateMenu()
 		else if(i==Profile::EYES) strcpy(text, "Eyesight");
 		else if(i==Profile::INOUT) strcpy(text, "In's/Out's");
 		else if(i==Profile::SOUND) strcpy(text, "Sounds");
+		else if(i==Profile::METABOLISM) strcpy(text, "Metabolism");
 		else strcpy(text, "UNKNOWN_Profile");
 		
 		new GLUI_RadioButton(group_profiles,text);
 	}
 
+	Menu->add_checkbox_to_panel(rollout_vis, "Show Lifepath", &live_lifepath);
+	Menu->add_checkbox_to_panel(rollout_vis, "Grid on", &live_grid);
+	Menu->add_checkbox_to_panel(rollout_vis, "Water FX", &live_waterfx);
+
 	Menu->add_column_to_panel(rollout_vis,true);
-	GLUI_RadioGroup *group_agents= new GLUI_RadioGroup(rollout_vis,&live_agentsvis);
+	GLUI_RadioGroup *group_agents= new GLUI_RadioGroup(rollout_vis, &live_agentsvis);
 	new GLUI_StaticText(rollout_vis,"Agents");
+	new GLUI_Separator(rollout_vis);
 
 	for(int i=0; i<Visual::VISUALS; i++){
 		if(i==Visual::NONE) strcpy(text, "off");
@@ -899,19 +927,18 @@ void GLView::gluiCreateMenu()
 		else if(i==Visual::REPCOUNTER) strcpy(text, "Rep. Counter");
 		else if(i==Visual::METABOLISM) strcpy(text, "Metabolism");
 		else if(i==Visual::STRENGTH) strcpy(text, "Strength");
-		else if(i==Visual::BRAINMUTATION) strcpy(text, "Brain Mutability");
-		else if(i==Visual::GENEMUTATION) strcpy(text, "Gene Mutability");
+		else if(i==Visual::BRAINMUTATION) strcpy(text, "Brain Mut.");
+		else if(i==Visual::GENEMUTATION) strcpy(text, "Gene Mut.");
 		else if(i==Visual::LUNGS) strcpy(text, "Lungs");
 		else if(i==Visual::GENERATIONS) strcpy(text, "Generation");
+		else if(i==Visual::AGE_HYBRID) strcpy(text, "Age/Hybrids");
 //		else if(i==Visual::REPMODE) strcpy(text, "Rep. Mode");
 		else strcpy(text, "UNKNOWN_Visual");
 
-		new GLUI_RadioButton(group_agents,text);
+		new GLUI_RadioButton(group_agents, text);
 	}
 	Menu->add_checkbox_to_panel(rollout_vis, "Hide Dead", &live_hidedead);
 	Menu->add_checkbox_to_panel(rollout_vis, "Hide Gen 0", &live_hidegenz);
-	Menu->add_checkbox_to_panel(rollout_vis, "Grid on", &live_grid);
-	Menu->add_checkbox_to_panel(rollout_vis, "Water FX", &live_waterfx);
 	
 	GLUI_Rollout *rollout_xyl= new GLUI_Rollout(Menu,"Selection Mode",false);
 	GLUI_RadioGroup *group_select= new GLUI_RadioGroup(rollout_xyl,&live_selection);
@@ -929,6 +956,13 @@ void GLView::gluiCreateMenu()
 		else if(i==Select::BEST_HERBIVORE) strcpy(text, "Best Herbivore");
 		else if(i==Select::BEST_FRUGIVORE) strcpy(text, "Best Frugivore");
 		else if(i==Select::BEST_CARNIVORE) strcpy(text, "Best Carnivore");
+		else if(i==Select::BEST_AQUATIC) strcpy(text, "Best Aquatic");
+		else if(i==Select::BEST_AMPHIBIAN) strcpy(text, "Best Amphibian");
+		else if(i==Select::BEST_TERRESTRIAL) strcpy(text, "Best Terran");
+		else if(i==Select::FASTEST) strcpy(text, "Fastest");
+		else if(i==Select::SEXIEST) strcpy(text, "Sexiest");
+		else if(i==Select::GENEROUS_EST) strcpy(text, "Most Generous");
+		else if(i==Select::KINRANGE_EST) strcpy(text, "Largest Kinrange");
 		else strcpy(text, "UNKNOWN_Select");
 
 		new GLUI_RadioButton(group_select,text);
@@ -1522,7 +1556,7 @@ void GLView::syncLiveWithWorld()
 	live_worldclosed= (int)world->isClosed();
 	live_landspawns= (int)world->DISABLE_LAND_SPAWN;
 	live_moonlight= (int)world->MOONLIT;
-	live_oceanpercent= world->OCEANPERCENT;
+	//live_oceanpercent= world->OCEANPERCENT;
 	live_droughts= (int)world->DROUGHTS;
 	live_droughtmult= world->DROUGHTMULT;
 	live_mutevents= (int)world->MUTEVENTS;
@@ -1561,6 +1595,8 @@ void GLView::handleIdle()
 	world->CLIMATEMULT= live_climatemult;
 	world->domusic= (bool)live_playmusic;
 	if (!live_fastmode) world->dosounds= (bool)live_playsounds;
+	world->recordlifepath = (bool)live_lifepath;
+	if (!live_lifepath) world->lifepath.clear();
 	world->setDebug((bool) live_debug);
 
 	#if defined(_DEBUG)
@@ -1652,8 +1688,9 @@ void GLView::handleIdle()
 			//we technically are rendering if just paused tho, so this check should stay here
 		} else ratemode='F';
 
-		sprintf( buf, "Evagents - %cPS: %d Alive: %d Epoch: %d Day %d",
-			ratemode, frames, world->getAgents()-world->getDead(), world->getEpoch(), world->getDay() );
+		sprintf( buf, "Evagents - %cPS: %d Alive: %d Herbi: %d Carni: %d Frugi: %d Epoch: %d Day %d",
+			ratemode, frames, world->getAgents()-world->getDead(), world->getHerbivores(), world->getCarnivores(),
+			world->getFrugivores(), world->getEpoch(), world->getDay() );
 		glutSetWindowTitle( buf );
 
 		world->timenewsong--; //reduce our song delay timer
@@ -1759,6 +1796,8 @@ void GLView::renderScene()
 			}
 		}
 	}
+
+	if(live_lifepath) drawFinalData();
 	
 	//draw all agents, also culled if unseen
 	std::vector<Agent>::const_iterator it;
@@ -1806,6 +1845,17 @@ Color3f GLView::setColorStomach(const float stomach[Stomach::FOOD_TYPES])
 	color.gre= plant/2 + fruit/3*(3 + 0.5*plant*(meat - 2) - meat);
 	color.blu= meat*plant*(0.45 + pow(fruit,2)); //these have been *carefully* selected and balanced
 	return color;
+}
+
+Color3f GLView::setColorStomach(float plant, float fruit, float meat)
+{
+	float stomach[Stomach::FOOD_TYPES];
+	for (int i=0; i < Stomach::FOOD_TYPES; i++) {
+		if (i == Stomach::PLANT) stomach[i] = plant;
+		else if (i == Stomach::FRUIT) stomach[i] = fruit;
+		else if (i == Stomach::MEAT) stomach[i] = meat;
+	}
+	return setColorStomach(stomach);
 }
 
 Color3f GLView::setColorTempPref(float discomfort)
@@ -1971,6 +2021,24 @@ Color3f GLView::setColorGeneration(int gen)
 	return color;
 }
 
+Color3f GLView::setColorAgeHybrid(int age, bool hybrid)
+{
+	float agefact = pow(1.1 - (float)age/std::max(world->STAThighestage, 10), 2);
+	Color3f color(agefact);
+
+	if (age == world->STAThighestage) {
+		if (world->modcounter%10 >= 5) color= Color3f(1.0);
+		if (world->FUN) color= Color3f(randf(0,1),randf(0,1),randf(0,1));
+	}
+	if (hybrid) { 
+		color.red = 0;
+		color.blu+= 0.1;
+		color.gre = color.blu>1 ? 5*(color.blu-1) : 0;
+		
+	}
+	return color;
+}
+
 std::pair<Color3f,float> GLView::setColorEar(int index)
 {
 	float alp= 0;
@@ -2018,6 +2086,7 @@ Color3f GLView::setColorTerrain(float val)
 
 Color3f GLView::setColorHeight(float val)
 {
+	if (val<1) val *= 0.95;
 	Color3f color(val,val,val);
 	return color;
 }
@@ -2147,16 +2216,17 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 				//eyesight FOV's for the eyesight profile
 				for(int q=0;q<NUMEYES;q++) {
 					if(agent.isTiny() && !agent.isTinyEye(q)) continue;
-					float aa= agent.angle + agent.eyedir[q] + agent.eyefov[q];
+					float aa= agent.angle + agent.eyes[q].dir + agent.eyes[q].fov;
 					glBegin(GL_POLYGON);
 
 					glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.15);
 
+					float rangemult= 1.0; //TODO: different types will show shorter ranges
 					for (int n=0; n<4; n++) {
-						glVertex3f(world->MAX_SENSORY_DISTANCE*cos(aa), world->MAX_SENSORY_DISTANCE*sin(aa), 0);
-						aa-= agent.eyefov[q]/2;
+						glVertex3f(rangemult*world->MAX_SENSORY_DISTANCE*cos(aa), rangemult*world->MAX_SENSORY_DISTANCE*sin(aa), 0);
+						aa-= agent.eyes[q].fov/2;
 					}
-					glVertex3f(world->MAX_SENSORY_DISTANCE*cos(aa), world->MAX_SENSORY_DISTANCE*sin(aa), 0);
+					glVertex3f(rangemult*world->MAX_SENSORY_DISTANCE*cos(aa), rangemult*world->MAX_SENSORY_DISTANCE*sin(aa), 0);
 					glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.5);
 					glVertex3f(0,0,0);
 					glEnd();
@@ -2406,10 +2476,10 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glEnd();
 
 					glTranslatef(70,0,0); //translate back for brain displays (see top of this block)
-				}
-
 				
-				if (live_profilevis==Profile::EYES){
+				// endif brain profiles
+
+				} else if (live_profilevis==Profile::EYES){
 					//eyesight profile. Draw a box with colored disks
 					glBegin(GL_QUADS);
 					glColor3f(0,0,0.1);
@@ -2422,8 +2492,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					for(int q=0;q<NUMEYES;q++){
 						if(agent.isTiny() && !agent.isTinyEye(q)) continue;
 
-						float eyex= 165-agent.eyedir[q]/2/M_PI*150;
-						float eyer= 1+agent.eyefov[q]/M_PI*40;
+						float eyex= 165-agent.eyes[q].dir/2/M_PI*150;
+						float eyer= 1+agent.eyes[q].fov/M_PI*40;
 						glBegin(GL_POLYGON);
 						glColor3f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3]);
 						drawCircle(eyex, 30, eyer);
@@ -2451,6 +2521,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					
 					glEnd();
 
+				// endif eye profile
+
 				} else if (live_profilevis==Profile::SOUND) {
 					//sound profiler
 					glBegin(GL_QUADS);
@@ -2467,21 +2539,21 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						glColor4f(earcolor.first.red, earcolor.first.gre, earcolor.first.blu, earcolor.second); 
 
 						//Draw a trapezoid indicating the full range the ear hears, including the limbs
-						float displace= (agent.hearhigh[q]-agent.hearlow[q])*0.5;
-						if(displace>world->SOUND_PITCH_RANGE) displace= world->SOUND_PITCH_RANGE;
-						float heightratio= 1-cap(displace*world->INV_SOUND_PITCH_RANGE); //when displace= the SOUND_PITCH_RANGE, 
+						float displace = (agent.ears[q].high - agent.ears[q].low)*0.5;
+						if(displace > world->SOUND_PITCH_RANGE) displace = world->SOUND_PITCH_RANGE;
+						float heightratio = 1 - cap(displace*world->INV_SOUND_PITCH_RANGE); //when displace= the SOUND_PITCH_RANGE, 
 
-						glVertex3f(2+176*cap(agent.hearlow[q]+displace), 2+78*heightratio, 0); //top-left	 L  _______  H		    L___H
-						glVertex3f(2+176*cap(agent.hearlow[q]), 78, 0); //	bottom-left						   /|     |\*			  |
-						glVertex3f(2+176*cap(agent.hearhigh[q]), 78, 0); //bottom-right						  / |h    | \* but also  /|\*
-						glVertex3f(2+176*cap(agent.hearhigh[q]-displace), 2+78*heightratio, 0); // top-right /_d|_____|__\*			/d|_\*
+						glVertex3f(2+176*cap(agent.ears[q].low + displace), 2 + 78*heightratio, 0); //top-left	  L  _______  H		     L___H
+						glVertex3f(2+176*cap(agent.ears[q].low), 78, 0); //	bottom-left							    /|     |\*			   |
+						glVertex3f(2+176*cap(agent.ears[q].high), 78, 0); //bottom-right						   / |h    | \* but also  /|\*
+						glVertex3f(2+176*cap(agent.ears[q].high - displace), 2 + 78*heightratio, 0); // top-right /_d|_____|__\*		 /d|_\*
 					
-						if(agent.hearlow[q]+displace*2 < agent.hearhigh[q]) {
+						if(agent.ears[q].low+displace*2 < agent.ears[q].high) {
 							//draw a box that indicates the zone that this ear hears at full volume
-							glVertex3f(2+176*cap(agent.hearlow[q]+displace), 2, 0);
-							glVertex3f(2+176*cap(agent.hearlow[q]+displace), 78, 0);
-							glVertex3f(2+176*cap(agent.hearhigh[q]-displace), 78, 0);
-							glVertex3f(2+176*cap(agent.hearhigh[q]-displace), 2, 0);
+							glVertex3f(2+176*cap(agent.ears[q].low + displace), 2, 0);
+							glVertex3f(2+176*cap(agent.ears[q].low + displace), 78, 0);
+							glVertex3f(2+176*cap(agent.ears[q].high - displace), 78, 0);
+							glVertex3f(2+176*cap(agent.ears[q].high - displace), 2, 0);
 						} 
 
 						if(agent.isTiny()) break; //only one ear for tiny agents
@@ -2543,7 +2615,79 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						}
 					}
 					glEnd();
+				
+				// endif sound profile
+
+				} else if (live_profilevis==Profile::METABOLISM) {
+					//metabolism profiler: provides a "key" showing all possible colors, an indicator for intake, for health and rep counter distribution, and labels!
+					glBegin(GL_QUADS);
+					glColor3f(0.1,0.1,0.1);
+					glVertex3f(0, 0, 0);
+					glVertex3f(0, 80, 0);
+					glVertex3f(180, 80, 0);
+					glVertex3f(180, 0, 0);
+					glEnd();
+
+					//draw a series of circles for the "key", colored for the real metabolism colors
+					for (int n=0; n<=100; n++) {
+						glBegin(GL_POLYGON);
+						float factor = (float)n/100;
+						Color3f col = setColorMetabolism(factor);
+						glColor4f(col.red, col.gre, col.blu, 0.4);
+						drawCircleRes(40 + n, 5, 3, 1);
+						glEnd();
+					}
+
+					// marker showing the selected agent's metabolism
+					glBegin(GL_POLYGON);
+					glColor3f(1,1,1);
+					glVertex3f(40 + 100*agent.metabolism, 9, 0);
+					glVertex3f(40 + 100*agent.metabolism - 2, 13, 0);
+					glVertex3f(40 + 100*agent.metabolism + 2, 13, 0);
+					glEnd();
+
+					//draw vertical bars showing max possible intake, and for real intake now (TODO)
+					float metabmult = world->getMetabolismRatio(agent.metabolism);
+					glBegin(GL_QUADS); //repcount
+					glColor3f(0.1,0.3,0.3);
+					glVertex3f(110, 65 - 50*metabmult, 0);
+					glVertex3f(110, 65, 0);
+					glVertex3f(160, 65, 0);
+					glVertex3f(160, 65 - 50*metabmult, 0);
+
+					glBegin(GL_QUADS); //health
+					glColor3f(0.1,0.3,0.1);
+					glVertex3f(20, 65 - 50*(1-metabmult), 0);
+					glVertex3f(20, 65, 0);
+					glVertex3f(70, 65, 0);
+					glVertex3f(70, 65 - 50*(1-metabmult), 0);
+					glEnd();
+
+					//TODO: live intake
+
+					//draw divider line and MIN_INTAKE_HEALTH_RATIO threshold
+					glBegin(GL_LINES);
+					glColor3f(0.5,0.5,0.5);
+					glVertex3f(90, 20, 0);
+					glVertex3f(90, 70, 0);
+
+					float minhealth = world->MIN_INTAKE_HEALTH_RATIO;
+					if (minhealth > 0) {
+						glColor3f(0.1,0.8,0.1);
+						glVertex3f(20, 65 - 50*minhealth, 0);
+						glVertex3f(70, 65 - 50*minhealth, 0);
+					}
+					glEnd();
+
+					//some text descriptions
+					if(scalemult > .7){
+						RenderString(20, 75, GLUT_BITMAP_HELVETICA_12, "Health", 0.1f, 0.8f, 0.1f);
+						RenderString(180-68, 75, GLUT_BITMAP_HELVETICA_12, "Rep-count", 0.1f, 0.9f, 0.9f);
+						if (minhealth < 0.2) minhealth = 0.2; //at this point, this val is only used for the text
+						RenderString(22, 65 - 50*minhealth + UID::CHARHEIGHT, GLUT_BITMAP_HELVETICA_12, "min ratio", 0.1f, 0.8f, 0.1f);
+					}
 				}
+
 			}
 			glTranslatef(90,-24-0.5*r,0); //return to agent location for later stuff
 
@@ -2780,7 +2924,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 	float rad= r;
 
 	//jumping agents appear magnified
-	if (agent.jump>0) rad+= (agent.jump+1)*3;
+	if (agent.pos.z > 0) rad+= (agent.pos.z + 1);
 
 	glPushMatrix(); //switch to local position coordinates
 	glTranslatef(x,y,0);
@@ -2804,7 +2948,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		if (live_agentsvis==Visual::RGB || (live_agentsvis==Visual::NONE && ghost)){ //real rgb values
 			color= Color3f(agent.real_red, agent.real_gre, agent.real_blu);
 		} else if (live_agentsvis==Visual::STOMACH){
-			color= setColorStomach(agent.stomach);
+			color = setColorStomach(agent.stomach);
 		} else if (live_agentsvis==Visual::DISCOMFORT){
 			color= setColorTempPref(agent.discomfort);
 		} else if (live_agentsvis==Visual::VOLUME) {
@@ -2829,7 +2973,10 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			color= setColorLungs(agent.lungs);
 		} else if (live_agentsvis==Visual::GENERATIONS){
 			color= setColorGeneration(agent.gencount);
+		} else if (live_agentsvis==Visual::AGE_HYBRID){
+			color= setColorAgeHybrid(agent.age, agent.hybrid);
 		}
+		
 
 		//the center gets its own alpha and darkness multiplier. For now, tied to reproduction mode (asexual, sexual F, or sexual M). See centerrender def
 		float centeralpha= cap(agent.centerrender);
@@ -2862,13 +3009,13 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			//draw eye lines
 			for(int q=0;q<NUMEYES;q++) {
 				if(agent.isTiny() && !agent.isTinyEye(q)) break; //skip extra eyes for tinies
-				float aa= agent.angle+agent.eyedir[q];
+				float aa= agent.angle+agent.eyes[q].dir;
 				
 				glBegin(GL_LINES);
 				glColor4f(agent.in[Input::EYES+q*3],agent.in[Input::EYES+1+q*3],agent.in[Input::EYES+2+q*3],0.75*dead);
 
-				glVertex3f(r*cos(aa), r*sin(aa),0);
-				glVertex3f((2*r+30)*cos(aa), (2*r+30)*sin(aa), 0); //this draws whiskers. Don't get rid of or change these <3
+				glVertex3f(rad*cos(aa), rad*sin(aa),0);
+				glVertex3f((2*rad+30)*cos(aa), (2*rad+30)*sin(aa), 0); //this draws whiskers. Don't get rid of or change these <3
 
 				glEnd();
 			}
@@ -2876,7 +3023,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			//ears
 			for(int q=0;q<NUMEARS;q++) {
 				glBegin(GL_POLYGON);
-				float aa= agent.angle + agent.eardir[q];
+				float aa= agent.angle + agent.ears[q].dir;
 				//the centers of ears are black
 				glColor4f(0,0,0,0.35);
 				glVertex3f(rad*cos(aa), rad*sin(aa),0);
@@ -2898,7 +3045,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			//boost blur
 			//this needs a rework if we're going to keep agent transparency a thing (used for asexual mode indicator)
 			if (agent.boost){
-				Vector2f displace= agent.dpos - agent.pos;
+				Vector3f displace= agent.dpos - agent.pos;
 				for(int q=1;q<4;q++){
 					glBegin(GL_POLYGON);
 					glColor4f(color.red,color.gre,color.blu,dead*centeralpha*0.1);
@@ -2971,22 +3118,30 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		glEnd();
 
 		//outline
-		float out_red= 0,out_gre= 0,out_blu= 0;
-		if (agent.isTiny()){
-			out_red= 1.0;
-			out_gre= 1.0;
-			out_blu= 1.0;
-		}
 		if (agent.isAirborne() && scalemult > scale4ksupport) { //draw jumping as a thick outline no matter what
 			glLineWidth(3);
 		}
 		glBegin(GL_LINES);
 
-		if (live_agentsvis!=Visual::HEALTH && agent.isDead()){ //draw outline as grey if dead, unless visualizing health
+		if (live_agentsvis != Visual::HEALTH && agent.isDead()){ //draw outline as grey if dead, unless visualizing health
 			glColor4f(0.7,0.7,0.7,dead);
 
-		//otherwise, color as agent's body if zoomed out, color as above if normal zoomed
-		} else glColor4f(cap(out_red*blur + (1-blur)*color.red), cap(out_gre*blur + (1-blur)*color.gre), cap(out_blu*blur + (1-blur)*color.blu), dead);
+		} else {
+			//otherwise, color as agent's body if zoomed out, color as above if normal zoomed
+			Color3f close_outline_color = Color3f(0);
+			if (agent.isTiny()){
+				close_outline_color = Color3f(1);
+			}
+
+			//if zoomed out, want to blur with our center color
+			Color3f outline_color = color;
+
+			glColor4f(
+			cap(close_outline_color.red*blur + (1-blur)*outline_color.red),
+			cap(close_outline_color.gre*blur + (1-blur)*outline_color.gre),
+			cap(close_outline_color.blu*blur + (1-blur)*outline_color.blu),
+			dead);
+		}
 		drawOutlineRes(0, 0, rad, getAgentRes(ghost));
 		glEnd();
 		glLineWidth(1);
@@ -3056,7 +3211,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 						(world->modcounter+agent.id)%conf::BLINKDELAY<q*10+conf::BLINKTIME && 
 						!agent.isDead()) continue; //blink eyes ocasionally... DAWWWWWW
 
-					float ca= agent.angle+agent.eyedir[q];
+					float ca= agent.angle+agent.eyes[q].dir;
 
 					glBegin(GL_POLYGON);
 					glColor4f(0.85,0.85,0.85,1.0);
@@ -3308,6 +3463,7 @@ void GLView::drawData()
 	}
 
 	if(getLayerDisplayCount()>0){
+		//draw dark background if we have at least one layer displayed, for gridlines
 		glBegin(GL_QUADS);
 		glColor4f(0,0,0.1,1);
 		glVertex3f(0,0,0);
@@ -3331,6 +3487,26 @@ void GLView::drawData()
 	glEnd();
 }
 
+
+void GLView::drawFinalData()
+{
+	if (live_lifepath) {
+		//render lifepath data!
+		glLineWidth(2);
+		glBegin(GL_LINES);
+		glColor3f(0.5,0.75,0.75);
+		for (int i = 1; i < world->lifepath.size(); i++) {
+			float colmul = (float)i/std::max((float)i, (float)world->lifepath.size() - 300);
+			glColor3f(0.5*colmul,0.75*colmul,0.75*colmul); //color gradually changes from cyan to black, starting with first indexes
+			glVertex3f(world->lifepath[i-1].x, world->lifepath[i-1].y ,0);
+			glVertex3f(world->lifepath[i].x, world->lifepath[i].y ,0);
+		}
+		if (world->lifepath.size() > 10000) pop_front(world->lifepath); //limit the vector so we don't eat the user's memory sticks
+
+		glEnd();
+		glLineWidth(1);
+	} //end lifepath
+}
 
 void GLView::drawStatic()
 {
@@ -3396,6 +3572,20 @@ void GLView::drawStatic()
 					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Frugi. Autoselect", 0.5f, 0.8f, 0.5f);
 				} else if(live_selection==Select::BEST_HERBIVORE) {
 					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Herbi. Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::BEST_AQUATIC) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Aquatic Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::BEST_AMPHIBIAN) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Amphibian Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::BEST_TERRESTRIAL) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Terran Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::FASTEST) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Fastest Agent Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::SEXIEST) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Sexual Projection Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::GENEROUS_EST) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Most Generous Autoselect", 0.5f, 0.8f, 0.5f);
+				} else if(live_selection==Select::KINRANGE_EST) {
+					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Highest Kin Range Autoselect", 0.5f, 0.8f, 0.5f);
 				}
 				currentline++;
 			}
@@ -3655,10 +3845,7 @@ void GLView::drawStatic()
 void GLView::drawPieDisplay(float x, float y, float size, std::vector<std::pair<std::string,float> > values)
 {
 	//Draw a pie display: first, get the current sum of all values
-	float sum= 0;
-	for(int i=0; i<values.size(); i++){
-		sum+= values[i].second;
-	}
+	float sum = getSum(values);
 
 	//skip stuff if sum is zero or negative
 	if(sum>0) {
@@ -4042,6 +4229,7 @@ void GLView::renderAllTiles()
 					else sprintf(buf, "Tired.");
 
 				} else if(u==LADHudOverview::AGE){
+					if(live_agentsvis==Visual::AGE_HYBRID) drawbox= true;
 					sprintf(buf, "Age: %.1f days", (float)selected.age/10);
 
 				} else if(u==LADHudOverview::GIVING){
@@ -4070,7 +4258,7 @@ void GLView::renderAllTiles()
 
 				} else if(u==LADHudOverview::MOTION){
 					if(selected.isAirborne()) sprintf(buf, "Airborne!");
-					else if(selected.encumbered) sprintf(buf, "Encumbered");
+					else if(selected.encumbered > 0) sprintf(buf, "Encumbered x%i", selected.encumbered);
 					else if(selected.boost) sprintf(buf, "Boosting");
 					else if(abs(selected.w1-selected.w2)>0.06) sprintf(buf, "Spinning...");
 					else if(abs(selected.w1)>0.2 || abs(selected.w2)>0.2) sprintf(buf, "Sprinting");
@@ -4179,6 +4367,7 @@ void GLView::renderAllTiles()
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::HYBRID){
+					if(live_agentsvis==Visual::AGE_HYBRID) drawbox= true;
 					if(selected.hybrid) sprintf(buf, "Is Hybrid");
 					else if(selected.gencount==0) sprintf(buf, "Was Spawned");
 					else sprintf(buf, "Was Budded");

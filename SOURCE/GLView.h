@@ -48,6 +48,7 @@ struct Color3f
 		this->gre= (this->gre+g)*0.5;
 		this->blu= (this->blu+b)*0.5;
 	}
+
 	float red;
 	float gre;
 	float blu;
@@ -65,6 +66,7 @@ public:
 	void drawAgent(const Agent &a, float x, float y, bool ghost= 0);
 	void drawCell(int x, int y, const float values[Layer::LAYERS]); //draws the background boxes
 	void drawData(); //draws info in the left side of the sim
+	void drawFinalData(); //draws some data on the world after cells but before agents
 	void drawStatic(); //draws viewer-static objects
 	void drawPieDisplay(float x, float y, float size, std::vector<std::pair<std::string, float>> values); //draw a pie chart at specified screen x and y
 
@@ -107,6 +109,7 @@ private:
 	//3f agent color defs
 	Color3f setColorHealth(float health);
 	Color3f setColorStomach(const float stomach[Stomach::FOOD_TYPES]);
+	Color3f setColorStomach(float plant, float fruit, float meat);
 	Color3f setColorTempPref(float discomfort);
 	Color3f setColorMetabolism(float metabolism);
 	Color3f setColorTone(float tone);
@@ -119,6 +122,7 @@ private:
 	Color3f setColorRepCount(float repcount, int type);
 	Color3f setColorMutations(float rate, float size);
 	Color3f setColorGeneration(int gen);
+	Color3f setColorAgeHybrid(int age, bool hybrid);
 
 	//3f agent part color defs
 	std::pair<Color3f,float> setColorEar(int index);
@@ -170,6 +174,7 @@ private:
 	int live_layersvis[DisplayLayer::DISPLAYS]; //list of bools keeping track of which layers we're displaying.
 	int live_waterfx; //are we rendering water effects?
 	int live_profilevis; //what visualization profile are we displaying next to the selected agent? see namespace "Profiles"
+	int live_lifepath; //are we collecting and showing the agent lifepath data?
 	int live_selection; //what bot catagory are we currently trying to autoselect? see namespace "Select" in settings.h
 	int live_follow; //are we following the selected agent?
 	int live_autosave; //are we allowing autosaves?
@@ -220,7 +225,7 @@ private:
 	//REF: scalemult= 5.0 is VERY zoomed in, 1= every detail should be visible, 0.0859= current default zoom, 0.03= minimum scale
 	//many details stop rendering at scale= .3
 	float xtranslate, ytranslate; //the viewer's x and y position
-	int downb[3]; //the three buttons and their states
+	int downb[GLMouse::BUTTONS]; //the three buttons and their states
 	int mousex, mousey;
 	bool mousedrag; //was the mouse dragged recently? used to disable button click activity when click-moving
 	bool uiclicked; //was the ui clicked recently? used to disable drag fuctions if inital click was on UI

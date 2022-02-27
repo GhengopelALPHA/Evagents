@@ -8,6 +8,54 @@
 #include <string>
 #include <algorithm>
 
+struct Eye
+{
+	Eye() { //default eye spawn values
+		dir = randf(0, 2*M_PI);
+		fov = randf(0.001, 1.25);
+		type = 0;
+	}
+	Eye(float dir, float fov, int type) : dir(dir), fov(fov), type(type) {}
+
+	float dir;
+	float fov;
+	int type;
+};
+
+struct Ear
+{
+	Ear() { //default ear spawn values
+		dir = randf(0, 2*M_PI);
+		low = randf(0,1);
+		high = randf(0,1);
+		this->order();
+	}
+	Ear(float dir, float low, float high) : dir(dir), low(low), high(high) { this->order(); }
+
+	void order() {
+		if (low > high) {
+			float temp = low;
+			low = high;
+			high = temp;
+		}
+	}
+
+	float dir;
+	float low;
+	float high;
+
+};
+
+/*struct Gene
+{
+	Gene()
+
+	int type;
+	float val;
+	float rate;
+	float pow;
+};*/
+
 class Agent
 {
 //IMPORTANT: if ANY variables are added/removed, you MUST check ReadWrite.cpp to see how loading and saving will be effected!!!
@@ -28,8 +76,8 @@ public:
 	//Saved Variables
 	//simulation basics
 	int id;
-	Vector2f pos;
-	Vector2f dpos; //UNSAVED, but LOADED (with the pos values)
+	Vector3f pos;
+	Vector3f dpos; //UNSAVED, but LOADED (with the pos values)
 	float height; //TODO
 	float angle; //of the bot
 
@@ -56,12 +104,9 @@ public:
 	//senses
 	float eye_see_agent_mod;
 	float eye_see_cell_mod;
-	std::vector<float> eyefov; //field of view for each eye
-	std::vector<float> eyedir; //direction of each eye
+	std::vector<Eye> eyes; //collection of eye structs
 	float hear_mod;
-	std::vector<float> eardir; //position of ears
-	std::vector<float> hearlow; //low values of hearing ranges
-	std::vector<float> hearhigh; //high values of hearing ranges
+	std::vector<Ear> ears; //collection of ear structs
 	float clockf1, clockf2, clockf3; //the frequencies of the three clocks of this bot
 	float blood_mod;
 	float smell_mod;
@@ -87,7 +132,7 @@ public:
 
 	//unsaved, are recalculated as needed
 	float discomfort; //what level of temperature discomfort this agent is currently experiencing [0,1]
-	bool encumbered; //is this agent experiencing any encumbering effects (childbearing, difficult terrain)?
+	int encumbered; //is this agent experiencing any encumbering effects (childbearing, difficult terrain), and if so, how many?
 	int jawrend; //render counter for jaw. Past ~10 ticks of no jaw action, it is "retracted" visually
 	float centerrender; //alpha of the agent's center. This is changed slowly by current reproduction mode: asexual= 0, clear; sexual (F)= 1.0, (M)= 2.0
 	float indicator;
@@ -113,7 +158,7 @@ public:
 	float w1; //wheel speeds. in range [-1,1]
 	float w2;
 	bool boost; //is this agent boosting?
-	float jump; //what "height" this bot is at after jumping
+	float zvelocity; //velocity of the vertical (z-axis) movement produced by jumping
 	float real_red, real_gre, real_blu; //real colors of the agent
 	float volume; //sound volume of this bot. It can scream, or be very sneaky.
 	float tone; //sound tone of this bot. it can be low pitched (<0.5) or high (>0.5), where only bots with hearing in range of tone will hear
@@ -137,6 +182,7 @@ public:
 	void tick();
 	float getActivity() const;
 	float getOutputSum() const;
+	float getWheelOutputSum() const;
 	void addDamage(const char * sourcetext, float amount);
 	void addDamage(std::string sourcetext, float amount);
 	std::pair<std::string, float> getMostDamage() const;
@@ -162,6 +208,7 @@ public:
 	void setFrugivore();
 	void setRandomStomach();
 	void setPos(float x, float y);
+	void setPos(float x, float y, float z);
 	void setPosRandom(float maxx, float maxy);
 	void borderRectify();
 
