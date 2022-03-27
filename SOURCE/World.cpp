@@ -1802,6 +1802,32 @@ void World::processCellInteractions()
 		#endif
 
 		if(!a->isDead()){
+			//process intake: agent can take up food from the world and then process it
+			float usedintake = getIntakeRate(a->intake, a->out[Output::INTAKE_RATE]);
+			float metabmult = getMetabolismRatio(a->metabolism); // proportion intake via metabolism
+	
+			a->repcounter -= metabmult*usedintake;
+			if (a->repcounter < 0) a->encumbered += 1; //reproducable agents are encumbered (by the fetus/egg/what-have-ya)
+
+			a->health += (1 - metabmult)*usedintake;
+
+			//finally, remove used intake
+			a->intake -= usedintake;
+			if (a->intake < 0) {
+				a->intake = 0;
+				printf("An agent's intake was negative when it should not have been!\n");
+			}
+
+			//for default settings, metabolism splits intake this way
+			// M=0		M=0.5	 M=1
+			//H: 1		0.75	 0.5
+			//R: 0		0.25	 0.5
+			// Using a MIN_METABOLISM_HEALTH_RATIO of 0, the above table becomes
+			// M=0		M=0.5	 M=1
+			//H: 1		0.5		 0
+			//R: 0		0.5		 1
+			// Using a ratio of 1, the table is always H: 1 and R: 0, no babies ever will be born, because all agents take 100% intake for health
+
 			if (!a->isAirborne()){ //no interaction if jumping
 				if (!a->boost) { //no new intake if boosting
 					float intake= 0;
@@ -1825,10 +1851,8 @@ void World::processCellInteractions()
 						planttake*= max(food,PLANT_TENACITY);
 						//decrease cell content
 						cells[Layer::PLANTS][scx][scy]-= planttake;
-						//now convert the taken food into intake for the agent, applying inverted stomach mults
-						intake+= PLANT_INTAKE*planttake/PLANT_WASTE;
-						//this way, it's possible to eat a lot of something from the world, but if stomach isn't efficient, it's wasted
-						a->addIntake(conf::PLANT_TEXT, planttake);
+						//now convert the raw taken food into intake for the agent via multipliers
+						a->addIntake(conf::PLANT_TEXT, PLANT_INTAKE*planttake/PLANT_WASTE);
 					}
 
 					//meat food
@@ -1836,8 +1860,7 @@ void World::processCellInteractions()
 					if (meat>0) { //agent eats meat
 						float meattake= min(meat,MEAT_WASTE*a->stomach[Stomach::MEAT]*invplant*invfruit*speedmult);
 						cells[Layer::MEATS][scx][scy]-= meattake;
-						intake+= MEAT_INTAKE*meattake/MEAT_WASTE;
-						a->addIntake(conf::MEAT_TEXT, meattake);
+						a->addIntake(conf::MEAT_TEXT, MEAT_INTAKE*meattake/MEAT_WASTE);
 					}
 
 					//Fruit food
@@ -1846,29 +1869,11 @@ void World::processCellInteractions()
 						float fruittake= min(fruit,FRUIT_WASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*cap(speedmult-0.5)*2);
 						//unique for fruit - speed penalty is more extreme, being completely 0 until agents slow down <0.25
 						cells[Layer::FRUITS][scx][scy]-= fruittake;
-						intake+= FRUIT_INTAKE*fruittake/FRUIT_WASTE;
-						a->addIntake(conf::FRUIT_TEXT, fruittake);
+						a->addIntake(conf::FRUIT_TEXT, FRUIT_INTAKE*fruittake/FRUIT_WASTE);
 					}
+					//---END FOOD INTAKE---//
 
-					// proportion intake via metabolism
-					float metabmult = getMetabolismRatio(a->metabolism);
-					a->repcounter -= metabmult*intake;
-					if (a->repcounter < 0) a->encumbered += 1;
-
-					a->health += (1 - metabmult)*intake;
-					//for default settings, metabolism splits intake this way
-					// M=0		M=0.5	 M=1
-					//H: 1		0.75	 0.5
-					//R: 0		0.25	 0.5
-					// Using a MIN_INTAKE_HEALTH_RATIO of 0, the above table becomes
-					// M=0		M=0.5	 M=1
-					//H: 1		0.5		 0
-					//R: 0		0.5		 1
-					// Using a ratio of 1, the table is always H: 1 and R: 0, no babies ever will be born, because all agents take 100% intake for health
-
-					//---END FOOD---//
-
-					//if (isAgentSelected(a->id)) printf("intake/sum(rates)= %f\n", 6*intake/(PLANT_INTAKE + FRUIT_INTAKE + MEAT_INTAKE));
+					
 				} //end if boosting
 
 				//hazards
@@ -2163,11 +2168,22 @@ void World::processAgentInteractions()
 						float chompvolume = 0.5;
 						if (a2->health == 0){ 
 							chompvolume = 1;
-							//red splash means bot has killed the other bot. Murderer!
-							a->initSplash(conf::RENDER_MAXSPLASHSIZE,1,0,0);
-							addTipEvent("Agent Killed Another!", EventColor::RED, a->id);
 							a->killed++;
 							if(a->grabID == a2->id) a->grabID= -1;
+
+							if(a->radius > 2*a2->radius) {
+								//if the biting agent is twice as big as the smaller one, it EATS it instead!
+								a2->carcasscount = CORPSE_FRAMES;
+								a->addIntake(conf::MEAT_TEXT, MEAT_INTAKE*getDroppedMeat(a2)/MEAT_WASTE);
+
+								//magenta splash means bot has eaten the other bot. Nom!
+								a->initSplash(conf::RENDER_MAXSPLASHSIZE,1,0,1);
+								addTipEvent("Agent Ate Another!", EventColor::RED, a->id);
+							} else {
+								//red splash means bot has killed the other bot. Murderer!
+								a->initSplash(conf::RENDER_MAXSPLASHSIZE,1,0,0);
+								addTipEvent("Agent Killed Another!", EventColor::RED, a->id);
+							}
 							continue;
 						} else addTipEvent("Agent Bit Another!", EventColor::YELLOW, a->id);
 
@@ -3443,6 +3459,8 @@ void World::init()
 	EXHAUSTION_MULT_PER_CONN= conf::EXHAUSTION_MULT_PER_CONN;
 	EXHAUSTION_MULT_PER_OUTPUT= conf::EXHAUSTION_MULT_PER_OUTPUT;
 	ENCUMBERED_MOVE_MULT= conf::ENCUMBERED_MOVE_MULT;
+	MAX_INTAKE_RATE = conf::MAX_INTAKE_RATE;
+	MIN_INTAKE_RATE = conf::MIN_INTAKE_RATE;
 	MEANRADIUS= conf::MEANRADIUS;
     SPIKESPEED= conf::SPIKESPEED;
 	SPAWN_MIRROR_EYES= conf::SPAWN_MIRROR_EYES;
@@ -3923,6 +3941,14 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=ENCUMBERED_MOVE_MULT) printf("ENCUMBERED_MOVE_MULT, ");
 				ENCUMBERED_MOVE_MULT= f;
+			}else if(strcmp(var, "MAX_INTAKE_RATE=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=MAX_INTAKE_RATE) printf("MAX_INTAKE_RATE, ");
+				MAX_INTAKE_RATE= f;
+			}else if(strcmp(var, "MIN_INTAKE_RATE=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=MIN_INTAKE_RATE) printf("MIN_INTAKE_RATE, ");
+				MIN_INTAKE_RATE= f;
 			}else if(strcmp(var, "MEANRADIUS=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=MEANRADIUS) printf("MEANRADIUS, ");
@@ -4339,6 +4365,8 @@ void World::writeConfig()
 	fprintf(cf, "BASEEXHAUSTION= %f \t//base value of exhaustion. When negative, is essentially the sum amount of output allowed before healthloss. Would not recommend positive values\n", conf::BASEEXHAUSTION);
 	fprintf(cf, "EXHAUSTION_MULT_PER_OUTPUT= %f //multiplier applied to the sum value of all outputs; effectively, the cost multiplier of performing actions. Increase to pressure agents to chose their output more carefully\n", conf::EXHAUSTION_MULT_PER_OUTPUT);
 	fprintf(cf, "EXHAUSTION_MULT_PER_CONN= %f //multiplier applied to the count of brain connections; effectively, the cost multiplier of maintaining each synapse in the brain. Increase to pressure agents to make more efficient brains.\n", conf::EXHAUSTION_MULT_PER_CONN);
+	fprintf(cf, "MAX_INTAKE_RATE= %f \t//maximum possible rate that agents can process their intake/stomach volume. Setting this to 0 will disable all intake, making all agents starve.\n", conf::MAX_INTAKE_RATE);
+	fprintf(cf, "MIN_INTAKE_RATE= %f \t//minimum rate that all agents process their intake/stomach volume. Setting this to 0 will allow agents to stop intaking completely based on their output. Setting to 1 will allow the full MAX_INTAKE_RATE.\n", conf::MIN_INTAKE_RATE);
 	fprintf(cf, "MAXWASTEFREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. 1= no agent control allowed, 0= program crash\n", conf::MAXWASTEFREQ);
 	fprintf(cf, "GENEROSITY_RATE= %f \t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::GENEROSITY_RATE);
 	fprintf(cf, "SPIKESPEED= %f \t\t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKESPEED);

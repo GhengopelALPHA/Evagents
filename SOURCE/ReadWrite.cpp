@@ -74,6 +74,7 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "gen= %i\n", a->gencount);
 	fprintf(file, "hybrid= %i\n", (int) a->hybrid);
 	fprintf(file, "health= %f\n", a->health);
+	fprintf(file, "intake= %f\n", a->intake);
 	fprintf(file, "exhaustion= %f\n", a->exhaustion);
 	fprintf(file, "repcounter= %f\n", a->repcounter);
 	fprintf(file, "carcasscount= %i\n", a->carcasscount);
@@ -230,6 +231,9 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "health=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.health= f;
+			}else if(strcmp(var, "intake=")==0 && loadexact){
+				sscanf(dataval, "%f", &f);
+				xa.intake= f;
 			}else if(strcmp(var, "gene_red=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.gene_red= f;

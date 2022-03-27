@@ -131,6 +131,7 @@ public:
 	void processReproduction(); //handle all agent's reproduction needs
 	void processCellInteractions(); //does interactions of agents with cells
 	float getMetabolismRatio(float metabolism);
+	float getIntakeRate(float intake, float rate);
 	void processAgentInteractions(); //does interactions of agents with agents
 	void processDeath(); //manage the distribution of meat, alerts, and death system functions
 	float getDroppedMeat(Agent* a);
@@ -254,6 +255,8 @@ public:
 	float SOUND_PITCH_RANGE;
 	float INV_SOUND_PITCH_RANGE;
 
+	float MAX_INTAKE_RATE;
+	float MIN_INTAKE_RATE;
 	float ENCUMBERED_MOVE_MULT;
 	float MEANRADIUS;
 	float GENEROSITY_RATE;

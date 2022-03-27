@@ -88,6 +88,7 @@ Agent::Agent(
 
 	//triggers, counters, and stats
 	health = 1+randf(0.5,0.75);
+	intake = 0;
 	resetRepCounter(MEANRADIUS, REP_PER_BABY); //make sure numbabies is set before this!
 	exhaustion = 0;
 	age = 0;
@@ -386,6 +387,7 @@ void Agent::printSelf()
 	printf("pos & angle: (%f, %f, %f), %f\n", pos.x, pos.y, pos.z, angle);
 	printf("health, age, & gencount: %f, %.1f days, %i\n", health, (float)age/10, gencount);
 	printf("repcounter: %f\n", repcounter);
+	printf("intake: %f\n", intake);
 	printf("exhaustion: %f\n", exhaustion);
 
 	//traits
@@ -448,6 +450,7 @@ void Agent::printSelf()
 			case Output::STIMULANT :	printf("- stimulant");			break;
 			case Output::TONE :			printf("- voice tone");			break;
 			case Output::VOLUME :		printf("- voice volume");		break;
+			case Output::INTAKE_RATE :	printf("- intake");				break;
 			case Output::WASTE_RATE :	printf("- waste");				break;
 		}
 		printf(" output: %f\n", out[i]);
@@ -839,9 +842,11 @@ void Agent::addIntake(const char * sourcetext, float amount)
 
 void Agent::addIntake(std::string sourcetext, float amount)
 {
-	//this method ONLY adds the amount of food taken from world cells
 	#pragma omp critical //protect us from ourselves... collapse any threads for 
 	if(amount>0){
+		intake += amount;
+
+		//add intake to list of intakes
 		//we are going to interate through the list of intake sources, and if we've taken it before, add to the amount
 		bool added= false;
 		for(int i=0; i<this->intakes.size(); i++){

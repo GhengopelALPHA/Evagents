@@ -2484,6 +2484,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "B", 0.6f, 0.6f, 0.6f);
 							} else if(j==Output::STIMULANT){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "$", 0.0f, 1.0f, 1.0f);
+							} else if(j==Output::INTAKE_RATE){
+								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "N", 0.9f, 0.6f, 0.0f);
 							} else if(j==Output::WASTE_RATE){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "W", 0.9f, 0.0f, 0.81f);
 							}
@@ -2668,7 +2670,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glVertex3f(40 + 100*agent.metabolism + 2, 13, 0);
 					glEnd();
 
-					//draw vertical bars showing max possible intake, and for real intake now (TODO)
+					//draw vertical bars showing max possible intake, and for real intake now
 					float metabmult = world->getMetabolismRatio(agent.metabolism);
 					glBegin(GL_QUADS); //repcount
 					glColor3f(0.1,0.3,0.3);
@@ -2685,9 +2687,24 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glVertex3f(70, 65 - 50*(1-metabmult), 0);
 					glEnd();
 
-					//TODO: live intake
+					//live intake overlay
+					float intakemult = world->getIntakeRate(agent.intake, agent.out[Output::INTAKE_RATE]);
+					glBegin(GL_QUADS); //repcount
+					glColor3f(0.1,0.8,0.8);
+					glVertex3f(110, 65 - 50*metabmult*intakemult, 0);
+					glVertex3f(110, 65, 0);
+					glVertex3f(160, 65, 0);
+					glVertex3f(160, 65 - 50*metabmult*intakemult, 0);
 
-					//draw divider line and MIN_INTAKE_HEALTH_RATIO threshold
+					glBegin(GL_QUADS); //health
+					glColor3f(0.1,0.8,0.1);
+					glVertex3f(20, 65 - 50*(1-metabmult)*intakemult, 0);
+					glVertex3f(20, 65, 0);
+					glVertex3f(70, 65, 0);
+					glVertex3f(70, 65 - 50*(1-metabmult)*intakemult, 0);
+					glEnd();
+
+					//draw divider line and MIN_METABOLISM_HEALTH_RATIO threshold
 					glBegin(GL_LINES);
 					glColor3f(0.5,0.5,0.5);
 					glVertex3f(90, 20, 0);
@@ -2865,6 +2882,22 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			glVertex3f(xo,yo+42*cap(agent.repcounter/agent.maxrepcounter),0);
 			glVertex3f(xo+5,yo+42*cap(agent.repcounter/agent.maxrepcounter),0);
 			glColor3f(0,0.5,0.6);
+			glVertex3f(xo+5,yo+42,0);
+			glVertex3f(xo,yo+42,0);
+
+			//intake
+			xo+= 7;
+			glColor3f(0,0,0);
+			glVertex3f(xo,yo,0);
+			glVertex3f(xo+5,yo,0);
+			glVertex3f(xo+5,yo+42,0);
+			glVertex3f(xo,yo+42,0);
+
+			float ink= 2/(1+exp(agent.intake));
+			glColor3f(0.9,0.5,0);
+			glVertex3f(xo,yo+42*ink,0);
+			glVertex3f(xo+5,yo+42*ink,0);
+			glColor3f(0.9,0.3,0);
 			glVertex3f(xo+5,yo+42,0);
 			glVertex3f(xo,yo+42,0);
 

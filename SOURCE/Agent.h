@@ -121,6 +121,7 @@ public:
 	//saved
 	float health; //in range [0,2]. I cant remember why.
 	float repcounter; //when repcounter gets to 0, this bot reproduces
+	float intake; //the "stomach storage" of the agent. They increase intake via stomach and rolling over food, and process into health/repcounter via metabolism
 	float exhaustion; //sum of this agent's outputs over time, reduced by a constant. If this gets too high, the agent suffers
 	int age; //how old is the agent, in 1/10ths
 	int freshkill; //were you just stabbed/collided with? if so, how long ago?
