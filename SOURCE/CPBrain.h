@@ -13,9 +13,9 @@ public:
 	CPBox();
 	CPBox(int numboxes);
 
-    float kp; //damper, always in range [0,1]
+	float bias; //base number
     float gw; //global weight
-    float bias; //base number
+	float kp; //damper, always in range [0,1]
 
 	bool dead; //t/f flag for if this box has downstream connections. If not, we don't visualize; it's not important. Output boxes are never dead
 	int seed; //number of successes (reproduction events) this box has experienced whilst unmodified
@@ -33,6 +33,8 @@ public:
     CPConn(int boxes);
 
     float w; //weight of each connecting box
+	float bias; //bias of the connection, aka the activation threshold
+	int gw; //greater weight. for now, either 1 or -1 applied After the activation function
     int sid; //source. +: box id in boxes[], -: input id in inputs list
 	int tid; //target box id in boxes[]
     int type; //0: regular synapse. 1: change-sensitive synapse. 2: NOT IMPLEMENTED memory trigger synapse

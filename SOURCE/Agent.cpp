@@ -87,16 +87,17 @@ Agent::Agent(
 
 
 	//triggers, counters, and stats
-	health= 1+randf(0.5,0.75);
-	age= 0;
-	freshkill= 0;
-	gencount= 0;
-	near= false;
+	health = 1+randf(0.5,0.75);
 	resetRepCounter(MEANRADIUS, REP_PER_BABY); //make sure numbabies is set before this!
-	discomfort= 0;
-	encumbered= 0;
-	exhaustion= 0;
-	carcasscount= -1;
+	exhaustion = 0;
+	age = 0;
+	freshkill = 0;
+	gencount = 0;
+	near = false;
+	discomfort = 0;
+	encumbered = 0;
+	
+	carcasscount = -1;
 
 
 	//output mechanical values
@@ -383,7 +384,7 @@ void Agent::printSelf()
 	//bot basics
 	printf("SELECTED AGENT REPORT, ID: %i\n", id);
 	printf("pos & angle: (%f, %f, %f), %f\n", pos.x, pos.y, pos.z, angle);
-	printf("health, age, & gencount: %f, %.1f, %i\n", health, (float)age/10, gencount);
+	printf("health, age, & gencount: %f, %.1f days, %i\n", health, (float)age/10, gencount);
 	printf("repcounter: %f\n", repcounter);
 	printf("exhaustion: %f\n", exhaustion);
 
@@ -702,7 +703,7 @@ bool Agent::isTerrestrial() const
 
 bool Agent::isAmphibious() const
 {
-	if (lungs>0.5*(Elevation::BEACH_MID+Elevation::SHALLOWWATER) && lungs<=Elevation::BEACH_MID+0.05) return true;
+	if (lungs>0.5*Elevation::BEACH_MID && lungs<=Elevation::BEACH_MID) return true;
 	return false;
 }
 
@@ -720,7 +721,7 @@ bool Agent::isSpikey(float SPIKE_LENGTH) const
 
 bool Agent::isTiny() const
 {
-	if(radius<=5) return true;
+	if(radius<=conf::TINY_RADIUS) return true;
 	return false;
 }
 

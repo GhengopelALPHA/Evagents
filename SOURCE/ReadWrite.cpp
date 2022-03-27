@@ -137,6 +137,8 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 		fprintf(file, "conn#= %i\n", c);
 		fprintf(file, "type= %i\n", a->brain.conns[c].type);
 		fprintf(file, "w= %f\n", a->brain.conns[c].w);
+		fprintf(file, "greatw= %i\n", a->brain.conns[c].gw);
+		fprintf(file, "bias= %f\n", a->brain.conns[c].bias);
 		fprintf(file, "sid= %i\n", a->brain.conns[c].sid);
 		fprintf(file, "tid= %i\n", a->brain.conns[c].tid);
 		fprintf(file, "seed= %i\n", a->brain.conns[c].seed);
@@ -434,6 +436,12 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "w=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.brain.conns[connnum].w = f;
+			}else if(strcmp(var, "greatw=")==0){
+				sscanf(dataval, "%i", &i);
+				xa.brain.conns[connnum].gw= i;
+			}else if(strcmp(var, "bias=")==0){
+				sscanf(dataval, "%f", &f);
+				xa.brain.conns[connnum].bias= f;
 			}else if(strcmp(var, "sid=")==0){
 				sscanf(dataval, "%i", &i);
 				xa.brain.conns[connnum].sid = i;

@@ -120,13 +120,13 @@ public:
 	//counters, triggers, and layer interaction
 	//saved
 	float health; //in range [0,2]. I cant remember why.
+	float repcounter; //when repcounter gets to 0, this bot reproduces
+	float exhaustion; //sum of this agent's outputs over time, reduced by a constant. If this gets too high, the agent suffers
 	int age; //how old is the agent, in 1/10ths
 	int freshkill; //were you just stabbed/collided with? if so, how long ago?
 	int species; //if two bots are of significantly different species, then they can't crossover
 	int kinrange; //range from the species ID that this agent will actively reproduce with
 	int gencount; //generation counter
-	float repcounter; //when repcounter gets to 0, this bot reproduces
-	float exhaustion; //sum of this agent's outputs over time, reduced by a constant. If this gets too high, the agent suffers
 	int carcasscount; //counter for how long a dead agent stays on the world. Is reset as long as there is meat under the agent
 	bool hybrid; //is this agent result of crossover?
 

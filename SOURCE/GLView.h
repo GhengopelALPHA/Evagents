@@ -123,6 +123,7 @@ private:
 	Color3f setColorMutations(float rate, float size);
 	Color3f setColorGeneration(int gen);
 	Color3f setColorAgeHybrid(int age, bool hybrid);
+	Color3f setColorRadius(float radius);
 
 	//3f agent part color defs
 	std::pair<Color3f,float> setColorEar(int index);
@@ -141,6 +142,8 @@ private:
 	Color3f setColorWaterHazard(float val);
 	Color3f setColorTempCell(int val);
 	Color3f setColorLight(float val);
+
+	int convertMousePosToWorld(bool x, int pos); 
 
 	void popupReset(float x= -1, float y= -1);
 	void popupAddLine(std::string line);
@@ -174,6 +177,7 @@ private:
 	int live_layersvis[DisplayLayer::DISPLAYS]; //list of bools keeping track of which layers we're displaying.
 	int live_waterfx; //are we rendering water effects?
 	int live_profilevis; //what visualization profile are we displaying next to the selected agent? see namespace "Profiles"
+	int live_worlddetails; //are we showing extra world details on the top-left display?
 	int live_lifepath; //are we collecting and showing the agent lifepath data?
 	int live_selection; //what bot catagory are we currently trying to autoselect? see namespace "Select" in settings.h
 	int live_follow; //are we following the selected agent?
@@ -236,6 +240,7 @@ private:
 	std::vector<UIElement> maintiles; //list of interactive tile buttons! WIP
 
 	float scale4ksupport; //because reasons, we are tracking the scalemult that allows all agents to show a default size...
+	bool isrendering_; //debug feature. gets set to false every tick. set it = true inside a cull or a render block, debug will tell if item is rendered
 };
 
 #endif // GLVIEW_H

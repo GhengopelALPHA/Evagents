@@ -253,6 +253,22 @@ const enum {
 	PROFILES
 };};
 
+//defines for types of agent counts, both for reporting and the static display. Changing order here changes listing order
+namespace LiveCount{
+const enum {
+	HERBIVORE = 0,
+	FRUGIVORE,
+	CARNIVORE,
+	AQUATIC,
+	AMPHIBIAN,
+	TERRESTRIAL,
+	HYBRID,
+	SPIKED,
+
+	//Don't add beyond this entry!
+	COUNTS
+};};
+
 //defines for the static display in the top-left corner. Changing order here changes listing order
 namespace StaticDisplay{
 const enum {
@@ -266,7 +282,36 @@ const enum {
 	AUTOSELECT,
 	FOLLOW,
 	USERCONTROL,
-//	DEBUG, //this is currently very... awkwardly set up. see GLView.cpp
+
+	//Don't add beyond this entry!
+	STATICDISPLAYS
+};};
+
+//defines for the extra static display lines in the top-left corner. Changing order here changes listing order but ONLY within the group
+namespace StaticDisplayExtra{
+const enum {
+	OCEANPERCENT= 0,
+	AVG_LAYERS, //I strongly recommend keeping AVG_LAYERS and xAVG_LAYERS together in this order
+	xAVG_LAYERS= AVG_LAYERS+Layer::LAYERS-3, //-3 because we don't handle LIGHT or ELEVATION (-1-2)
+	LIVECOUNTS,
+	xLIVECOUNTS= LIVECOUNTS+LiveCount::COUNTS-1, //same comment as AVG_LAYERS
+	OXYGEN,
+	//AVG_METABOLISM, //TODO
+
+	//Don't add beyond this entry!
+	STATICDISPLAYS
+};};
+
+//defines for the debug static display lines in the top-left corner. Changing order here changes listing order but ONLY within the group
+namespace StaticDisplayDebug{
+const enum {
+	MODCOUNT,
+	GLMODCOUNT,
+	GLSCALEMULT,
+	GLMOUSEPOS,
+	WORLDMOUSEPOS,
+	RESOLUTION,
+	ISRENDERING_,
 
 	//Don't add beyond this entry!
 	STATICDISPLAYS
@@ -380,15 +425,15 @@ const enum {
 	BEST_HERBIVORE,
 	BEST_FRUGIVORE,
 	BEST_CARNIVORE,
+	BEST_AQUATIC,
+	BEST_AMPHIBIAN,
+	BEST_TERRESTRIAL,//After this 10th entry, selection modes keys are shift + top number keys
 	HEALTHY,
 	ENERGETIC,
-	FASTEST, //After the 10th entry, these selection modes keys are shift + top number keys
+	FASTEST, 
 	PRODUCTIVE,
 	AGGRESSIVE,
 	//TILES, //UNUSED
-	BEST_AQUATIC,
-	BEST_AMPHIBIAN,
-	BEST_TERRESTRIAL,
 	SEXIEST,
 	GENEROUS_EST,
 	KINRANGE_EST,
@@ -534,7 +579,7 @@ namespace conf {
 	const int WWIDTH = 1100;  //initial window width and height
 	const int WHEIGHT = 700;
 
-	const float VERSION= 0.07; //current program settings version. ++0.01 IF CHANGES MADE AND PROGRAM UPDATED
+	const float VERSION= 0.08; //current program settings version. ++0.01 IF CHANGES MADE AND PROGRAM UPDATED
 
 	//sound file defines
 	const char SFX_CHIRP1[]= "sounds/agents/chirp1.ogg";
@@ -598,7 +643,7 @@ namespace conf {
 
 	//terrain gen
 	const int CONTINENTS= 2; //(.cfg)
-	const int CONTINENT_ROUGHNESS = 3; //(.cfg)
+	const int CONTINENT_ROUGHNESS = 4; //(.cfg)
 	const int CONTINENT_SPREAD= 20; //how many cells each continent "seed" will, at max, spread from another
 	const float LOWER_ELEVATION_CHANCE= 0.08; //what's the chance that the terrain will drop a level instead of stay the same when "spreading"?
 	const float OCEANPERCENT= 0.65; //(.cfg)
@@ -623,6 +668,7 @@ namespace conf {
 	const float AMBIENT_LIGHT_PERCENT= 0.25; //(.cfg)
 	const bool AGENTS_SEE_CELLS = true; //(.cfg & save)
 	const bool AGENTS_DONT_OVERDONATE = false; //(.cfg & save)
+	const int MAXWASTEFREQ= 200; //(.cfg)
 
 	//World settings
 	const bool DISABLE_LAND_SPAWN= true; //(.cfg & GUI)
@@ -651,29 +697,26 @@ namespace conf {
 	//brain settings
 	const int BRAINBOXES= 70 + Output::OUTPUT_SIZE; //(.cfg)
 	const int BRAINCONNS= 300; //(.cfg)
-	const float LEARNRATE= 0.001; // CHANGE TO LEARN FROM USER INPUT
-	const bool ENABLE_LEARNING= true; //
+	const float LEARN_RATE= 0.001; // rate of Stimulant effecting weights. TODO: (.cfg) CHANGE TO LEARN FROM USER INPUT?
 	const float BRAIN_DIRECTINPUTS= 0.3; //probability of random brain conns on average which will connect directly to inputs
-	const float BRAIN_DEADCONNS= 0.35; //probability of random brain conns which are "dead" (that is, weight = 0)
-	const float BRAIN_CHANGECONNS= 0.05; //probablility of random brain conns which are change sensitive
+//	const float BRAIN_DEADCONNS= 0.15; //probability of random brain conns which are "dead" (that is, weight = 0)
+	const float BRAIN_CHANGECONNS= 0.15; //probablility of random brain conns which are change sensitive
 //	const float BRAIN_MEMCONNS= 0.01; //probablility of random brain conns which are memory type
-	const float BRAIN_MIRRORCONNS= 0.2; //BRAINCONNS*this additional connections will be made as mirror-compare connections with a random other connection
+	const float BRAIN_MIRRORCONNS= 0.5; //probablility of random brain conns which will be made as mirror-compare connections with a random other connection, range(0,i)
 //	const float BRAIN_CONN_ID_MUTATION_STD_DEV= 1.0; //standard dev. for the brain connection ID change mutation. UNUSED! todo
-	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
+//	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
 
-	//general settings
+	//movement settings
 	const float WHEEL_SPEED= 1.5; //(.cfg)
 	const float JUMP_VELOCITY_MULT= 0.5; //this value multiplies in to the final velocity value for the jump when getting set. Otherwise, velocities are in range (0,1) for jump > (0.5, 1)
-	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
-	const float ENCUMBERED_MOVE_MULT= 0.3; //(.cfg)
-	const float MEANRADIUS= 10.0; //(.cfg)
 	const float JUMP_MOVE_BONUS_MULT= 2.0; //(.cfg)
 	const float BOOST_MOVE_MULT= 2.0; //(.cfg)
-	const float BOOST_EXAUSTION_MULT= 1.2; //(.cfg)
-	const float BASEEXHAUSTION= -12; //(.cfg)
-	const float EXHAUSTION_MULT_PER_OUTPUT= 1.0; //(.cfg)
-	const float EXHAUSTION_MULT_PER_CONN= 0.02; //(.cfg)
-	const int MAXWASTEFREQ= 200; //(.cfg)
+	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
+	const float ENCUMBERED_MOVE_MULT= 0.3; //(.cfg)
+
+	//trait settings
+	const float MEANRADIUS= 10.0; //(.cfg)
+	const float TINY_RADIUS = 5.0; //radius below which an agent is considered tiny.
 	const float GENEROSITY_RATE= 0.1; //(.cfg)
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
 	const float SPIKESPEED= 0.003; //(.cfg)
@@ -681,6 +724,17 @@ namespace conf {
 	const bool SPAWN_MIRROR_EYES = true; //(.cfg)
 	const bool PRESERVE_MIRROR_EYES = true; //(.cfg)
 	const float MIN_TEMP_DISCOMFORT_THRESHOLD = 0.005; //minimum discomfort value below which it's just overridden to 0
+	
+	//energy settings
+	const float BOOST_EXAUSTION_MULT= 1.2; //(.cfg)
+	const float BASEEXHAUSTION= -12; //(.cfg)
+	const float EXHAUSTION_MULT_PER_OUTPUT= 1.0; //(.cfg)
+	const float EXHAUSTION_MULT_PER_CONN= 0.02; //(.cfg)
+
+	//stomach intake settings
+	const float MAX_INTAKE_RATE = 0.005; //(.cfg)
+	const float MIN_INTAKE_RATE = 0.0001; //(.cfg)
+	const float MIN_METABOLISM_HEALTH_RATIO = 0.5; //(.cfg)
 
 	//visual settings
 	const int BLINKTIME= 8; //it's really a little thing... how many ticks the agent eyes blink for. Purely aesthetic
@@ -692,7 +746,6 @@ namespace conf {
 	//reproduction
 	const int TENDERAGE= 10; //(.cfg)
 	const float MINMOMHEALTH=0.25; //(.cfg)
-	const float MIN_INTAKE_HEALTH_RATIO= 0.5; //(.cfg)
 	const float REP_PER_BABY= 3; //(.cfg)
 	const float REPCOUNTER_MIN= 8; //minimum value the Repcounter may be set to
 	const float OVERHEAL_REPFILL= 0; //(.cfg)
@@ -700,7 +753,7 @@ namespace conf {
 	//mutations
 	const int OVERRIDE_KINRANGE= -1; //(.cfg)
 	const int VISUALIZE_RELATED_RANGE= 30; // what's the range in addition to agent's kinrange that we go ahead and say maybe they were related
-	const int BRAINSEEDHALFTOLERANCE= 3; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances
+	const int BRAINSEEDHALFTOLERANCE= 3; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances. Only effects sexual reproduction
 	const float META_MUTCHANCE= 0.08; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
 	const float META_MUTSIZE= 0.002;
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
@@ -738,7 +791,7 @@ namespace conf {
 	const float HEALTHLOSS_SPIKE_EXT= 0.0; //(.cfg)
 	const float HEALTHLOSS_BADTERRAIN= 0.021; //(.cfg)
 	const float HEALTHLOSS_NOOXYGEN= 0.0001; //(.cfg)
-	const float HEALTHLOSS_ASSEX= 0.20; //(.cfg)
+	const float HEALTHLOSS_ASEX= 0.20; //(.cfg)
 
 	const float DAMAGE_FULLSPIKE= 4.0; //(.cfg)
 	const float DAMAGE_COLLIDE= 2.0; //(.cfg)
@@ -764,7 +817,7 @@ namespace conf {
 
 	//LAYERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LAYERS
 	const float STOMACH_EFFICIENCY= 0.2; //(.cfg)
-	const float CARNIVORE_MEAT_EFF= 0.125; //0.05; //highest meat mult possible from full carnivores. The carivore stomach is sqrt-ed for even harsher punishment
+	const float CARNIVORE_TO_MEAT_EFF= 0.125; //0.05; //highest meat mult possible from full carnivores. The carivore stomach is sqrt-ed for even harsher punishment
 
 	const char PLANT_TEXT[]= "Plant Food";
 	const float PLANT_INTAKE= 0.01; //(.cfg)
@@ -787,9 +840,9 @@ namespace conf {
 
 	const char MEAT_TEXT[]= "Meat Food";
 	const float MEAT_INTAKE= 0.06; //(.cfg)
-	const float MEAT_DECAY= 0.00002; //(.cfg)
-	const float MEAT_WASTE= 0.0023; //(.cfg)
-	const float MEAT_VALUE= 1.0; //(.cfg)
+	const float MEAT_DECAY= 0.00001; //(.cfg)
+	const float MEAT_WASTE= 0.002; //(.cfg)
+	const float MEAT_DEPOSIT_VALUE= 1.0; //(.cfg)
 	const float MEAT_NON_FRESHKILL_MULT = 0.75; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)
 

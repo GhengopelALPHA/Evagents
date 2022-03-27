@@ -133,6 +133,7 @@ public:
 	float getMetabolismRatio(float metabolism);
 	void processAgentInteractions(); //does interactions of agents with agents
 	void processDeath(); //manage the distribution of meat, alerts, and death system functions
+	float getDroppedMeat(Agent* a);
 	void processRandomSpawn(); //handle spawning of random agents; gotta keep the world filled!
 
 	void addAgent(Agent &agent);
@@ -171,10 +172,10 @@ public:
 	int getMeat() const;
 	int getHazards() const;
 	float getLandRatio() const;
-	float getFoodSupp() const;
-	float getFruitSupp() const;
-	float getMeatSupp() const;
-	float getHazardSupp() const;
+	float getPlantAvg() const;
+	float getFruitAvg() const;
+	float getMeatAvg() const;
+	float getHazardAvg() const;
 
 	//cells; replaces food layer, can be expanded (4 layers currently)
 	//[LAYER] represents current layer, see settings.h for ordering
@@ -267,7 +268,7 @@ public:
 	int TENDERAGE;
 	float INV_TENDERAGE;
 	float MINMOMHEALTH;
-	float MIN_INTAKE_HEALTH_RATIO;
+	float MIN_METABOLISM_HEALTH_RATIO;
 	bool FUN;
 	float SUN_RED;
 	float SUN_GRE;
@@ -303,7 +304,7 @@ public:
 	float HEALTHLOSS_SPIKE_EXT;
 	float HEALTHLOSS_BADTERRAIN;
 	float HEALTHLOSS_NOOXYGEN;
-	float HEALTHLOSS_ASSEX;
+	float HEALTHLOSS_ASEX;
 
 	float DAMAGE_FULLSPIKE;
 	float DAMAGE_COLLIDE;
@@ -329,7 +330,7 @@ public:
 	float MEAT_INTAKE;
 	float MEAT_DECAY;
 	float MEAT_WASTE;
-	float MEAT_VALUE;
+	float MEAT_DEPOSIT_VALUE;
 	float MEAT_NON_FRESHKILL_MULT;
 
 	int HAZARD_EVENT_FREQ;

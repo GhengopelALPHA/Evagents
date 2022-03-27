@@ -305,7 +305,7 @@ void World::cellsLandMasses()
 	}
 
 	if (OCEANPERCENT > 0) {
-		for (int i=0;i<(0.8+CONTINENT_ROUGHNESS)*(powf((float)CW*CH,1/3)/10*pow((float)(CONTINENTS+2),(float)(OCEANPERCENT+1.2))) ;i++) {
+		for (int i=0; i < (0.5+CONTINENT_ROUGHNESS)*(powf((float)CW*CH,1/3)/10*pow((float)(CONTINENTS+2),(float)(OCEANPERCENT+1.0))); i++) {
 			//spawn oceans (water= 0)
 			int cx=randi(0,CW);
 			int cy=randi(0,CH);
@@ -1323,7 +1323,7 @@ void World::setInputs()
 						if (eye_target_angle < fov) {
 							float invDIST = INV_MAX_SENSORY_DISTANCE/conf::SMELL_DIST_MULT;
 							//we see the cell with this eye. Accumulate stats
-							float sight_mult= AMBIENT_LIGHT_PERCENT*cap(light_cell_mult*((fov - eye_target_angle)/fov)*(1-d*d*invDIST*invDIST));
+							float sight_mult= AMBIENT_LIGHT_PERCENT*cap(light_cell_mult*((fov - eye_target_angle*0.75)/fov)*(1-d*d*invDIST*invDIST));
 
 							for (int l=0; l < Layer::LAYERS; l++) {
 								float seen_r = 0, seen_g = 0, seen_b = 0;
@@ -1472,7 +1472,7 @@ void World::setInputs()
 
 						if (eye_target_angle < fov) {
 							//we see a2 with this eye. Accumulate stats
-							float sight_mult= cap(light_agent_mult*((fov - eye_target_angle)/fov)*(1-d_center_inv_DIST*d_center_inv_DIST));
+							float sight_mult= cap(light_agent_mult*((fov - eye_target_angle*0.75)/fov)*(1-d_center_inv_DIST*d_center_inv_DIST));
 
 							float seen_r = sight_mult*a2->real_red;
 							float seen_g = sight_mult*a2->real_gre;
@@ -1803,7 +1803,7 @@ void World::processCellInteractions()
 
 		if(!a->isDead()){
 			if (!a->isAirborne()){ //no interaction if jumping
-				if (!a->boost) { //no intake if boosting
+				if (!a->boost) { //no new intake if boosting
 					float intake= 0;
 					float speedmult= pow(1 - max(abs(a->w1), abs(a->w2)),3); //penalty for moving
 					speedmult/= (1.0+a->exhaustion); //exhaustion reduces agent physical actions including all intake
@@ -1929,7 +1929,12 @@ void World::processCellInteractions()
 
 float World::getMetabolismRatio(float metabolism)
 {
-	return metabolism*(1 - MIN_INTAKE_HEALTH_RATIO);
+	return metabolism*(1 - MIN_METABOLISM_HEALTH_RATIO);
+}
+
+float World::getIntakeRate(float intake, float rate)
+{
+	return min(intake, max(MAX_INTAKE_RATE*rate, MIN_INTAKE_RATE));
 }
 
 void World::processAgentInteractions()
@@ -2331,7 +2336,7 @@ void World::processDeath()
 	for (int i=0; i<(int)agents.size(); i++) {
 		Agent* a = &agents[i];
 		if(a->health < 0) {
-			printf("Please check the code: an agent unexpectedly had negative health when it should have had exactly zero\n");
+			printf("An agent unexpectedly had negative health when it should have had exactly zero\n");
 			a->health = 0;
 		}
 		if (a->health == 0 && a->carcasscount == 0) { 
@@ -2349,11 +2354,7 @@ void World::processDeath()
 			int cy = (int) a->pos.y/conf::CZ;
 
 			float meat = cells[Layer::MEATS][cx][cy];
-			float agemult =  a->age<TENDERAGE ? ((float)a->age+1)*INV_TENDERAGE : 1.0; //young killed agents should give very little resources until age 9
-			float freshmult = a->freshkill>0 ? 1.0 : MEAT_NON_FRESHKILL_MULT; //agents which were spiked recently will give full meat, otherwise give MEAT_NON_FRESHKILL_MULT
-			float stomachmult = 1+(conf::CARNIVORE_MEAT_EFF-1)*sqrt(a->stomach[Stomach::MEAT]); //carnivores give less, specified by CARNIVORE_MEAT_EFF
-
-			meat += MEAT_VALUE*agemult*freshmult*stomachmult;
+			meat += getDroppedMeat(a);
 			cells[Layer::MEATS][cx][cy] = cap(meat);
 
 			//collect all the death causes from all dead agents
@@ -2374,6 +2375,16 @@ void World::processDeath()
 		}
 	}
 }
+
+float World::getDroppedMeat(Agent* a)
+{
+	float agemult =  a->age<TENDERAGE ? ((float)a->age+1)*INV_TENDERAGE : 1.0; //young killed agents should give very little resources until age 9
+	float freshmult = a->freshkill>0 ? 1.0 : MEAT_NON_FRESHKILL_MULT; //agents which were spiked recently will give full meat, otherwise give MEAT_NON_FRESHKILL_MULT
+	float stomachmult = 1+(conf::CARNIVORE_TO_MEAT_EFF-1)*sqrt(a->stomach[Stomach::MEAT]); //carnivores give less, specified by CARNIVORE_TO_MEAT_EFF
+
+	return MEAT_DEPOSIT_VALUE*agemult*freshmult*stomachmult;
+}
+
 
 void World::processRandomSpawn()
 {
@@ -2959,7 +2970,7 @@ void World::reproduce(int mother, int father)
 	int numbabies = agents[mother].numbabies;
 
 	if (mother==father){ //if assexual rep, father is just the mother again
-		healthloss= agents[mother].radius/MEANRADIUS*HEALTHLOSS_ASSEX;
+		healthloss= agents[mother].radius/MEANRADIUS*HEALTHLOSS_ASEX;
 
 		agents[mother].initSplash(conf::RENDER_MAXSPLASHSIZE,0,0.8,0); //green splash means agent asexually reproduced
 
@@ -2977,19 +2988,23 @@ void World::reproduce(int mother, int father)
 	//Reset the MOTHER's repcounter ONLY (added bonus of sexual rep and allows possible dichotomy of sexes)
 	agents[mother].resetRepCounter(MEANRADIUS, REP_PER_BABY);
 
-	//do not omp
-	for (int i=0;i<numbabies;i++) {
-		Agent daughter= agents[mother].reproduce(agents[father], PRESERVE_MIRROR_EYES, OVERRIDE_KINRANGE, MEANRADIUS, REP_PER_BABY, i);
+	if (HEALTHLOSS_ASEX < 2.0 || hybridoffspring) { //assexuals don't reproduce if HEALTHLOSS >= 2
+		//do not omp
+		for (int i=0;i<numbabies;i++) {
+			Agent daughter= agents[mother].reproduce(agents[father], PRESERVE_MIRROR_EYES, OVERRIDE_KINRANGE, MEANRADIUS, REP_PER_BABY, i);
 
-		daughter.health= newhealth;
-		daughter.hybrid= hybridoffspring;
+			daughter.health= newhealth;
+			daughter.hybrid= hybridoffspring;
 
-		if (hybridoffspring) agents[father].children++;
-		agents[mother].children++;
+			if (hybridoffspring) agents[father].children++;
+			agents[mother].children++;
 
-		addAgent(daughter);
+			addAgent(daughter);
+		}
+		if (isAgentSelected(agents[mother].id)) printf("The Selected Agent has Reproduced and had %i Babies!\n", numbabies);
+	} else {
+		if (isAgentSelected(agents[mother].id)) printf("The Selected Agent tried to reproduce, but was punished by high HEALTHLOSS_ASEX setting\n");
 	}
-	if (isAgentSelected(agents[mother].id)) printf("The Selected Agent has Reproduced and had %i Babies!\n", numbabies);
 }
 
 void World::writeReport()
@@ -3256,25 +3271,24 @@ float World::getLandRatio() const //count land cells and report as a ratio
 	return STATlandratio;
 }
 
-float World::getFoodSupp() const
+float World::getPlantAvg() const
 {
-	return STATallplant/PLANT_WASTE*PLANT_INTAKE/2/100; //#food * 1/PLANT_WASTE tick/food * PLANT_INTAKE/1 health/tick * 1/2 agent/health = #agents
-	// /100 because... reasons
+	return STATallplant/CH/CW;
 }
 
-float World::getFruitSupp() const
+float World::getFruitAvg() const
 {
-	return STATallfruit/FRUIT_WASTE*FRUIT_INTAKE/2/100;
+	return STATallfruit/CH/CW;
 }
 
-float World::getMeatSupp() const
+float World::getMeatAvg() const
 {
-	return STATallmeat/MEAT_WASTE*MEAT_INTAKE/2/100;
+	return STATallmeat/CH/CW;
 }
 
-float World::getHazardSupp() const
+float World::getHazardAvg() const
 {
-	return STATallhazard*HAZARD_DAMAGE/2*50; //BUG? #hazard * HAZARD_DAMAGE/1/1 health/hazard/tick * 1/2 agent/health != #agents killed per tick
+	return STATallhazard/CH/CW;
 }
 
 /*
@@ -3437,7 +3451,7 @@ void World::init()
 	TENDERAGE= conf::TENDERAGE;
 	INV_TENDERAGE= 1/(float)conf::TENDERAGE;
     MINMOMHEALTH= conf::MINMOMHEALTH;
-	MIN_INTAKE_HEALTH_RATIO= conf::MIN_INTAKE_HEALTH_RATIO;
+	MIN_METABOLISM_HEALTH_RATIO= conf::MIN_METABOLISM_HEALTH_RATIO;
 	FUN= 0;
 	SUN_RED= 1.0;
 	SUN_GRE= 1.0;
@@ -3472,7 +3486,7 @@ void World::init()
     HEALTHLOSS_SPIKE_EXT= conf::HEALTHLOSS_SPIKE_EXT;
     HEALTHLOSS_BADTERRAIN= conf::HEALTHLOSS_BADTERRAIN;
     HEALTHLOSS_NOOXYGEN= conf::HEALTHLOSS_NOOXYGEN;
-    HEALTHLOSS_ASSEX= conf::HEALTHLOSS_ASSEX;
+    HEALTHLOSS_ASEX= conf::HEALTHLOSS_ASEX;
 
 	DAMAGE_FULLSPIKE= conf::DAMAGE_FULLSPIKE;
 	DAMAGE_COLLIDE= conf::DAMAGE_COLLIDE;
@@ -3498,7 +3512,7 @@ void World::init()
     MEAT_INTAKE= conf::MEAT_INTAKE;
     MEAT_DECAY= conf::MEAT_DECAY;
     MEAT_WASTE= conf::MEAT_WASTE;
-    MEAT_VALUE= conf::MEAT_VALUE;
+    MEAT_DEPOSIT_VALUE= conf::MEAT_DEPOSIT_VALUE;
 	MEAT_NON_FRESHKILL_MULT = conf::MEAT_NON_FRESHKILL_MULT;
 
     HAZARD_EVENT_FREQ= conf::HAZARD_EVENT_FREQ;
@@ -3939,10 +3953,10 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=MINMOMHEALTH) printf("MINMOMHEALTH, ");
 				MINMOMHEALTH= f;
-			}else if(strcmp(var, "MIN_INTAKE_HEALTH_RATIO=")==0){
+			}else if(strcmp(var, "MIN_METABOLISM_HEALTH_RATIO=")==0 || strcmp(var, "MIN_INTAKE_HEALTH_RATIO=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MIN_INTAKE_HEALTH_RATIO) printf("MIN_INTAKE_HEALTH_RATIO, ");
-				MIN_INTAKE_HEALTH_RATIO= f;
+				if(f!=MIN_METABOLISM_HEALTH_RATIO) printf("MIN_METABOLISM_HEALTH_RATIO, ");
+				MIN_METABOLISM_HEALTH_RATIO= f;
 			}else if(strcmp(var, "FUN=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=(int)FUN) for(int x=0; x<420; x++) printf("OHMYGODWHATHAVEYOUDONE");
@@ -4085,10 +4099,10 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=HEALTHLOSS_NOOXYGEN) printf("HEALTHLOSS_NOOXYGEN, ");
 				HEALTHLOSS_NOOXYGEN= f;
-			}else if(strcmp(var, "HEALTHLOSS_ASSEX=")==0){
+			}else if(strcmp(var, "HEALTHLOSS_ASEX=")==0 || strcmp(var, "HEALTHLOSS_ASSEX=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTHLOSS_ASSEX) printf("HEALTHLOSS_ASSEX, ");
-				HEALTHLOSS_ASSEX= f;
+				if(f!=HEALTHLOSS_ASEX) printf("HEALTHLOSS_ASEX, ");
+				HEALTHLOSS_ASEX= f;
 			}else if(strcmp(var, "DAMAGE_FULLSPIKE=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=DAMAGE_FULLSPIKE) printf("DAMAGE_FULLSPIKE, ");
@@ -4169,10 +4183,10 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=MEAT_WASTE) printf("MEAT_WASTE, ");
 				MEAT_WASTE= f;
-			}else if(strcmp(var, "MEAT_VALUE=")==0){
+			}else if(strcmp(var, "MEAT_DEPOSIT_VALUE=")==0 || strcmp(var, "MEAT_VALUE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MEAT_VALUE) printf("MEAT_VALUE, ");
-				MEAT_VALUE= f;
+				if(f!=MEAT_DEPOSIT_VALUE) printf("MEAT_DEPOSIT_VALUE, ");
+				MEAT_DEPOSIT_VALUE= f;
 			}else if(strcmp(var, "MEAT_NON_FRESHKILL_MULT=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=MEAT_NON_FRESHKILL_MULT) printf("MEAT_NON_FRESHKILL_MULT, ");
@@ -4333,7 +4347,7 @@ void World::writeConfig()
 	fprintf(cf, "\n");
 	fprintf(cf, "TENDERAGE= %i \t\t\t//age (in 1/10ths) of agents where full meat, hazard, and collision damage is finally given. These multipliers are reduced via *age/TENDERAGE. 0= off\n", conf::TENDERAGE);
 	fprintf(cf, "MINMOMHEALTH= %f \t\t//minimum amount of health required for an agent to have a child\n", conf::MINMOMHEALTH);
-	fprintf(cf, "MIN_INTAKE_HEALTH_RATIO= %f //minimum metabolism ratio of intake always sent to health. 0= no restrictions (agent metabolism has full control), 1= 100%% health, no babies ever. default= 0.5\n", conf::MIN_INTAKE_HEALTH_RATIO);
+	fprintf(cf, "MIN_METABOLISM_HEALTH_RATIO= %f //minimum metabolism ratio of intake always sent to health. 0= no restrictions (agent metabolism has full control), 1= 100%% health, no babies ever. default= 0.5\n", conf::MIN_METABOLISM_HEALTH_RATIO);
 	fprintf(cf, "REP_PER_BABY= %f \t\t//amount of food required to be consumed for an agent to reproduce, per baby\n", conf::REP_PER_BABY);
 	fprintf(cf, "OVERHEAL_REPFILL= %f \t//decimal value flag for letting agents redirect overfill health (>2) to repcounter. 0= extra intake is destroyed, punishing overeating, 1= conserves matter. Can be set to a decimal value to mult the conversion factor\n", conf::OVERHEAL_REPFILL);
 //	fprintf(cf,	"LEARNRATE= %f\n", conf::LEARNRATE);
@@ -4367,7 +4381,7 @@ void World::writeConfig()
 	fprintf(cf, "HEALTHLOSS_SPIKE_EXT= %f \t//how much health an agent looses for extending spike. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_SPIKE_EXT, conf::DEATH_SPIKERAISE);
 	fprintf(cf, "HEALTHLOSS_BADTERRAIN= %f //how much health is lost if in totally opposite environment. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_BADTERRAIN, conf::DEATH_BADTERRAIN);
 	fprintf(cf, "HEALTHLOSS_NOOXYGEN= %f \t//how much agents are penalized when total agents = AGENTS_MAX_NOOXYGEN. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_NOOXYGEN, conf::DEATH_TOOMANYAGENTS);
-	fprintf(cf, "HEALTHLOSS_ASSEX= %f \t//multiplier for radius/MEANRADIUS penalty on mother for asexual reproduction. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_ASSEX, conf::DEATH_ASEXUAL);
+	fprintf(cf, "HEALTHLOSS_ASEX= %f \t//multiplier for radius/MEANRADIUS penalty on mother for asexual reproduction. If set to > 2 (the health of agents), it will additionally apply a penalty to the children. Contributes to the death cause '%s'.\n", conf::HEALTHLOSS_ASEX, conf::DEATH_ASEXUAL);
 	fprintf(cf, "\n");
 	fprintf(cf, "DAMAGE_FULLSPIKE= %f \t//health multiplier of spike injury. Note: it is effected by spike length and relative velocity of the agents. When used against another agent, it causes the death cause '%s'.\n", conf::DAMAGE_FULLSPIKE, conf::DEATH_SPIKE);
 	fprintf(cf, "DAMAGE_COLLIDE= %f \t//how much health is lost upon collision. Note that =0 does not disable the event (see BUMP_DAMAGE_OVERLAP above). When used against another agent, it causes the death cause '%s'.\n", conf::DAMAGE_COLLIDE, conf::DEATH_COLLIDE);
@@ -4393,7 +4407,7 @@ void World::writeConfig()
 	fprintf(cf, "MEAT_INTAKE= %f \t\t//how much meat can feed an agent per tick?\n", conf::MEAT_INTAKE);
 	fprintf(cf, "MEAT_DECAY= %f \t\t//how much meat decays on a cell per tick? (negative values make it grow everywhere instead)\n", conf::MEAT_DECAY);
 	fprintf(cf, "MEAT_WASTE= %f \t\t//how much meat disappears when an agent eats it?\n", conf::MEAT_WASTE);
-	fprintf(cf, "MEAT_VALUE= %f \t\t//how much meat an agent's body is worth? Typically, and agent > TENDERAGE, with no carnivore stomach, and was freshly killed, will fill a meat cell. Not being a fresh kill multiplies the amount by MEAT_NON_FRESHKILL_MULT. Being a full carnivore, dramatic reduction. And < TENDERAGE will multiply the amount by the proportion until they are TENDERAGE. This multiplies in after all that.\n", conf::MEAT_VALUE);
+	fprintf(cf, "MEAT_DEPOSIT_VALUE= %f \t\t//how much meat an agent's body is worth? Typically, and agent > TENDERAGE, with no carnivore stomach, and was freshly killed, will fill a meat cell. Not being a fresh kill multiplies the amount by MEAT_NON_FRESHKILL_MULT. Being a full carnivore, dramatic reduction. And < TENDERAGE will multiply the amount by the proportion until they are TENDERAGE. This multiplies in after all that.\n", conf::MEAT_DEPOSIT_VALUE);
 	fprintf(cf, "MEAT_NON_FRESHKILL_MULT= %f //mult for when the agent's death was not due to an attack (died by attrition means). 0= agents killed by other means never drop any meat, 1= no reduction from meat dropped.\n", conf::MEAT_NON_FRESHKILL_MULT);
 	fprintf(cf, "\n");
 	fprintf(cf, "HAZARD_EVENT_FREQ= %i \t\t//how often an instant hazard appears?\n", conf::HAZARD_EVENT_FREQ);

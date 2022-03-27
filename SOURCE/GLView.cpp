@@ -248,8 +248,8 @@ void GLView::processMouse(int button, int state, int x, int y)
 		if(!uiclicked && state==1){ //ui was not clicked, We're in the world space!
 
 			//have world deal with it. First translate to world coordinates though
-			int wx= (int) ((x-wWidth*0.5)/scalemult-xtranslate);
-			int wy= (int) ((y-wHeight*0.5)/scalemult-ytranslate);
+			int wx= convertMousePosToWorld(true, x);
+			int wy= convertMousePosToWorld(false, y);
 
 			if(live_cursormode==MouseMode::SELECT){
 				//This line both processes mouse (via world) and sets selection mode if it was successfull
@@ -313,6 +313,12 @@ void GLView::processMousePassiveMotion(int x, int y)
 	if(x<=30) xtranslate += 2*(30-x);
 	if(x>=glutGet(GLUT_WINDOW_WIDTH)-30) xtranslate -= 2*(x-(glutGet(GLUT_WINDOW_WIDTH)-30));*/
 	mousex=x; mousey=y;
+}
+
+int GLView::convertMousePosToWorld(bool x, int pos)
+{
+	if (x) return (int) ((pos-wWidth*0.5)/scalemult-xtranslate);
+	else return (int) ((pos-wHeight*0.5)/scalemult-ytranslate);
 }
 
 void GLView::handlePopup(int x, int y)
@@ -802,6 +808,7 @@ void GLView::gluiCreateMenu()
 	for(int i=0; i<DisplayLayer::DISPLAYS; i++) live_layersvis[i]= 1;
 	live_waterfx= 1;
 	live_profilevis= Profile::NONE;
+	live_worlddetails = 0;
 	live_lifepath= 0;
 	live_selection= Select::MANUAL;
 	live_follow= 0;
@@ -906,9 +913,10 @@ void GLView::gluiCreateMenu()
 		new GLUI_RadioButton(group_profiles,text);
 	}
 
-	Menu->add_checkbox_to_panel(rollout_vis, "Show Lifepath", &live_lifepath);
 	Menu->add_checkbox_to_panel(rollout_vis, "Grid on", &live_grid);
+	Menu->add_checkbox_to_panel(rollout_vis, "Show Lifepath", &live_lifepath);
 	Menu->add_checkbox_to_panel(rollout_vis, "Water FX", &live_waterfx);
+	Menu->add_checkbox_to_panel(rollout_vis, "Extra Data", &live_worlddetails);
 
 	Menu->add_column_to_panel(rollout_vis,true);
 	GLUI_RadioGroup *group_agents= new GLUI_RadioGroup(rollout_vis, &live_agentsvis);
@@ -1688,9 +1696,8 @@ void GLView::handleIdle()
 			//we technically are rendering if just paused tho, so this check should stay here
 		} else ratemode='F';
 
-		sprintf( buf, "Evagents - %cPS: %d Alive: %d Herbi: %d Carni: %d Frugi: %d Epoch: %d Day %d",
-			ratemode, frames, world->getAgents()-world->getDead(), world->getHerbivores(), world->getCarnivores(),
-			world->getFrugivores(), world->getEpoch(), world->getDay() );
+		sprintf( buf, "Evagents - %cPS: %d Alive: %d Epoch: %d Day %d",
+			ratemode, frames, world->getAlive(), world->getEpoch(), world->getDay() );
 		glutSetWindowTitle( buf );
 
 		world->timenewsong--; //reduce our song delay timer
@@ -1727,6 +1734,8 @@ void GLView::handleIdle()
 		printf("\n"); //must occur at end of tick!
 	}
 	#endif
+
+	isrendering_ = false; //use this to test if a ui is visible while running. It's for debugging
 }
 
 void GLView::renderScene()
@@ -2052,6 +2061,19 @@ std::pair<Color3f,float> GLView::setColorEar(int index)
 	}
 
 	return std::make_pair(color, alp);
+}
+
+Color3f GLView::setColorRadius(float radius)
+{
+	Color3f color;
+	if (radius < world->MEANRADIUS + conf::TINY_RADIUS) {
+		if (radius < conf::TINY_RADIUS) color= Color3f(1.0); //tiny agents always appear white; no meaningful differences between them here
+		else color = setColorTone( (radius - conf::TINY_RADIUS) / world->MEANRADIUS ); //show a color scale between TINY_RADIUS and MEAN_RADIUS + TINY_RADIUS
+	} else {
+		//at > MEAN_RADIUS + TINY_RADIUS, restart the color scale, but dimmer
+		color = setColorTone( (radius - conf::TINY_RADIUS - world->MEANRADIUS) / world->MEANRADIUS );
+		color.red /= 2; color.gre /= 2; color.blu /= 2; 
+	}
 }
 
 
@@ -2671,7 +2693,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glVertex3f(90, 20, 0);
 					glVertex3f(90, 70, 0);
 
-					float minhealth = world->MIN_INTAKE_HEALTH_RATIO;
+					float minhealth = world->MIN_METABOLISM_HEALTH_RATIO;
 					if (minhealth > 0) {
 						glColor3f(0.1,0.8,0.1);
 						glVertex3f(20, 65 - 50*minhealth, 0);
@@ -2952,7 +2974,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		} else if (live_agentsvis==Visual::DISCOMFORT){
 			color= setColorTempPref(agent.discomfort);
 		} else if (live_agentsvis==Visual::VOLUME) {
-			color= Color3f(agent.volume);
+			color= Color3f(agent.volume*(agent.volume+0.1));
 		} else if (live_agentsvis==Visual::SPECIES){ 
 			color= setColorSpecies(agent.species);
 		} else if (live_agentsvis==Visual::CROSSABLE){ //crossover-compatable to selection
@@ -3496,8 +3518,12 @@ void GLView::drawFinalData()
 		glBegin(GL_LINES);
 		glColor3f(0.5,0.75,0.75);
 		for (int i = 1; i < world->lifepath.size(); i++) {
+			//skip this draw if is spans too far (like at world borders)
+			if (abs(world->lifepath[i-1].x - world->lifepath[i].x) > 100 || abs(world->lifepath[i-1].y - world->lifepath[i].y) > 100) continue;
+
 			float colmul = (float)i/std::max((float)i, (float)world->lifepath.size() - 300);
 			glColor3f(0.5*colmul,0.75*colmul,0.75*colmul); //color gradually changes from cyan to black, starting with first indexes
+
 			glVertex3f(world->lifepath[i-1].x, world->lifepath[i-1].y ,0);
 			glVertex3f(world->lifepath[i].x, world->lifepath[i].y ,0);
 		}
@@ -3535,67 +3561,87 @@ void GLView::drawStatic()
 	int currentline= 1;
 	int spaceperline= 16;
 
-	int linecount= StaticDisplay::STATICDISPLAYS; //this is not used directly in for loop because we modify it if Debug is on (NOT CURRENTLY USED)
+	if (live_worlddetails) {
+		//display static world details first - makes things nicer to read
+		for (int line=0; line<StaticDisplayExtra::STATICDISPLAYS; line++){
+			if (line == StaticDisplayExtra::OCEANPERCENT) {
+				sprintf(buf, "%% Water: %.3f", 1-world->getLandRatio());
+			} else if (line == StaticDisplayExtra::OXYGEN) {
+				sprintf(buf, "Avg Oxy Dmg: %.4f", world->HEALTHLOSS_NOOXYGEN*world->agents.size());
+			} else if (line >= StaticDisplayExtra::LIVECOUNTS && line <= StaticDisplayExtra::xLIVECOUNTS) {
+				int index = line - StaticDisplayExtra::LIVECOUNTS;
+				switch (index) {
+					case LiveCount::AMPHIBIAN : sprintf(buf, "Amphibians: %i", world->getLungAmph());	break;
+					case LiveCount::AQUATIC : sprintf(buf, "Aquatics: %i", world->getLungWater());		break;
+					case LiveCount::TERRESTRIAL : sprintf(buf, "Terrans: %i", world->getLungLand());	break;
+					case LiveCount::CARNIVORE : sprintf(buf, "Carnivores: %i", world->getCarnivores()); break;
+					case LiveCount::FRUGIVORE : sprintf(buf, "Frugivores: %i", world->getFrugivores()); break;
+					case LiveCount::HERBIVORE : sprintf(buf, "Herbivores: %i", world->getHerbivores()); break;
+					case LiveCount::SPIKED : sprintf(buf, "Spiky: %i", world->getSpiky());				break;
+					case LiveCount::HYBRID : sprintf(buf, "Hybrids: %i", world->getHybrids());			break;
+					default : sprintf(buf, "UNKNOWN_LiveCount_in_StaticDisplayExtra");
+				}
+			} else if (line >= StaticDisplayExtra::AVG_LAYERS && line <= StaticDisplayExtra::xAVG_LAYERS) {
+				int index = line - StaticDisplayExtra::AVG_LAYERS + 1; //+1 to align with Layers::
+				switch (index) {
+					case Layer::PLANTS : sprintf(buf, "Avg Plant/cell: %.3f", world->getPlantAvg());	break;
+					case Layer::FRUITS : sprintf(buf, "Avg Fruit/cell: %.3f", world->getFruitAvg());	break;
+					case Layer::MEATS : sprintf(buf, "Avg Meat/cell: %.3f", world->getMeatAvg());		break;
+					case Layer::HAZARDS : sprintf(buf, "Avg Hazard/cell: %.3f", world->getHazardAvg());	break;
+					default : sprintf(buf, "UNKNOWN_Layer_in_StaticDisplayExtra");
+				}
+			}
+			RenderString(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.0, 0.0, 0.0);
+			currentline++;
+		}
+	}
 
-	for(int line=0; line<linecount; line++){
-		if(line==StaticDisplay::PAUSED)	{
+	for (int line=0; line<StaticDisplay::STATICDISPLAYS; line++){
+		//now display the main static displays
+		if (line == StaticDisplay::PAUSED)	{
 			if(live_paused){
 				float redness= 0.5*abs(sin((float)(currentTime)/250));
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Paused", 0.5f+redness, 0.55f-redness, 0.55f-redness);
 				currentline++; //this appears in every if statement because we only move to next line if we added a line
 			}
-		} else if(line==StaticDisplay::FOLLOW) {
+		} else if (line == StaticDisplay::FOLLOW) {
 			if(live_follow!=0) {
 				if(world->getSelectedAgentIndex()>=0) RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Following", 0.75f, 0.75f, 0.75f);
 				else RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "No Follow Target", 0.75f, 0.75f, 0.75f);
 				currentline++;
 			}
-		} else if(line==StaticDisplay::AUTOSELECT) {
+		} else if (line == StaticDisplay::AUTOSELECT) {
 			if(live_selection!=Select::NONE && live_selection!=Select::MANUAL) {
-				if(live_selection==Select::RELATIVE) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Relatives Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::AGGRESSIVE) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Aggression Stat Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::BEST_GEN) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Highest Gen. Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::HEALTHY) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Healthiest Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::ENERGETIC) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Energetic Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::OLDEST) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Oldest Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::PRODUCTIVE) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Children Stat Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::BEST_CARNIVORE) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Carni. Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::BEST_FRUGIVORE) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Frugi. Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::BEST_HERBIVORE) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Herbi. Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::BEST_AQUATIC) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Aquatic Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::BEST_AMPHIBIAN) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Amphibian Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::BEST_TERRESTRIAL) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Best Terran Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::FASTEST) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Fastest Agent Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::SEXIEST) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Sexual Projection Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::GENEROUS_EST) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Most Generous Autoselect", 0.5f, 0.8f, 0.5f);
-				} else if(live_selection==Select::KINRANGE_EST) {
-					RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Highest Kin Range Autoselect", 0.5f, 0.8f, 0.5f);
+				switch (live_selection) {
+					case Select::RELATIVE : sprintf(buf, "Relatives Autoselect");			break;
+					case Select::AGGRESSIVE : sprintf(buf, "Aggression Stat Autoselect");	break;
+					case Select::BEST_GEN : sprintf(buf, "Highest Gen. Autoselect");		break;
+					case Select::HEALTHY : sprintf(buf, "Healthiest Autoselect");			break;
+					case Select::ENERGETIC : sprintf(buf, "Energetic Autoselect");			break;
+					case Select::OLDEST : sprintf(buf, "Oldest Autoselect");				break;
+					case Select::PRODUCTIVE : sprintf(buf, "Most Children Autoselect");		break;
+					case Select::BEST_CARNIVORE : sprintf(buf, "Best Carni. Autoselect");	break;
+					case Select::BEST_FRUGIVORE : sprintf(buf, "Best Frugi. Autoselect");	break;
+					case Select::BEST_HERBIVORE : sprintf(buf, "Best Herbi. Autoselect");	break;
+					case Select::BEST_AQUATIC : sprintf(buf, "Best Aquatic Autoselect");	break;
+					case Select::BEST_AMPHIBIAN : sprintf(buf, "Best Amphibian Autoselect"); break;
+					case Select::BEST_TERRESTRIAL : sprintf(buf, "Best Terran Autoselect"); break;
+					case Select::FASTEST : sprintf(buf, "Fastest Agent Autoselect");		break;
+					case Select::SEXIEST : sprintf(buf, "Sexual Projection Autoselect");	break;
+					case Select::GENEROUS_EST : sprintf(buf, "Most Generous Autoselect");	break;
+					case Select::KINRANGE_EST : sprintf(buf, "Highest Kin Range Autoselect"); break;
+					default : sprintf(buf, "UNKNOWN_Select");
 				}
+				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.8f, 0.5f);
 				currentline++;
 			}
-		} else if(line==StaticDisplay::CLOSED) {
+		} else if (line == StaticDisplay::CLOSED) {
 			if(world->isClosed()) {
 				float shift= 0.5*abs(sin((float)(currentTime)/750));
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Closed World", 1.0f-shift, 0.55f-shift, 0.5f+shift);
 				currentline++;
 			}
-		} else if(line==StaticDisplay::DROUGHT) {
+		} else if (line == StaticDisplay::DROUGHT) {
 			if(world->isDrought()) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Active Drought", 1.0f, 1.0f, 0.0f);
 				currentline++;
@@ -3603,24 +3649,24 @@ void GLView::drawStatic()
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Active Overgrowth", 0.0f, 0.65f, 0.25f);
 				currentline++;
 			}
-		} else if (line==StaticDisplay::MUTATIONS) {
+		} else if (line == StaticDisplay::MUTATIONS) {
 			if(world->MUTEVENTMULT>1) {
 				sprintf(buf, "%ix Mutation Rate", world->MUTEVENTMULT);
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.75f, 0.0f, 1.0f);
 				currentline++;
 			}
-		} else if (line==StaticDisplay::USERCONTROL) {
+		} else if (line == StaticDisplay::USERCONTROL) {
 			if(world->pcontrol) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "User Control Active", 0.0f, 0.2f, 0.8f);
 				currentline++;
 			}
-		} else if (line==StaticDisplay::DEMO) {
+		} else if (line == StaticDisplay::DEMO) {
 			if(world->isDemo()) {
 				float greness= 0.25*abs(cos((float)(currentTime)/500));
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Demo mode", 0.25f-greness, 0.45f+greness, 0.4f-greness);
 				currentline++;
 			}
-		} else if (line==StaticDisplay::DAYCYCLES) {
+		} else if (line == StaticDisplay::DAYCYCLES) {
 			if(world->MOONLIT && world->MOONLIGHTMULT==1.0) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Permanent Day", 1.0f, 1.0f, 0.3f);
 				currentline++;
@@ -3628,7 +3674,7 @@ void GLView::drawStatic()
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Moonless Nights", 0.6f, 0.6f, 0.6f);
 				currentline++;
 			}
-		} else if (line==StaticDisplay::CLIMATE) {
+		} else if (line == StaticDisplay::CLIMATE) {
 			if(world->isIceAge()) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Ice Age", 0.3f, 0.9f, 0.9f);
 				currentline++;
@@ -3640,45 +3686,34 @@ void GLView::drawStatic()
 				currentline++;
 			}
 		}
-		
-		//we do not include debug here yet. see below 
 	}
-	
 
-	if(world->isDebug()) { //no matter what, render these at the end
+	if (world->isDebug()) {
 		currentline++;
-		sprintf(buf, "modcounter: %i", world->modcounter);
-		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
-		currentline++;
-		sprintf(buf, "GL modcounter: %i", modcounter);
-		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
-		currentline++;
-		currentline++;
-		sprintf(buf, "Plant-Haz Supp: %i agents", (int)(world->getFoodSupp()-world->getHazardSupp()));
-		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
-		currentline++;
-		sprintf(buf, "Fruit-Haz Supp: %i agents", (int)(world->getFruitSupp()-world->getHazardSupp()));
-		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
-		currentline++;
-		sprintf(buf, "Meat-Haz Supp: %i agents", (int)(world->getMeatSupp()-world->getHazardSupp()));
-		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
-		currentline++;
-		sprintf(buf, "Haz Impact: %i agents", (int)(-world->getHazardSupp()));
-		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
-		currentline++;
-		sprintf(buf, "%% Water: %.3f", 1-world->getLandRatio());
-		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
-		currentline++;
-		sprintf(buf, "Avg Oxy Dmg: %f", world->HEALTHLOSS_NOOXYGEN*world->agents.size());
-		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
-		currentline++;
-		currentline++;
-		sprintf(buf, "GL scalemult: %.4f", scalemult);
-		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
-		currentline++;
-		sprintf(buf, "Agent res: %i", getAgentRes());
-		RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+		for (int line=0; line<StaticDisplayDebug::STATICDISPLAYS; line++){
+			//now display the debug static displays
+			if (line == StaticDisplayDebug::GLMODCOUNT) {
+				sprintf(buf, "GL modcounter: %i", modcounter);
+			} else if (line == StaticDisplayDebug::MODCOUNT) {
+				sprintf(buf, "World modcounter: %i", world->modcounter);
+			} else if (line == StaticDisplayDebug::GLMOUSEPOS) {
+				sprintf(buf, "GL mouse pos: (%i, %i)", mousex, mousey);
+			}  else if (line == StaticDisplayDebug::WORLDMOUSEPOS) {
+				int wx= convertMousePosToWorld(true, mousex);
+				int wy= convertMousePosToWorld(false, mousey);
+				sprintf(buf, "World mouse pos: (%i, %i)", wx, wy);
+			} else if (line == StaticDisplayDebug::GLSCALEMULT) {
+				sprintf(buf, "GL scalemult: %.4f", scalemult);
+			} else if (line == StaticDisplayDebug::RESOLUTION) {
+				sprintf(buf, "Agent res: %i", getAgentRes());
+			} else if (line == StaticDisplayDebug::ISRENDERING_) {
+				sprintf(buf, "Render flag: %s", isrendering_ ? "true" : "false");
+			}
+			RenderString(5, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.5f, 0.5f, 1.0f);
+			currentline++;
+		}
 	}
+
 
 
 	//center axis markers
