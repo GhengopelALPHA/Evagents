@@ -1932,10 +1932,10 @@ float World::getMetabolismRatio(float metabolism)
 	return metabolism*(1 - MIN_METABOLISM_HEALTH_RATIO);
 }
 
-float World::getIntakeRate(float intake, float rate)
+/*float World::getIntakeRate(float intake, float rate)
 {
 	return min(intake, max(MAX_INTAKE_RATE*rate, MIN_INTAKE_RATE));
-}
+}*/
 
 void World::processAgentInteractions()
 {
