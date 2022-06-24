@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include "vmath.h"
 
 #define NUMEYES 6
 #define NUMEARS 4
@@ -149,7 +150,7 @@ const enum {
 	COMMON, //show traits and stats that are commonly looked at
 	TRAITS_ONLY, //only show traits (fixed values), and more of them
 	STATS_ONLY, //only show stats (changing values), and more of them
-	PROFILE, //display the selected agent's profile
+	//PROFILE, //display the selected agent's profile
 
 	//Don't add beyond this entry!
 	MODES
@@ -244,6 +245,7 @@ namespace Profile{
 const enum {
 	NONE= 0,
 	INOUT,
+	BOXES,
 	BRAIN,
 	SOUND,
 	EYES,
@@ -383,6 +385,7 @@ const enum {
 	BRAINSIZE,
 	GENEMUTCHANCE,
 	GENEMUTSIZE,
+	BRAINLIVECONNS,
 
 	//Don't add beyond this entry!
 	HUDS
@@ -525,9 +528,20 @@ const enum {
 	FOOD_TYPES
 };};
 
+//defines for connection types, used exclusively in CPBrain. Order changes nothing
+namespace ConnType {
+const enum {
+	NORMAL = 0,
+	INVERTED,
+	DELTA,
+
+	//don't add beyond this entry!
+	CONN_TYPES
+};};
+
 //defines for genes. every agent can have any number of genes, even 0 (typically defaults the trait to 1.0)
 //each gene also adds to the reproduction cost
-namespace Genetypes {
+namespace Genetype {
 const enum {
 	BRAIN_MUTCHANCE,
 	BRAIN_MUTSIZE,
@@ -700,6 +714,7 @@ namespace conf {
 	const float LEARN_RATE= 0.001; // rate of Stimulant effecting weights. TODO: (.cfg) CHANGE TO LEARN FROM USER INPUT?
 	const float BRAIN_DIRECTINPUTS= 0.3; //probability of random brain conns on average which will connect directly to inputs
 //	const float BRAIN_DEADCONNS= 0.15; //probability of random brain conns which are "dead" (that is, weight = 0)
+	const float BRAIN_INVERTCONNS= 0.5; //probablility of random brain conns which are inverted (the input value is (1-x) before weight)
 	const float BRAIN_CHANGECONNS= 0.15; //probablility of random brain conns which are change sensitive
 //	const float BRAIN_MEMCONNS= 0.01; //probablility of random brain conns which are memory type
 	const float BRAIN_MIRRORCONNS= 0.5; //probablility of random brain conns which will be made as mirror-compare connections with a random other connection, range(0,i)
@@ -745,7 +760,7 @@ namespace conf {
 
 	//reproduction
 	const int TENDERAGE= 10; //(.cfg)
-	const float MINMOMHEALTH=0.25; //(.cfg)
+	const float MINMOMHEALTH=0.5; //(.cfg)
 	const float REP_PER_BABY= 3; //(.cfg)
 	const float REPCOUNTER_MIN= 8; //minimum value the Repcounter may be set to
 	const float OVERHEAL_REPFILL= 0; //(.cfg)
@@ -771,10 +786,17 @@ namespace conf {
 	const float SEXTING_DISTANCE= 60; //(.cfg)
 	const float GRABBING_DISTANCE= 40; //(.cfg)
 	const float SMELL_DIST_MULT= 0.5; //additional multiplier for cell and agent smell distance.
-//	const float BLOOD_SENSE_DISTANCE= 50; //(.cfg)
+	const float BLOOD_SENSE_DISTANCE= 30; //(.cfg)
+
+	//angles
+	const float EYE_SENSE_MAX_FOV = M_PI/2; //(.cfg)
+	const float BLOOD_SENSE_MAX_FOV = 3*M_PI/16; //(.cfg)
+	const float GRAB_MAX_FOV = M_PI/8; //(.cfg)
+	const float SPIKE_MAX_FOV = M_PI/2; //the angle maximim from the center of the spike direction where other agents may be stabbed, in radians. From center to each edge, double this for full range
+	const float JAW_MAX_FOV = M_PI/6; //the angle maximim from the center of the jaws direction where other agents may be bitten, in radians. From center to each edge, double this for full range
 
 	//life and death things
-	const float HEALTH_CAP= 2.0; //max health value of agents
+	const float HEALTH_CAP= 10.0; //max health value of agents
 	const int FRESHKILLTIME= 50; //(.cfg)
 	const int CORPSE_FRAMES= 400; //(.cfg)
 	const float CORPSE_MEAT_MIN= 0.25; //(.cfg)
@@ -789,13 +811,13 @@ namespace conf {
 	const float HEALTHLOSS_BADTEMP = 0.008; //(.cfg)
 	const float HEALTHLOSS_BRAINUSE= 0.0; //(.cfg)
 	const float HEALTHLOSS_SPIKE_EXT= 0.0; //(.cfg)
-	const float HEALTHLOSS_BADTERRAIN= 0.021; //(.cfg)
-	const float HEALTHLOSS_NOOXYGEN= 0.0001; //(.cfg)
+	const float HEALTHLOSS_BADTERRAIN= 0.022; //(.cfg)
+	const float HEALTHLOSS_NOOXYGEN= 0.00015; //(.cfg)
 	const float HEALTHLOSS_ASEX= 0.20; //(.cfg)
 
-	const float DAMAGE_FULLSPIKE= 4.0; //(.cfg)
-	const float DAMAGE_COLLIDE= 2.0; //(.cfg)
-	const float DAMAGE_JAWSNAP= 3.0; //(.cfg)
+	const float DAMAGE_FULLSPIKE= 12.0; //(.cfg)
+	const float DAMAGE_COLLIDE= 4.0; //(.cfg)
+	const float DAMAGE_JAWSNAP= 8.0; //(.cfg)
 
 	//Death cause strings. Typically preceeded by "Killed by ", but this is just all damage sources in text form
 	//please note: there are two "words" sepparated by a single space. In reporting, this is used for uniquely identifying death causes
@@ -822,8 +844,8 @@ namespace conf {
 	const char PLANT_TEXT[]= "Plant Food";
 	const float PLANT_INTAKE= 0.01; //(.cfg)
 	const float PLANT_DECAY = 0.000004; //(.cfg)
-	const float PLANT_GROWTH= 0.000003; //(.cfg)
-	const float PLANT_WASTE= 0.0023;//0.0007; //(.cfg)
+	const float PLANT_GROWTH= 0.0000025; //(.cfg)
+	const float PLANT_WASTE= 0.003;//0.0007; //(.cfg)
 	const int PLANT_ADD_FREQ= 225; //(.cfg)
 	const float PLANT_SPREAD= 0.00012; //(.cfg)
 	const int PLANT_RANGE= 2; //(.cfg)
@@ -831,17 +853,17 @@ namespace conf {
 	//Plant food is the simplest and most plentiful form of nutrition, but it takes time to consume enough
 
 	const char FRUIT_TEXT[]= "Fruit Food";
-	const float FRUIT_INTAKE = 0.03; //(.cfg)
+	const float FRUIT_INTAKE = 0.02; //(.cfg)
 	const float FRUIT_DECAY = 0.000003; //(.cfg)
-	const float FRUIT_WASTE = 0.0023; //0.0014; //(.cfg)
+	const float FRUIT_WASTE = 0.002; //(.cfg)
 	const int FRUIT_ADD_FREQ = 2; //(.cfg)
 	const float FRUIT_PLANT_REQUIRE= 0.1; //(.cfg)
 	//Fruit is a quick and easy alternative to plants. Also partially randomly populated, harkening back to ScriptBots origins
 
 	const char MEAT_TEXT[]= "Meat Food";
-	const float MEAT_INTAKE= 0.06; //(.cfg)
+	const float MEAT_INTAKE= 0.03; //(.cfg)
 	const float MEAT_DECAY= 0.00001; //(.cfg)
-	const float MEAT_WASTE= 0.002; //(.cfg)
+	const float MEAT_WASTE= 0.001; //(.cfg)
 	const float MEAT_DEPOSIT_VALUE= 1.0; //(.cfg)
 	const float MEAT_NON_FRESHKILL_MULT = 0.75; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)
@@ -850,8 +872,9 @@ namespace conf {
 	const float HAZARD_EVENT_MULT= 4.0; //(.cfg)
 	const float HAZARD_DECAY= 0.000001; //(.cfg)
 	const float HAZARD_DEPOSIT= 0.00006; //(.cfg)
-	const float HAZARD_DAMAGE= 0.003;//0.0032; //(.cfg)
+	const float HAZARD_DAMAGE= 0.0032;//0.0032; //(.cfg)
 	const float HAZARD_POWER= 0.5; //(.cfg)
+	const float HAZARD_EVENT_POINT= 0.9; //this value splits the range of hazard into two: below, normal, above, event, with EVENT_MULT applied and special logic
 	}
 
 #endif

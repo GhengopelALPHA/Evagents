@@ -11,6 +11,7 @@ Agent::Agent(
 	int OVERRIDE_KINRANGE, 
 	float MEANRADIUS, 
 	float REP_PER_BABY, 
+	float EYE_SENSE_MAX_FOV, 
 	float BRAIN_MUTATION_CHANCE, 
 	float BRAIN_MUTATION_SIZE,
 	float GENE_MUTATION_CHANCE,
@@ -47,7 +48,7 @@ Agent::Agent(
 	eye_see_agent_mod= randf(0.3, 3);
 	eye_see_cell_mod= randf(0.3, 3);
 	for(int i=0;i<NUMEYES;i++) {
-		Eye eye = Eye();
+		Eye eye = Eye(EYE_SENSE_MAX_FOV);
 		eyes.push_back(eye);
 	}
 	for(int i=0;i<NUMEYES;i++) {
@@ -75,7 +76,7 @@ Agent::Agent(
 	clockf2= randf(5,100);
 	clockf3= 5;
 	blood_mod= randf(0.1, 3);
-	smell_mod= randf(0.1, 3);
+	smell_mod= randf(0.01, 1);
 
 	//brain matters
 	brain = CPBrain(NUMBOXES, NUMINITCONNS);
@@ -158,7 +159,8 @@ Agent Agent::reproduce(
 	int OVERRIDE_KINRANGE,
 	float MEANRADIUS,
 	float REP_PER_BABY,
-	int baby
+	int baby,
+	float EYE_SENSE_MAX_FOV
 ){
 	//moved muterate gets into reproduce because thats where its needed and used, no reason to go through world
 	//choose a value of our agent's mutation and their saved mutation value, can be anywhere between the parents'
@@ -177,6 +179,7 @@ Agent Agent::reproduce(
 		OVERRIDE_KINRANGE,
 		MEANRADIUS,
 		this->maxrepcounter,
+		EYE_SENSE_MAX_FOV,
 		BMR,
 		BMR2,
 		GMR,

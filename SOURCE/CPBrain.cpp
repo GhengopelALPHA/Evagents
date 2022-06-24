@@ -4,7 +4,7 @@ using namespace std;
 
 CPBox::CPBox(int numboxes)
 {
-	bias = randn(0,1);
+	bias = randn(0,0.5);
 	gw = randf(-2,2);
 	kp = cap(randf(0,1.3));
 
@@ -21,7 +21,7 @@ CPBox::CPBox(){
 CPConn::CPConn(int numboxes)
 {
 	w = randn(0,5);
-	bias = randn(0,1);
+	bias = randn(0,0.5);
 	gw = randf(0,1) < 0.5 ? 1 : -1;
 
 	if (randf(0,1) < conf::BRAIN_DIRECTINPUTS) sid = randi(-Input::INPUT_SIZE, 0); //connect a portion of the brain directly to input (negative sid).
@@ -29,8 +29,9 @@ CPConn::CPConn(int numboxes)
 
 	tid = randi(max(0, min(sid + 1, numboxes - 1)), numboxes); //always connect forward in new brains, to emulate layering
 
-	type = 0;
-	if(randf(0,1) < conf::BRAIN_CHANGECONNS) type = 1; //some conns can be change sensitive synapses
+	type = ConnType::NORMAL;
+	if(randf(0,1) < conf::BRAIN_INVERTCONNS) type = ConnType::INVERTED; //some conns have their inputs inverted (1-x)
+	if(randf(0,1) < conf::BRAIN_CHANGECONNS) type = ConnType::DELTA; //some conns can be change sensitive synapses
 //	if(randf(0,1) < conf::BRAIN_MEMCONNS) type = 2; //some conns can be memory synapses NOT IMPLEMENTED
 	seed = 0;
 	dead = true;
@@ -68,31 +69,39 @@ CPBrain& CPBrain::operator=(const CPBrain& other)
 	if( this != &other ) {
 		boxes= other.boxes;
 		conns= other.conns;
+		lives= other.lives;
 	}
 	return *this;
 }
 
 void CPBrain::setLives()
 {
-	//all lives are set at init to t/f based on if in INPUT or OUTPUT ranges already, true if between the ranges, false if inside the ranges (always simulate)
-	//so all we need to do is set dead flag = false for all boxes used as a source for a target that is not dead
 //	#pragma omp parallel for
 	while (true) {
 		bool enlivenedconn = false;
 
+		//for each conn...
 		for (int i=0; i < (int)conns.size(); i++) {
-			if (!conns[i].dead) continue;
+			if (!conns[i].dead) continue; //skip if we already checked this one and it's live
 
-			int btid = boxRef(conns[i].tid);
+			int btid = boxRef(conns[i].tid); //get the target box id
 			if (btid >= ((int)(boxes.size()) - Output::OUTPUT_SIZE) || !boxes[btid].dead) {
+				// if the box id is in the Output range, or the box pointed at is not dead
 				if (conns[i].sid>=0) 
-					boxes[boxRef(conns[i].sid)].dead = false;
-				conns[i].dead = false;
-				enlivenedconn = true;
+					// and the source id is a box (not an input)
+					boxes[boxRef(conns[i].sid)].dead = false; // disable the dead flag on that box
+				conns[i].dead = false; // also mark this conn as a live conn
+				enlivenedconn = true; //we did work this round. set exit condition to stay in loop
 			}
 		}
 
-		if (!enlivenedconn) break;
+		if (!enlivenedconn) break; //repeat until we process a loop without enlivening any conn
+	}
+
+	//finally, commit all conns with dead=false to the lives list
+	for (int i=0; i < (int)conns.size(); i++) {
+		CPConn& conn = conns[i];
+		if (!conn.dead) lives.push_back(conn);
 	}
 }
 
@@ -109,32 +118,29 @@ void CPBrain::resetLives()
 	for (int i=0; i < conns.size(); i++) {
 		conns[i].dead = true;
 	}
+
+	lives.clear();
 	setLives();
 }
 
-//This method will update live lists to find and delete ALL dead conns (conns leading to dead boxes). Use while creating new agents
+//call this whenever changing conns or boxes, we need to check all of them and set lives
 void CPBrain::resetBrain()
 {
 	//set live boxes' dead flag based on if in Inputs/Outputs, or if referenced as a source for a conn
 	resetLives();
 
-	//clean the connections which lead to dead boxes after the reset
-	vector<CPConn>::iterator iter= conns.begin();
-	while (iter != conns.end() - 1) { //-1 so we never delete the last conn no matter what
-		if (iter->dead) {
-			iter= conns.erase(iter);
-		} else {
-			++iter;
-		}
-	}
-
-//	healthCheck();
+	#if defined(_DEBUG) 
+		healthCheck();
+	#endif 
 }
 
 void CPBrain::healthCheck()
 {
 	for (int i=0; i < (int)conns.size(); i++){
 		conns[i].tid = boxRef(conns[i].tid);
+	}
+	for (int i=0; i < (int)lives.size(); i++){
+		lives[i].tid = boxRef(lives[i].tid);
 	}
 //	for (int i=0; i < (int)boxes.size(); i++){
 //		printf("%i, %i\n", i, (int)boxes[i].dead);
@@ -173,22 +179,24 @@ int CPBrain::connRef(int id)
 //DO NOT OMP anything, we handle that on the layer above, for each agent
 void CPBrain::tick(vector< float >& in, vector< float >& out)
 {	
-	for (int i=0; i < (int)conns.size(); i++){
+	for (int i=0; i < (int)lives.size(); i++){
 		//first, get the source value. if -, it's an input; otherwise if +, it's a brain box
 		float value;
-		if (conns[i].sid < 0) value = in[inRef(conns[i].sid)];
-		else value = boxes[boxRef(conns[i].sid)].out;
+		if (lives[i].sid < 0) value = in[inRef(lives[i].sid)];
+		else value = boxes[boxRef(lives[i].sid)].out;
+
+		if (lives[i].type == ConnType::INVERTED) value = 1 - value;
 		
-		if(conns[i].type == 1 && conns[i].sid >= 0){ //change sensitive conn compares to old value, and gets magnified by *10 (arbitrary)
-			value -= boxes[boxRef(conns[i].sid)].oldout;
+		if (lives[i].type == ConnType::DELTA && lives[i].sid >= 0){ //change sensitive conn compares to old value, and gets magnified by *10 (arbitrary)
+			value -= boxes[boxRef(lives[i].sid)].oldout;
 			value *= 10;
 		}
 
 		//add bias and apply a ReLU, a Rectified Linear Unit as an activation function
-		value = max((float)value*conns[i].w + conns[i].bias, (float)0.5);
+		value = max((float)value*lives[i].w + lives[i].bias, (float)0.5);
 
 		//multiply by greater weight and add to the accumulation of the target box
-		boxes[boxRef(conns[i].tid)].acc += value*conns[i].gw;
+		boxes[boxRef(lives[i].tid)].acc += value*lives[i].gw;
 	}
 
 	//next, for all live boxes...
@@ -234,11 +242,11 @@ float CPBrain::getActivityRatio() const
 void CPBrain::initMutate(float MR, float MR2)
 {
 	//connection (conn) mutations.
-	//Extraordinary (/100+): boxify, random type, random source ID, random target ID,
-	//Rare (/10+): new conn, target ID bump, source ID bump, mirror conn, split conn. 
-	//Common: random weight, random bias, invert great weight, bias jiggle, weight wither, weight jiggle
+	//Extraordinary (/100+): random type, random source ID, random target ID,
+	//Rare (/10+): new conn, invert type, mirror conn, target ID bump, split conn, random weight, random bias
+	//Common: source ID bump, invert great weight, bias jiggle, weight wither, weight jiggle
 	for(int i= 0; i<randi(1,6); i++){ //possibly add between 0 and 5 new connections
-		if (randf(0,1) < MR/50) {
+		if (randf(0,1) < MR/10) {
 			//Add conn
 			CPConn a = CPConn((int)boxes.size());
 			a.w /= 10; //new conns in a surviving brain get reduced weight
@@ -249,45 +257,10 @@ void CPBrain::initMutate(float MR, float MR2)
 
 	for (int i=0; i < (int)conns.size(); i++){
 		//Extraordinary:
-		if (randf(0,1) < MR/300) {
-			//boxify: a dead box is located, reset to allow simple passing of input, and then a new conn and original conn is attached
-			//so that for [A]-a->[B], box [*C] and conn *b is created but without effecting the expected sum on [B]: [A]-a->[*C]-*b->[B]
-			//locate a dead box
-			int linkid = -1;
-			for (int j=0; j < (int)boxes.size(); j++){
-				if (boxes[j].dead) {
-					linkid = j;
-					if (randf(0,1) < 0.25) break; //add a little randomness to the selection process
-				}
-			}
-			if (linkid>=0) {
-				int targetid = conns[i].tid; //back up the target box [B]
-				conns[i].tid = linkid;
-
-				//set box values to mock values to allow pass-through. Note: the pass-through will always be imperfect, so this mutation may be more often negative
-				boxes[linkid].bias = 0;
-				boxes[linkid].gw = 1;
-				boxes[linkid].kp = 1;
-				boxes[linkid].out = 0.5;
-				boxes[linkid].oldout = 0.5;
-				boxes[linkid].target = 0.5;
-
-				CPConn a = CPConn((int)boxes.size()); //create new conn
-				a.sid = linkid;
-				a.tid = targetid;
-				a.w = 1.0;
-				a.type = 0;
-				conns.push_back(a);
-
-				conns[i].seed = 0; //reset seeds
-				boxes[boxRef(targetid)].seed = 0;
-			}
-		}
-
-		if (randf(0,1) < MR/200) {
+		if (randf(0,1) < MR/100) {
 			//randomize type
 			int oldtype = conns[i].type;
-			conns[i].type = randi(0,2); //remember randi is [a,b). Current options are: 0,1
+			conns[i].type = randi(0, ConnType::CONN_TYPES); //remember randi is [a,b)
 			if (oldtype != conns[i].type) {
 				conns[i].seed = 0;
 				boxes[boxRef(conns[i].tid)].seed = 0;
@@ -318,10 +291,25 @@ void CPBrain::initMutate(float MR, float MR2)
 		}
 
 		//Rare:
-		if (randf(0,1) < MR/40) {
-			//target ID bump: +/- 1
+		if (randf(0,1) < MR/50) {
+			//invert type: if type==normal or type==inverted, swap it
+			if (conns[i].type == ConnType::NORMAL) {
+				conns[i].type = ConnType::INVERTED;
+			} else if (conns[i].type == ConnType::INVERTED) {
+				conns[i].type = ConnType::NORMAL;
+			}
+		}
+
+		if (randf(0,1) < MR/25) {
+			//mirror conn: conn gets -w
+			conns[i].w = -conns[i].w;
+			conns[i].seed = 0;
+		}
+
+		if (randf(0,1) < MR/20) {
+			//target ID bump: +/- 1 or more
 			int oldid = conns[i].tid;
-			int range = (int)(MR2*100);
+			int range = (int)ceil(MR2*100);
 			int newid = capm(oldid + randi(-range,range+1), 0, (int)boxes.size()-1);
 			//+ (int)(MR2*100*randi(-1,2)) this is a jump mutation; implement later
 			if (oldid != newid) {
@@ -332,25 +320,6 @@ void CPBrain::initMutate(float MR, float MR2)
 			}
 		}
 
-		if (randf(0,1) < MR/30) {
-			//source ID bump: +/- 1
-			int oldid = conns[i].sid;
-			int range = (int)(MR2*100);
-			int newid = capm(oldid + randi(-range,range+1), -Input::INPUT_SIZE, boxes.size()-1);
-			//+ (int)(MR2*100*randi(-1,2))
-			if (oldid != newid) {
-				conns[i].sid = newid;
-				conns[i].seed = 0;
-				boxes[boxRef(conns[i].tid)].seed = 0;
-			}
-		}
-
-		if (randf(0,1) < MR/20) {
-			//mirror conn: conn gets -w
-			conns[i].w = -conns[i].w;
-			conns[i].seed = 0;
-		}
-
 		if (randf(0,1) < MR/15) {
 			//split conn: new conn created from old conn, both get weight / 2
 			conns[i].w /= 2;
@@ -358,8 +327,7 @@ void CPBrain::initMutate(float MR, float MR2)
 			conns.push_back(copy);
 		}
 
-		//Common:
-		if (randf(0,1) < MR/10) {
+		if (randf(0,1) < MR/15) {
 			//randomize weight
 			CPConn dummy = CPConn(conf::BRAINBOXES);
 			conns[i].w = dummy.w / 10; //reduced weight on existing brain conns
@@ -367,12 +335,26 @@ void CPBrain::initMutate(float MR, float MR2)
 			boxes[boxRef(conns[i].tid)].seed = 0;
 		}
 
-		if (randf(0,1) < MR/8) {
+		if (randf(0,1) < MR/12) {
 			//randomize bias
 			CPConn dummy = CPConn(conf::BRAINBOXES);
 			conns[i].bias = dummy.bias;
 			conns[i].seed = 0;
 			boxes[boxRef(conns[i].tid)].seed = 0;
+		}
+
+		//Common:
+		if (randf(0,1) < MR/10) {
+			//source ID bump: +/- 1 or more
+			int oldid = conns[i].sid;
+			int range = (int)ceil(MR2*100);
+			int newid = capm(oldid + randi(-range,range+1), -Input::INPUT_SIZE, boxes.size()-1);
+			//+ (int)(MR2*100*randi(-1,2))
+			if (oldid != newid) {
+				conns[i].sid = newid;
+				conns[i].seed = 0;
+				boxes[boxRef(conns[i].tid)].seed = 0;
+			}
 		}
 
 		if (randf(0,1) < MR/8) {
@@ -528,6 +510,9 @@ void CPBrain::liveMutate(float MR, float MR2, vector<float>& out)
 		box->bias += randn(0, MR2);
 		//no need to reset seed for simple bias jiggle
 	}
+
+	//NOTE: we do not need to resetBrain here because we should NOT be changing any connections in a hard manner;
+	// no deletions, additions, or source/target changes
 }
 
 CPBrain CPBrain::crossover(const CPBrain& other)
@@ -568,6 +553,7 @@ CPBrain CPBrain::crossover(const CPBrain& other)
 		}
 		newbrain.boxes[i].seed++;
 	}
+	newbrain.resetBrain();
 	return newbrain;
 }
 

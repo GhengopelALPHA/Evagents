@@ -181,6 +181,7 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 		world->OVERRIDE_KINRANGE,
 		world->MEANRADIUS,
 		world->REP_PER_BABY,
+		world->EYE_SENSE_MAX_FOV,
 		world->DEFAULT_BRAIN_MUTCHANCE,
 		world->DEFAULT_BRAIN_MUTSIZE,
 		world->DEFAULT_GENE_MUTCHANCE,

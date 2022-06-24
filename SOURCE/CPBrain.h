@@ -49,13 +49,14 @@ public:
 class CPBrain
 {
 public:
-
-    std::vector<CPBox> boxes; //list of boxes
-	std::vector<CPConn> conns; //list of simulated connections. No limits on target conns, source conns, or even number of conns
-
 	CPBrain();
     CPBrain(int numboxes, int numconns);
-    virtual CPBrain& operator=(const CPBrain& other);
+	virtual CPBrain& operator=(const CPBrain& other);
+
+	std::vector<CPBox> boxes; //list of boxes
+	std::vector<CPConn> conns; //list of all connections. No limits on target conns, source conns, or even number of conns
+	std::vector<CPConn> lives; //list of simulated connections. genes affect conns, lives affect the brain (which affects the survival of the genes!)
+
 	void setLives();
 	void resetLives();
 	void resetBrain();

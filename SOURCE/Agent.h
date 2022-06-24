@@ -10,9 +10,9 @@
 
 struct Eye
 {
-	Eye() { //default eye spawn values
+	Eye(float maxfov) { //default eye spawn values
 		dir = randf(0, 2*M_PI);
-		fov = randf(0.001, 1.25);
+		fov = randf(0.001, maxfov);
 		type = 0;
 	}
 	Eye(float dir, float fov, int type) : dir(dir), fov(fov), type(type) {}
@@ -67,6 +67,7 @@ public:
 		int OVERRIDE_KINRANGE,
 		float MEANRADIUS, 
 		float REP_PER_BABY, 
+		float EYE_SENSE_MAX_FOV,
 		float BRAIN_MUTATION_CHANCE, 
 		float BRAIN_MUTATION_SIZE,
 		float GENE_MUTATION_CHANCE,
@@ -119,7 +120,7 @@ public:
 
 	//counters, triggers, and layer interaction
 	//saved
-	float health; //in range [0,2]. I cant remember why.
+	float health; //in range [0,HEALTH_CAP]
 	float repcounter; //when repcounter gets to 0, this bot reproduces
 	float exhaustion; //sum of this agent's outputs over time, reduced by a constant. If this gets too high, the agent suffers
 	int age; //how old is the agent, in 1/10ths
@@ -196,7 +197,8 @@ public:
 		int OVERRIDE_KINRANGE,
 		float MEANRADIUS,
 		float REP_PER_BABY,
-		int baby
+		int baby,
+		float EYE_SENSE_MAX_FOV
 	);
 	void resetRepCounter(float MEANRADIUS, float REP_PER_BABY);
 

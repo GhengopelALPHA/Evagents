@@ -372,7 +372,7 @@ void GLView::handlePopup(int x, int y)
 			if(live_layersvis[DisplayLayer::HAZARDS]){
 				sprintf(line, "Waste: %.4f", world->cells[Layer::HAZARDS][worldcx][worldcy]);
 				popupAddLine(line);
-				if(world->cells[Layer::HAZARDS][worldcx][worldcy]>0.9) {
+				if(world->cells[Layer::HAZARDS][worldcx][worldcy]>conf::HAZARD_EVENT_POINT) {
 					strcpy(line, "LIGHTNING STRIKE!");
 					popupAddLine(line);
 				}
@@ -903,9 +903,10 @@ void GLView::gluiCreateMenu()
 
 	for(int i=0; i<Profile::PROFILES; i++){
 		if(i==Profile::NONE) strcpy(text, "off");
-		else if(i==Profile::BRAIN) strcpy(text, "Brain");
 		else if(i==Profile::EYES) strcpy(text, "Eyesight");
 		else if(i==Profile::INOUT) strcpy(text, "In's/Out's");
+		else if(i==Profile::BOXES) strcpy(text, "Boxes&IO");
+		else if(i==Profile::BRAIN) strcpy(text, "Brain");
 		else if(i==Profile::SOUND) strcpy(text, "Sounds");
 		else if(i==Profile::METABOLISM) strcpy(text, "Metabolism");
 		else strcpy(text, "UNKNOWN_Profile");
@@ -1839,8 +1840,11 @@ void GLView::renderScene()
 Color3f GLView::setColorHealth(float health)
 {
 	Color3f color;
-	color.red= ((int)(health*1000)%2==0) ? (1.0-health/conf::HEALTH_CAP) : 0;
-	color.gre= health<=0.1 ? health : sqrt(health/conf::HEALTH_CAP);
+	float minorscalehealth = health/2;
+	float majorscalehealth = health/world->HEALTH_CAP;
+	color.red= ((int)(health*1000)%2==0) ? (1.0 - minorscalehealth) : 0;
+	color.gre= health<=0.1 ? health : sqrt(minorscalehealth);
+	color.blu= majorscalehealth*majorscalehealth;
 	return color;
 }
 
@@ -2152,7 +2156,7 @@ Color3f GLView::setColorMeat(float val)
 Color3f GLView::setColorHazard(float val)
 {
 	Color3f color(val/2,0.0,val/2*0.9);
-	if(val>0.9){
+	if(val>conf::HAZARD_EVENT_POINT){
 		color.red= 1.0;
 		color.gre= 1.0;
 		color.blu= 1.0;
@@ -2163,7 +2167,7 @@ Color3f GLView::setColorHazard(float val)
 Color3f GLView::setColorWaterHazard(float val)
 {
 	Color3f color(-val/2*0.2,-val/2*0.3,-val/2);
-	if(val>0.9){
+	if(val>conf::HAZARD_EVENT_POINT){
 		color.red= 1.0;
 		color.gre= 1.0;
 		color.blu= 1.0;
@@ -2267,14 +2271,15 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glBegin(GL_POLYGON);
 					glColor4f(1,0,0,0.25);
 					glVertex3f(0,0,0);
-					glVertex3f((r+agent.spikeLength*world->SPIKE_LENGTH)*cos(agent.angle+M_PI/8),
-							   (r+agent.spikeLength*world->SPIKE_LENGTH)*sin(agent.angle+M_PI/8),0);
+					//displaying quarter fov because spikes are tricky and depend on the other's size too
+					glVertex3f((r+agent.spikeLength*world->SPIKE_LENGTH)*cos(agent.angle+conf::SPIKE_MAX_FOV/4),
+							   (r+agent.spikeLength*world->SPIKE_LENGTH)*sin(agent.angle+conf::SPIKE_MAX_FOV/4),0);
 					glColor4f(1,0.25,0.25,0.75);
 					glVertex3f((r+agent.spikeLength*world->SPIKE_LENGTH)*cos(agent.angle),
 							   (r+agent.spikeLength*world->SPIKE_LENGTH)*sin(agent.angle),0);
 					glColor4f(1,0,0,0.25);
-					glVertex3f((r+agent.spikeLength*world->SPIKE_LENGTH)*cos(agent.angle-M_PI/8),
-							   (r+agent.spikeLength*world->SPIKE_LENGTH)*sin(agent.angle-M_PI/8),0);
+					glVertex3f((r+agent.spikeLength*world->SPIKE_LENGTH)*cos(agent.angle-conf::SPIKE_MAX_FOV/4),
+							   (r+agent.spikeLength*world->SPIKE_LENGTH)*sin(agent.angle-conf::SPIKE_MAX_FOV/4),0);
 					glVertex3f(0,0,0);
 					glEnd();
 				}
@@ -2290,16 +2295,17 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glColor4f(0,1,1,0);
 					glVertex3f(0,0,0);
 					glColor4f(0,1,1,0.25);
-					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle+M_PI/4),
-							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle+M_PI/4),0);
-					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle+M_PI/8),
-							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle+M_PI/8),0);
+					float grabfov = world->GRAB_MAX_FOV;
+//					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle+grabfov*2),
+//							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle+grabfov*2),0);
+					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle+grabfov),
+							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle+grabfov),0);
 					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle),
 							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle),0);
-					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle-M_PI/8),
-							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle-M_PI/8),0);
-					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle-M_PI/4),
-							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle-M_PI/4),0);
+					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle-grabfov),
+							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle-grabfov),0);
+//					glVertex3f((r+world->GRABBING_DISTANCE)*cos(agent.angle+agent.grabangle-grabfov*2),
+//							   (r+world->GRABBING_DISTANCE)*sin(agent.angle+agent.grabangle-grabfov*2),0);
 					glColor4f(0,1,1,0);
 					glVertex3f(0,0,0);
 					glEnd();
@@ -2320,9 +2326,10 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			if(scalemult > .2){
 				//Draw one of the profilers based on the mode we have selected
 				
-				if(live_profilevis==Profile::INOUT || live_profilevis==Profile::BRAIN){
+				if(live_profilevis==Profile::INOUT || live_profilevis==Profile::BOXES || live_profilevis==Profile::BRAIN){
 					float value;
-					float boxsize= 14; //x&y size of boxes
+					float ioboxsize = 14; //x&y size of boxes
+					float boxsize= 8;
 					float xoffset= 1; //offsets for when "whitespace" is needed
 					float yoffset= 8;
 					float drawx = 0; //current draw positions
@@ -2336,14 +2343,14 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						value= agent.in[j];
 						glColor3f(value,value,value);
 						glVertex3f(drawx, drawy, 0.0f);
-						glVertex3f(drawx + boxsize, drawy, 0.0f);
-						glVertex3f(drawx + boxsize, drawy + boxsize, 0.0f);
-						glVertex3f(drawx, drawy + boxsize, 0.0f);
+						glVertex3f(drawx + ioboxsize, drawy, 0.0f);
+						glVertex3f(drawx + ioboxsize, drawy + ioboxsize, 0.0f);
+						glVertex3f(drawx, drawy + ioboxsize, 0.0f);
 						if(scalemult > .7){
 							//draw text initials on inputs if zoomed in close
 							glEnd();
-							float textx = drawx + boxsize/3;
-							float texty = drawy + boxsize*2/3;
+							float textx = drawx + ioboxsize/3;
+							float texty = drawy + ioboxsize*2/3;
 
 							if(j>=Input::EYES && j<=Input::xEYES && j%3==0){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "R", 1.0f, 0.0f, 0.0f);
@@ -2386,25 +2393,24 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						}
 
 						//set up for next draw location
-						drawx+= boxsize + xoffset;
+						drawx+= ioboxsize + xoffset;
 						if ((j+1)%conf::INPUTS_OUTPUTS_PER_ROW==0) { //if we over-ran the x-axis, reset x and move y to start next row
 							drawx= 0;
-							drawy+= boxsize + xoffset;
+							drawy+= ioboxsize + xoffset;
 						}
 					}
 
-					drawy+= boxsize + yoffset;
+					drawy+= ioboxsize + yoffset;
 
-					if(live_profilevis==Profile::BRAIN){
+					if(live_profilevis==Profile::BOXES || live_profilevis==Profile::BRAIN){
 						//draw brain in brain profile mode, complements the i/o as drawn above and below
-						boxsize= 8;
 						drawx= 0;
 
-						for (int j=0;j<agent.brain.boxes.size();j++) {
+						for (int j = 0; j < agent.brain.boxes.size(); j++) {
 							if (!agent.brain.boxes[j].dead) {
 								value = agent.brain.boxes[j].out;
 								if(j < agent.brain.boxes.size() - Output::OUTPUT_SIZE) glColor3f(value,value,value);
-								else glColor3f(0.5*value,0.15+0.85*value,0.65*value);
+								else glColor3f(0.5*value,0.65*value,0.15+0.85*value);
 								
 								glVertex3f(drawx, drawy, 0.0f);
 								glVertex3f(drawx + boxsize, drawy, 0.0f);
@@ -2433,7 +2439,6 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					}
 				
 					//draw outputs
-					boxsize= 14;
 					drawx= 0;
 
 					for (int j=0;j<Output::OUTPUT_SIZE;j++) {
@@ -2445,13 +2450,13 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						else glColor3f(value,value,value);
 
 						glVertex3f(drawx, drawy, 0.0f);
-						glVertex3f(drawx + boxsize, drawy, 0.0f);
-						glVertex3f(drawx + boxsize, drawy + boxsize, 0.0f);
-						glVertex3f(drawx, drawy + boxsize, 0.0f);
+						glVertex3f(drawx + ioboxsize, drawy, 0.0f);
+						glVertex3f(drawx + ioboxsize, drawy + ioboxsize, 0.0f);
+						glVertex3f(drawx, drawy + ioboxsize, 0.0f);
 						if(scalemult > .7){
 							glEnd();
-							float textx = drawx + boxsize/3;
-							float texty = drawy + boxsize*2/3;
+							float textx = drawx + ioboxsize/3;
+							float texty = drawy + ioboxsize*2/3;
 
 							if(j==Output::LEFT_WHEEL_B || j==Output::LEFT_WHEEL_F){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "!", 1.0f, 0.0f, 1.0f);
@@ -2489,13 +2494,75 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 							}
 							glBegin(GL_QUADS);
 						}
-						drawx+= boxsize + xoffset;
+						drawx+= ioboxsize + xoffset;
 						if ((j+1)%conf::INPUTS_OUTPUTS_PER_ROW==0) {
 							drawx= 0;
-							drawy+= boxsize + xoffset;
+							drawy+= ioboxsize + xoffset;
 						}
 					}
 					glEnd();
+
+					if (live_profilevis==Profile::BRAIN) {
+						//further, if we have selected the full BRAIN profile, draw lines connecting boxes via the brain's live conns list
+
+						int inputlines = (int)ceil((float)Input::INPUT_SIZE/(float)conf::INPUTS_OUTPUTS_PER_ROW);
+						//int brainlines = (int)ceil((float)agent.brain.boxes.size/(float)conf::BOXES_PER_ROW);
+
+						float sx,sy,tx,ty;
+
+						for (int c = 0; c < agent.brain.lives.size(); c++) {
+							int sid = agent.brain.lives[c].sid;
+							int tid = agent.brain.lives[c].tid;
+							float w = agent.brain.lives[c].w;
+							int type = agent.brain.lives[c].type;
+							float absw = abs(w);
+							float acc;
+
+							if (absw > 1.0) glLineWidth(4);
+							else {
+								absw *= 5; //adjust alpha so we aren't completely invisible
+								glLineWidth(2);
+							}
+							
+							//get value delta for alpha; if input, use raw value. Invert it if the conn is an inverted type
+							if (sid >= 0) {
+								acc = cap(10*abs(agent.brain.boxes[sid].out - agent.brain.boxes[sid].oldout));
+							} else {
+								glLineWidth(2);
+								if (type == ConnType::INVERTED) acc = 1-agent.in[-sid-1];
+								else acc = agent.in[-sid-1];
+							}
+							acc = std::max((float)0.1, acc); //always display something
+							
+							ty = inputlines*ioboxsize + xoffset + yoffset + boxsize/2 + boxsize*(int)((float)(tid)/(float)conf::BOXES_PER_ROW);
+							tx = boxsize/2 + boxsize*(tid%conf::BOXES_PER_ROW);
+
+							glBegin(GL_LINES);
+							if (tid == sid) {
+								glLineWidth(2);
+								glColor4f(cap(-w/5), cap(w/5), 0, 0.3*absw*acc);
+								drawOutlineRes(tx, ty, 3, 1);
+							} else {
+								if (sid < 0) {
+									sy = ioboxsize/2 + (ioboxsize+xoffset)*(int)((float)(-sid-1)/(float)conf::INPUTS_OUTPUTS_PER_ROW);
+									sx = ioboxsize/2 + (ioboxsize+xoffset)*((-sid-1)%conf::INPUTS_OUTPUTS_PER_ROW);
+								} else { 
+									sy = inputlines*ioboxsize + yoffset + boxsize/2 + boxsize*(int)((float)(sid)/(float)conf::BOXES_PER_ROW);
+									sx = boxsize/2 + boxsize*(sid%conf::BOXES_PER_ROW);
+								}
+								float blu = type == ConnType::INVERTED ? cap(abs(w)/5+0.1) : 0.1;
+								glColor4f(cap(-w/5+0.1), cap(w/5 + cap(-w/5)*0.75+0.1), blu, 0.3*absw/5*acc);
+								glVertex3f(sx, sy, 0.0f);
+								glVertex3f((sx+tx)/2, (sy+ty)/2, 0.0f);
+
+								glVertex3f((sx+tx)/2, (sy+ty)/2, 0.0f);
+								glColor4f(1, 1, 1, 0.3*absw/5*acc);
+								glVertex3f(tx, ty, 0.0f);
+							}
+							glEnd();
+						}
+						glLineWidth(1);
+					}
 
 					glTranslatef(70,0,0); //translate back for brain displays (see top of this block)
 				
@@ -2831,8 +2898,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			glVertex3f(xo,yo+42,0);
 
 			glColor3f(0,0.8,0);
-			glVertex3f(xo,yo+21*(conf::HEALTH_CAP-agent.health),0);
-			glVertex3f(xo+5,yo+21*(conf::HEALTH_CAP-agent.health),0);
+			glVertex3f(xo,yo+42*(1-agent.health/world->HEALTH_CAP),0);
+			glVertex3f(xo+5,yo+42*(1-agent.health/world->HEALTH_CAP),0);
 			glColor3f(0,0.6,0);
 			glVertex3f(xo+5,yo+42,0);
 			glVertex3f(xo,yo+42,0);
@@ -3089,8 +3156,8 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					glColor4f(0.0,0.7,0.7,0.75);
 
 					float mult= agent.grabID==-1 ? 1 : 0;
-					float aa= agent.angle+agent.grabangle+M_PI/8*mult;
-					float ab= agent.angle+agent.grabangle-M_PI/8*mult;
+					float aa= agent.angle+agent.grabangle+world->GRAB_MAX_FOV*mult;
+					float ab= agent.angle+agent.grabangle-world->GRAB_MAX_FOV*mult;
 					glVertex3f(r*cos(aa), r*sin(aa),0);
 					glVertex3f((world->GRABBING_DISTANCE+r)*cos(aa), (world->GRABBING_DISTANCE+r)*sin(aa), 0);
 
@@ -3128,8 +3195,8 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			//dont render jaws if zoomed too far out, but always render them on ghosts, and only if they've been active within the last few ticks
 			glColor4f(0.9,0.9,0,blur);
 
-			float jawangle = ( 1 - powf(abs(agent.jawPosition), 0.5) ) * M_PI/8;
-			if(agent.jawrend == conf::JAWRENDERTIME) jawangle = M_PI/8; //at the start of the timer the jaws are rendered open for aesthetic
+			float jawangle = ( 1 - powf(abs(agent.jawPosition), 0.5) ) * conf::JAW_MAX_FOV;
+			if(agent.jawrend == conf::JAWRENDERTIME) jawangle = conf::JAW_MAX_FOV; //at the start of the timer the jaws are rendered open for aesthetic
 			float jawlength = world->BITE_DISTANCE - 2; //shave just a little bit off the jaw length
 
 			glVertex3f(rad*cos(agent.angle), rad*sin(agent.angle), 0);
@@ -3140,7 +3207,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		glEnd();
 
 		//outline
-		if (agent.isAirborne() && scalemult > scale4ksupport) { //draw jumping as a thick outline no matter what
+		if (agent.isAirborne() && scalemult > scale4ksupport) { //draw jumping as a thick outline if scale mult calls for it
 			glLineWidth(3);
 		}
 		glBegin(GL_LINES);
@@ -3206,21 +3273,21 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 
 			glPopMatrix();*/
 
-			if(scalemult > .3 || ghost) { //render some extra stuff when we're really close
+			if (scalemult > .3 || ghost) { //render some extra stuff when we're really close
 				//blood sense patch
-				if (agent.blood_mod>0.25){
+				if (agent.blood_mod > 0.25 && world->BLOOD_SENSE_DISTANCE > 0){
 					float count= floorf(agent.blood_mod*4);
-					float aa= 0.015;
+					float aa= 0.02*agent.blood_mod;
 					float ca= agent.angle - aa*count/2;
 					//color coresponds to intensity of the input detected, opacity scaled to level of blood_mod over 0.25
 					float alpha= cap(0.5*agent.blood_mod-0.25);
 					Color3f bloodcolor= setColorMeat(agent.in[Input::BLOOD]+0.5);
 					
 					//the blood sense patch is drawn as multiple circles overlapping. Higher the blood_mult trait, the wider the patch
-					for(int q=0;q<count;q++) {
+					for (int q = 0; q < count; q++) {
 						glBegin(GL_POLYGON);
 						glColor4f(bloodcolor.red, bloodcolor.gre, bloodcolor.blu, alpha);
-						drawCircle((rad*7/8-1)*cos(ca), (rad*7/8-1)*sin(ca), 0.3);
+						drawCircle((rad*7/8-1)*cos(ca), (rad*7/8-1)*sin(ca), 0.6*agent.blood_mod);
 						glEnd();
 						ca+= aa;
 					}
@@ -3234,19 +3301,20 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 						!agent.isDead()) continue; //blink eyes ocasionally... DAWWWWWW
 
 					float ca= agent.angle+agent.eyes[q].dir;
+					float eyerad = std::max(conf::TINY_RADIUS, rad);
 
 					glBegin(GL_POLYGON);
 					glColor4f(0.85,0.85,0.85,1.0);
 					//whites of eyes indicate a > eye cell modifier
 					float eyewhitesize= capm(agent.eye_see_cell_mod/2,0.1,2);
-					drawCircle((rad-1-eyewhitesize/2)*cos(ca), (rad-1-eyewhitesize/2)*sin(ca), eyewhitesize);
+					drawCircle((eyerad-1-eyewhitesize/2)*cos(ca), (eyerad-1-eyewhitesize/2)*sin(ca), eyewhitesize);
 					glEnd();
 
 					glBegin(GL_POLYGON);
 					glColor4f(0,0,0,1.0);
 					//the eyes are small and tiny if the agent has a low eye mod. otherwise they are big and buggie
 					float eyesize= capm(agent.eye_see_agent_mod/2,0.1,2);
-					drawCircle((rad-1-eyesize/2)*cos(ca), (rad-1-eyesize/2)*sin(ca), eyesize);
+					drawCircle((eyerad-1-eyesize/2)*cos(ca), (eyerad-1-eyesize/2)*sin(ca), eyesize);
 					glEnd();
 				}
 
@@ -4214,9 +4282,9 @@ void GLView::renderAllTiles()
 					} else if (u==LADHudOverview::HEALTH){ //health indicator, ux=ww-300, uy=25
 						glColor3f(0,0.8,0);
 						glVertex3f(ux,uy-UID::CHARHEIGHT,0);
-						glVertex3f(selected.health/conf::HEALTH_CAP*UID::HUDSWIDTH+ux,uy-UID::CHARHEIGHT,0);
+						glVertex3f(selected.health/world->HEALTH_CAP*UID::HUDSWIDTH+ux,uy-UID::CHARHEIGHT,0);
 						glColor3f(0,0.6,0);
-						glVertex3f(selected.health/conf::HEALTH_CAP*UID::HUDSWIDTH+ux,uy,0);
+						glVertex3f(selected.health/world->HEALTH_CAP*UID::HUDSWIDTH+ux,uy,0);
 						glVertex3f(ux,uy,0);
 					} else if (u==LADHudOverview::EXHAUSTION){ //Exhaustion/energy indicator ux=ww-100, uy=25
 						float exh= 2/(1+exp(selected.exhaustion));
@@ -4252,7 +4320,8 @@ void GLView::renderAllTiles()
 				//VOLITILE TRAITS:
 				if(u==LADHudOverview::HEALTH){
 					if(live_agentsvis==Visual::HEALTH) drawbox= true;
-					sprintf(buf, "Health: %.2f/%.0f", selected.health, conf::HEALTH_CAP);
+					if(selected.health > 10) sprintf(buf, "Health: %.1f/%.0f", selected.health, world->HEALTH_CAP);
+					else sprintf(buf, "Health: %.2f/%.0f", selected.health, world->HEALTH_CAP);
 
 				} else if(u==LADHudOverview::REPCOUNTER){
 					if(live_agentsvis==Visual::REPCOUNTER) drawbox= true;
@@ -4277,12 +4346,12 @@ void GLView::renderAllTiles()
 //					else sprintf(buf, "Delta H: %.2f", selected.dhealth);
 
 				} else if(u==LADHudOverview::SPIKE){
-					if(selected.health>0 && selected.isSpikey(world->SPIKE_LENGTH)){
-						float mw= selected.w1>selected.w2 ? selected.w1 : selected.w2;
-						if(mw<0) mw= 0;
-						float val= world->DAMAGE_FULLSPIKE*selected.spikeLength*mw;
-						if(val>conf::HEALTH_CAP) sprintf(buf, "Spike: Deadly!");//health
-						else if(val==0) sprintf(buf, "Spike: 0 h");
+					if(!selected.isDead() && selected.isSpikey(world->SPIKE_LENGTH)){
+						float mw = selected.w1>selected.w2 ? selected.w1 : selected.w2;
+						if(mw < 0) mw= 0;
+						float val = world->DAMAGE_FULLSPIKE*selected.spikeLength*mw;
+						if(val > world->HEALTH_CAP) sprintf(buf, "Spike: Deadly!");//health
+						else if(val == 0) sprintf(buf, "Spike: 0 h");
 						else sprintf(buf, "Spike: ~%.2f h", val);
 					} else sprintf(buf, "Not Spikey");
 
@@ -4430,8 +4499,12 @@ void GLView::renderAllTiles()
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::BRAINSIZE){
-					sprintf(buf, "Conns: %d", selected.brain.conns.size());
-					//isFixedTrait= true; //technically is an unchanging stat, but it's like, really important
+					sprintf(buf, "Total Conns: %d", selected.brain.conns.size());
+					isFixedTrait= true;
+
+				} else if(u==LADHudOverview::BRAINLIVECONNS){
+					sprintf(buf, "Live Conns: %d", selected.brain.lives.size());
+					//isFixedTrait= true; //technically is a fixed trait, but it's like, really important!
 
 //				} else if(u==LADHudOverview::DEATH && selected.isDead()){
 //					sprintf(buf, selected.death.c_str());
@@ -4563,7 +4636,9 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 		}
 
 		//If we're displaying hazards and there's a hazard event, render it
-		if(live_layersvis[DisplayLayer::HAZARDS] && values[Layer::HAZARDS]>0.9){ light.red=1.0; light.gre=1.0; light.blu=1.0; } //lightning from above
+		if(live_layersvis[DisplayLayer::HAZARDS] && values[Layer::HAZARDS]>conf::HAZARD_EVENT_POINT) { 
+			light.red=1.0; light.gre=1.0; light.blu=1.0; 
+		} //lightning from above
 
 		//We're DONE! Mix all the colors!
 		cellcolor.red= cap((terrain.red + plant.red + hazard.red + fruit.red + meat.red)*light.red + temp.red);
@@ -4589,9 +4664,10 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 		glVertex3f(x*conf::CZ+conf::CZ-gadjust,y*conf::CZ+conf::CZ-gadjust,0);
 		glVertex3f(x*conf::CZ+gadjust,y*conf::CZ+conf::CZ-gadjust,0);
 
-		//if Land/All draw mode, draw fruit and meat as little diamonds
+		//if Land/All draw mode...
 		if (layers>1) {
 			if(live_layersvis[DisplayLayer::MEATS] && values[Layer::MEATS]>0.03 && scalemult>0.1){
+				//draw meat as a pair of centered diamonds, one more transparent than the other
 				float meat= values[Layer::MEATS];
 				cellcolor= setColorMeat(1.0); //meat on this layer is always bright red, but translucence is applied
 				glColor4f(cellcolor.red*light.red, cellcolor.gre*light.gre, cellcolor.blu*(0.9*light.blu+0.1), meat*0.6+0.1);
@@ -4613,6 +4689,7 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 			}
 
 			if(live_layersvis[DisplayLayer::FRUITS] && values[Layer::FRUITS]>0.1 && scalemult>0.3){
+				//draw fruit as a bunch of tiny diamonds, no more than 10 of them, scattered in a pseudorandom fashion
 				float GR= 89.0/55;
 				for(int i= 1; i<values[Layer::FRUITS]*10; i++){
 					cellcolor= setColorFruit(1.6);
@@ -4636,6 +4713,11 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 					glVertex3f(fruitposx-1.5,fruitposy,0);
 				}
 			}
+
+			//if(live_layersvis[DisplayLayer::HAZARDS] && values[Layer::HAZARDS]>0.1 && scalemult>0.3){
+				//hazard shows as puddles of purple, distorted and in 4 places, each one indicating another 0.25
+				//if (values[Layer::HAZARDS] <= conf::HAZARD_EVENT_POINT) {
+
 		}
 
 		if(x==(int)floorf(conf::WIDTH/conf::CZ)-1) {

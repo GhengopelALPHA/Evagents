@@ -203,9 +203,9 @@ void World::spawn()
 				else if(targetmeat<=0) cells[Layer::MEATS][cx][cy]= 0.0;
 				else if(targetmeat>0.25) cells[Layer::MEATS][cx][cy]= cap(randn(targetmeat,1-targetmeat));
 
-				if(targethazard>=1) cells[Layer::HAZARDS][cx][cy]= 0.9;
+				if(targethazard>=1) cells[Layer::HAZARDS][cx][cy]= conf::HAZARD_EVENT_POINT;
 				else if(targethazard<=0) cells[Layer::HAZARDS][cx][cy]= 0.0;
-				else if(targethazard>0.25) cells[Layer::HAZARDS][cx][cy]= capm(randn(targethazard,1-targethazard), 0, 0.9);
+				else if(targethazard>0.25) cells[Layer::HAZARDS][cx][cy]= capm(randn(targethazard,1-targethazard), 0, conf::HAZARD_EVENT_POINT);
 
 	//			cells[TEMPLAYER][cx][cy]= 2.0*abs((float)cy/CH - 0.5); [old temperature indicating code]
 			}
@@ -231,7 +231,7 @@ void World::spawn()
 		}
 		if (getHazards()<INITHAZARD) {
 			//hurl waste
-			cells[Layer::HAZARDS][rx][ry] = randf(0.5, 0.9);
+			cells[Layer::HAZARDS][rx][ry] = randf(0.5, conf::HAZARD_EVENT_POINT);
 		}
 		findStats();
 	}
@@ -803,7 +803,7 @@ void World::findStats()
 
 	//agents
 	for (int i=0; i<(int)agents.size(); i++) {
-		if (agents[i].health>0) {
+		if (!agents[i].isDead()) {
 			STATalive++;
 			
 			if (agents[i].isHerbivore()) {
@@ -1125,32 +1125,32 @@ void World::processCells(bool prefire)
 				cells[Layer::PLANTS][cx][cy]= cap(plant);
 
 				//meat ops
-				if (meat>0 && !prefire) {
+				if (meat > 0 && !prefire) {
 					meat -= MEAT_DECAY*conf::CELL_TICK_RATE; //consider: meat decay effected by direct tempzone?
 				}
-				cells[Layer::MEATS][cx][cy]= cap(meat);
+				cells[Layer::MEATS][cx][cy] = cap(meat);
 
 				//fruit ops
-				if (fruit>0 && !prefire) {
-					if (plant<=FRUIT_PLANT_REQUIRE || DROUGHTMULT<0){
-						fruit-= FRUIT_DECAY*conf::CELL_TICK_RATE; //fruit decays, double if lack of plant life or DROUGHTMULT is negative
+				if (fruit > 0 && !prefire) {
+					if (plant <= FRUIT_PLANT_REQUIRE || DROUGHTMULT < 0){
+						fruit -= FRUIT_DECAY*conf::CELL_TICK_RATE; //fruit decays, double if lack of plant life or DROUGHTMULT is negative
 					}
-					fruit-= FRUIT_DECAY*conf::CELL_TICK_RATE;
+					fruit -= FRUIT_DECAY*conf::CELL_TICK_RATE;
 				}
-				cells[Layer::FRUITS][cx][cy]= cap(fruit);
+				cells[Layer::FRUITS][cx][cy] = cap(fruit);
 
 				//hazard = cells[Layer::HAZARDS]...
-				if (hazard>0 && hazard<=0.9 && !prefire){
-					hazard-= HAZARD_DECAY*conf::CELL_TICK_RATE; //hazard decays
-				} else if (hazard>0.9 && randf(0,1)<0.0625 && !prefire){
-					hazard= 90*(hazard-0.99); //instant hazards will be reset to proportionate value
+				if (hazard > 0 && hazard <= conf::HAZARD_EVENT_POINT && !prefire){
+					hazard -= HAZARD_DECAY*conf::CELL_TICK_RATE; //hazard decays
+				} else if (hazard > conf::HAZARD_EVENT_POINT && randf(0,1) < 0.0625 && !prefire){
+					hazard = 90*(hazard-0.99); //instant hazards will be reset to proportionate value
 				}
-				cells[Layer::HAZARDS][cx][cy]= cap(hazard);
+				cells[Layer::HAZARDS][cx][cy] = cap(hazard);
 
 				//light ops
 				//if we are moonlit and moonlight happens to be 1.0, then the light layer is useless. Set all values to 1 for rendering
-				cells[Layer::LIGHT][cx][cy]= (MOONLIT && MOONLIGHTMULT==1.0) ? 1.0 :
-					cap(0.6+sin((cx*2*M_PI)*invCW - daytime));
+				cells[Layer::LIGHT][cx][cy] = (MOONLIT && MOONLIGHTMULT==1.0) ? 1.0 :
+					cap(0.6 + sin((cx*2*M_PI)*invCW - daytime));
 				//cap(0.6+sin((cx*2*M_PI)/CW-(modcounter+current_epoch*FRAMES_PER_EPOCH)*2*M_PI/FRAMES_PER_DAY));
 			}
 		}
@@ -1236,16 +1236,13 @@ void World::tryPlayMusic()
 
 void World::setInputs()
 {
-	float PI8=M_PI/8/2; //pi/8/2
-	float PI38= 3*PI8; //3pi/8/2
-	float PI4= M_PI/4;
 	Vector3f v(1,0,0); //unit vector for +x axis
 
 	selectedSounds.clear(); //clear selection's heard sounds
    
 	#pragma omp parallel for schedule(dynamic)
 	for (int i=0; i<(int)agents.size(); i++) {
-		if(agents[i].health<=0) continue;
+		if(agents[i].isDead()) continue;
 		Agent* a= &agents[i];
 
 		//our cell position
@@ -1385,8 +1382,9 @@ void World::setInputs()
 				float d_center_inv_DIST = d*invDIST;
 
 				//---AGENT-AGENT SMELL---//
-				//adds up all agents inside MAX_SENSORY_DISTANCE (without range mult)
-				if(d<MAX_SENSORY_DISTANCE*conf::SMELL_DIST_MULT) smellsum+= a->smell_mod;		
+				//adds up all agents inside MAX_SENSORY_DISTANCE (without range mult. Idea being if vision is additive and ranged, but smell is only
+				// additive, then a subtraction between them should allow vision to be solely ranged)
+				if (d < MAX_SENSORY_DISTANCE*conf::SMELL_DIST_MULT) smellsum+= a->smell_mod;		
 
 				//---HEARING---//
 				//adds up vocalization and other emissions from agents inside MAX_SENSORY_DISTANCE
@@ -1442,9 +1440,9 @@ void World::setInputs()
 				float ang = v.angle_between2d(a2->pos - a->pos);
 
 				//---AGENT-AGENT EYESIGHT---//
-				if(light!=0){//we will skip all eyesight if our agent is in the dark (light==0)
-					for(int q=0;q<NUMEYES;q++){
-						if(a->isTiny() && !a->isTinyEye(q)){ //small agents have half-count of eyes, the rest just keep the ambient light values they got
+				if (light != 0){//we will skip all eyesight if our agent is in the dark (light==0)
+					for (int q = 0; q < NUMEYES; q++){
+						if (a->isTiny() && !a->isTinyEye(q)){ //small agents have half-count of eyes, the rest just keep the ambient light values they got
 							continue;
 						}
 
@@ -1491,15 +1489,17 @@ void World::setInputs()
 				}
 				
 				//---BLOOD SENSE---//
-				float bloodangle = a->angle - ang; //remember, a->angle is in [-pi,pi], and ang is in [-pi,pi]
-				if (bloodangle >= M_PI) bloodangle -= 2*M_PI; //correct to within [-pi,pi] again, because a difference of 2pi is no difference at all
-				else if (bloodangle < -M_PI) bloodangle += 2*M_PI;
-				bloodangle= fabs(bloodangle);
+				if (d < BLOOD_SENSE_DISTANCE) {
+					float bloodangle = a->angle - ang; //remember, a->angle is in [-pi,pi], and ang is in [-pi,pi]
+					if (bloodangle >= M_PI) bloodangle -= 2*M_PI; //correct to within [-pi,pi] again, because a difference of 2pi is no difference at all
+					else if (bloodangle < -M_PI) bloodangle += 2*M_PI;
+					bloodangle= fabs(bloodangle);
 
-				if (bloodangle < PI38) {
-					float newblood= a->blood_mod*((PI38 - bloodangle)/PI38)*(1-d_center_inv_DIST)*(1-agents[j].health/conf::HEALTH_CAP);
-					if(newblood>blood) blood= newblood;
-					//agents with high life dont bleed. low life makes them bleed more. dead agents bleed the maximum
+					if (bloodangle < BLOOD_SENSE_MAX_FOV) {
+						float newblood= a->blood_mod*((BLOOD_SENSE_MAX_FOV - bloodangle)/BLOOD_SENSE_MAX_FOV)*(1-d/BLOOD_SENSE_DISTANCE)*(1-agents[j].health/HEALTH_CAP);
+						if(newblood>blood) blood= newblood;
+						//agents with high life dont bleed. low life makes them bleed more. dead agents bleed the maximum
+					}
 				}
 			}
 		}
@@ -1512,7 +1512,7 @@ void World::setInputs()
 		}
 
 		//---HEALTH---//
-		a->in[Input::HEALTH]= cap(a->health/conf::HEALTH_CAP); //if we start using mutable health maximums, use that instead of HEALTH_CAP
+		a->in[Input::HEALTH]= cap(a->health/HEALTH_CAP);
 
 		//---REPRODUCTION COUNTER---//
 		a->in[Input::REPCOUNT]= cap((a->maxrepcounter-a->repcounter)/a->maxrepcounter); //inverted repcounter, babytime is input val of 1
@@ -1872,16 +1872,16 @@ void World::processCellInteractions()
 				} //end if boosting
 
 				//hazards
-				float hazard= cells[Layer::HAZARDS][scx][scy];
-				if (hazard>0){
+				float hazard = cells[Layer::HAZARDS][scx][scy];
+				if (hazard > 0){
 					//the young are spry, and don't take much damage from hazard
-					float agemult= 1.0;
-					if(a->age<TENDERAGE) agemult= 0.5+0.5*agents[i].age*INV_TENDERAGE;
+					float agemult = 1.0;
+					if(a->age < TENDERAGE) agemult = 0.5+0.5*agents[i].age*INV_TENDERAGE;
 
-					float damage= HAZARD_DAMAGE*agemult*pow(hazard, HAZARD_POWER);
-					if(hazard>0.9) {
-						damage*= HAZARD_EVENT_MULT; //if a hazard event, apply multiplier
-						if(modcounter%5==0) addTipEvent("Agent struck by lightning!", EventColor::PURPLE, a->id);
+					float damage = HAZARD_DAMAGE*agemult*pow(hazard, HAZARD_POWER);
+					if(hazard > conf::HAZARD_EVENT_POINT) {
+						damage *= HAZARD_EVENT_MULT; //if a hazard event, apply multiplier
+						if(modcounter%10 == 0) addTipEvent("Agent struck by lightning!", EventColor::PURPLE, a->id);
 					}
 
 					a->addDamage(conf::DEATH_HAZARD, damage);
@@ -1889,14 +1889,14 @@ void World::processCellInteractions()
 			}
 
 			//waste deposit; done regardless of boost or jump
-			int freqwaste= (int)max(1.0f, a->out[Output::WASTE_RATE]*MAXWASTEFREQ);
+			int freqwaste = (int)max(1.0f, a->out[Output::WASTE_RATE]*MAXWASTEFREQ);
 			//agents can control the rate of deposit, [1,MAXWASTEFREQ] frames
-			if (modcounter%freqwaste==0){
-				float hazard= cells[Layer::HAZARDS][scx][scy];
+			if (modcounter%freqwaste == 0){
+				float hazard = cells[Layer::HAZARDS][scx][scy];
 				//agents fill up hazard cells only up to 9/10, because any greater is a special event
-				if(hazard<0.9) hazard+= HAZARD_DEPOSIT*freqwaste*a->health;
+				if(hazard < conf::HAZARD_EVENT_POINT) hazard += HAZARD_DEPOSIT*freqwaste*a->health/HEALTH_CAP;
 				
-				cells[Layer::HAZARDS][scx][scy]= capm(hazard, 0, 0.9);
+				cells[Layer::HAZARDS][scx][scy] = capm(hazard, 0, conf::HAZARD_EVENT_POINT);
 			}
 
 			//land/water (always interacted with)
@@ -1913,9 +1913,9 @@ void World::processCellInteractions()
 				if(HEALTHLOSS_BADTERRAIN!=0) a->addDamage(conf::DEATH_BADTERRAIN, HEALTHLOSS_BADTERRAIN*dd);
 			}
 
-			if (a->health>conf::HEALTH_CAP){ //if health has been increased over the cap, limit
-				if(OVERHEAL_REPFILL!=0) a->repcounter -= (a->health-conf::HEALTH_CAP)*OVERHEAL_REPFILL; //if enabled, allow overflow to first fill the repcounter
-				a->health= conf::HEALTH_CAP;
+			if (a->health > HEALTH_CAP){ //if health has been increased over the cap, limit
+				if(OVERHEAL_REPFILL != 0) a->repcounter -= (a->health-HEALTH_CAP)*OVERHEAL_REPFILL; //if enabled, allow overflow to first fill the repcounter
+				a->health= HEALTH_CAP;
 			}
 
 		} else {
@@ -2043,8 +2043,8 @@ void World::processAgentInteractions()
 							if(a2->age < TENDERAGE) a2agemult = (float)(a2->age+1)*INV_TENDERAGE;
 							float damagemult = ov*DAMAGE_COLLIDE*MEANRADIUS/sumrad;
 
-							float DMG1 = capm(damagemult*ainvrad*aagemult, 0, conf::HEALTH_CAP); //larger, younger bots take less damage, bounce less
-							float DMG2 = capm(damagemult*a2invrad*a2agemult, 0, conf::HEALTH_CAP);
+							float DMG1 = capm(damagemult*ainvrad*aagemult, 0, HEALTH_CAP); //larger, younger bots take less damage, bounce less
+							float DMG2 = capm(damagemult*a2invrad*a2agemult, 0, HEALTH_CAP);
 
 							if(DEBUG) printf("\na collision occured. overlap: %.4f, aagemult: %.2f, a2agemult: %.2f, Damage on a: %f. Damage on a2: %f\n", ov, aagemult, a2agemult, DMG1, DMG2);
 							a->addDamage(conf::DEATH_COLLIDE, DMG1);
@@ -2090,11 +2090,11 @@ void World::processAgentInteractions()
 				//---SPIKING---//
 
 				//small spike doesn't count. If the target is jumping in midair, can't attack them either
-				if(a->isSpikey(SPIKE_LENGTH) && d<=(a2->radius + SPIKE_LENGTH*a->spikeLength) && !a2->isAirborne()){
+				if(a->isSpikey(SPIKE_LENGTH) && d <= (a2->radius + SPIKE_LENGTH*a->spikeLength) && !a2->isAirborne()){
 					Vector3f v(1,0,0);
 					v.rotate(0, 0, a->angle);
 					float diff= v.angle_between2d(a2->pos - a->pos);
-					if (fabs(diff)<M_PI/2){ //need to be in front
+					if (fabs(diff) < conf::SPIKE_MAX_FOV){ //need to be in front
 						float spikerange= d*abs(sin(diff)); //get range to agent from spike, closest approach
 						if (a2->radius>spikerange) { //other agent is properly aligned and in range!!! getting close now...
 							//need to calculate the velocity differential of the agents
@@ -2149,7 +2149,7 @@ void World::processAgentInteractions()
 					Vector3f v(1,0,0);
 					v.rotate(0, 0, a->angle);
 					float diff= v.angle_between2d(a2->pos - a->pos);
-					if (fabs(diff) < M_PI/6) { //advantage over spike: wide AOE
+					if (fabs(diff) < conf::JAW_MAX_FOV) { //advantage over spike: wide AOE
 						float DMG= DAMAGE_JAWSNAP*a->jawPosition*(a->radius*a2invrad); //advantage over spike: large agents do more damage to smaller agents
 
 						if(DEBUG) printf("\nan agent received bite damage: %.4f\n", DMG);
@@ -2187,7 +2187,7 @@ void World::processAgentInteractions()
 
 						//check init grab
 						if(a->grabID==-1){
-							if (fabs(diff)<M_PI/4 && randf(0,1)<0.3) { //very wide AOE centered on a's grabangle, 30% chance any one bot is picked
+							if (fabs(diff) < GRAB_MAX_FOV && randf(0,1)<0.3) { //very wide AOE centered on a's grabangle, 30% chance any one bot is picked
 								a->grabID= a2->id;
 								if(!STATuserseengrab) {
 									addTipEvent("Agent grabbed another", EventColor::CYAN, a->id);
@@ -2768,7 +2768,7 @@ void World::selectedHeal()
 	//heal selected agent
 	int sidx= getSelectedAgentIndex();
 	if(sidx>=0){
-		agents[sidx].health= conf::HEALTH_CAP;
+		agents[sidx].health= HEALTH_CAP;
 		agents[sidx].carcasscount= -1;
 	}
 }
@@ -2910,6 +2910,7 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pr
 			OVERRIDE_KINRANGE,
 			MEANRADIUS,
 			REP_PER_BABY,
+			EYE_SENSE_MAX_FOV,
 			DEFAULT_BRAIN_MUTCHANCE,
 			DEFAULT_BRAIN_MUTSIZE,
 			DEFAULT_GENE_MUTCHANCE,
@@ -2988,10 +2989,10 @@ void World::reproduce(int mother, int father)
 	//Reset the MOTHER's repcounter ONLY (added bonus of sexual rep and allows possible dichotomy of sexes)
 	agents[mother].resetRepCounter(MEANRADIUS, REP_PER_BABY);
 
-	if (HEALTHLOSS_ASEX < 2.0 || hybridoffspring) { //assexuals don't reproduce if HEALTHLOSS >= 2
+	if (HEALTHLOSS_ASEX < HEALTH_CAP || hybridoffspring) { //assexuals don't reproduce if HEALTHLOSS >= 2
 		//do not omp
 		for (int i=0;i<numbabies;i++) {
-			Agent daughter= agents[mother].reproduce(agents[father], PRESERVE_MIRROR_EYES, OVERRIDE_KINRANGE, MEANRADIUS, REP_PER_BABY, i);
+			Agent daughter= agents[mother].reproduce(agents[father], PRESERVE_MIRROR_EYES, OVERRIDE_KINRANGE, MEANRADIUS, REP_PER_BABY, i, EYE_SENSE_MAX_FOV);
 
 			daughter.health= newhealth;
 			daughter.hybrid= hybridoffspring;
@@ -3037,7 +3038,7 @@ void World::writeReport()
 	for (int i= 0; i<(int)agents[randagent].brain.boxes.size(); i++){
 		if (agents[randagent].brain.boxes[i].seed>randseed) randseed=agents[randagent].brain.boxes[i].seed;
 	}
-	randbrainsize = agents[randagent].brain.conns.size();
+	randbrainsize = agents[randagent].brain.lives.size(); //using live conns
 	randradius= agents[randagent].radius;
 	randmetab= agents[randagent].metabolism;
 	randsex = agents[randagent].sexproject;
@@ -3447,6 +3448,7 @@ void World::init()
     SPIKESPEED= conf::SPIKESPEED;
 	SPAWN_MIRROR_EYES= conf::SPAWN_MIRROR_EYES;
 	PRESERVE_MIRROR_EYES= conf::PRESERVE_MIRROR_EYES;
+	HEALTH_CAP = conf::HEALTH_CAP;
     FRESHKILLTIME= conf::FRESHKILLTIME;
 	TENDERAGE= conf::TENDERAGE;
 	INV_TENDERAGE= 1/(float)conf::TENDERAGE;
@@ -3476,6 +3478,11 @@ void World::init()
     FOOD_SHARING_DISTANCE= conf::FOOD_SHARING_DISTANCE;
     SEXTING_DISTANCE= conf::SEXTING_DISTANCE;
     GRABBING_DISTANCE= conf::GRABBING_DISTANCE;
+	BLOOD_SENSE_DISTANCE= conf::BLOOD_SENSE_DISTANCE;
+
+	EYE_SENSE_MAX_FOV= conf::EYE_SENSE_MAX_FOV;
+	BLOOD_SENSE_MAX_FOV= conf::BLOOD_SENSE_MAX_FOV;
+	GRAB_MAX_FOV= conf::GRAB_MAX_FOV;
 
     HEALTHLOSS_WHEELS= conf::HEALTHLOSS_WHEELS;
     HEALTHLOSS_BOOSTMULT= conf::HEALTHLOSS_BOOSTMULT;
@@ -3941,6 +3948,10 @@ void World::readConfig()
 				if(i!=(int)PRESERVE_MIRROR_EYES) printf("PRESERVE_MIRROR_EYES, ");
 				if(i==1) PRESERVE_MIRROR_EYES= true;
 				else PRESERVE_MIRROR_EYES= false;
+			}else if(strcmp(var, "HEALTH_CAP=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=HEALTH_CAP) printf("HEALTH_CAP, ");
+				HEALTH_CAP= f;
 			}else if(strcmp(var, "FRESHKILLTIME=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=FRESHKILLTIME) printf("FRESHKILLTIME, ");
@@ -4063,6 +4074,22 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=GRABBING_DISTANCE) printf("GRABBING_DISTANCE, ");
 				GRABBING_DISTANCE= f;
+			}else if(strcmp(var, "BLOOD_SENSE_DISTANCE=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=BLOOD_SENSE_DISTANCE) printf("BLOOD_SENSE_DISTANCE, ");
+				BLOOD_SENSE_DISTANCE= f;
+			}else if(strcmp(var, "EYE_SENSE_MAX_FOV=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=EYE_SENSE_MAX_FOV) printf("EYE_SENSE_MAX_FOV, ");
+				EYE_SENSE_MAX_FOV= f;
+			}else if(strcmp(var, "BLOOD_SENSE_MAX_FOV=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=BLOOD_SENSE_MAX_FOV) printf("BLOOD_SENSE_MAX_FOV, ");
+				BLOOD_SENSE_MAX_FOV= f;
+			}else if(strcmp(var, "GRAB_MAX_FOV=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=GRAB_MAX_FOV) printf("GRAB_MAX_FOV, ");
+				GRAB_MAX_FOV= f;
 			}else if(strcmp(var, "HEALTHLOSS_WHEELS=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=HEALTHLOSS_WHEELS) printf("HEALTHLOSS_WHEELS, ");
@@ -4349,7 +4376,7 @@ void World::writeConfig()
 	fprintf(cf, "MINMOMHEALTH= %f \t\t//minimum amount of health required for an agent to have a child\n", conf::MINMOMHEALTH);
 	fprintf(cf, "MIN_METABOLISM_HEALTH_RATIO= %f //minimum metabolism ratio of intake always sent to health. 0= no restrictions (agent metabolism has full control), 1= 100%% health, no babies ever. default= 0.5\n", conf::MIN_METABOLISM_HEALTH_RATIO);
 	fprintf(cf, "REP_PER_BABY= %f \t\t//amount of food required to be consumed for an agent to reproduce, per baby\n", conf::REP_PER_BABY);
-	fprintf(cf, "OVERHEAL_REPFILL= %f \t//decimal value flag for letting agents redirect overfill health (>2) to repcounter. 0= extra intake is destroyed, punishing overeating, 1= conserves matter. Can be set to a decimal value to mult the conversion factor\n", conf::OVERHEAL_REPFILL);
+	fprintf(cf, "OVERHEAL_REPFILL= %f \t//decimal value flag for letting agents redirect overfill health (> HEALTH_CAP) to repcounter. 0= extra intake is destroyed, punishing overeating, 1= conserves matter. Can be set to a decimal value to mult the conversion factor\n", conf::OVERHEAL_REPFILL);
 //	fprintf(cf,	"LEARNRATE= %f\n", conf::LEARNRATE);
 	fprintf(cf, "\n");
 	fprintf(cf, "OVERRIDE_KINRANGE= %d \t\t//for the purposes of sexual reproduction and generosity, the kinrange of agents can be overridden to this value. set to -1 to disable forcing any value.\n", conf::OVERRIDE_KINRANGE);
@@ -4366,7 +4393,14 @@ void World::writeConfig()
 	fprintf(cf, "FOOD_SHARING_DISTANCE= %f //how far away can food be shared between agents? Should not be more than MAX_SENSORY_DISTANCE. 0 disables interaction\n", conf::FOOD_SHARING_DISTANCE);
 	fprintf(cf, "SEXTING_DISTANCE= %f \t//how far away can two agents sexually reproduce? Should not be more than MAX_SENSORY_DISTANCE. 0 disables interaction\n", conf::SEXTING_DISTANCE);
 	fprintf(cf, "GRABBING_DISTANCE= %f \t//how far away can an agent grab another? Should not be more than MAX_SENSORY_DISTANCE. 0 disables interaction\n", conf::GRABBING_DISTANCE);
+	fprintf(cf, "BLOOD_SENSE_DISTANCE= %f \t//how far away does the blood sense detect? Should not be more than MAX_SENSORY_DISTANCE. 0 disables blood sensing\n", conf::BLOOD_SENSE_DISTANCE);
 	fprintf(cf, "\n");
+	fprintf(cf, "//the following are angles; you should use radians here. For your reference, pi (half circle) is %f and pi/2 (quarter circle) is %f. You're wel-come!\n", M_PI, M_PI/2);
+	fprintf(cf, "EYE_SENSE_MAX_FOV= %f \t//the angle maximum of eye fov's for agents, in radians. From center to each edge, double this for full range\n", conf::EYE_SENSE_MAX_FOV);
+	fprintf(cf, "BLOOD_SENSE_MAX_FOV= %f \t//the angle maximum of blood sense's fov for agents, in radians. From center to each edge, double this for full range\n", conf::BLOOD_SENSE_MAX_FOV);
+	fprintf(cf, "GRAB_MAX_FOV= %f \t//the angle maximim from the center of the grab direction where other agents may be grabbed, in radians. From center to each edge, double this for full range\n", conf::GRAB_MAX_FOV);
+	fprintf(cf, "\n");
+	fprintf(cf, "HEALTH_CAP= %f \t\t//max amount of health agents can have. All health bars are scaled off this, and OVERHEAL_REPFILL only applies when health is pushed above this\n", conf::HEALTH_CAP);
 	fprintf(cf, "FRESHKILLTIME= %i \t\t//number of ticks after a spike, collision, or bite that an agent will still drop full meat\n", conf::FRESHKILLTIME);
 	fprintf(cf, "CORPSE_FRAMES= %i \t\t//number of frames before dead agents are removed after meat= CORPSE_MEAT_MIN\n", conf::CORPSE_FRAMES);
 	fprintf(cf, "CORPSE_MEAT_MIN= %f \t//minimum amount of meat on cell under dead agent before the agent starts counting down from CORPSE_FRAMES\n", conf::CORPSE_MEAT_MIN);
