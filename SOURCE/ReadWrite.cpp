@@ -648,7 +648,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 	if(fl){
 		printf("file '%s' exists! loading.\n", address.c_str());
 		//real quick: don't keep user control active from last world
-		world->pcontrol= false;
+		world->player_control = false;
 		//also disable demo mode
 		world->setDemo(false);
 

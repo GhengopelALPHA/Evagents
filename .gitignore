@@ -20,6 +20,7 @@ _MEDIA/
 settings.cfg
 report.txt
 *.xlsm
+*.xlsx
 *.docx
 *.tmp
 *.rtf

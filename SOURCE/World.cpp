@@ -22,9 +22,9 @@ World::World() :
 		MUTEVENTMULT(1),
 		CLIMATEBIAS(0.5),
 		CLIMATEMULT(0.5),
-		pcontrol(false),
-		pright(0),
-		pleft(0),
+		player_control(false),
+		player_drive(0),
+		player_rotation(0),
 		dosounds(true),
 		recordlifepath(false),
 		timenewsong(10),
@@ -893,7 +893,7 @@ void World::findStats()
 void World::processReporting()
 {
 	//update achievements, write report, record counts, display population events
-	if (!STATuseracted && pcontrol) { //outside of the report if statement b/c it can happen anytime
+	if (!STATuseracted && player_control) { //outside of the report if statement b/c it can happen anytime
 		addEvent("User, Take the Wheel!", EventColor::MULTICOLOR);
 		STATuseracted= true;
 	}
@@ -1407,7 +1407,8 @@ void World::setInputs()
 								ovolume = a2->volume;
 							} else if (n == Hearing::MOVEMENT){ 
 								otone = conf::WHEEL_TONE;
-								ovolume = conf::WHEEL_VOLUME*(max(fabs(a2->w1),fabs(a2->w2)));
+								ovolume = conf::WHEEL_VOLUME*(max(fabs(a2->drive),fabs(a2->rotation)));
+								//max of any movement is detected
 							} //future: do agent intake sound
 
 							float heardvolume = a->hear_mod*(1-eardist*invDIST)*ovolume;
@@ -1614,9 +1615,8 @@ void World::processOutputs(bool prefire)
 
 		if (a->isDead()) {
 			//dead agents continue to exist, slow down, and loose their voice, but skip everything else
-			float sp = conf::DEADSLOWDOWN*(a->w1+a->w2)*0.5;
-			a->w1 = sp;
-			a->w2 = sp;
+			a->drive *= conf::DEADSLOWDOWN;
+			a->rotation = 0;
 
 			a->volume *= 0.2;
 			if(a->volume < 0.0001) a->volume = 0;
@@ -1659,12 +1659,12 @@ void World::processOutputs(bool prefire)
 		} //do this before setting wheels
 
 		if (!a->isAirborne()) { //if not jumping, then change wheel speeds. otherwise, we want to keep wheel speeds constant
-			if (pcontrol && isAgentSelected(a->id)) {
-				a->w1= pright;
-				a->w2= pleft;
+			if (player_control && isAgentSelected(a->id)) {
+				a->drive += a->strength*(player_drive - a->drive);
+				a->rotation += a->strength*(player_rotation - a->rotation);
 			} else {
-				a->w1+= a->strength*(a->out[Output::LEFT_WHEEL_F] - a->out[Output::LEFT_WHEEL_B] - a->w1);
-				a->w2+= a->strength*(a->out[Output::RIGHT_WHEEL_F] - a->out[Output::RIGHT_WHEEL_B] - a->w2);
+				a->drive += a->strength*(2*a->out[Output::DRIVE] - 1 - a->drive);
+				a->rotation += a->strength*(2*a->out[Output::ROTATION] - 1 - a->rotation);
 			}
 		}
 		a->real_red+= 0.2*((1-a->chamovid)*a->gene_red + a->chamovid*a->out[Output::RED]-a->real_red);
@@ -1734,7 +1734,7 @@ void World::processOutputs(bool prefire)
 			}
 
 			//first calculate the exact wheel scalar values
-			float basewheel = 1;
+			float basewheel = a->drive*AGENT_DRIVE_RATE;
 			if (a->encumbered > 0) {
 				basewheel *= powf(ENCUMBERED_MOVE_MULT, a->encumbered);
 				//reset the encumberment
@@ -1744,29 +1744,16 @@ void World::processOutputs(bool prefire)
 			basewheel *= sqrt(a->radius*invMEANRADIUS); //wheel speed depends on the size of the agent: smaller agents move slower
 
 			basewheel /= 2*(1.0+a->exhaustion); //apply exhaustion. Wheels are very sensitive
-			float BW1 = basewheel*a->w1;
-			float BW2 = basewheel*a->w2;
 
-			//next, generate left direction vector
-			Vector3f vleft(0, 1, 0);
-			vleft.rotate(0, 0, a->angle);
+			Vector3f vel(basewheel, 0, 0);
+			vel.rotate(0, 0, a->angle);
 
-			//right and left wheel vectors get assigned
-			Vector3f vwheelleft= vleft;
-			Vector3f vwheelright= -vleft;
-
-			//the vectors get rotated by the amount (???) and then merged into position (???)
-			//I believe this was done to make large values have less impact than smaller ones, perhaps encouraging fine-tuning behavior
-			//based on max basewheel calculations, we could be looking at +/- 1.73*PI, which is more than half a circle. Having boost or jump is harmful at large radii,
-			//while advantageous at smaller and smaller sizes. This is intentional!
-			vwheelleft.rotate(0, 0, -BW1*M_PI);
-			vwheelright.rotate(0, 0, BW2*M_PI);
-
-			a->pos += (vwheelleft*WHEEL_SPEED - vleft) + (vwheelright*WHEEL_SPEED + vleft);
+			//move bots
+			a->pos += vel;
 
 			//angle bots
 			if (!a->isAirborne()) {
-				a->angle += BW2-BW1;
+				a->angle += a->rotation*AGENT_TURN_RATE;
 			}
 			if (a->angle<-M_PI) a->angle= a->angle + 2*M_PI;
 			if (a->angle>M_PI) a->angle= a->angle - 2*M_PI;
@@ -1805,7 +1792,7 @@ void World::processCellInteractions()
 			if (!a->isAirborne()){ //no interaction if jumping
 				if (!a->boost) { //no new intake if boosting
 					float intake= 0;
-					float speedmult= pow(1 - max(abs(a->w1), abs(a->w2)),3); //penalty for moving
+					float speedmult= pow(1 - max(abs(a->drive), abs(a->rotation)),3); //penalty for moving
 					speedmult/= (1.0+a->exhaustion); //exhaustion reduces agent physical actions including all intake
 
 					float invmult= 1-STOMACH_EFFICIENCY;
@@ -2243,7 +2230,7 @@ void World::healthTick()
 		if (!a->isDead()){
 			//"natural" causes of death: age, wheel activity, excesive brain activity
 			//baseloss starts by penalizing high average wheel speed
-			float baseloss= HEALTHLOSS_WHEELS * (fabs(a->w1) + fabs(a->w2))/2;
+			float baseloss= HEALTHLOSS_WHEELS * (fabs(a->drive) + fabs(a->rotation))/2;
 
 			//getting older reduces health.
 			baseloss +=  HEALTHLOSS_AGING * (float)a->age / MAXAGE;
@@ -2554,7 +2541,7 @@ void World::setSelection(int type)
 			//fastest agent moving (boost also taken into account)
 			float maxspeed= 0;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float speed= abs(agents[i].w1 + agents[i].w2);
+				float speed= abs(agents[i].drive) - abs(agents[i].rotation);
 				if (agents[i].boost) speed*= BOOST_MOVE_MULT;
 				if (!agents[i].isDead() && speed > maxspeed) {
 					maxspeed= speed;
@@ -3159,10 +3146,10 @@ void World::setDemo(bool state)
 void World::setControl(bool state)
 {
 	//reset left and right wheel controls 
-	pleft= 0;
-	pright= 0;
+	player_drive = 0;
+	player_rotation = 0;
 
-	pcontrol= state;
+	player_control = state;
 }
 
 bool World::isAutoselecting() const
@@ -3430,7 +3417,8 @@ void World::init()
 	GRAB_PRESSURE= conf::GRAB_PRESSURE;
 	BRAINBOXES= conf::BRAINBOXES;
 	BRAINCONNS= conf::BRAINCONNS;
-    WHEEL_SPEED= conf::WHEEL_SPEED;
+    AGENT_DRIVE_RATE= conf::AGENT_DRIVE_RATE;
+	AGENT_TURN_RATE= conf::AGENT_TURN_RATE;
 	JUMP_MOVE_BONUS_MULT= conf::JUMP_MOVE_BONUS_MULT;
     BOOST_MOVE_MULT= conf::BOOST_MOVE_MULT;
 	BOOST_EXAUSTION_MULT= conf::BOOST_EXAUSTION_MULT;
@@ -3882,10 +3870,14 @@ void World::readConfig()
 				sscanf(dataval, "%i", &i);
 				if(i!=BRAINCONNS) printf("BRAINCONNS, ");
 				BRAINCONNS= i;
-			}else if(strcmp(var, "WHEEL_SPEED=")==0 || strcmp(var, "BOTSPEED=")==0){
+			}else if(strcmp(var, "AGENT_DRIVE_RATE=")==0 || strcmp(var, "WHEEL_SPEED=")==0 || strcmp(var, "BOTSPEED=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=WHEEL_SPEED) printf("WHEEL_SPEED, ");
-				WHEEL_SPEED= f;
+				if(f!=AGENT_DRIVE_RATE) printf("AGENT_DRIVE_RATE, ");
+				AGENT_DRIVE_RATE= f;
+			}else if(strcmp(var, "AGENT_TURN_RATE=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=AGENT_TURN_RATE) printf("AGENT_TURN_RATE, ");
+				AGENT_TURN_RATE= f;
 			}else if(strcmp(var, "JUMP_MOVE_BONUS_MULT=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=JUMP_MOVE_BONUS_MULT) printf("JUMP_MOVE_BONUS_MULT, ");
@@ -4357,20 +4349,22 @@ void World::writeConfig()
 	fprintf(cf, "\n");
 	fprintf(cf, "BRAINBOXES= %i \t\t\t//number boxes in every agent brain. Note: the sim will NEVER make brains smaller than # of Outputs. Saved per world, loaded worlds will override this value. You cannot change this value for worlds already in progress; either use New World options or restart\n", conf::BRAINBOXES);
 	fprintf(cf, "BRAINCONNS= %i \t\t//number connections attempted for every init agent brain. Sim may make brains with less than this number, due to trimming. Changing this value will only effect newly spawned agents.\n", conf::BRAINCONNS);
-	fprintf(cf, "WHEEL_SPEED= %f \t\t//fastest possible speed of agents. This effects so much of the sim I dont advise changing it\n", conf::WHEEL_SPEED);
-	fprintf(cf, "ENCUMBERED_MOVE_MULT= %f \t//speed penalty multiplier for being encumbered from each level of encumberment. So for an agent with level 3 encumberment (perhaps from trying to walk in a terrain that's 0.6 away from their preferred), they get a mult equal to this value raised to the 3rd power.\n", conf::ENCUMBERED_MOVE_MULT);
 	fprintf(cf, "MEANRADIUS= %f \t\t//\"average\" agent radius, range [0.2*this,2.2*this) (only applies to random agents, no limits on mutations). This effects SOOOO much stuff, and I would not recommend setting negative unless you like crashing programs.\n", conf::MEANRADIUS);
+	fprintf(cf, "MAXWASTEFREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. 1= no agent control allowed, 0= program crash\n", conf::MAXWASTEFREQ);
+	fprintf(cf, "GENEROSITY_RATE= %f \t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::GENEROSITY_RATE);
+	fprintf(cf, "SPIKESPEED= %f \t\t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKESPEED);
+	fprintf(cf, "SPAWN_MIRROR_EYES= %i \t\t//true-false flag for if random spawn agents have mirrored eyes. 0= asymmetry, 1= symmetry\n", (int)conf::SPAWN_MIRROR_EYES);
+	fprintf(cf, "PRESERVE_MIRROR_EYES= %i \t//true-false flag for if mutations can break mirrored eye symmetry. 0= mutations do not preserve symmetry, 1= agents always have mirrored eyes\n", (int)conf::PRESERVE_MIRROR_EYES);
+	fprintf(cf, "\n");
+	fprintf(cf, "AGENT_DRIVE_RATE= %f \t//multiplier for the movement speed of agents. The Drive output gets split in half such that range [0,1] -> [-this, this].\n", conf::AGENT_DRIVE_RATE);
+	fprintf(cf, "AGENT_TURN_RATE= %f \t//multiplier for the agent's rotation speed of agents, in radians. The Rotation output gets split in half such that range [0,1] -> [-this, this] (At that point, negative values turn agents left, positive turns them right).\n", conf::AGENT_TURN_RATE);
+	fprintf(cf, "ENCUMBERED_MOVE_MULT= %f \t//speed penalty multiplier for being encumbered from each level of encumberment. So for an agent with level 3 encumberment (perhaps from trying to walk in a terrain that's 0.6 away from their preferred), they get a mult equal to this value raised to the 3rd power.\n", conf::ENCUMBERED_MOVE_MULT);
 	fprintf(cf, "JUMP_MOVE_BONUS_MULT= %f \t//how much speed boost do agents get when jump is active? This is not the main feature of jumpping. Value of 1 gives no bonus move speed.\n", conf::JUMP_MOVE_BONUS_MULT);
 	fprintf(cf, "BOOST_MOVE_MULT= %f \t//how much speed boost do agents get when boost is active? Value of 1 gives no bonus move speed.\n", conf::BOOST_MOVE_MULT);
 	fprintf(cf, "BOOST_EXAUSTION_MULT= %f \t//how much exhaustion from brain is multiplied by when boost is active?\n", conf::BOOST_EXAUSTION_MULT);
 	fprintf(cf, "BASEEXHAUSTION= %f \t//base value of exhaustion. When negative, is essentially the sum amount of output allowed before healthloss. Would not recommend positive values\n", conf::BASEEXHAUSTION);
 	fprintf(cf, "EXHAUSTION_MULT_PER_OUTPUT= %f //multiplier applied to the sum value of all outputs; effectively, the cost multiplier of performing actions. Increase to pressure agents to chose their output more carefully\n", conf::EXHAUSTION_MULT_PER_OUTPUT);
 	fprintf(cf, "EXHAUSTION_MULT_PER_CONN= %f //multiplier applied to the count of brain connections; effectively, the cost multiplier of maintaining each synapse in the brain. Increase to pressure agents to make more efficient brains.\n", conf::EXHAUSTION_MULT_PER_CONN);
-	fprintf(cf, "MAXWASTEFREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. 1= no agent control allowed, 0= program crash\n", conf::MAXWASTEFREQ);
-	fprintf(cf, "GENEROSITY_RATE= %f \t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::GENEROSITY_RATE);
-	fprintf(cf, "SPIKESPEED= %f \t\t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKESPEED);
-	fprintf(cf, "SPAWN_MIRROR_EYES= %i \t\t//true-false flag for if random spawn agents have mirrored eyes. 0= asymmetry, 1= symmetry\n", (int)conf::SPAWN_MIRROR_EYES);
-	fprintf(cf, "PRESERVE_MIRROR_EYES= %i \t//true-false flag for if mutations can break mirrored eye symmetry. 0= mutations do not preserve symmetry, 1= agents always have mirrored eyes\n", (int)conf::PRESERVE_MIRROR_EYES);
 	fprintf(cf, "\n");
 	fprintf(cf, "TENDERAGE= %i \t\t\t//age (in 1/10ths) of agents where full meat, hazard, and collision damage is finally given. These multipliers are reduced via *age/TENDERAGE. 0= off\n", conf::TENDERAGE);
 	fprintf(cf, "MINMOMHEALTH= %f \t\t//minimum amount of health required for an agent to have a child\n", conf::MINMOMHEALTH);

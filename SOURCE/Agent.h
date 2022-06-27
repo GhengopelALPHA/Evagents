@@ -156,8 +156,8 @@ public:
 	
 	//outputs
 	//none are saved b/c they are recalculated at world load
-	float w1; //wheel speeds. in range [-1,1]
-	float w2;
+	float drive; //forward/backward speed. in range [-1,1]
+	float rotation; //left/right rotation speed. in range [-1,1]
 	bool boost; //is this agent boosting?
 	float zvelocity; //velocity of the vertical (z-axis) movement produced by jumping
 	float real_red, real_gre, real_blu; //real colors of the agent
