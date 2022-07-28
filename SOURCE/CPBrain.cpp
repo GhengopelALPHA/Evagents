@@ -6,6 +6,7 @@ CPBox::CPBox(int numboxes)
 {
 	bias = randn(0,0.5);
 	gw = randf(-2,2);
+	if (gw < 0 && randf(0,1) > conf::BRAIN_NEGATIVE_GW_BOXES) gw *= -1;
 	kp = cap(randf(0,1.3));
 
 	acc = 0;
@@ -32,7 +33,7 @@ CPConn::CPConn(int numboxes)
 	type = ConnType::NORMAL;
 	if(randf(0,1) < conf::BRAIN_INVERTCONNS) type = ConnType::INVERTED; //some conns have their inputs inverted (1-x)
 	if(randf(0,1) < conf::BRAIN_CHANGECONNS) type = ConnType::DELTA; //some conns can be change sensitive synapses
-//	if(randf(0,1) < conf::BRAIN_MEMCONNS) type = 2; //some conns can be memory synapses NOT IMPLEMENTED
+
 	seed = 0;
 	dead = true;
 }
@@ -245,6 +246,7 @@ void CPBrain::initMutate(float MR, float MR2)
 	//Extraordinary (/100+): random type, random source ID, random target ID,
 	//Rare (/10+): new conn, invert type, mirror conn, target ID bump, split conn, random weight, random bias
 	//Common: source ID bump, invert great weight, bias jiggle, weight wither, weight jiggle
+
 	for(int i= 0; i<randi(1,6); i++){ //possibly add between 0 and 5 new connections
 		if (randf(0,1) < MR/10) {
 			//Add conn
@@ -376,12 +378,12 @@ void CPBrain::initMutate(float MR, float MR2)
 
 		if (randf(0,1) < MR/2) {
 			//bias jiggle
-			conns[i].bias += randn(0, MR2/2);
+			conns[i].bias += randn(0, MR2);
 		}
 
 		if (randf(0,1) < MR) {
 			//weight jiggle
-			conns[i].w += randn(0, MR2/2);
+			conns[i].w += randn(0, MR2);
 		}
 	}
 
@@ -442,12 +444,12 @@ void CPBrain::initMutate(float MR, float MR2)
 
 		if (randf(0,1)<MR/5) {
 			//global weight jiggle
-			box->gw += randn(0, MR2/8);
+			box->gw += randn(0, MR2/4);
 		}
 
 		if (randf(0,1)<MR/2) {
 			//jiggle kp (dampening)
-			box->kp = cap(randn(box->kp, MR2/5));
+			box->kp = cap(randn(box->kp, 2*MR2));
 		}
 
 		if (randf(0,1)<MR) {
@@ -488,7 +490,7 @@ void CPBrain::liveMutate(float MR, float MR2, vector<float>& out)
 
 	if (randf(0,1) < MR) {
 		//weight jiggle
-		conns[randconn].w += randn(0, MR2);
+		conns[randconn].w += randn(0, MR2/8);
 		//don't bother with seed = 0, this is too common and too low impact
 	}
 	
@@ -507,7 +509,7 @@ void CPBrain::liveMutate(float MR, float MR2, vector<float>& out)
 
 	if (randf(0,1)<MR) {
 		//jiggle bias
-		box->bias += randn(0, MR2);
+		box->bias += randn(0, MR2/4);
 		//no need to reset seed for simple bias jiggle
 	}
 

@@ -56,7 +56,11 @@ int main(int argc, char **argv) {
 	//AUDIO SETUP
 	// start the sound engine with default parameters
 	irrklang::ISoundEngine* audioengine = irrklang::createIrrKlangDevice(ESOD_AUTO_DETECT, ESEO_MULTI_THREADED); //only using Multithreaded option; more are available
-	if (!audioengine) return 0; // error starting up the engine
+	if (!audioengine) { // error starting up the engine
+		printf("Error: init audio failed, Hit Enter to exit\n");
+		char c = getchar();
+		return 0; 
+	}
 	world->setAudioEngine(audioengine);
 
 
@@ -98,8 +102,10 @@ int main(int argc, char **argv) {
 	//create right click context menu
 	GLVIEW->glCreateMenu();
 
-	if (CreateDirectory("saves", NULL)) printf("\"saves\" directory did not exist. Does now!\n");
-	if (CreateDirectory("saved_agents", NULL)) printf("\"saved_agents\" directory did not exist. Does now!\n");
+	char zCurDir[257];
+	GetCurrentDirectory(256, zCurDir);
+	if (CreateDirectory("saves", NULL)) printf("\"saves\" directory did not exist. Does now at %s!\n", zCurDir);
+	if (CreateDirectory("saved_agents", NULL)) printf("\"saved_agents\" directory did not exist. Does now at %s!\n", zCurDir);
 
 	if (SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED | ES_AWAYMODE_REQUIRED) == NULL){
 		//these lines ensure windows doesn't hibernate or sleep if you use those features regularly

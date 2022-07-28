@@ -711,12 +711,10 @@ namespace conf {
 	const int BRAINCONNS= 300; //(.cfg)
 	const float LEARN_RATE= 0.001; // rate of Stimulant effecting weights. TODO: (.cfg) CHANGE TO LEARN FROM USER INPUT?
 	const float BRAIN_DIRECTINPUTS= 0.3; //probability of random brain conns on average which will connect directly to inputs
-//	const float BRAIN_DEADCONNS= 0.15; //probability of random brain conns which are "dead" (that is, weight = 0)
+	const float BRAIN_NEGATIVE_GW_BOXES= 0.2; //probability and approx ratio of random brain's boxes that will have a negative global weight
 	const float BRAIN_INVERTCONNS= 0.5; //probablility of random brain conns which are inverted (the input value is (1-x) before weight)
 	const float BRAIN_CHANGECONNS= 0.15; //probablility of random brain conns which are change sensitive
-//	const float BRAIN_MEMCONNS= 0.01; //probablility of random brain conns which are memory type
 	const float BRAIN_MIRRORCONNS= 0.5; //probablility of random brain conns which will be made as mirror-compare connections with a random other connection, range(0,i)
-//	const float BRAIN_CONN_ID_MUTATION_STD_DEV= 1.0; //standard dev. for the brain connection ID change mutation. UNUSED! todo
 //	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
 
 	//movement settings

@@ -2408,7 +2408,25 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 								glVertex3f(drawx + boxsize, drawy, 0.0f);
 								glVertex3f(drawx + boxsize, drawy + boxsize, 0.0f);
 								glVertex3f(drawx, drawy + boxsize, 0.0f);
+
+								if (live_profilevis==Profile::BRAIN && agent.brain.boxes[j].gw <= 0) {
+									//draw a red outline for inverted boxes when showing Brain mode
+									glEnd();
+									glBegin(GL_LINES);
+									glColor3f(1,0,0);
+									glVertex3f(drawx+1, drawy+1, 0.0f);
+									glVertex3f(drawx + boxsize-1, drawy+1, 0.0f);
+									glVertex3f(drawx + boxsize-1, drawy+1, 0.0f);
+									glVertex3f(drawx + boxsize-1, drawy + boxsize-1, 0.0f);
+									glVertex3f(drawx + boxsize-1, drawy + boxsize-1, 0.0f);
+									glVertex3f(drawx+1, drawy + boxsize-1, 0.0f);
+									glVertex3f(drawx+1, drawy + boxsize-1, 0.0f);
+									glVertex3f(drawx+1, drawy+1, 0.0f);
+									glEnd();
+									glBegin(GL_QUADS);
+								}
 							} else {
+								//draw a red x for dead boxes
 								glEnd();
 								glBegin(GL_LINES);
 								glColor3f(0.75,0,0);
@@ -2445,6 +2463,27 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						glVertex3f(drawx + ioboxsize, drawy, 0.0f);
 						glVertex3f(drawx + ioboxsize, drawy + ioboxsize, 0.0f);
 						glVertex3f(drawx, drawy + ioboxsize, 0.0f);
+
+						if (live_profilevis==Profile::BRAIN) {
+							int target = agent.brain.boxes.size() - Output::OUTPUT_SIZE + j;
+							if (agent.brain.boxes[target].gw <= 0) {
+								//draw a red outline for outputs with inverted boxes when showing Brain mode
+								glEnd();
+								glBegin(GL_LINES);
+								glColor3f(1,0,0);
+								glVertex3f(drawx+1, drawy+1, 0.0f);
+								glVertex3f(drawx + ioboxsize-1, drawy+1, 0.0f);
+								glVertex3f(drawx + ioboxsize-1, drawy+1, 0.0f);
+								glVertex3f(drawx + ioboxsize-1, drawy + ioboxsize-1, 0.0f);
+								glVertex3f(drawx + ioboxsize-1, drawy + ioboxsize-1, 0.0f);
+								glVertex3f(drawx+1, drawy + ioboxsize-1, 0.0f);
+								glVertex3f(drawx+1, drawy + ioboxsize-1, 0.0f);
+								glVertex3f(drawx+1, drawy+1, 0.0f);
+								glEnd();
+								glBegin(GL_QUADS);
+							}
+						}
+
 						if(scalemult > .7){
 							glEnd();
 							float textx = drawx + ioboxsize/3;
@@ -2510,28 +2549,42 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 							float absw = abs(w);
 							float acc;
 
-							if (absw > 1.0) glLineWidth(4);
+							if (absw > 1.0) glLineWidth((int)ceil(absw/2));
 							else {
 								absw *= 5; //adjust alpha so we aren't completely invisible
 								glLineWidth(2);
 							}
 							
-							//get value delta for alpha; if input, use raw value. Invert it if the conn is an inverted type
-							if (sid >= 0) {
-								acc = cap(10*abs(agent.brain.boxes[sid].out - agent.brain.boxes[sid].oldout));
-							} else {
-								glLineWidth(2);
-								if (type == ConnType::INVERTED) acc = 1-agent.in[-sid-1];
+							//check if input, use raw acc value for alpha mult. otherwise, use delta for box values
+							if (sid < 0) {
+								// Input lines ALWAYS shown with width of 2
+								//glLineWidth(2);
+								if (type == ConnType::INVERTED) acc = 1-agent.in[-sid-1]; // Invert it if the conn is an inverted type
 								else acc = agent.in[-sid-1];
+							} else {
+								//this serves to hide the majority of connections which aren't "doing" anything at a given moment
+								acc = cap(10*abs(agent.brain.boxes[sid].out - agent.brain.boxes[sid].oldout));
 							}
 							acc = std::max((float)0.1, acc); //always display something
 							
-							ty = inputlines*ioboxsize + xoffset + yoffset + boxsize/2 + boxsize*(int)((float)(tid)/(float)conf::BOXES_PER_ROW);
-							tx = boxsize/2 + boxsize*(tid%conf::BOXES_PER_ROW);
+							//filter by target id; if in range of outputs, change target coords to match output range
+							if (tid >= agent.brain.boxes.size() - Output::OUTPUT_SIZE) {
+								//for all output-targeting connections
+								ty = inputlines*ioboxsize + xoffset + 3*yoffset + boxsize + boxsize*(int)((float)(agent.brain.boxes.size())/(float)conf::BOXES_PER_ROW);
+								tx = ioboxsize/2 + (ioboxsize+xoffset)*((Output::OUTPUT_SIZE - agent.brain.boxes.size() + tid)%conf::BOXES_PER_ROW);
+							} else {
+								//for all brain interior connections
+								ty = inputlines*ioboxsize + xoffset + yoffset + boxsize/2 + boxsize*(int)((float)(tid)/(float)conf::BOXES_PER_ROW);
+								tx = boxsize/2 + boxsize*(tid%conf::BOXES_PER_ROW);
+							}
+
+							if (tid == sid) {
+								//must happen before glBegin
+								glLineWidth(2);
+							}
 
 							glBegin(GL_LINES);
 							if (tid == sid) {
-								glLineWidth(2);
 								glColor4f(cap(-w/5), cap(w/5), 0, 0.3*absw*acc);
 								drawOutlineRes(tx, ty, 3, 1);
 							} else {
@@ -3187,8 +3240,9 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			//dont render jaws if zoomed too far out, but always render them on ghosts, and only if they've been active within the last few ticks
 			glColor4f(0.9,0.9,0,blur);
 
-			float jawangle = ( 1 - powf(abs(agent.jawPosition), 0.5) ) * conf::JAW_MAX_FOV;
-			if(agent.jawrend == conf::JAWRENDERTIME) jawangle = conf::JAW_MAX_FOV; //at the start of the timer the jaws are rendered open for aesthetic
+			// 1/2*JAW_MAX_FOV because being able to bite relies on other agents size. Plus it looks stupid but works great
+			float jawangle = ( 1 - powf(abs(agent.jawPosition), 0.5) ) * conf::JAW_MAX_FOV / 2;
+			if(agent.jawrend == conf::JAWRENDERTIME) jawangle = conf::JAW_MAX_FOV / 2; //at the start of the timer the jaws are rendered open for aesthetic
 			float jawlength = world->BITE_DISTANCE - 2; //shave just a little bit off the jaw length
 
 			glVertex3f(rad*cos(agent.angle), rad*sin(agent.angle), 0);
@@ -3590,41 +3644,6 @@ void GLView::drawStatic()
 	int currentline= 1;
 	int spaceperline= 16;
 
-	if (live_worlddetails) {
-		//display static world details first - makes things nicer to read
-		for (int line=0; line<StaticDisplayExtra::STATICDISPLAYS; line++){
-			if (line == StaticDisplayExtra::OCEANPERCENT) {
-				sprintf(buf, "%% Water: %.3f", 1-world->getLandRatio());
-			} else if (line == StaticDisplayExtra::OXYGEN) {
-				sprintf(buf, "Avg Oxy Dmg: %.4f", world->HEALTHLOSS_NOOXYGEN*world->agents.size());
-			} else if (line >= StaticDisplayExtra::LIVECOUNTS && line <= StaticDisplayExtra::xLIVECOUNTS) {
-				int index = line - StaticDisplayExtra::LIVECOUNTS;
-				switch (index) {
-					case LiveCount::AMPHIBIAN : sprintf(buf, "Amphibians: %i", world->getLungAmph());	break;
-					case LiveCount::AQUATIC : sprintf(buf, "Aquatics: %i", world->getLungWater());		break;
-					case LiveCount::TERRESTRIAL : sprintf(buf, "Terrans: %i", world->getLungLand());	break;
-					case LiveCount::CARNIVORE : sprintf(buf, "Carnivores: %i", world->getCarnivores()); break;
-					case LiveCount::FRUGIVORE : sprintf(buf, "Frugivores: %i", world->getFrugivores()); break;
-					case LiveCount::HERBIVORE : sprintf(buf, "Herbivores: %i", world->getHerbivores()); break;
-					case LiveCount::SPIKED : sprintf(buf, "Spiky: %i", world->getSpiky());				break;
-					case LiveCount::HYBRID : sprintf(buf, "Hybrids: %i", world->getHybrids());			break;
-					default : sprintf(buf, "UNKNOWN_LiveCount_in_StaticDisplayExtra");
-				}
-			} else if (line >= StaticDisplayExtra::AVG_LAYERS && line <= StaticDisplayExtra::xAVG_LAYERS) {
-				int index = line - StaticDisplayExtra::AVG_LAYERS + 1; //+1 to align with Layers::
-				switch (index) {
-					case Layer::PLANTS : sprintf(buf, "Avg Plant/cell: %.3f", world->getPlantAvg());	break;
-					case Layer::FRUITS : sprintf(buf, "Avg Fruit/cell: %.3f", world->getFruitAvg());	break;
-					case Layer::MEATS : sprintf(buf, "Avg Meat/cell: %.3f", world->getMeatAvg());		break;
-					case Layer::HAZARDS : sprintf(buf, "Avg Hazard/cell: %.3f", world->getHazardAvg());	break;
-					default : sprintf(buf, "UNKNOWN_Layer_in_StaticDisplayExtra");
-				}
-			}
-			RenderString(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.0, 0.0, 0.0);
-			currentline++;
-		}
-	}
-
 	for (int line=0; line<StaticDisplay::STATICDISPLAYS; line++){
 		//now display the main static displays
 		if (line == StaticDisplay::PAUSED)	{
@@ -3714,6 +3733,41 @@ void GLView::drawStatic()
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Extreme Climate", 1.0f, 0.75f, 0.4f);
 				currentline++;
 			}
+		}
+	}
+
+	if (live_worlddetails) {
+		//display static world details
+		for (int line=0; line<StaticDisplayExtra::STATICDISPLAYS; line++){
+			if (line == StaticDisplayExtra::OCEANPERCENT) {
+				sprintf(buf, "%% Water: %.3f", 1-world->getLandRatio());
+			} else if (line == StaticDisplayExtra::OXYGEN) {
+				sprintf(buf, "Avg Oxy Dmg: %.4f", world->HEALTHLOSS_NOOXYGEN*world->agents.size());
+			} else if (line >= StaticDisplayExtra::LIVECOUNTS && line <= StaticDisplayExtra::xLIVECOUNTS) {
+				int index = line - StaticDisplayExtra::LIVECOUNTS;
+				switch (index) {
+					case LiveCount::AMPHIBIAN : sprintf(buf, "Amphibians: %i", world->getLungAmph());	break;
+					case LiveCount::AQUATIC : sprintf(buf, "Aquatics: %i", world->getLungWater());		break;
+					case LiveCount::TERRESTRIAL : sprintf(buf, "Terrans: %i", world->getLungLand());	break;
+					case LiveCount::CARNIVORE : sprintf(buf, "Carnivores: %i", world->getCarnivores()); break;
+					case LiveCount::FRUGIVORE : sprintf(buf, "Frugivores: %i", world->getFrugivores()); break;
+					case LiveCount::HERBIVORE : sprintf(buf, "Herbivores: %i", world->getHerbivores()); break;
+					case LiveCount::SPIKED : sprintf(buf, "Spiky: %i", world->getSpiky());				break;
+					case LiveCount::HYBRID : sprintf(buf, "Hybrids: %i", world->getHybrids());			break;
+					default : sprintf(buf, "UNKNOWN_LiveCount_in_StaticDisplayExtra");
+				}
+			} else if (line >= StaticDisplayExtra::AVG_LAYERS && line <= StaticDisplayExtra::xAVG_LAYERS) {
+				int index = line - StaticDisplayExtra::AVG_LAYERS + 1; //+1 to align with Layers::
+				switch (index) {
+					case Layer::PLANTS : sprintf(buf, "Avg Plant/cell: %.3f", world->getPlantAvg());	break;
+					case Layer::FRUITS : sprintf(buf, "Avg Fruit/cell: %.3f", world->getFruitAvg());	break;
+					case Layer::MEATS : sprintf(buf, "Avg Meat/cell: %.3f", world->getMeatAvg());		break;
+					case Layer::HAZARDS : sprintf(buf, "Avg Hazard/cell: %.3f", world->getHazardAvg());	break;
+					default : sprintf(buf, "UNKNOWN_Layer_in_StaticDisplayExtra");
+				}
+			}
+			RenderString(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.0, 0.0, 0.0);
+			currentline++;
 		}
 	}
 
@@ -4325,10 +4379,9 @@ void GLView::renderAllTiles()
 					if(selected.isAirborne()) sprintf(buf, "Airborne!");
 					else if(selected.encumbered > 0) sprintf(buf, "Encumbered x%i", selected.encumbered);
 					else if(selected.boost) sprintf(buf, "Boosting");
-					//TODO: figure out conditions
-					//else if(abs(selected.w1-selected.w2)>0.06) sprintf(buf, "Spinning...");
-					//else if(abs(selected.w1)>0.2 || abs(selected.w2)>0.2) sprintf(buf, "Sprinting");
-					//else if(abs(selected.w1)>0.03 || abs(selected.w2)>0.03) sprintf(buf, "Moving");
+					else if(abs(selected.rotation-0.5) > abs(selected.drive-0.5)+0.15) sprintf(buf, "Spinning...");
+					else if(abs(selected.rotation-0.5) < 0.15 && abs(selected.drive-0.5) > 0.35) sprintf(buf, "Sprinting");
+					else if(abs(selected.rotation-0.5) < 0.15 && abs(selected.drive-0.5) > 0.15) sprintf(buf, "Moving");
 					else if(selected.isDead()) sprintf(buf, "Dead.");
 					else sprintf(buf, "Idle");
 
