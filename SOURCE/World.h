@@ -59,9 +59,9 @@ public:
 	int getSelectedID() const;
 	bool isAgentSelected(int id);
 
-	float player_drive;
-	float player_rotation;
-	bool player_control;
+	float player_control;
+	float player_left;
+	bool player_right;
 	void setControl(bool state);
 
 	void setSelection(int type);
@@ -245,8 +245,8 @@ public:
 	float GRAB_PRESSURE;
 	int BRAINBOXES;
 	int BRAINCONNS;
-	float AGENT_DRIVE_RATE;
-	float AGENT_TURN_RATE;
+
+	float WHEEL_SPEED;
 	float JUMP_MOVE_BONUS_MULT;
 	float BOOST_MOVE_MULT;
 	float BOOST_EXAUSTION_MULT;

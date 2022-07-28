@@ -614,30 +614,38 @@ void GLView::menu(int key)
 		glutSetMenu(m_id);*/
 	
 	//user controls:
-	}else if (key==119 && world->getSelectedID()!=-1) { //w (move faster)
+	} else if (key==119 && world->getSelectedID()!=-1) { //w (move faster)
 		world->player_control= true;
-		world->player_drive = capm(world->player_drive + 0.08, -1, 1);
-		world->player_rotation -= world->player_rotation*abs(world->player_drive)*conf::CONTROL_ANTI_ROTATE_DRIVE_FACTOR;
-		world->player_rotation = capm(world->player_rotation, -1, 1);
-	}else if (key==115 && world->getSelectedID()!=-1) { //s (move slower/reverse)
+		float newleft= capm(world->player_left + 0.05 + (world->player_right - world->player_left)*0.25, -1, 1);
+		world->player_right= capm(world->player_right + 0.05 + (world->player_left - world->player_right)*0.25, -1, 1);
+		world->player_left= newleft;
+	} else if (key==115 && world->getSelectedID()!=-1) { //s (move slower/reverse)
 		world->player_control= true;
-		world->player_drive = capm(world->player_drive - 0.08, -1, 1);
-		world->player_rotation -= world->player_rotation*abs(world->player_drive)*conf::CONTROL_ANTI_ROTATE_DRIVE_FACTOR;
-		world->player_rotation = capm(world->player_rotation, -1, 1);
-	}else if (key==97 && world->getSelectedID()!=-1) { //a (turn left)
+		float newleft= capm(world->player_left - 0.05 + (world->player_right - world->player_left)*0.25, -1, 1);
+		world->player_right= capm(world->player_right - 0.05 + (world->player_left - world->player_right)*0.25, -1, 1);
+		world->player_left= newleft;
+	} else if (key==97 && world->getSelectedID()!=-1) { //a (turn left)
 		world->player_control= true;
-		float rotate_factor = 1;
-		if(world->player_rotation > 0) { // > 0, turning right
-			rotate_factor = conf::CONTROL_ANTI_ROTATE_TURN_FACTOR;
+		if (world->player_left > world->player_right) {
+			float avg= (world->player_left + world->player_right) * 0.5;
+			world->player_right= avg;
+			world->player_left= avg;
+		} else {
+			float newleft= capm(world->player_left - 0.01 - abs(world->player_right - world->player_left)*0.25, -1, 1);
+			world->player_right= capm(world->player_right + 0.01 + abs(world->player_left - world->player_right)*0.25, -1, 1);
+			world->player_left= newleft;
 		}
-		world->player_rotation = capm(world->player_rotation - 0.04*rotate_factor, -1, 1);
-	}else if (key==100 && world->getSelectedID()!=-1) { //d (turn right)
+	} else if (key==100 && world->getSelectedID()!=-1) { //d (turn right)
 		world->player_control= true;
-		float rotate_factor = 1;
-		if(world->player_rotation < 0) { // < 0, turning left
-			rotate_factor = conf::CONTROL_ANTI_ROTATE_TURN_FACTOR;
+		if(world->player_left < world->player_right) {
+			float avg= (world->player_left + world->player_right) * 0.5;
+			world->player_right= avg;
+			world->player_left= avg;
+		} else {	
+			float newleft= capm(world->player_left + 0.01 + abs(world->player_right - world->player_left)*0.25, -1, 1);
+			world->player_right= capm(world->player_right - 0.01 - abs(world->player_left - world->player_right)*0.25, -1, 1);
+			world->player_left= newleft;
 		}
-		world->player_rotation = capm(world->player_rotation + 0.04*rotate_factor, -1, 1);
 	} else if (key==999) { //player control
 		world->setControl(!world->player_control);
 		glutGet(GLUT_MENU_NUM_ITEMS);
@@ -648,15 +656,15 @@ void GLView::menu(int key)
 	} else if (key=='r') { //r key is now a defacto debugging key for whatever I need at the time
 		world->cellsRoundTerrain();
 
-	}else if (key==127) { //delete
+	} else if (key==127) { //delete
 		world->selectedKill();
-	}else if (key=='/') { // / heal selected
+	} else if (key=='/') { // / heal selected
 		world->selectedHeal();
-	}else if (key=='|') { // | reproduce selected
+	} else if (key=='|') { // | reproduce selected
 		world->selectedBabys();
-	}else if (key=='~') { // ~ mutate selected
+	} else if (key=='~') { // ~ mutate selected
 		world->selectedMutate();
-	}else if (key=='`') { // ` rotate selected stomach type
+	} else if (key=='`') { // ` rotate selected stomach type
 		world->selectedStomachMut();
 
 	// MENU ONLY OPTIONS:
@@ -2489,10 +2497,10 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 							float textx = drawx + ioboxsize/3;
 							float texty = drawy + ioboxsize*2/3;
 
-							if(j==Output::DRIVE){
+							if(j==Output::LEFT_WHEEL_B || j==Output::LEFT_WHEEL_F){
+								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "!", 1.0f, 0.0f, 1.0f);
+							} else if(j==Output::RIGHT_WHEEL_B || j==Output::RIGHT_WHEEL_F){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "!", 0.0f, 1.0f, 0.0f);
-							} else if(j==Output::ROTATION){
-								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "()", 1.0f, 0.0f, 1.0f);
 							} else if(j==Output::VOLUME){
 								float compcol = value>0.75 ? 0.0f : 1.0f;
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "V", compcol, compcol, compcol);
@@ -2984,20 +2992,27 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			glEnd();
 			
 			if(world->isDebug()) {
+				int ypos = 0;
+				int ydisplace = 12;
 				glTranslatef(8+agent.radius, -32, 0);
 				//print hidden stats & values
-				if(agent.near) RenderString(0, 0, GLUT_BITMAP_HELVETICA_12, "near!", 0.8f, 1.0f, 1.0f);
+				if(agent.near) {
+					RenderString(0, ypos, GLUT_BITMAP_HELVETICA_12, "near!", 0.8f, 1.0f, 1.0f);
+					ypos-= ydisplace;
+				}
 
 				//wheel speeds
-				/*sprintf(buf2, "w1: %.3f", agent.w1);
-				RenderString(0, -12, GLUT_BITMAP_HELVETICA_12, buf2, 0.8f, 0.0f, 1.0f);
+				sprintf(buf2, "w1: %.3f", agent.w1);
+				RenderString(0, ypos, GLUT_BITMAP_HELVETICA_12, buf2, 0.8f, 0.0f, 1.0f);
+				ypos-= ydisplace;
 
 				sprintf(buf2, "w2: %.3f", agent.w2);
-				RenderString(0, -24, GLUT_BITMAP_HELVETICA_12, buf2, 0.0f, 1.0f, 0.0f);*/
+				RenderString(0, ypos, GLUT_BITMAP_HELVETICA_12, buf2, 0.0f, 1.0f, 0.0f);
+				ypos-= ydisplace;
 
 				//exhaustion readout
 				sprintf(buf2, "exh: %.3f", agent.exhaustion);
-				RenderString(0, -12, GLUT_BITMAP_HELVETICA_12, buf2, 1.0f, 1.0f, 0.0f);
+				RenderString(0, ypos, GLUT_BITMAP_HELVETICA_12, buf2, 1.0f, 1.0f, 0.0f);
 			}
 		}
 
@@ -3365,18 +3380,26 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 
 		//some final final debug stuff that is also shown even on ghosts:
 		if(world->isDebug() || ghost){
-			//wheels and wheel speed indicators, lime for drive, magenta for rotation
+			//wheels and wheel speed indicators, color coded: magenta for right, lime for left
+			float wheelangle= agent.angle+ M_PI/2;
 			glBegin(GL_LINES);
-			glColor3f(0,1,0);
-			glVertex3f(0, 0, 0);
-			float drive = 10*agent.drive;
-			glVertex3f(drive*cos(agent.angle), drive*sin(agent.angle), 0);
-
 			glColor3f(1,0,1);
-			glVertex3f(drive*cos(agent.angle), drive*sin(agent.angle), 0);
-			float rotation = 10*agent.rotation;
-			if (drive > 0) rotation *= -1;
-			glVertex3f(drive*cos(agent.angle) + rotation*cos(agent.angle - M_PI/2), drive*sin(agent.angle) + rotation*sin(agent.angle - M_PI/2), 0);
+			glVertex3f(agent.radius/2*cos(wheelangle), agent.radius/2*sin(wheelangle), 0);
+			glVertex3f(agent.radius/2*cos(wheelangle)+35*agent.w1*cos(agent.angle), agent.radius/2*sin(wheelangle)+35*agent.w1*sin(agent.angle), 0);
+			wheelangle-= M_PI;
+			glColor3f(0,1,0);
+			glVertex3f(agent.radius/2*cos(wheelangle), agent.radius/2*sin(wheelangle), 0);
+			glVertex3f(agent.radius/2*cos(wheelangle)+35*agent.w2*cos(agent.angle), agent.radius/2*sin(wheelangle)+35*agent.w2*sin(agent.angle), 0);
+			glEnd();
+
+			glBegin(GL_POLYGON); 
+			glColor3f(0,1,0);
+			drawCircle(agent.radius/2*cos(wheelangle), agent.radius/2*sin(wheelangle), 1);
+			glEnd();
+			wheelangle+= M_PI;
+			glColor3f(1,0,1);
+			glBegin(GL_POLYGON); 
+			drawCircle(agent.radius/2*cos(wheelangle), agent.radius/2*sin(wheelangle), 1);
 			glEnd();
 
 			if(!ghost) {
@@ -4362,7 +4385,7 @@ void GLView::renderAllTiles()
 
 				} else if(u==LADHudOverview::SPIKE){
 					if(!selected.isDead() && selected.isSpikey(world->SPIKE_LENGTH)){
-						float mw = selected.drive;
+						float mw = selected.w1 > selected.w2 ? selected.w1 : selected.w2;
 						if(mw < 0) mw= 0;
 						float val = world->DAMAGE_FULLSPIKE*selected.spikeLength*mw;
 						if(val > world->HEALTH_CAP) sprintf(buf, "Spike: Deadly!");//health
@@ -4379,9 +4402,9 @@ void GLView::renderAllTiles()
 					if(selected.isAirborne()) sprintf(buf, "Airborne!");
 					else if(selected.encumbered > 0) sprintf(buf, "Encumbered x%i", selected.encumbered);
 					else if(selected.boost) sprintf(buf, "Boosting");
-					else if(abs(selected.rotation-0.5) > abs(selected.drive-0.5)+0.15) sprintf(buf, "Spinning...");
-					else if(abs(selected.rotation-0.5) < 0.15 && abs(selected.drive-0.5) > 0.35) sprintf(buf, "Sprinting");
-					else if(abs(selected.rotation-0.5) < 0.15 && abs(selected.drive-0.5) > 0.15) sprintf(buf, "Moving");
+					else if(abs(selected.w1 - selected.w2) > 0.06) sprintf(buf, "Spinning...");
+					else if(abs(selected.w1) > 0.2 || abs(selected.w2) > 0.2) sprintf(buf, "Sprinting");
+					else if(abs(selected.w1) > 0.03 || abs(selected.w2) > 0.03) sprintf(buf, "Moving");
 					else if(selected.isDead()) sprintf(buf, "Dead.");
 					else sprintf(buf, "Idle");
 

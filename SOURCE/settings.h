@@ -493,8 +493,10 @@ const enum {
 //defines for brain output code. Changing order here changes brain-to-output order (reversed) and visualization order
 namespace Output {
 const enum {
-	DRIVE= 0,
-	ROTATION,
+	LEFT_WHEEL_F= 0,
+	RIGHT_WHEEL_F,
+	LEFT_WHEEL_B,
+	RIGHT_WHEEL_B,
 	BOOST,
 	JUMP,
 	RED,
@@ -718,10 +720,7 @@ namespace conf {
 //	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
 
 	//movement settings
-	const float AGENT_DRIVE_RATE = 2.5; //(.cfg)
-	const float AGENT_TURN_RATE = 0.1; 
-	const float CONTROL_ANTI_ROTATE_TURN_FACTOR = 5; //mult applied to rotation when the user commands control of an agent to turn in the opposite direction it is currently turning. Normal factor is 1
-	const float CONTROL_ANTI_ROTATE_DRIVE_FACTOR = 0.75; //mult applied to overflow from pressing forward or backward when already going that direction, and is applied to reduce agent rotation.
+	const float WHEEL_SPEED= 1.5; //(.cfg)
 	const float JUMP_VELOCITY_MULT= 0.5; //this value multiplies in to the final velocity value for the jump when getting set. Otherwise, velocities are in range (0,1) for jump > (0.5, 1)
 	const float JUMP_MOVE_BONUS_MULT= 2.0; //(.cfg)
 	const float BOOST_MOVE_MULT= 2.0; //(.cfg)

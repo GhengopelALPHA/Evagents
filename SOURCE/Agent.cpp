@@ -102,8 +102,8 @@ Agent::Agent(
 
 
 	//output mechanical values
-	drive = 0;
-	rotation = 0;
+	w1= 0;
+	w2= 0;
 	boost= false;
 	zvelocity= 0;
 	real_red= 0.5;
@@ -441,10 +441,12 @@ void Agent::printSelf()
 			case Output::GRE :			printf("- green");				break;
 			case Output::JAW :			printf("- jaw");				break;
 			case Output::JUMP :			printf("- jump");				break;
-			case Output::DRIVE :		printf("- drive (forward/backward)"); break;
-			case Output::ROTATION :		printf("- rotation (left/right)"); break;
+			case Output::LEFT_WHEEL_B :	printf("- left wheel (B)");		break;
+			case Output::LEFT_WHEEL_F :	printf("- left wheel (F)");		break;
 			case Output::PROJECT :		printf("- sexual proj.");		break;
 			case Output::RED :			printf("- red");				break;
+			case Output::RIGHT_WHEEL_B : printf("- right wheel (B)");	break;
+			case Output::RIGHT_WHEEL_F : printf("- right wheel (F)");	break;
 			case Output::SPIKE :		printf("- spike");				break;
 			case Output::STIMULANT :	printf("- stimulant");			break;
 			case Output::TONE :			printf("- voice tone");			break;
@@ -455,13 +457,7 @@ void Agent::printSelf()
 	}
 	
 	//outputs
-	printf("movement:\n");
-	if (drive >= 0) printf(" forward: ");
-	else printf(" backward: ");
-	printf("%f\n", drive);
-	if (rotation >= 0) printf(" right: ");
-	else printf(" left: ");
-	printf("%f\n", rotation);
+	printf("wheel 1 & 2 sums: %f, %f\n", w1, w2);
 //	bool boost; //is this agent boosting?
 //	float jump; //what "height" this bot is at after jumping
 //	float red, gre, blu; //colors of the
@@ -594,7 +590,7 @@ float Agent::getOutputSum() const
 
 float Agent::getWheelOutputSum() const
 {
-	return abs(out[Output::DRIVE]) + abs(out[Output::ROTATION]);
+	return out[Output::RIGHT_WHEEL_F] + out[Output::RIGHT_WHEEL_B] + out[Output::LEFT_WHEEL_F] + out[Output::LEFT_WHEEL_B];
 }
 
 void Agent::resetRepCounter(float MEANRADIUS, float REP_PER_BABY)
