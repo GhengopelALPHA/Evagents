@@ -27,7 +27,7 @@ Agent::Agent(
 	brain_mutation_size= BRAIN_MUTATION_SIZE; //abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10);
 	gene_mutation_chance= GENE_MUTATION_CHANCE; //abs(BRAIN_MUTATION_CHANCE+randf(-conf::META_MUTCHANCE,conf::META_MUTCHANCE));
 	gene_mutation_size= GENE_MUTATION_SIZE; //abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10);
-	parentid= 0;
+	parentid= -1;
 	radius= randf(MEANRADIUS*0.2,MEANRADIUS*2.2);
 	strength= randf(0.01,1);
 	numbabies= randi(1,7);

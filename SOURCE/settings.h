@@ -711,6 +711,12 @@ namespace conf {
 	//brain settings
 	const int BRAINBOXES= 70 + Output::OUTPUT_SIZE; //(.cfg)
 	const int BRAINCONNS= 300; //(.cfg)
+	const float BRAIN_CONN_WEIGHT_STD= 8; //std of the randn centered on 0 that new connection weights generate with. 
+	const float BRAIN_CONN_WEIGHT_MUTATION_DAMPEN= 0.1; //multiplier applied to new connection weights that are randomized and new conn mutations.
+	const float BRAIN_CONN_BIAS_STD= 0.5; //std of the randn centered on 0 that new connection biases generate with.
+	const float BRAIN_BOX_BIAS_STD= 0.5;  //std of the randn centered on 0 that new box biases generate with.
+	const float BRAIN_BOX_GW_RANGE= 2; // +/- range of values new box global weights generate within.
+	const float BRAIN_BOX_KP_MAX = 1.2; //max value between [0,this) that new box kp (dampening) values generate within. Remember that the difference to a new output is multiplied by this to get the target value
 	const float LEARN_RATE= 0.001; // rate of Stimulant effecting weights. TODO: (.cfg) CHANGE TO LEARN FROM USER INPUT?
 	const float BRAIN_DIRECTINPUTS= 0.3; //probability of random brain conns on average which will connect directly to inputs
 	const float BRAIN_NEGATIVE_GW_BOXES= 0.2; //probability and approx ratio of random brain's boxes that will have a negative global weight
@@ -869,7 +875,7 @@ namespace conf {
 	const int HAZARD_EVENT_FREQ= 30; //(.cfg)
 	const float HAZARD_EVENT_MULT= 4.0; //(.cfg)
 	const float HAZARD_DECAY= 0.000001; //(.cfg)
-	const float HAZARD_DEPOSIT= 0.00006; //(.cfg)
+	const float HAZARD_DEPOSIT= 0.0001; //(.cfg)
 	const float HAZARD_DAMAGE= 0.0032;//0.0032; //(.cfg)
 	const float HAZARD_POWER= 0.5; //(.cfg)
 	const float HAZARD_EVENT_POINT= 0.9; //this value splits the range of hazard into two: below, normal, above, event, with EVENT_MULT applied and special logic

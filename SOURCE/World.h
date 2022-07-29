@@ -59,9 +59,9 @@ public:
 	int getSelectedID() const;
 	bool isAgentSelected(int id);
 
-	float player_control;
+	bool player_control;
 	float player_left;
-	bool player_right;
+	float player_right;
 	void setControl(bool state);
 
 	void setSelection(int type);

@@ -4,10 +4,10 @@ using namespace std;
 
 CPBox::CPBox(int numboxes)
 {
-	bias = randn(0,0.5);
-	gw = randf(-2,2);
+	bias = randn(0,conf::BRAIN_BOX_BIAS_STD);
+	gw = randf(-conf::BRAIN_BOX_GW_RANGE, conf::BRAIN_BOX_GW_RANGE);
 	if (gw < 0 && randf(0,1) > conf::BRAIN_NEGATIVE_GW_BOXES) gw *= -1;
-	kp = cap(randf(0,1.3));
+	kp = cap(randf(0, conf::BRAIN_BOX_KP_MAX));
 
 	acc = 0;
 	out = 0;
@@ -21,8 +21,8 @@ CPBox::CPBox(){
 
 CPConn::CPConn(int numboxes)
 {
-	w = randn(0,5);
-	bias = randn(0,0.5);
+	w = randn(0, conf::BRAIN_CONN_WEIGHT_STD);
+	bias = randn(0, conf::BRAIN_CONN_BIAS_STD);
 	gw = randf(0,1) < 0.5 ? 1 : -1;
 
 	if (randf(0,1) < conf::BRAIN_DIRECTINPUTS) sid = randi(-Input::INPUT_SIZE, 0); //connect a portion of the brain directly to input (negative sid).
@@ -251,7 +251,7 @@ void CPBrain::initMutate(float MR, float MR2)
 		if (randf(0,1) < MR/10) {
 			//Add conn
 			CPConn a = CPConn((int)boxes.size());
-			a.w /= 10; //new conns in a surviving brain get reduced weight
+			a.w*= conf::BRAIN_CONN_WEIGHT_MUTATION_DAMPEN; //new conns in a surviving brain get reduced weight
 			conns.push_back(a);
 			boxes[boxRef(a.tid)].seed = 0;
 		}
@@ -332,7 +332,7 @@ void CPBrain::initMutate(float MR, float MR2)
 		if (randf(0,1) < MR/15) {
 			//randomize weight
 			CPConn dummy = CPConn(conf::BRAINBOXES);
-			conns[i].w = dummy.w / 10; //reduced weight on existing brain conns
+			conns[i].w = dummy.w*conf::BRAIN_CONN_WEIGHT_MUTATION_DAMPEN; //reduced weight on existing brain conns
 			conns[i].seed = 0;
 			boxes[boxRef(conns[i].tid)].seed = 0;
 		}

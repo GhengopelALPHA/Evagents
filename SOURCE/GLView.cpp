@@ -1807,7 +1807,7 @@ void GLView::renderScene()
 		}
 	}
 
-	if(live_lifepath) drawFinalData();
+	drawFinalData();
 	
 	//draw all agents, also culled if unseen
 	std::vector<Agent>::const_iterator it;
@@ -2578,7 +2578,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 							//filter by target id; if in range of outputs, change target coords to match output range
 							if (tid >= agent.brain.boxes.size() - Output::OUTPUT_SIZE) {
 								//for all output-targeting connections
-								ty = inputlines*ioboxsize + xoffset + 3*yoffset + boxsize + boxsize*(int)((float)(agent.brain.boxes.size())/(float)conf::BOXES_PER_ROW);
+								ty = inputlines*ioboxsize + xoffset + 3*yoffset + boxsize/2 + boxsize*(int)((float)(agent.brain.boxes.size())/(float)conf::BOXES_PER_ROW);
 								tx = ioboxsize/2 + (ioboxsize+xoffset)*((Output::OUTPUT_SIZE - agent.brain.boxes.size() + tid)%conf::BOXES_PER_ROW);
 							} else {
 								//for all brain interior connections
@@ -3632,8 +3632,14 @@ void GLView::drawFinalData()
 
 			glVertex3f(world->lifepath[i-1].x, world->lifepath[i-1].y ,0);
 			glVertex3f(world->lifepath[i].x, world->lifepath[i].y ,0);
+			
+			if (i+1 >= world->lifepath.size()) glVertex3f(world->lifepath[i].x, world->lifepath[i].y ,0);
 		}
 		if (world->lifepath.size() > 10000) pop_front(world->lifepath); //limit the vector so we don't eat the user's memory sticks
+
+		//add render to last vertex, the selected agent coords
+		Agent* selected = world->getSelectedAgent();
+		if (selected != NULL) glVertex3f(selected->pos.x, selected->pos.y ,0);
 
 		glEnd();
 		glLineWidth(1);
@@ -4612,20 +4618,23 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 
 		Color3f temp= live_layersvis[DisplayLayer::TEMP] ? setColorTempCell(y) : Color3f(0); //special for temp: until cell-based, convert y coord and process
 
-		if(layers>1) { //if more than one layer selected, some layers display VERY differently
+		if (layers>1) { //if more than one layer selected, some layers display VERY differently
 			//set terrain to use terrain instead of just elevation
 			terrain= live_layersvis[DisplayLayer::ELEVATION] ? setColorTerrain(values[Layer::ELEVATION]) : Color3f(0);
 
-			//stop fruit from displaying if we're also displaying plants
-			if(live_layersvis[DisplayLayer::PLANTS]){ 
-				fruit= Color3f(0);
-				// live_layersvis[DisplayLayer::ELEVATION]
+			//stop fruit from displaying if we're also displaying plants and elevation
+			if (live_layersvis[DisplayLayer::PLANTS]){ 
+				fruit.red *= 0.65; fruit.gre *= 0.65; fruit.blu *= 0.65;
 
-				//stop displaying meat if we're also displaying plants, fruit, or elevation
-				if(live_layersvis[DisplayLayer::FRUITS]) meat= Color3f(0);
+				if (live_layersvis[DisplayLayer::ELEVATION]) {
+					fruit= Color3f(0);
+
+					//stop displaying meat if we're also displaying plants, fruit, and elevation
+					if (live_layersvis[DisplayLayer::FRUITS]) meat= Color3f(0);
+				}
 			}
 
-			if(layers==2) {
+			if (layers==2) {
 				//if only disp light and another layer (except elevation), mix them lightly.
 				if(live_layersvis[DisplayLayer::LIGHT] && !live_layersvis[DisplayLayer::ELEVATION]) {
 					terrain= Color3f(0.5); // this allows "light" to be "seen"

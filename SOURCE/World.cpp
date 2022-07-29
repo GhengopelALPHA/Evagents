@@ -1058,44 +1058,46 @@ void World::triggerStatEvents(bool showevents)
 
 void World::processCells(bool prefire)
 {
-	if(conf::CELL_TICK_RATE!=0) {
+	if (conf::CELL_TICK_RATE!=0) {
 		//random seeds/spawns
-		if ((modcounter%PLANT_ADD_FREQ==0 && !CLOSED) || getFood()<MIN_PLANT) {
-			int cx=randi(0,CW);
-			int cy=randi(0,CH);
-			cells[Layer::PLANTS][cx][cy]= 1.0;
+		if ((modcounter%PLANT_ADD_FREQ == 0 && !CLOSED) || getFood() < MIN_PLANT) {
+			int cx = randi(0,CW);
+			int cy = randi(0,CH);
+			cells[Layer::PLANTS][cx][cy] = 1.0;
 		}
-		if (modcounter%HAZARD_EVENT_FREQ==0) {
-			int cx=randi(0,CW);
-			int cy=randi(0,CH);
-			cells[Layer::HAZARDS][cx][cy]= cap((cells[Layer::HAZARDS][cx][cy]/90+0.99));
+		if (modcounter%HAZARD_EVENT_FREQ == 0) {
+			int cx = randi(0,CW);
+			int cy = randi(0,CH);
+			if (cells[Layer::HAZARDS][cx][cy] <= conf::HAZARD_EVENT_POINT) {
+				cells[Layer::HAZARDS][cx][cy] = cap((cells[Layer::HAZARDS][cx][cy]/90 + 0.99));
+			}
 		}
-		if (modcounter%FRUIT_ADD_FREQ==0 && randf(0,1)<abs(DROUGHTMULT)) {
+		if (modcounter%FRUIT_ADD_FREQ == 0 && randf(0,1) < abs(DROUGHTMULT)) {
 			while (true) {
-				int cx=randi(0,CW);
-				int cy=randi(0,CH);
-				if(DROUGHTMULT>0){
-					if (cells[Layer::PLANTS][cx][cy]>FRUIT_PLANT_REQUIRE) {
-						cells[Layer::FRUITS][cx][cy]= 1.0;
+				int cx = randi(0,CW);
+				int cy = randi(0,CH);
+				if (DROUGHTMULT > 0){
+					if (cells[Layer::PLANTS][cx][cy] > FRUIT_PLANT_REQUIRE) {
+						cells[Layer::FRUITS][cx][cy] = 1.0;
 						break;
 					}
 				} else { //also handle negative Drought multipliers by reducing random fruit cells
-					cells[Layer::FRUITS][cx][cy]= cap(cells[Layer::FRUITS][cx][cy]-0.1);
+					cells[Layer::FRUITS][cx][cy] = cap(cells[Layer::FRUITS][cx][cy]-0.1);
 					break;
 				}
 			}
 		}
 
-		float invCW= 1/(float)CW;
-		float daytime= (modcounter+current_epoch*FRAMES_PER_EPOCH)*2*M_PI/FRAMES_PER_DAY;
+		float invCW = 1/(float)CW;
+		float daytime = (modcounter+current_epoch*FRAMES_PER_EPOCH)*2*M_PI/FRAMES_PER_DAY;
 
 		#pragma omp parallel for schedule(dynamic)
-		for(int cy=0; cy<(int)CH;cy++){
-			float tempzone= CLIMATE_AFFECT_FLORA ? calcTempAtCoord(cy) : 0.5; //calculate the y-coord's temp once per row
+		for (int cy= 0; cy < (int)CH; cy++){
+			float tempzone = CLIMATE_AFFECT_FLORA ? calcTempAtCoord(cy) : 0.5; //calculate the y-coord's temp once per row
 
-			for(int cx=0; cx<(int)CW;cx++){
+			for (int cx= 0; cx < (int)CW; cx++){
 				//basic simulation spread function; calculate every other cell every other tick, except modcounter= first frame
-				if((cx+cy)%conf::CELL_TICK_RATE!=modcounter%conf::CELL_TICK_RATE && modcounter!=1 && !prefire) continue;
+				if ((cx+cy)%conf::CELL_TICK_RATE != modcounter%conf::CELL_TICK_RATE && modcounter != 1 && !prefire) continue;
 
 				float plant = cells[Layer::PLANTS][cx][cy];
 				float fruit = cells[Layer::FRUITS][cx][cy];
@@ -1103,15 +1105,16 @@ void World::processCells(bool prefire)
 				float hazard = cells[Layer::HAZARDS][cx][cy];
 
 				//plant ops
-				if (plant>0 && !prefire) {
-					float tempmult= CLIMATE_AFFECT_FLORA ? 2-cap(2*min(tempzone+0.5-conf::CLIMATE_KILL_FLORA_ZONE,1.5-conf::CLIMATE_KILL_FLORA_ZONE-tempzone)) : 1.0;
-					plant-= PLANT_DECAY*conf::CELL_TICK_RATE*tempmult; //food quantity is changed by PLANT_DECAY, which is doubled in bad temperature regions (arctic and hadean)
-					if (hazard>0) {
-						plant+= PLANT_GROWTH*conf::CELL_TICK_RATE*max(0.0f,DROUGHTMULT)*hazard; //food grows out of waste/hazard, limited by low DROUGHTMULT
+				if (plant > 0 && !prefire) {
+					float tempmult = CLIMATE_AFFECT_FLORA ?
+						2-cap(2*min(tempzone+0.5-conf::CLIMATE_KILL_FLORA_ZONE, 1.5-conf::CLIMATE_KILL_FLORA_ZONE-tempzone)) : 1.0;
+					plant -= PLANT_DECAY*conf::CELL_TICK_RATE*tempmult; //food quantity is changed by PLANT_DECAY, which is doubled in bad temperature regions (arctic and hadean)
+					if (hazard > 0) {
+						plant += PLANT_GROWTH*conf::CELL_TICK_RATE*max(0.0f,DROUGHTMULT)*hazard; //food grows out of waste/hazard, limited by low DROUGHTMULT
 					}
 
-					if(CLIMATE_AFFECT_FLORA) tempmult= 2*cap(2*min(tempzone,1-tempzone)-conf::CLIMATE_KILL_FLORA_ZONE); //adjust the temp mult for plant spread
-					if (randf(0,1)<PLANT_SPREAD*conf::CELL_TICK_RATE*DROUGHTMULT*tempmult && plant>=0.5) { //plant grows from itself
+					if (CLIMATE_AFFECT_FLORA) tempmult= 2*cap(2*min(tempzone,1-tempzone) - conf::CLIMATE_KILL_FLORA_ZONE); //adjust the temp mult for plant spread
+					if (randf(0,1) < PLANT_SPREAD*conf::CELL_TICK_RATE*DROUGHTMULT*tempmult && plant >= 0.5) { //plant grows from itself
 						//food seeding
 						int ox= randi(cx-1-PLANT_RANGE,cx+2+PLANT_RANGE);
 						int oy= randi(cy-1-PLANT_RANGE,cy+2+PLANT_RANGE);
@@ -1119,10 +1122,11 @@ void World::processCells(bool prefire)
 						if (ox>CW-1) ox-= CW;
 						if (oy<0) oy+= CH;
 						if (oy>CH-1) oy-= CH; //code up to this point ensures world edges are crossed and not skipped
-						if (cells[Layer::PLANTS][ox][oy]<=0.75) cells[Layer::PLANTS][ox][oy]+= 0.25;
+						if (cells[Layer::PLANTS][ox][oy]<=0.75) cells[Layer::PLANTS][ox][oy] += 0.25;
 					}
 				}
-				cells[Layer::PLANTS][cx][cy]= cap(plant);
+				cells[Layer::PLANTS][cx][cy] = cap(plant); //this pattern cannot be simplified because each resource might be used again within each other resource
+				//so we need to maintain caps at the end of the conditionals that might modify them, and we cannot merge !prefire conditionals
 
 				//meat ops
 				if (meat > 0 && !prefire) {
@@ -1140,10 +1144,12 @@ void World::processCells(bool prefire)
 				cells[Layer::FRUITS][cx][cy] = cap(fruit);
 
 				//hazard = cells[Layer::HAZARDS]...
-				if (hazard > 0 && hazard <= conf::HAZARD_EVENT_POINT && !prefire){
-					hazard -= HAZARD_DECAY*conf::CELL_TICK_RATE; //hazard decays
-				} else if (hazard > conf::HAZARD_EVENT_POINT && randf(0,1) < 0.0625 && !prefire){
-					hazard = 90*(hazard-0.99); //instant hazards will be reset to proportionate value
+				if (hazard > 0 && !prefire){
+					if (hazard <= conf::HAZARD_EVENT_POINT){
+						hazard -= HAZARD_DECAY*conf::CELL_TICK_RATE; //hazard decays
+					} else if (hazard > conf::HAZARD_EVENT_POINT && randf(0,1) < 0.0625){
+						hazard = 90*(hazard-0.99); //instant hazards will be reset to proportionate value
+					}
 				}
 				cells[Layer::HAZARDS][cx][cy] = cap(hazard);
 
@@ -2689,10 +2695,10 @@ int World::getClosestRelative(int idx)
 		for (int i=0; i<(int)agents.size(); i++) {
 			if(idx==i) continue;
 
-			if(!agents[i].isDead() && abs(agents[idx].species - agents[i].species) <= agents[idx].kinrange){
+			if(!agents[i].isDead() && agents[i].gencount > 0 && abs(agents[idx].species - agents[i].species) <= agents[idx].kinrange){
 				//choose an alive agent that is within kin range; closer the better
-				meta= 1 - abs(agents[idx].species - agents[i].species);
-			} else continue; //if you aren't related, or dead, you're off to a very bad start if we're trying to find relatives... skip!
+				meta= agents[idx].kinrange/2 - abs(agents[idx].species - agents[i].species);
+			} else continue; //if you aren't related, or dead, or init, you're off to a very bad start if we're trying to find relatives... skip!
 
 			if(agents[i].age<TENDERAGE) meta+= 1; //choose young agents at least
 
@@ -2709,7 +2715,7 @@ int World::getClosestRelative(int idx)
 				temprelative.assign("elder");
 			} 
 
-			if (agents[idx].parentid == agents[i].parentid) { 
+			if (agents[idx].parentid >= 0 && agents[idx].parentid == agents[i].parentid) { 
 				meta+= 100; //...note this gets +103 b/c of cousin above
 				temprelative.assign("sibling");
 			}
