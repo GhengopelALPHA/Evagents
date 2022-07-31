@@ -3332,10 +3332,10 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				}
 
 				//draw cute little dots for eyes
-				for(int q=0;q<NUMEYES;q++) {
-					if(agent.isTiny() && !agent.isTinyEye(q)) break;
-					if(	(world->modcounter+agent.id)%conf::BLINKDELAY>=q*10 && 
-						(world->modcounter+agent.id)%conf::BLINKDELAY<q*10+conf::BLINKTIME && 
+				for (int q=0;q<NUMEYES;q++) {
+					if (agent.isTiny() && !agent.isTinyEye(q)) break;
+					if ((world->modcounter+agent.id)%conf::BLINKDELAY >= q*10 && 
+						(world->modcounter+agent.id)%conf::BLINKDELAY < q*10 + conf::BLINKTIME && 
 						!agent.isDead()) continue; //blink eyes ocasionally... DAWWWWWW
 
 					float ca= agent.angle+agent.eyes[q].dir;
@@ -3357,7 +3357,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				}
 
 				//render grab target line if we have one
-				if(world->GRAB_PRESSURE!=0 && agent.isGrabbing() && !agent.isDead() && agent.grabID!=-1 && !ghost){
+				if(world->GRAB_PRESSURE != 0 && agent.isGrabbing() && !agent.isDead() && agent.grabID != -1 && !ghost){
 					glLineWidth(3);
 					glBegin(GL_LINES);
 
@@ -3670,25 +3670,25 @@ void GLView::drawStatic()
 
 	//begin things that we actually want to draw staticly
 	//First up, the status displays in the top left
-	int currentline= 1;
-	int spaceperline= 16;
+	int currentline = 1;
+	int spaceperline = 16;
 
-	for (int line=0; line<StaticDisplay::STATICDISPLAYS; line++){
+	for (int line=0; line < StaticDisplay::STATICDISPLAYS; line++){
 		//now display the main static displays
 		if (line == StaticDisplay::PAUSED)	{
-			if(live_paused){
+			if (live_paused){
 				float redness= 0.5*abs(sin((float)(currentTime)/250));
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Paused", 0.5f+redness, 0.55f-redness, 0.55f-redness);
 				currentline++; //this appears in every if statement because we only move to next line if we added a line
 			}
 		} else if (line == StaticDisplay::FOLLOW) {
-			if(live_follow!=0) {
+			if (live_follow!=0) {
 				if(world->getSelectedAgentIndex()>=0) RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Following", 0.75f, 0.75f, 0.75f);
 				else RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "No Follow Target", 0.75f, 0.75f, 0.75f);
 				currentline++;
 			}
 		} else if (line == StaticDisplay::AUTOSELECT) {
-			if(live_selection!=Select::NONE && live_selection!=Select::MANUAL) {
+			if (live_selection!=Select::NONE && live_selection!=Select::MANUAL) {
 				switch (live_selection) {
 					case Select::RELATIVE : sprintf(buf, "Relatives Autoselect");			break;
 					case Select::AGGRESSIVE : sprintf(buf, "Aggression Stat Autoselect");	break;
@@ -3713,38 +3713,38 @@ void GLView::drawStatic()
 				currentline++;
 			}
 		} else if (line == StaticDisplay::CLOSED) {
-			if(world->isClosed()) {
+			if (world->isClosed()) {
 				float shift= 0.5*abs(sin((float)(currentTime)/750));
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Closed World", 1.0f-shift, 0.55f-shift, 0.5f+shift);
 				currentline++;
 			}
 		} else if (line == StaticDisplay::DROUGHT) {
-			if(world->isDrought()) {
+			if (world->isDrought()) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Active Drought", 1.0f, 1.0f, 0.0f);
 				currentline++;
-			} else if(world->isOvergrowth()) {
+			} else if (world->isOvergrowth()) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Active Overgrowth", 0.0f, 0.65f, 0.25f);
 				currentline++;
 			}
 		} else if (line == StaticDisplay::MUTATIONS) {
-			if(world->MUTEVENTMULT>1) {
+			if (world->MUTEVENTMULT>1) {
 				sprintf(buf, "%ix Mutation Rate", world->MUTEVENTMULT);
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, buf, 0.75f, 0.0f, 1.0f);
 				currentline++;
 			}
 		} else if (line == StaticDisplay::USERCONTROL) {
-			if(world->player_control) {
+			if (world->player_control) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "User Control Active", 0.0f, 0.2f, 0.8f);
 				currentline++;
 			}
 		} else if (line == StaticDisplay::DEMO) {
-			if(world->isDemo()) {
+			if (world->isDemo()) {
 				float greness= 0.25*abs(cos((float)(currentTime)/500));
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Demo mode", 0.25f-greness, 0.45f+greness, 0.4f-greness);
 				currentline++;
 			}
 		} else if (line == StaticDisplay::DAYCYCLES) {
-			if(world->MOONLIT && world->MOONLIGHTMULT==1.0) {
+			if (world->MOONLIT && world->MOONLIGHTMULT==1.0) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Permanent Day", 1.0f, 1.0f, 0.3f);
 				currentline++;
 			} else if (!world->MOONLIT || world->MOONLIGHTMULT==0) {
@@ -3752,13 +3752,13 @@ void GLView::drawStatic()
 				currentline++;
 			}
 		} else if (line == StaticDisplay::CLIMATE) {
-			if(world->isIceAge()) {
+			if (world->isIceAge()) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Ice Age", 0.3f, 0.9f, 0.9f);
 				currentline++;
-			} else if(world->isHadean()) {
+			} else if (world->isHadean()) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Hadean Climate", 1.0f, 0.55f, 0.15f);
 				currentline++;
-			} else if(world->isExtreme()) {
+			} else if (world->isExtreme()) {
 				RenderStringBlack(10, currentline*spaceperline, GLUT_BITMAP_HELVETICA_12, "Extreme Climate", 1.0f, 0.75f, 0.4f);
 				currentline++;
 			}
@@ -3841,36 +3841,35 @@ void GLView::drawStatic()
 
 
 	//event display y coord, based on Selected Agent Hud to avoid overlap
-	int euy= 20 + 2*UID::BUFFER+((int)ceil((float)LADHudOverview::HUDS/3))*(UID::CHARHEIGHT+UID::BUFFER);
+	int euy = 20 + 2*UID::BUFFER+((int)ceil((float)LADHudOverview::HUDS/3))*(UID::CHARHEIGHT+UID::BUFFER);
 
 	//event log display
-	float ss= 18;
-	float toastbase= 0;
-	int fadetime= conf::EVENTS_HALFLIFE-20;
+	float ss = 18;
+	float toastbase = 0;
+	int fadetime = conf::EVENTS_HALFLIFE-20;
 
-	int count= world->events.size();
-	if(count>conf::EVENTS_DISP) count= conf::EVENTS_DISP; //cap number of notifications displayed
+	int count = world->events.size();
+	if (count > conf::EVENTS_DISP) count = conf::EVENTS_DISP; //cap number of notifications displayed
 
-	for(int eo= 0; eo<count; eo++){
-		int counter= world->events[eo].second.second;
+	for (int eo= 0; eo < count; eo++){
+		int counter = world->events[eo].second.second;
 
-		float fade= cap((-abs((float)counter)+conf::EVENTS_HALFLIFE)/20);
+		float fade = cap((-abs((float)counter) + conf::EVENTS_HALFLIFE)/20);
 
-		float move= 0;
+		float move = 0;
 
+		if (counter > fadetime) move = powf(((float)counter - fadetime)/7.4,3);
+		else if (counter < -fadetime) move = powf(((float)counter + fadetime)/7.4,3);
 
-		if(counter>fadetime) move= powf(((float)counter-fadetime)/7.4,3);
-		else if (counter<-fadetime) move= powf(((float)counter+fadetime)/7.4,3);
-
-		if(eo==0){
-			toastbase= move;
+		if (eo == 0){
+			toastbase = move;
 			//move= 0;
 		}
 
-		float red= 0;
-		float gre= 0;
-		float blu= 0;
-		int type= world->events[eo].second.first;
+		float red = 0;
+		float gre = 0;
+		float blu = 0;
+		int type = world->events[eo].second.first;
 		switch(type) {
 			case EventColor::WHITE : 	red= 0.9; gre= 0.9; blu= 0.8;	break; //type 0: white
 			case EventColor::RED : 		red= 0.8; gre= 0.1; blu= 0.1;	break; //type 1: red
@@ -3903,9 +3902,9 @@ void GLView::drawStatic()
 		RenderStringBlack(ww-UID::EVENTSWIDTH, euy+10+2.5*ss+eo*ss+toastbase+move, GLUT_BITMAP_HELVETICA_12, world->events[eo].first.c_str(), 1.0f, 1.0f, 1.0f, fade);
 	}
 
-	if(world->events.size()>conf::EVENTS_DISP) {
+	if (world->events.size() > conf::EVENTS_DISP) {
 		//display a blinking graphic indicating there are more notifications
-		float blink= 0.5*abs(sin((float)(currentTime)/400));
+		float blink = 0.5*abs(sin((float)(currentTime)/400));
 
 		glLineWidth(3);
 		glBegin(GL_LINES);
@@ -3918,9 +3917,9 @@ void GLView::drawStatic()
 		glLineWidth(1);
 	}
 
-	if(live_paused && world->events.size()>0) {
+	if (live_paused && world->events.size() > 0) {
 		//display a blinking graphic indicating notifications are paused when paused
-		float redness= 0.5*(1-abs(sin((float)(currentTime)/250)));
+		float redness = 0.5*(1-abs(sin((float)(currentTime)/250)));
 
 		glLineWidth(3);
 		glBegin(GL_LINES);
@@ -3939,17 +3938,17 @@ void GLView::drawStatic()
 	renderAllTiles();
 
 	//draw the popup if available
-	if(popupxy[0]>=0 && popupxy[1]>=0) {
+	if (popupxy[0] >= 0 && popupxy[1] >= 0) {
 		//first, split up our popup text and count the number of splits
-		int linecount= popuptext.size();
-		int maxlen= 1;
+		int linecount = popuptext.size();
+		int maxlen = 1;
 		
-		for(int l=0; l<linecount; l++) {
-			if(popuptext[l].size()>maxlen) maxlen= popuptext[l].size();
+		for(int l=0; l < linecount; l++) {
+			if(popuptext[l].size()>maxlen) maxlen = popuptext[l].size();
 		}
 
-		float popuplen= (maxlen+(float)(maxlen*maxlen)/100+1)*5-8;
-		float popupheight= (float)linecount*13+6;
+		float popuplen = (maxlen+(float)(maxlen*maxlen)/100+1)*5-8;
+		float popupheight = (float)linecount*13+6;
 
 		glBegin(GL_QUADS);
 		glColor4f(0,0.4,0.6,0.65);
@@ -3971,7 +3970,7 @@ void GLView::drawStatic()
 		glVertex3f(popupxy[0],popupxy[1],0);
 		glEnd();
 
-		for(int l=0; l<popuptext.size(); l++) {
+		for (int l=0; l < popuptext.size(); l++) {
 			RenderString(popupxy[0]+5, popupxy[1]+13*(l+1), GLUT_BITMAP_HELVETICA_12, popuptext[l].c_str(), 0.8f, 1.0f, 1.0f);
 		}
 	}
@@ -3995,14 +3994,14 @@ void GLView::drawPieDisplay(float x, float y, float size, std::vector<std::pair<
 	float sum = getSum(values);
 
 	//skip stuff if sum is zero or negative
-	if(sum>0) {
+	if (sum > 0) {
 		
 		//ready to draw
 		float angler= 0; //it should be noted that, due to drawQuadrant taking a & b as RATIOS of a whole circle, this is the start angle as a RATIO
 		float divsum= 1/sum;
 
 		// render all values
-		for(int i=0; i<values.size(); i++){
+		for (int i=0; i<values.size(); i++){
 			glBegin(GL_POLYGON);
 
 			//color is based on the first element, the string. This is input elsewhere
