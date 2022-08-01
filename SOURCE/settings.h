@@ -307,8 +307,11 @@ const enum {
 //defines for the debug static display lines in the top-left corner. Changing order here changes listing order but ONLY within the group
 namespace StaticDisplayDebug{
 const enum {
+	WWIDTH,
+	WHEIGHT,
 	MODCOUNT,
 	GLMODCOUNT,
+	GLPOS,
 	GLSCALEMULT,
 	GLMOUSEPOS,
 	WORLDMOUSEPOS,

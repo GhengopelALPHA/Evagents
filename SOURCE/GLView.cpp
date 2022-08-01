@@ -3019,21 +3019,19 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 		//end local coordinate stuff
 		glPopMatrix();
 
-		if(world->isAgentSelected(agent.id) && !ghost) {//extra info for selected agent
+		if (world->isAgentSelected(agent.id) && !ghost) { //extra info for selected agent
 			//debug stuff
-			if(world->isDebug()) {
+			if (world->isDebug()) {
 				//debug sight lines: connect to anything selected agent sees
 				glBegin(GL_LINES);
-				for (int i=0;i<(int)world->linesA.size();i++) {
+				for (int i=0; i < (int)world->linesA.size(); i++) {
 					glColor3f(1,1,1);
-					glVertex3f(world->linesA[i].x,world->linesA[i].y,0);
-					glVertex3f(world->linesB[i].x,world->linesB[i].y,0);
+					glVertex3f(world->linesA[i].x, world->linesA[i].y, 0);
+					glVertex3f(world->linesB[i].x, world->linesB[i].y, 0);
 				}
-				world->linesA.resize(0);
-				world->linesB.resize(0);
+				// lines are deleted by world now
 				
 				//debug cell smell box: outlines all cells the selected agent is "smelling"
-
 				int scx= (int) (agent.pos.x/conf::CZ);
 				int scy= (int) (agent.pos.y/conf::CZ);
 
@@ -3802,14 +3800,20 @@ void GLView::drawStatic()
 
 	if (world->isDebug()) {
 		currentline++;
-		for (int line=0; line<StaticDisplayDebug::STATICDISPLAYS; line++){
+		for (int line=0; line < StaticDisplayDebug::STATICDISPLAYS; line++){
 			//now display the debug static displays
-			if (line == StaticDisplayDebug::GLMODCOUNT) {
+			if (line == StaticDisplayDebug::WWIDTH) {
+				sprintf(buf, "Window width: %i", wWidth);
+			} else if (line == StaticDisplayDebug::WHEIGHT) {
+				sprintf(buf, "Window height: %i", wHeight);
+			} else if (line == StaticDisplayDebug::GLMODCOUNT) {
 				sprintf(buf, "GL modcounter: %i", modcounter);
 			} else if (line == StaticDisplayDebug::MODCOUNT) {
 				sprintf(buf, "World modcounter: %i", world->modcounter);
 			} else if (line == StaticDisplayDebug::GLMOUSEPOS) {
 				sprintf(buf, "GL mouse pos: (%i, %i)", mousex, mousey);
+			}  else if (line == StaticDisplayDebug::GLPOS) {
+				sprintf(buf, "Crosshair pos: (%.1f, %.1f)", xtranslate, ytranslate);
 			}  else if (line == StaticDisplayDebug::WORLDMOUSEPOS) {
 				int wx= convertMousePosToWorld(true, mousex);
 				int wy= convertMousePosToWorld(false, mousey);

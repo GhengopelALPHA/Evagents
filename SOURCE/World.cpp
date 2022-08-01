@@ -660,6 +660,10 @@ void World::processWorldTick()
 
 	processClimate();
 
+	//clear out debug lines
+	linesA.resize(0);
+	linesB.resize(0);
+
 	modcounter++;
 }
 
