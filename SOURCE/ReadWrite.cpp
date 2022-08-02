@@ -152,7 +152,6 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 		fprintf(file, "globalw= %f\n", a->brain.boxes[b].gw);
 		fprintf(file, "bias= %f\n", a->brain.boxes[b].bias);
 		fprintf(file, "seed= %i\n", a->brain.boxes[b].seed);
-		fprintf(file, "dead= %i\n", (int)a->brain.boxes[b].dead);
 		if(!a->isDead()) {
 			fprintf(file, "target= %f\n", a->brain.boxes[b].target);
 			fprintf(file, "out= %f\n", a->brain.boxes[b].out);
@@ -192,7 +191,7 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 	int eyenum= -1; //temporary index holders
 	int earnum= -1;
 	int boxnum= -1;
-	int connnum= -1;
+	CPConn xconn;
 	int i; //integer buffer
 	float f; //float buffer
 
@@ -202,17 +201,18 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 		pos= strtok(line,"\n");
 		sscanf(line, "%s%s", var, dataval);
 
-		if(mode==ReadWriteMode::READY) {
+		if (mode==ReadWriteMode::READY) {
 			if(strcmp(var, "<a>")==0){
 				mode = ReadWriteMode::AGENT;
+				xa.brain.conns.clear();
 			}
-		}
-		
-		if(mode==ReadWriteMode::AGENT){
+		} else if (mode==ReadWriteMode::AGENT){
 			if(strcmp(var, "</a>")==0){
-				//end agent tag is checked for, and when found, copies agent xa to the world
+				//end agent tag is checked for, and when found, resets brain, and copies agent xa to the world
+				xa.brain.resetBrain();
 				if(loadexact) world->addAgent(xa);
 				else world->loadedagent= xa; //if we are loading a single agent, push it to buffer
+				mode= ReadWriteMode::READY;
 			}else if(strcmp(var, "posx=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.pos.x= f;
@@ -352,9 +352,9 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 //			}else if(strcmp(var, "boxes=")==0){
 //				sscanf(dataval, "%i", &i);
 //				xa.brain.boxes.resize(i);
-			}else if(strcmp(var, "conns=")==0){
-				sscanf(dataval, "%i", &i);
-				xa.brain.conns.resize(i);
+//			}else if(strcmp(var, "conns=")==0){
+//				sscanf(dataval, "%i", &i);
+//				xa.brain.conns.resize(i);
 			}else if(strcmp(var, "<y>")==0){
 				mode= ReadWriteMode::EYE; //eye mode
 			}else if(strcmp(var, "<n>")==0){
@@ -411,10 +411,6 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "seed=")==0){
 				sscanf(dataval, "%i", &i);
 				xa.brain.boxes[boxnum].seed= i;
-			}else if(strcmp(var, "dead=")==0){
-				sscanf(dataval, "%i", &i);
-				if(i>=1) xa.brain.boxes[boxnum].dead= true;
-				else xa.brain.boxes[boxnum].dead= false;
 			}else if(strcmp(var, "target=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.brain.boxes[boxnum].target= f;
@@ -427,31 +423,29 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}
 		}else if(mode==ReadWriteMode::CONN){
 			if(strcmp(var, "</n>")==0){
+				xa.brain.conns.push_back(xconn); //push to agent brain
 				mode= ReadWriteMode::AGENT; //revert to agent mode
-			}else if(strcmp(var, "conn#=")==0){
-				sscanf(dataval, "%i", &i);
-				connnum= i;
 			}else if(strcmp(var, "type=")==0){
 				sscanf(dataval, "%i", &i);
-				xa.brain.conns[connnum].type = i;
+				xconn.type = i;
 			}else if(strcmp(var, "w=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.brain.conns[connnum].w = f;
+				xconn.w = f;
 			}else if(strcmp(var, "greatw=")==0){
 				sscanf(dataval, "%i", &i);
-				xa.brain.conns[connnum].gw= i;
+				xconn.gw= i;
 			}else if(strcmp(var, "bias=")==0){
 				sscanf(dataval, "%f", &f);
-				xa.brain.conns[connnum].bias= f;
+				xconn.bias= f;
 			}else if(strcmp(var, "sid=")==0){
 				sscanf(dataval, "%i", &i);
-				xa.brain.conns[connnum].sid = i;
+				xconn.sid = i;
 			}else if(strcmp(var, "tid=")==0){
 				sscanf(dataval, "%i", &i);
-				xa.brain.conns[connnum].tid = i;
+				xconn.tid = i;
 			}else if(strcmp(var, "seed=")==0){
 				sscanf(dataval, "%i", &i);
-				xa.brain.conns[connnum].seed = i;
+				xconn.seed = i;
 			}
 		}
 	}

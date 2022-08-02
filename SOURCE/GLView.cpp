@@ -3029,7 +3029,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					glVertex3f(world->linesA[i].x, world->linesA[i].y, 0);
 					glVertex3f(world->linesB[i].x, world->linesB[i].y, 0);
 				}
-				// lines are deleted by world now
+				// lines are deleted by world now, fixing a bug with them disappearing when paused
 				
 				//debug cell smell box: outlines all cells the selected agent is "smelling"
 				int scx= (int) (agent.pos.x/conf::CZ);
@@ -3077,7 +3077,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 	glTranslatef(x,y,0);
 
 	//handle selected agent outliner
-	if (live_agentsvis!=Visual::NONE && world->isAgentSelected(agent.id) && !ghost) {
+	if (live_agentsvis != Visual::NONE && world->isAgentSelected(agent.id) && !ghost) {
 		//draw selection outline
 		glLineWidth(2);
 		glBegin(GL_LINES);
@@ -3087,7 +3087,9 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		glLineWidth(1);
 	}
 
-	if ((live_agentsvis!=Visual::NONE && (live_hidedead==0 || !agent.isDead())) && (live_hidegenz==0 || agent.gencount>0) || ghost) {
+	if (live_agentsvis != Visual::NONE && (live_hidedead == 0 || !agent.isDead()) 
+		&& (live_hidegenz == 0 || agent.gencount > 0) 
+		|| ghost) {
 		// don't render if visual set to NONE, or if we're hiding the agent for some reason
 
 		//agent body color assignment
@@ -3127,8 +3129,8 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 
 		//the center gets its own alpha and darkness multiplier. For now, tied to reproduction mode (asexual, sexual F, or sexual M). See centerrender def
 		float centeralpha= cap(agent.centerrender);
-		float centercmult= agent.centerrender>1.0 ? -0.5*agent.centerrender+1.25 : 0.5*agent.centerrender+0.25;
-		if (agent.isTiny() && live_agentsvis!=Visual::RGB) {
+		float centercmult= agent.centerrender > 1.0 ? -0.5*agent.centerrender+1.25 : 0.5*agent.centerrender+0.25;
+		if (agent.isTiny() && live_agentsvis != Visual::RGB) {
 			//we can't see the difference on tiny agents, so reset them
 			centeralpha= 1.0;
 			centercmult= 1.0;
@@ -3154,8 +3156,8 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		if (scalemult > .3 || ghost) { //dont render eyes, ears, or boost if zoomed out, but always render them on ghosts
 
 			//draw eye lines
-			for(int q=0;q<NUMEYES;q++) {
-				if(agent.isTiny() && !agent.isTinyEye(q)) break; //skip extra eyes for tinies
+			for (int q=0; q < NUMEYES; q++) {
+				if (agent.isTiny() && !agent.isTinyEye(q)) break; //skip extra eyes for tinies
 				float aa= agent.angle+agent.eyes[q].dir;
 				
 				glBegin(GL_LINES);
@@ -3168,7 +3170,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			}
 
 			//ears
-			for(int q=0;q<NUMEARS;q++) {
+			for (int q=0; q < NUMEARS; q++) {
 				glBegin(GL_POLYGON);
 				float aa= agent.angle + agent.ears[q].dir;
 				//the centers of ears are black
@@ -3176,11 +3178,12 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				glVertex3f(rad*cos(aa), rad*sin(aa),0);
 
 				//color ears differently if we are set on the sound profile or debug
-				if(live_profilevis==Profile::SOUND || world->isDebug()) {
+				if (live_profilevis == Profile::SOUND || world->isDebug()) {
 					std::pair<Color3f,float> earcolor= setColorEar(q);
-
 					glColor4f(earcolor.first.red, earcolor.first.gre, earcolor.first.blu, 0.5*dead); 
-				} else glColor4f(agent.real_red,agent.real_gre,agent.real_blu,0.5*dead);
+				} else {
+					glColor4f(agent.real_red,agent.real_gre,agent.real_blu,0.5*dead);
+				}
 
 				drawCircle(rad*cos(aa), rad*sin(aa), 2*agent.hear_mod);
 				glColor4f(0,0,0,0.35);
@@ -3192,25 +3195,26 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			//boost blur
 			//this needs a rework if we're going to keep agent transparency a thing (used for asexual mode indicator)
 			if (agent.boost){
-				Vector3f displace= agent.dpos - agent.pos;
-				for(int q=1;q<4;q++){
+				Vector3f displace= (agent.dpos - agent.pos) / agent.radius;
+				for (int q=1; q<4; q++){
+					float xdisp = capm(displace.x, -1, 1)*(q*20);
+					float ydisp = capm(displace.y, -1, 1)*(q*20);
 					glBegin(GL_POLYGON);
 					glColor4f(color.red,color.gre,color.blu,dead*centeralpha*0.1);
-					glVertex3f(0,0,0);
+					glVertex3f(xdisp, ydisp, 0);
 					glColor4f(color.red,color.gre,color.blu,0.25);
-					drawCircle(capm(displace.x, -1, 1)*(q*10), capm(displace.y, -1, 1)*(q*10), r);
+					drawCircle(xdisp, ydisp, r);
 					glColor4f(color.red,color.gre,color.blu,dead*centeralpha*0.1);
-					glVertex3f(0,0,0);
+					glVertex3f(xdisp, ydisp, 0);
 					glEnd();
 				}
 			}
 
-			//vis grabbing (if enabled)
+			//vis grabbing (if enabled), when NOT holding
 			if(world->GRAB_PRESSURE!=0 && agent.isGrabbing()){
-				glLineWidth(2);
-				glBegin(GL_LINES);
-
 				if(agent.grabID==-1 || ghost){
+					glLineWidth(2);
+					glBegin(GL_LINES);
 					glColor4f(0.0,0.7,0.7,0.75);
 
 					float mult= agent.grabID==-1 ? 1 : 0;
@@ -3222,10 +3226,9 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					glVertex3f(r*cos(ab), r*sin(ab),0);
 					glVertex3f((world->GRABBING_DISTANCE+r)*cos(ab), (world->GRABBING_DISTANCE+r)*sin(ab), 0);
 
+					glEnd();
+					glLineWidth(1);
 				}
-
-				glEnd();
-				glLineWidth(1);
 			}
 		}
 		

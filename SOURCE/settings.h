@@ -678,7 +678,8 @@ namespace conf {
 	//physics
 	const float GRAVITY_ACCELERATION= 0.010; //(.cfg)
 	const float BUMP_PRESSURE= 0.1; //(.cfg)
-	const float GRAB_PRESSURE= 0.1; //(.cfg)
+	const float GRAB_PRESSURE= 0.05; //(.cfg)
+	const float GRAB_ROTATION_LIMIT = 0.08; // This is the max possible -/+ value an agent's angle can change due to grab pressure, in radians
 	const float SOUND_PITCH_RANGE= 0.1; //(.cfg)
 	const float WHEEL_VOLUME= 0.1; //multiplier of the wheel speeds when being heard
 	const float WHEEL_TONE= 0.125; //tone value that wheels are heard at, in range [0,1]

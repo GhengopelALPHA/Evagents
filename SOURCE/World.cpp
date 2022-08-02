@@ -2213,11 +2213,11 @@ void World::processAgentInteractions()
 							//"grab" (hehe) the coords of the other agent, relative to current agent
 							a->grabx= a2->pos.x-a->pos.x; a->graby= a2->pos.y-a->pos.y;
 
-							if(d>(sumrad+1.0)){
+							if (d > sumrad + 1.0){
 								//Pull us together!
 								//find the target point for a2
 								float dpref= sumrad + 1.5;
-								Vector2f tpos(a->pos.x+dpref*cos(a->angle+a->grabangle),a->pos.y+dpref*sin(a->angle+a->grabangle));
+								Vector2f tpos(a->pos.x + dpref*cos(a->angle + a->grabangle), a->pos.y + dpref*sin(a->angle + a->grabangle));
 
 								float ff1= a2->radius*ainvrad*a->grabbing*GRAB_PRESSURE; //the radii come in here for inertia-like effect
 								float ff2= a->radius*a2invrad*a->grabbing*GRAB_PRESSURE;
@@ -2230,8 +2230,8 @@ void World::processAgentInteractions()
 								a2->borderRectify();
 							}
 
-							//the graber gets rotated toward the grabbed agent by a ratio of their radii, limited to 0.08 radian
-							a->angle+= capm(a->grabbing*diff*a2->radius*ainvrad, -0.08, 0.08);
+							//the graber gets rotated toward the grabbed agent by a ratio of their radii, limited in radians
+							a->angle+= capm(a->grabbing*diff*a2->radius*ainvrad, -conf::GRAB_ROTATION_LIMIT, conf::GRAB_ROTATION_LIMIT);
 						}
 					} else if (a->grabID==a2->id) {
 						//grab distance exceeded, break the bond
