@@ -663,6 +663,7 @@ namespace conf {
 	const int CONTINENT_ROUGHNESS = 4; //(.cfg)
 	const int CONTINENT_SPREAD= 20; //how many cells each continent "seed" will, at max, spread from another
 	const float LOWER_ELEVATION_CHANCE= 0.08; //what's the chance that the terrain will drop a level instead of stay the same when "spreading"?
+	const float AMPHIBIAN_THRESHOLD = 0.55; // at what lung value is an agent no longer considered an amphibian, but rather terrestrial?
 	const float OCEANPERCENT= 0.65; //(.cfg)
 	const bool SPAWN_LAKES= true; //(.cfg)
 	const float ISLANDNESS = 0.05; //(.cfg)

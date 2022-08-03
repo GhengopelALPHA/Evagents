@@ -700,19 +700,19 @@ bool Agent::isFrugivore() const
 
 bool Agent::isTerrestrial() const
 {
-	if (lungs>Elevation::BEACH_MID+0.05) return true;
+	if (lungs >= conf::AMPHIBIAN_THRESHOLD) return true;
 	return false;
 }
 
 bool Agent::isAmphibious() const
 {
-	if (lungs>0.5*Elevation::BEACH_MID && lungs<=Elevation::BEACH_MID) return true;
+	if (lungs > 0.5*(Elevation::BEACH_MID + Elevation::SHALLOWWATER) && lungs < conf::AMPHIBIAN_THRESHOLD) return true;
 	return false;
 }
 
 bool Agent::isAquatic() const
 {
-	if (lungs<=0.5*(Elevation::BEACH_MID+Elevation::SHALLOWWATER)) return true;
+	if (lungs <= 0.5*(Elevation::BEACH_MID + Elevation::SHALLOWWATER)) return true;
 	return false;
 }
 

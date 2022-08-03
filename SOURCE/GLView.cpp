@@ -1937,8 +1937,9 @@ Color3f GLView::setColorTone(float tone)
 Color3f GLView::setColorLungs(float lungs)
 {
 	Color3f color;
-	color.red= (0.2+lungs)*(0.4-lungs) + 25*(lungs-0.45)*(0.8-lungs);
+	color.red= (0.2+lungs)*(0.4-lungs) + 22*(lungs-0.5)*(0.85-lungs);
 	color.gre= lungs>0.1 ? 2.45*(lungs)*(1.2-lungs) : 0.0;
+	if (lungs >= conf::AMPHIBIAN_THRESHOLD) color.gre = color.gre*2/3;
 	color.blu= 1-1.5*lungs;
 	return color;
 }
@@ -4773,9 +4774,11 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 				cellcolor= setColorHazard(conf::HAZARD_EVENT_POINT);
 				for(int i= 1; i <= ceil(hazard*4); i++){
 					//draw multiple "puddles"
-					float dirmult= (x+y)%2==0 ? 1 : -1;
+					int dirmult= (x+y)%2==0 ? 1 : -1;
+					int single = ceil(hazard*4)==1 ? 1 : 0;
 					int xindex = 7*(1 - 2*(i%2))*dirmult;
-					int yindex = 8*(2 - (i+3)%5);
+					int yindex = 8*(2 - (i+3)%5)*single;
+
 					glBegin(GL_POLYGON);
 					glColor4f(cellcolor.red*light.red, cellcolor.gre*light.gre, cellcolor.blu*light.blu, hazard*0.25+0.1);
 					drawXOvalRes(x*conf::CZ+conf::CZ*0.5 + xindex, y*conf::CZ+conf::CZ*0.5 + yindex, 1.4*i, 3, 2);
