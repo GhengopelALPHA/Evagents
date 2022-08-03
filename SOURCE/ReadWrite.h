@@ -22,8 +22,8 @@ public:
 
 	void loadAgentFile(World *world, const char *address); //load agent from text file
 	
-	void saveWorld(World *world, float xpos, float ypos, float scalemult, const char *filename); //save world to text file
-	void loadWorld(World *world, float &xtranslate, float &ytranslate, float &scalemult, const char *filename); //load world from text file
+	void saveWorld(World *world, float xpos, float ypos, float scalemult, int autosaves, const char *filename); //save world to text file
+	void loadWorld(World *world, float &xtranslate, float &ytranslate, float &scalemult, int &autosaves, const char *filename); //load world from text file
 	
 	const char *ourfile;
 	const char *lastfile;

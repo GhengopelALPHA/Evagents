@@ -111,7 +111,6 @@ void drawCircleRes(float x, float y, float r, int res) {
 	}
 }
 
-
 void drawOutlineRes(float x, float y, float r, int res) {
 	//similar to above, but is meant for use with GL_LINES
 	float n;
@@ -121,6 +120,29 @@ void drawOutlineRes(float x, float y, float r, int res) {
 		glVertex3f(x+r*sin(n),y+r*cos(n),0);
 		n = (k+1)*(M_PI/4/res);
 		glVertex3f(x+r*sin(n),y+r*cos(n),0);
+	}
+}
+
+void drawXOvalRes(float x, float y, float z, float r, int res) {
+	//draw an oval along the x-axis with a specified resolution. 1= 8 verts, 2= 16, 3= 24, etc
+	// note you cannot input a resolution less than 1 (may change later to allow 0= 4verts, then change to unsigned int
+	float n;
+	if(res<1) res=1;
+	for (int k=0;k<(8*res+1);k++) {
+		n = k*(M_PI/4/res);
+		glVertex3f(x+r*sin(n)*z,y+r*cos(n),0);
+	}
+}
+
+void drawXOvalOutlineRes(float x, float y, float z, float r, int res) {
+	//similar to above, but is meant for use with GL_LINES
+	float n;
+	if(res<1) res=1;
+	for (int k=0;k<(8*res);k++) {
+		n = k*(M_PI/4/res);
+		glVertex3f(x+r*sin(n)*z,y+r*cos(n),0);
+		n = (k+1)*(M_PI/4/res);
+		glVertex3f(x+r*sin(n)*z,y+r*cos(n),0);
 	}
 }
 
@@ -1178,7 +1200,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 			} else {
 				fclose(fl); //we are technically going to open the file again in savehelper... oh well
 
-				savehelper->loadWorld(world, xtranslate, ytranslate, scalemult, filename);
+				savehelper->loadWorld(world, xtranslate, ytranslate, scalemult, live_autosave, filename);
 
 				lastsavedtime= currentTime; //reset last saved time; we have nothing before the load to save!
 
@@ -1286,7 +1308,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 		strcpy(filename,file_name.c_str());
 
 		if (checkFileName(filename)) {
-			savehelper->loadWorld(world, xtranslate, ytranslate, scalemult, filename);
+			savehelper->loadWorld(world, xtranslate, ytranslate, scalemult, live_autosave, filename);
 		}
 		Loader->hide(); //NEEDS LOTS OF WORK
 
@@ -1399,7 +1421,7 @@ void GLView::trySaveWorld(bool force, bool autosave)
 			fclose(ck);
 		} else {
 			if(ck) fclose(ck);
-			savehelper->saveWorld(world, xtranslate, ytranslate, scalemult, filename);
+			savehelper->saveWorld(world, xtranslate, ytranslate, scalemult, live_autosave, filename);
 			lastsavedtime= currentTime;
 			if(!autosave){
 				if (!force) {
@@ -2166,7 +2188,7 @@ Color3f GLView::setColorHazard(float val)
 
 Color3f GLView::setColorWaterHazard(float val)
 {
-	Color3f color(-val/2*0.2,-val/2*0.3,-val/2);
+	Color3f color(-val/2*0.15,-val/2*0.2,-val/2*0.5);
 	if(val>conf::HAZARD_EVENT_POINT){
 		color.red= 1.0;
 		color.gre= 1.0;
@@ -2323,7 +2345,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 
 			glTranslatef(-90,24+0.5*r,0);
 
-			if(scalemult > .2){
+			if(scalemult > .5){
 				//Draw one of the profilers based on the mode we have selected
 				
 				if(live_profilevis==Profile::INOUT || live_profilevis==Profile::BOXES || live_profilevis==Profile::BRAIN){
@@ -2557,7 +2579,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 							float absw = abs(w);
 							float acc;
 
-							if (absw > 1.0) glLineWidth((int)ceil(absw/2));
+							if (absw > 1.0) glLineWidth((int)ceil(absw/4));
 							else {
 								absw *= 5; //adjust alpha so we aren't completely invisible
 								glLineWidth(2);
@@ -3628,12 +3650,13 @@ void GLView::drawFinalData()
 			//skip this draw if is spans too far (like at world borders)
 			if (abs(world->lifepath[i-1].x - world->lifepath[i].x) > 100 || abs(world->lifepath[i-1].y - world->lifepath[i].y) > 100) continue;
 
-			float colmul = (float)i/std::max((float)i, (float)world->lifepath.size() - 300);
-			glColor3f(0.5*colmul,0.75*colmul,0.75*colmul); //color gradually changes from cyan to black, starting with first indexes
+			float colmul = (float)i / std::max((float)i, (float)world->lifepath.size() - 300);
+			glColor3f(0.5*colmul*colmul,0.75*colmul*colmul,0.75*colmul); //color gradually changes from cyan to navy blue to black, starting with first indexes
 
 			glVertex3f(world->lifepath[i-1].x, world->lifepath[i-1].y ,0);
 			glVertex3f(world->lifepath[i].x, world->lifepath[i].y ,0);
 			
+			//add a final start vertex for the last index to draw to our selected agent coords
 			if (i+1 >= world->lifepath.size()) glVertex3f(world->lifepath[i].x, world->lifepath[i].y ,0);
 		}
 		if (world->lifepath.size() > 10000) pop_front(world->lifepath); //limit the vector so we don't eat the user's memory sticks
@@ -4741,6 +4764,32 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 				glVertex3f(x*conf::CZ+0.5*conf::CZ-meatsz*conf::CZ,y*conf::CZ+0.5*conf::CZ,0);
 			}
 
+			if(live_layersvis[DisplayLayer::HAZARDS] && values[Layer::HAZARDS] > 0.025 && scalemult > 0.5){
+				glEnd();
+				//hazard shows as puddles of purple, distorted and in 4 places, each one indicating another 0.25
+				float hazard = values[Layer::HAZARDS];
+				if (hazard > conf::HAZARD_EVENT_POINT) hazard = 90*(hazard - 0.99)-0.00001; //convert event hazards back just for this display
+
+				cellcolor= setColorHazard(conf::HAZARD_EVENT_POINT);
+				for(int i= 1; i <= ceil(hazard*4); i++){
+					//draw multiple "puddles"
+					float dirmult= (x+y)%2==0 ? 1 : -1;
+					int xindex = 7*(1 - 2*(i%2))*dirmult;
+					int yindex = 8*(2 - (i+3)%5);
+					glBegin(GL_POLYGON);
+					glColor4f(cellcolor.red*light.red, cellcolor.gre*light.gre, cellcolor.blu*light.blu, hazard*0.25+0.1);
+					drawXOvalRes(x*conf::CZ+conf::CZ*0.5 + xindex, y*conf::CZ+conf::CZ*0.5 + yindex, 1.4*i, 3, 2);
+					glEnd();
+
+					//draw a solid outline
+					glBegin(GL_LINES);
+					glColor4f(cellcolor.red*light.red, cellcolor.gre*light.gre, cellcolor.blu*light.blu, cap(scalemult/2));
+					drawXOvalOutlineRes(x*conf::CZ+conf::CZ*0.5 + xindex, y*conf::CZ+conf::CZ*0.5 + yindex, 1.4*i, 3, 2);
+					glEnd();
+				}
+				glBegin(GL_QUADS);
+			}
+
 			if(live_layersvis[DisplayLayer::FRUITS] && values[Layer::FRUITS]>0.1 && scalemult>0.3){
 				//draw fruit as a bunch of tiny diamonds, no more than 10 of them, scattered in a pseudorandom fashion
 				float GR= 89.0/55;
@@ -4766,11 +4815,6 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 					glVertex3f(fruitposx-1.5,fruitposy,0);
 				}
 			}
-
-			//if(live_layersvis[DisplayLayer::HAZARDS] && values[Layer::HAZARDS]>0.1 && scalemult>0.3){
-				//hazard shows as puddles of purple, distorted and in 4 places, each one indicating another 0.25
-				//if (values[Layer::HAZARDS] <= conf::HAZARD_EVENT_POINT) {
-
 		}
 
 		if(x==(int)floorf(conf::WIDTH/conf::CZ)-1) {

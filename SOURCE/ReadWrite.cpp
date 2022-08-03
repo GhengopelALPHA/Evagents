@@ -467,7 +467,7 @@ void ReadWrite::loadAgentFile(World *world, const char *address)
 }
 
 
-void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult, const char *filename)
+void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult, int autosaves, const char *filename)
 {
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
 	std::string addressSAV;
@@ -507,6 +507,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult,
 	fprintf(fs,"CLIMATEBIAS= %f\n", world->CLIMATEBIAS);
 	fprintf(fs,"CLIMATEMULT= %f\n", world->CLIMATEMULT);
 	fprintf(fs,"CLOSED= %i\n", world->isClosed());
+	fprintf(fs,"AUTOSAVING= %i\n", autosaves);
 	//if creating more GUI settings to save, please be sure to add them to two sections in GLView. Search ".cfg/.sav"
 	fprintf(fs,"epoch= %i\n", world->current_epoch);
 	fprintf(fs,"mod= %i\n", world->modcounter);
@@ -616,7 +617,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult,
 	printf("World Saved!\n");
 }
 
-void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, float &scalemult, const char *filename)
+void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, float &scalemult, int &autosaves, const char *filename)
 {
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
 	std::string address;
@@ -786,6 +787,9 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 					sscanf(dataval, "%i", &i);
 					if (i==1) world->setClosed(true);
 					else world->setClosed(false);
+				}else if(strcmp(var, "AUTOSAVING=")==0){
+					sscanf(dataval, "%i", &i);
+					autosaves= i;
 //				}else if(strcmp(var, "PAUSED=")==0){
 //					//Paused state (always saves as false)
 //					sscanf(dataval, "%i", &i);

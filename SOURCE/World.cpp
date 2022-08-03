@@ -686,35 +686,35 @@ void World::processNewEpoch()
 
 void World::processClimate()
 {
-	if(modcounter%(5*FRAMES_PER_DAY)==0) { //every 5 days, we adjust climate
-		if(CLIMATE){
+	if (modcounter%(5*FRAMES_PER_DAY) == 0) { //every 5 days, we adjust climate
+		if (CLIMATE){
 			float epochmult= modcounter%FRAMES_PER_EPOCH == 0 ? conf::CLIMATE_INTENSITY_EPOCH_MULT : 1.0f;
 			//simple cap of bias - we can get stuck at the extremes 
-			CLIMATEBIAS= cap(randn(CLIMATEBIAS, CLIMATE_INTENSITY*epochmult));
+			CLIMATEBIAS = cap(randn(CLIMATEBIAS, CLIMATE_INTENSITY*epochmult));
 			
 			//more complicated behavior of the mult - first, average the climate mult towards 0.5 occasionally
-			if(modcounter%(int)(FRAMES_PER_EPOCH/2)==0)
-				CLIMATEMULT= (CLIMATEMULT*conf::CLIMATEMULT_WEIGHT + CLIMATEMULT_AVERAGE) / ((float)(conf::CLIMATEMULT_WEIGHT+1));
+			if (modcounter%(int)(FRAMES_PER_EPOCH/2) == 0)
+				CLIMATEMULT = (CLIMATEMULT*conf::CLIMATEMULT_WEIGHT + CLIMATEMULT_AVERAGE) / ((float)(conf::CLIMATEMULT_WEIGHT+1));
 			//next, take abs randn and cap it
-			CLIMATEMULT= cap(abs(randn(CLIMATEMULT, CLIMATE_INTENSITY*epochmult)));
+			CLIMATEMULT = cap(abs(randn(CLIMATEMULT, CLIMATE_INTENSITY*epochmult)));
 
-			if(current_epoch == 2050 && agents.size()>9000) {
+			if (current_epoch == 2050 && agents.size() > 9000) {
 				CLIMATEBIAS = randf(0,1);
 				CLIMATEMULT = 0.85;
-				if(epochmult!=1.0) {
-					addEvent("2050 Climate Target Status:", EventColor::BLACK);
-					addEvent("     ???     ", EventColor::PURPLE);
+				if (epochmult != 1.0) {
+					addEvent("2050 Climate Target Status:", EventColor::PURPLE);
+					addEvent("     ???     ", EventColor::PURPLE); //TODO: update in 2050 AD
 				}
 			}
 
-			if(epochmult!=1.0) {
-				if(isHadean()) addEvent("Global Hadean Epoch!", EventColor::ORANGE);
-				else if(isIceAge()) addEvent("Global Ice Age Epoch!", EventColor::CYAN);
-				if(isExtreme()) addEvent("Global Temp Extremes", EventColor::ORANGE);
+			if (epochmult != 1.0) {
+				if(isHadean()) addEvent("Global Hadean Epoch Starting!", EventColor::ORANGE);
+				else if(isIceAge()) addEvent("Global Ice Age Epoch Starting!", EventColor::CYAN);
+				if(isExtreme()) addEvent("Global Extreme Temps Epoch Starting!", EventColor::ORANGE);
 				//else if(CLIMATEMULT<0.25) addEvent("Global Uniform Temp", EventColor::YELLOW);
 			}
 
-			if(DEBUG) printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
+			if (DEBUG) printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
 		}
 
 		if (DROUGHTS){
@@ -1065,11 +1065,13 @@ void World::processCells(bool prefire)
 	if (conf::CELL_TICK_RATE!=0) {
 		//random seeds/spawns
 		if ((modcounter%PLANT_ADD_FREQ == 0 && !CLOSED) || getFood() < MIN_PLANT) {
+			// plant random add
 			int cx = randi(0,CW);
 			int cy = randi(0,CH);
 			cells[Layer::PLANTS][cx][cy] = 1.0;
 		}
 		if (modcounter%HAZARD_EVENT_FREQ == 0) {
+			// hazard event random start
 			int cx = randi(0,CW);
 			int cy = randi(0,CH);
 			if (cells[Layer::HAZARDS][cx][cy] <= conf::HAZARD_EVENT_POINT) {
@@ -1077,6 +1079,7 @@ void World::processCells(bool prefire)
 			}
 		}
 		if (modcounter%FRUIT_ADD_FREQ == 0 && randf(0,1) < abs(DROUGHTMULT)) {
+			// fruit random add
 			while (true) {
 				int cx = randi(0,CW);
 				int cy = randi(0,CH);
