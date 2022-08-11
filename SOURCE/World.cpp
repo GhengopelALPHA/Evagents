@@ -4410,10 +4410,10 @@ void World::writeConfig()
 	fprintf(cf, "GRABBING_DISTANCE= %f \t//how far away can an agent grab another? Should not be more than MAX_SENSORY_DISTANCE. 0 disables interaction\n", conf::GRABBING_DISTANCE);
 	fprintf(cf, "BLOOD_SENSE_DISTANCE= %f \t//how far away does the blood sense detect? Should not be more than MAX_SENSORY_DISTANCE. 0 disables blood sensing\n", conf::BLOOD_SENSE_DISTANCE);
 	fprintf(cf, "\n");
-	fprintf(cf, "//the following are angles; you should use radians here. For your reference, pi (half circle) is %f and pi/2 (quarter circle) is %f. You're wel-come!\n", M_PI, M_PI/2);
-	fprintf(cf, "EYE_SENSE_MAX_FOV= %f \t//the angle maximum of eye fov's for agents, in radians. From center to each edge, double this for full range\n", conf::EYE_SENSE_MAX_FOV);
-	fprintf(cf, "BLOOD_SENSE_MAX_FOV= %f \t//the angle maximum of blood sense's fov for agents, in radians. From center to each edge, double this for full range\n", conf::BLOOD_SENSE_MAX_FOV);
-	fprintf(cf, "GRAB_MAX_FOV= %f \t//the angle maximim from the center of the grab direction where other agents may be grabbed, in radians. From center to each edge, double this for full range\n", conf::GRAB_MAX_FOV);
+	fprintf(cf, "//the following are angles; you should use radians here. For your reference, pi (half circle) is %1.15f and pi/2 (quarter circle) is %1.15f. You're wel-come!\n", M_PI, M_PI/2);
+	fprintf(cf, "EYE_SENSE_MAX_FOV= %1.15f //the angle maximum of eye fov's for agents, in radians. From center to each edge, double this for full range\n", conf::EYE_SENSE_MAX_FOV);
+	fprintf(cf, "BLOOD_SENSE_MAX_FOV= %1.15f //the angle maximum of blood sense's fov for agents, in radians. From center to each edge, double this for full range\n", conf::BLOOD_SENSE_MAX_FOV);
+	fprintf(cf, "GRAB_MAX_FOV= %1.15f //the angle maximim from the center of the grab direction where other agents may be grabbed, in radians. From center to each edge, double this for full range\n", conf::GRAB_MAX_FOV);
 	fprintf(cf, "\n");
 	fprintf(cf, "HEALTH_CAP= %f \t\t//max amount of health agents can have. All health bars are scaled off this, and OVERHEAL_REPFILL only applies when health is pushed above this\n", conf::HEALTH_CAP);
 	fprintf(cf, "FRESHKILLTIME= %i \t\t//number of ticks after a spike, collision, or bite that an agent will still drop full meat\n", conf::FRESHKILLTIME);
