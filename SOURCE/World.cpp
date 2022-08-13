@@ -1644,7 +1644,7 @@ void World::processOutputs(bool prefire)
 		float boostmult = a->boost ? BOOST_EXAUSTION_MULT : 1;
 		float exhaustion_wheels = a->getWheelOutputSum()*boostmult;
 		float exhaustion_outputs = a->getOutputSum()*EXHAUSTION_MULT_PER_OUTPUT;
-		float exhaustion_conns = a->brain.conns.size()*EXHAUSTION_MULT_PER_CONN;
+		float exhaustion_conns = a->brain.lives.size()*EXHAUSTION_MULT_PER_CONN;
 		float exhaustion_total = exhaustion_wheels + exhaustion_outputs + exhaustion_conns;
 
 		a->exhaustion = max((float)0, (a->exhaustion + exhaustion_total) + BASEEXHAUSTION)*0.333333; // /3 to average the value
@@ -2271,7 +2271,7 @@ void World::healthTick()
 			}
 
 			//brain activity reduces health (note: this doesn't make sense now that exhaustion is in the picture. default mult has been 0)
-			baseloss += HEALTHLOSS_BRAINUSE*a->getActivity();
+			if (HEALTHLOSS_BRAINUSE != 0) baseloss += HEALTHLOSS_BRAINUSE*a->getActivity();
 
 			a->addDamage(conf::DEATH_NATURAL, baseloss);
 			if (a->health==0) continue; //agent died, we must move on.
@@ -2568,7 +2568,7 @@ void World::setSelection(int type)
 			//fastest agent moving (boost also taken into account)
 			float maxspeed= 0;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float speed= abs(agents[i].w1 + agents[i].w2);
+				float speed= agents[i].w1 * agents[i].w2;
 				if (agents[i].boost) speed*= BOOST_MOVE_MULT;
 				if (!agents[i].isDead() && speed > maxspeed) {
 					maxspeed= speed;

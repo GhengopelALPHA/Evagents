@@ -3553,7 +3553,7 @@ void GLView::drawData()
 			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT, 0);
 
 			//terrestrial count
-			graphcolor= setColorLungs(1.0);
+			graphcolor= setColorLungs(0.8);
 			glColor3f(graphcolor.red,graphcolor.gre,graphcolor.blu);
 			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT - yscaling*world->numTerrestrial[q],0);
 			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT - yscaling*world->numTerrestrial[q+1],0);
@@ -4772,12 +4772,12 @@ void GLView::drawCell(int x, int y, const float values[Layer::LAYERS])
 				if (hazard > conf::HAZARD_EVENT_POINT) hazard = 90*(hazard - 0.99)-0.00001; //convert event hazards back just for this display
 
 				cellcolor= setColorHazard(conf::HAZARD_EVENT_POINT);
-				for(int i= 1; i <= ceil(hazard*4); i++){
+				int puddles = ceil(hazard*4);
+				for(int i= 1; i <= puddles; i++){
 					//draw multiple "puddles"
 					int dirmult= (x+y)%2==0 ? 1 : -1;
-					int single = ceil(hazard*4)==1 ? 1 : 0;
 					int xindex = 7*(1 - 2*(i%2))*dirmult;
-					int yindex = 8*(2 - (i+3)%5)*single;
+					int yindex = 2*(2 - (i+3)%5)*puddles;
 
 					glBegin(GL_POLYGON);
 					glColor4f(cellcolor.red*light.red, cellcolor.gre*light.gre, cellcolor.blu*light.blu, hazard*0.25+0.1);

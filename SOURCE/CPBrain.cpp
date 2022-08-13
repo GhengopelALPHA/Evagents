@@ -182,13 +182,10 @@ void CPBrain::tick(vector< float >& in, vector< float >& out)
 {	
 	for (int i=0; i < (int)lives.size(); i++){
 		//first, get the source value. if -, it's an input; otherwise if +, it's a brain box
-		float value;
-		if (lives[i].sid < 0) value = in[inRef(lives[i].sid)];
-		else value = boxes[boxRef(lives[i].sid)].out;
+		float value = lives[i].sid < 0 ? in[inRef(lives[i].sid)] : boxes[boxRef(lives[i].sid)].out;
 
 		if (lives[i].type == ConnType::INVERTED) value = 1 - value;
-		
-		if (lives[i].type == ConnType::DELTA && lives[i].sid >= 0){ //change sensitive conn compares to old value, and gets magnified by *10 (arbitrary)
+		else if (lives[i].type == ConnType::DELTA && lives[i].sid >= 0){ //change sensitive conn compares to old value, and gets magnified by *10 (arbitrary)
 			value -= boxes[boxRef(lives[i].sid)].oldout;
 			value *= 10;
 		}
