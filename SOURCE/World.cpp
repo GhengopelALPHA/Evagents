@@ -1809,81 +1809,17 @@ void World::processCellInteractions()
 		int scx= (int) capm(a->pos.x + source.x, 0, conf::WIDTH-1)/conf::CZ;
 		int scy= (int) capm(a->pos.y + source.y, 0, conf::HEIGHT-1)/conf::CZ;
 
-		#if defined(_DEBUG)
+/*		#if defined(_DEBUG)
 		if(isDebug() && isAgentSelected(agents[i].id)) {
 			printf("scx: %i, scy: %i\n", scx, scy);
 		}
-		#endif
+		#endif*/
 
 		if(!a->isDead()){
 			if (!a->isAirborne()){ //no interaction if jumping
-				if (!a->boost) { //no new intake if boosting
-					float intake= 0;
-					float speedmult= pow(1 - max(abs(a->w1), abs(a->w2)),3); //penalty for moving
-					speedmult/= (1.0+a->exhaustion); //exhaustion reduces agent physical actions including all intake
-
-					float invmult= 1-STOMACH_EFFICIENCY;
-					float invplant=1-a->stomach[Stomach::PLANT]*invmult;
-					float invmeat= 1-a->stomach[Stomach::MEAT]*invmult;
-					float invfruit=1-a->stomach[Stomach::FRUIT]*invmult;
-					//inverted stomach vals, with the efficiency mult applied
-
-					//---START FOOD---//
-					//plant food
-					float food= cells[Layer::PLANTS][scx][scy];
-					if (food>0) { //agent eats the food
-						//Plant intake is proportional to plant stomach, inverse to speed & exhaustion
-						//min rate is the actual amount of food we can take. Otherwise, apply wasterate
-						float planttake= min(food, PLANT_WASTE*a->stomach[Stomach::PLANT]*invmeat*invfruit*speedmult);
-						//unique for plant food: the less there is, the harder it is to eat, but not impossible
-						planttake*= max(food,PLANT_TENACITY);
-						//decrease cell content
-						cells[Layer::PLANTS][scx][scy]-= planttake;
-						//now convert the taken food into intake for the agent, applying inverted stomach mults
-						intake+= PLANT_INTAKE*planttake/PLANT_WASTE;
-						//this way, it's possible to eat a lot of something from the world, but if stomach isn't efficient, it's wasted
-						a->addIntake(conf::PLANT_TEXT, planttake);
-					}
-
-					//meat food
-					float meat= cells[Layer::MEATS][scx][scy];
-					if (meat>0) { //agent eats meat
-						float meattake= min(meat,MEAT_WASTE*a->stomach[Stomach::MEAT]*invplant*invfruit*speedmult);
-						cells[Layer::MEATS][scx][scy]-= meattake;
-						intake+= MEAT_INTAKE*meattake/MEAT_WASTE;
-						a->addIntake(conf::MEAT_TEXT, meattake);
-					}
-
-					//Fruit food
-					float fruit= cells[Layer::FRUITS][scx][scy];
-					if (fruit>0) { //agent eats fruit
-						float fruittake= min(fruit,FRUIT_WASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*cap(speedmult-0.5)*2);
-						//unique for fruit - speed penalty is more extreme, being completely 0 until agents slow down <0.25
-						cells[Layer::FRUITS][scx][scy]-= fruittake;
-						intake+= FRUIT_INTAKE*fruittake/FRUIT_WASTE;
-						a->addIntake(conf::FRUIT_TEXT, fruittake);
-					}
-
-					// proportion intake via metabolism
-					float metabmult = getMetabolismRatio(a->metabolism);
-					a->repcounter -= metabmult*intake;
-					if (a->repcounter < 0) a->encumbered += 1;
-
-					a->health += (1 - metabmult)*intake;
-					//for default settings, metabolism splits intake this way
-					// M=0		M=0.5	 M=1
-					//H: 1		0.75	 0.5
-					//R: 0		0.25	 0.5
-					// Using a MIN_INTAKE_HEALTH_RATIO of 0, the above table becomes
-					// M=0		M=0.5	 M=1
-					//H: 1		0.5		 0
-					//R: 0		0.5		 1
-					// Using a ratio of 1, the table is always H: 1 and R: 0, no babies ever will be born, because all agents take 100% intake for health
-
-					//---END FOOD---//
-
-					//if (isAgentSelected(a->id)) printf("intake/sum(rates)= %f\n", 6*intake/(PLANT_INTAKE + FRUIT_INTAKE + MEAT_INTAKE));
-				} //end if boosting
+				if (!a->boost) { //no food intake if boosting
+					applyIntakes(a, cells[Layer::PLANTS][scx][scy], cells[Layer::FRUITS][scx][scy], cells[Layer::MEATS][scx][scy]);
+				}
 
 				//hazards
 				float hazard = cells[Layer::HAZARDS][scx][scy];
@@ -1925,7 +1861,7 @@ void World::processCellInteractions()
 				if(dd>=0.1) a->encumbered += (int)(dd*10); //a diff of 0.4 -> +1 encumberment. diff of 0.5 -> +2, 0.6 -> +3, 0.7 -> +4, 0.8 -> +6, 0.9+ -> +10
 				//this should reeeeeally be some sort of "leg type" mechanic, not lungs
 				if(HEALTHLOSS_BADTERRAIN!=0) a->addDamage(conf::DEATH_BADTERRAIN, HEALTHLOSS_BADTERRAIN*dd);
-			}
+			} //end land interaction
 
 			if (a->health > HEALTH_CAP){ //if health has been increased over the cap, limit
 				if(OVERHEAL_REPFILL != 0) a->repcounter -= (a->health-HEALTH_CAP)*OVERHEAL_REPFILL; //if enabled, allow overflow to first fill the repcounter
@@ -1941,15 +1877,72 @@ void World::processCellInteractions()
 	}
 }
 
+void World::applyIntakes(Agent* a, float &plant, float &fruit, float &meat)
+{
+	float intake = 0;
+	float speedmult = pow(1 - max(abs(a->w1), abs(a->w2)),3); //penalty for moving
+	speedmult /= (1.0+a->exhaustion); //exhaustion reduces agent physical actions including all intake
+
+	float invmult = 1-STOMACH_EFFICIENCY;
+	float invplant = 1-a->stomach[Stomach::PLANT]*invmult;
+	float invmeat = 1-a->stomach[Stomach::MEAT]*invmult;
+	float invfruit = 1-a->stomach[Stomach::FRUIT]*invmult;
+	//inverted stomach vals, with the efficiency mult applied
+
+	//---START FOOD---//
+	//plant food
+	if (plant > 0) { //agent eats the food
+		//Plant intake is proportional to plant stomach, inverse to speed & exhaustion
+		//min rate is the actual amount of food we can take. Otherwise, apply wasterate
+		float planttake = min(plant, PLANT_WASTE*a->stomach[Stomach::PLANT]*invmeat*invfruit*speedmult);
+		//unique for plant food: the less there is, the harder it is to eat, but not impossible
+		planttake *= max(plant, PLANT_TENACITY);
+		//decrease cell content
+		plant -= planttake;
+		//now convert the taken food into intake for the agent, applying inverted stomach mults
+		intake += PLANT_INTAKE*planttake/PLANT_WASTE;
+		//this way, it's possible to eat a lot of something from the world, but if stomach isn't efficient, it's wasted
+		a->addIntake(conf::PLANT_TEXT, planttake);
+	}
+
+	//meat food
+	if (meat > 0) { //agent eats meat
+		float meattake = min(meat, MEAT_WASTE*a->stomach[Stomach::MEAT]*invplant*invfruit*speedmult);
+		meat -= meattake;
+		intake += MEAT_INTAKE*meattake/MEAT_WASTE;
+		a->addIntake(conf::MEAT_TEXT, meattake);
+	}
+
+	//Fruit food
+	if (fruit > 0) { //agent eats fruit
+		float fruittake = min(fruit,FRUIT_WASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*cap(speedmult-0.5)*2);
+		//unique for fruit - speed penalty is more extreme, being completely 0 until agents slow down <0.25
+		fruit -= fruittake;
+		intake += FRUIT_INTAKE*fruittake/FRUIT_WASTE;
+		a->addIntake(conf::FRUIT_TEXT, fruittake);
+	}
+
+	// proportion intake via metabolism
+	float metabmult = getMetabolismRatio(a->metabolism);
+	a->repcounter -= metabmult*intake;
+	if (a->repcounter < 0) a->encumbered += 1;
+
+	a->health += (1 - metabmult)*intake;
+	//for default settings, metabolism splits intake this way
+	// M=0		M=0.5	 M=1
+	//H: 1		0.75	 0.5
+	//R: 0		0.25	 0.5
+	// Using a MIN_INTAKE_HEALTH_RATIO of 0, the above table becomes
+	// M=0		M=0.5	 M=1
+	//H: 1		0.5		 0
+	//R: 0		0.5		 1
+	// Using a ratio of 1, the table is always H: 1 and R: 0, no babies ever will be born, because all agents take 100% intake for health
+}
+
 float World::getMetabolismRatio(float metabolism)
 {
 	return metabolism*(1 - MIN_METABOLISM_HEALTH_RATIO);
 }
-
-/*float World::getIntakeRate(float intake, float rate)
-{
-	return min(intake, max(MAX_INTAKE_RATE*rate, MIN_INTAKE_RATE));
-}*/
 
 void World::processAgentInteractions()
 {
@@ -2175,15 +2168,31 @@ void World::processAgentInteractions()
 						a->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5*DMG,1,1,0); //yellow splash means bot has chomped the other bot. ouch!
 
 						float chompvolume = 0.5;
+
 						if (a2->health == 0){ 
 							chompvolume = 1;
-							//red splash means bot has killed the other bot. Murderer!
-							a->initSplash(conf::RENDER_MAXSPLASHSIZE,1,0,0);
-							addTipEvent("Agent Killed Another!", EventColor::RED, a->id);
 							a->killed++;
 							if(a->grabID == a2->id) a->grabID= -1;
+
+							//The agent has been killed, but
+							if (a->radius*a2invrad >= conf::BITE_EATS_RATIO) {
+								//if the ratio of the sizes is over a certain ratio (the attacker is larger), then the target is eaten instead. Yum!
+								float meat = getDroppedMeat(a2);
+								float dummy = 0.0;
+								applyIntakes(a, dummy, dummy, meat);
+
+								a->initSplash(conf::RENDER_MAXSPLASHSIZE,0.25,1,0.25);
+								addTipEvent("Agent Ate Another!", EventColor::RED, a->id);
+							} else {
+								//red splash means bot has killed the other bot. Murderer!
+								a->initSplash(conf::RENDER_MAXSPLASHSIZE,1,0,0);
+								addTipEvent("Agent Killed Another!", EventColor::RED, a->id);
+							}
 							continue;
-						} else addTipEvent("Agent Bit Another!", EventColor::YELLOW, a->id);
+
+						} else {
+							addTipEvent("Agent Bit Another!", EventColor::YELLOW, a->id);
+						}
 
 						if(randf(0,1) > 0.5) tryPlayAudio(conf::SFX_CHOMP1, a->pos.x, a->pos.y, randn(1.0,0.2), chompvolume);
 						else tryPlayAudio(conf::SFX_CHOMP2, a->pos.x, a->pos.y, randn(1.0,0.2), chompvolume);

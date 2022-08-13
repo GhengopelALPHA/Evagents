@@ -130,6 +130,7 @@ public:
 	void healthTick(); //process agent health
 	void processReproduction(); //handle all agent's reproduction needs
 	void processCellInteractions(); //does interactions of agents with cells
+	void applyIntakes(Agent* a, float &plant, float &fruit, float &meat); // applies intake for all given values, and alters the values back out
 	float getMetabolismRatio(float metabolism);
 	void processAgentInteractions(); //does interactions of agents with agents
 	void processDeath(); //manage the distribution of meat, alerts, and death system functions

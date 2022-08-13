@@ -254,7 +254,7 @@ Agent Agent::reproduce(
 	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<GMR*6) a2.stomach[i]= cap(randn(a2.stomach[i], GMR2*3));
 	if (randf(0,1)<GMR*10) a2.species+= (int) (randn(0, 0.5+GMR2*50));
 	if (randf(0,1)<GMR*5 && OVERRIDE_KINRANGE<0) a2.kinrange= (int) abs(randn(a2.kinrange, 1+GMR2*5*(a2.kinrange+1)));
-	if (randf(0,1)<GMR*6) a2.radius= randn(a2.radius, GMR2*15);
+	if (randf(0,1)<GMR*8) a2.radius= randn(a2.radius, GMR2*16);
 	if (a2.radius<1) a2.radius= 1;
 	if (randf(0,1)<GMR) a2.strength= cap(randn(a2.strength, GMR2*4));
 	if (randf(0,1)<GMR*2) a2.chamovid= cap(randn(a2.chamovid, GMR2));

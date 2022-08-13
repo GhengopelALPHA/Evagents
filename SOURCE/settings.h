@@ -745,7 +745,7 @@ namespace conf {
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
 	const float SPIKESPEED= 0.003; //(.cfg)
 	const float VELOCITYSPIKEMIN= 0.2; //minimum velocity difference between two agents in the positive direction to be spiked by the other
-	const float EATING_BITE_RATIO = 2.0; //minimum size ratio of a bitting agent where it will eat the target whole and gain instant reward. Default is double the size
+	const float BITE_EATS_RATIO = 1.5; //minimum size ratio of a bitting agent where it will eat the target whole and gain instant reward. Default is 1.5* the size of the target
 	const bool SPAWN_MIRROR_EYES = true; //(.cfg)
 	const bool PRESERVE_MIRROR_EYES = true; //(.cfg)
 	const float MIN_TEMP_DISCOMFORT_THRESHOLD = 0.005; //minimum discomfort value below which it's just overridden to 0
