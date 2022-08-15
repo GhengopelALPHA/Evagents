@@ -46,16 +46,6 @@ struct Ear
 
 };
 
-/*struct Gene
-{
-	Gene()
-
-	int type;
-	float val;
-	float rate;
-	float pow;
-};*/
-
 class Agent
 {
 //IMPORTANT: if ANY variables are added/removed, you MUST check ReadWrite.cpp to see how loading and saving will be effected!!!
@@ -74,24 +64,23 @@ public:
 		float GENE_MUTATION_SIZE);
 	Agent();
 		
-	//Saved Variables
-	//simulation basics
-	int id;
-	Vector3f pos;
-	Vector3f dpos; //UNSAVED, but LOADED (with the pos values)
-	float height; //TODO
-	float angle; //of the bot
+	// --- Design Note: --- //
+	// There are Stats, and there are Traits/Genes.
+	// - Stats are initialized at spawn/reproduction, and OFTEN change. They are SOMETIMES saved, but since they 
+	//    SOMETIMES can be recalculated, we decide case-by-case.
+	// - Traits/Genes are calculated at spawn/reproduction, and aside from mutations, RARELY change. They are ALWAYS saved.
+	//    The Brain is a kind of trait that is not controlled by genes but rather is it's own thing. It is DEFINITELY saved.
 
-	//Genes! WIP
-	std::vector< std::pair<int, float> > genes; //TODO: NEW genes. First is type, second is value. All Values of same Type get averaged or added
-	//REDO! make new structs instead. need more variables
-
+	//Traits/Genes:
+	//std::vector< std::pair<int, float> > genes; //TODO: NEW genes.
+	//REDO! make new class instead. need more variables & functions for later!
 	float brain_mutation_chance; //how often do mutations occur?
 	float brain_mutation_size; //how significant are they?
 	float gene_mutation_chance; //same as above, but for genes
 	float gene_mutation_size;
 	int parentid; //who's your momma? Note that like mitochondrial DNA, this is only passed from mother to children
 	float radius; //radius of bot
+//	float height; //TODO // physical height of the agent. Typically in the neighborhood of radius
 	float gene_red, gene_gre, gene_blu; //genetic color traits of the agent. can be hidden by chamovid= 1
 	float chamovid; //how strongly the output colors are overriding the genetic colors. 0= full genes, 1= full output
 	float strength; //how "strongly" the wheel speeds are pushed towards their outputs (their muscle strength). In range [0,2]
@@ -102,6 +91,7 @@ public:
 	float stomach[Stomach::FOOD_TYPES]; //stomach, see settings.h for descriptions and order
 	float maxrepcounter; //value of maximum (initial and reset) repcounter
 	float sexprojectbias; //a physical bias trait, making sexual reproduction easier for some species/members. in range [0,1]
+
 	//senses
 	float eye_see_agent_mod;
 	float eye_see_cell_mod;
@@ -118,9 +108,21 @@ public:
 	std::vector<float> out; //see Output in settings.h
 
 
-	//counters, triggers, and layer interaction
-	//saved
-	float health; //in range [0,HEALTH_CAP]
+	//Stats:
+	// - simulation basics
+	int id;  // unique identifier of this agent. NOTE: Load/Save does not NEED this; all agents are re-created trait-by-trait on new templates
+			// some scenarios that it might want to be saved/loaded: 
+			// - Grab uses id to determine who is targeted - fixed by running prefire updates when loading
+			// - preserving selected agent - determined to be unimportant
+	Vector3f pos; // physical position within the world x & y, z is used for jump height
+	Vector3f dpos; // previous position of the agent. For rendering only! Important Note: this is NOT SAVED, but is LOADED, with the pos values
+				// some scenarios that it might want to be saved/loaded: 
+				// - Jump uses the z value to store velocity. ! Simulation fidelity is currently hurt by this, determined to be unimportant for now
+	float angle; // angle of the bot in the world, from the positive x-axis I think
+
+	// - counters & triggers
+	//   - saved:
+	float health; //in range [0,HEALTH_CAP].
 	float repcounter; //when repcounter gets to 0, this bot reproduces
 	float exhaustion; //sum of this agent's outputs over time, reduced by a constant. If this gets too high, the agent suffers
 	int age; //how old is the agent, in 1/10ths
@@ -131,7 +133,7 @@ public:
 	int carcasscount; //counter for how long a dead agent stays on the world. Is reset as long as there is meat under the agent
 	bool hybrid; //is this agent result of crossover?
 
-	//unsaved, are recalculated as needed
+	//   - unsaved, are recalculated at load
 	float discomfort; //what level of temperature discomfort this agent is currently experiencing [0,1]
 	int encumbered; //is this agent experiencing any encumbering effects (childbearing, difficult terrain), and if so, how many?
 	int jawrend; //render counter for jaw. Past ~10 ticks of no jaw action, it is "retracted" visually
@@ -140,22 +142,22 @@ public:
 	float ir, ig, ib; //indicator colors
 	bool near; //are we near any other bots? Used to "tree" the agent-agent code
 	float dhealth; //what is change in health of this agent due to giving/receiving?
-	float dhealthx; //x and y location of other bot
+	float dhealthx; //x and y location of other bot - UNUSED CURRENTLY
 	float dhealthy;
-	float grabx; //x and y location of the grab target
+	float grabx; //x and y location of the grab target. Visuals-affecting only
 	float graby;
 	int children; //how many kids did you say you had again?
 	int killed; //how many (secret) agents have you murdered???
 	int hits; //you should see the other guy... counts attacks on other agents
 	float brainmutations; //records the number of mutations of the brain
+
+	// - lists & death cause - unsaved
 	std::vector<std::string> mutations;
 	std::vector<std::pair<std::string, float>> damages; //tracker for sources of injury
 	std::vector<std::pair<std::string, float>> intakes; //tracker for sources of intake
 	std::string death; //the cause of death of this agent. Do not load-save without handling spaces
 	
-	
-	//outputs
-	//none are saved b/c they are recalculated at world load
+	// - outputs - unsaved
 	float w1; //wheel speeds. in range [-1,1]
 	float w2;
 	bool boost; //is this agent boosting?
@@ -172,13 +174,12 @@ public:
 	float grabangle; //the position of this bot's grab. Other agents can only be grabbed at this angle, and are drawn to this point specifically once grabbed
 	float sexproject; //is this bot trying to give out its genetic data? if so, how strongly? in range [0,2] (bias+output, considered 'father' if >1.0
 
-	//WIP
-	void exhibitGenes(); //process genes list and set/update agent traits & abilities
 
-	void printSelf();
-	void traceBack(int outback=0);
+	//Functions
+	void exhibitGenes(); //process genes list and set/update agent traits & abilities. WIP TODO
 
-	void initSplash(float size, float r, float g, float b);
+	void printSelf(); // print agent details
+	void traceBack(int outback=0); // trace back important contributing conns for a given output. UNUSED CURRENTLY
 	
 	void tick();
 	float getActivity() const;
@@ -189,6 +190,7 @@ public:
 	std::pair<std::string, float> getMostDamage() const;
 	void addIntake(const char * sourcetext, float amount);
 	void addIntake(std::string sourcetext, float amount);
+	void initSplash(float size, float r, float g, float b); //
 	void writeIfKilled();
 
 	Agent reproduce(

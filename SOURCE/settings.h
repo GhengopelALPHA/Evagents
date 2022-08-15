@@ -670,6 +670,7 @@ namespace conf {
 	const int FEATURES_TO_SPAWN = 1; //(.cfg)
 
 	//simulation standards
+	const int AUTOSAVE_FREQUENCY_DAYS = 5; //frequency, in days, that autosaves are made. Always based off 0,0, so every multiple of this day will make a save
 	const int AGENTS_MIN_NOTCLOSED= 50; //(.cfg)
 	const int AGENTS_MAX_SPAWN= 600; //(.cfg)
 	const int AGENTSPAWN_FREQ= 75; //(.cfg)

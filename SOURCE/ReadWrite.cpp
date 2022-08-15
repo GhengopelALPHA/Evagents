@@ -449,7 +449,6 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}
 		}
 	}
-	printf("loaded agents.\n"); //report status
 }
 
 
@@ -628,7 +627,8 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 	int cyl= 0;
 	int mode= ReadWriteMode::READY;//loading mode: -1= off, 0= world, 1= cell, 2= agent, 3= box, 4= connection, 5= eyes, 6= ears
 
-	bool t1= false; //triggers for keeping track of where exactly we are
+	bool t1= false;
+	bool t2= false; //triggers for keeping track of where exactly we are
 
 	float fileversion= 0; //version 0.05+ upgrade tool
 	int i; //integer buffer
@@ -810,17 +810,19 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 				}else if(strcmp(var, "<c>")==0){
 					//cells tag activates cell reading mode
 					mode= ReadWriteMode::CELL;
+					if (!t1) printf("loading cells.\n"); //report status
+					t1= true;
 				}else if(strcmp(var, "<a>")==0){
 					//agent tag activates agent reading mode
 					//version 0.05: this is no longer a mode, but rather a whole another method. Should function identically
-					loadAgents(world, fl, fileversion); //when we leave here, should be EOF					
+					if (!t2) printf("loading agents.\n"); //report status
+					t2= true;
+					loadAgents(world, fl, fileversion); //when we leave here, should be EOF		
 				}
 			}else if(mode==ReadWriteMode::CELL){
 				if(strcmp(var, "</c>")==0){
 					//"end cell" tag is checked for first, because of else condition
 					mode= ReadWriteMode::WORLD;
-					if (!t1) printf("loading cells.\n"); //report status
-					t1= true;
 				}else if(strcmp(var, "cx=")==0){
 					sscanf(dataval, "%i", &i);
 					cxl= i;

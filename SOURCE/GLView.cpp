@@ -1697,10 +1697,11 @@ void GLView::handleIdle()
 	syncLiveWithWorld();	
 
 	//autosave world periodically, based on world time
-	if (live_autosave==1 && !world->isDemo() && world->modcounter%(world->FRAMES_PER_DAY*10)==0){
+	if (live_autosave==1 && !world->isDemo() && world->modcounter%(world->FRAMES_PER_DAY*conf::AUTOSAVE_FREQUENCY_DAYS)==0){
 		trySaveWorld(true,true);
 	}
 
+	//CONTROL.CPP
 	//Do some recordkeeping and let's intelligently prevent users from simulating nothing
 	if(live_worldclosed==1 && world->getAgents()<=0) {
 		live_worldclosed= 0;
@@ -1778,6 +1779,7 @@ void GLView::renderScene()
 	world->audio->setDefault3DSoundMinDistance(100.0f/(scalemult*0.5+1)); //IMPORTANT: this is a true radius that sounds play at 100% volume within
 	world->audio->setListenerPosition(vec3df(xtranslate, ytranslate, 100.0f/scalemult), vec3df(0,0,-1)); //update the listener position. Note the z coord
 
+	//CONTROL.CPP
 	//handle world agent selection interface
 	world->setSelection(live_selection);
 	if (world->getSelectedID()==-1 && live_selection!=Select::MANUAL && live_selection!=Select::NONE) {
@@ -1875,22 +1877,16 @@ Color3f GLView::setColorStomach(const float stomach[Stomach::FOOD_TYPES])
 	float plant= stomach[Stomach::PLANT];
 	float fruit= stomach[Stomach::FRUIT];
 	float meat= stomach[Stomach::MEAT];
-	Color3f color;
-	color.red= meat + fruit*0.9 - plant/4*(1 + fruit);
-	color.gre= plant/2 + fruit/3*(3 + 0.5*plant*(meat - 2) - meat);
-	color.blu= meat*plant*(0.45 + pow(fruit,2)); //these have been *carefully* selected and balanced
-	return color;
+	return setColorStomach(plant, fruit, meat);
 }
 
 Color3f GLView::setColorStomach(float plant, float fruit, float meat)
 {
-	float stomach[Stomach::FOOD_TYPES];
-	for (int i=0; i < Stomach::FOOD_TYPES; i++) {
-		if (i == Stomach::PLANT) stomach[i] = plant;
-		else if (i == Stomach::FRUIT) stomach[i] = fruit;
-		else if (i == Stomach::MEAT) stomach[i] = meat;
-	}
-	return setColorStomach(stomach);
+	Color3f color;
+	color.red= meat + fruit*0.9 - plant/4*(1 + fruit);
+	color.gre= plant/2 + fruit/3*(3 + 0.5*plant*(meat - 2) - meat);
+	color.blu= sqrt(meat)*plant*(0.45 + pow(fruit,2)); //these have been *carefully* selected and balanced
+	return color;
 }
 
 Color3f GLView::setColorTempPref(float discomfort)
@@ -2068,9 +2064,7 @@ Color3f GLView::setColorAgeHybrid(int age, bool hybrid)
 	}
 	if (hybrid) { 
 		color.red = 0;
-		color.blu+= 0.1;
-		color.gre = color.blu>1 ? 5*(color.blu-1) : 0;
-		
+		color.blu+= 0.1;		
 	}
 	return color;
 }

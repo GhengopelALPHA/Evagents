@@ -154,6 +154,8 @@ void World::reset()
 	numAquatic.assign(REPORTS_PER_EPOCH, 0);
 	numHybrid.assign(REPORTS_PER_EPOCH, 0);
 
+	events.clear();
+
 	lifepath.clear();
 
 	//reset achievements
@@ -1925,7 +1927,7 @@ void World::applyIntakes(Agent* a, float &plant, float &fruit, float &meat)
 	// proportion intake via metabolism
 	float metabmult = getMetabolismRatio(a->metabolism);
 	a->repcounter -= metabmult*intake;
-	if (a->repcounter < 0) a->encumbered += 1;
+	if (a->repcounter < 0 && !a->isMale()) a->encumbered += 1;
 
 	a->health += (1 - metabmult)*intake;
 	//for default settings, metabolism splits intake this way
