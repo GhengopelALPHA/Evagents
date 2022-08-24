@@ -638,13 +638,13 @@ void GLView::menu(int key)
 	//user controls:
 	} else if (key==119 && world->getSelectedID()!=-1) { //w (move faster)
 		world->player_control= true;
-		float newleft= capm(world->player_left + 0.05 + (world->player_right - world->player_left)*0.25, -1, 1);
-		world->player_right= capm(world->player_right + 0.05 + (world->player_left - world->player_right)*0.25, -1, 1);
+		float newleft= clamp(world->player_left + 0.05 + (world->player_right - world->player_left)*0.25, -1, 1);
+		world->player_right= clamp(world->player_right + 0.05 + (world->player_left - world->player_right)*0.25, -1, 1);
 		world->player_left= newleft;
 	} else if (key==115 && world->getSelectedID()!=-1) { //s (move slower/reverse)
 		world->player_control= true;
-		float newleft= capm(world->player_left - 0.05 + (world->player_right - world->player_left)*0.25, -1, 1);
-		world->player_right= capm(world->player_right - 0.05 + (world->player_left - world->player_right)*0.25, -1, 1);
+		float newleft= clamp(world->player_left - 0.05 + (world->player_right - world->player_left)*0.25, -1, 1);
+		world->player_right= clamp(world->player_right - 0.05 + (world->player_left - world->player_right)*0.25, -1, 1);
 		world->player_left= newleft;
 	} else if (key==97 && world->getSelectedID()!=-1) { //a (turn left)
 		world->player_control= true;
@@ -653,8 +653,8 @@ void GLView::menu(int key)
 			world->player_right= avg;
 			world->player_left= avg;
 		} else {
-			float newleft= capm(world->player_left - 0.01 - abs(world->player_right - world->player_left)*0.25, -1, 1);
-			world->player_right= capm(world->player_right + 0.01 + abs(world->player_left - world->player_right)*0.25, -1, 1);
+			float newleft= clamp(world->player_left - 0.01 - abs(world->player_right - world->player_left)*0.25, -1, 1);
+			world->player_right= clamp(world->player_right + 0.01 + abs(world->player_left - world->player_right)*0.25, -1, 1);
 			world->player_left= newleft;
 		}
 	} else if (key==100 && world->getSelectedID()!=-1) { //d (turn right)
@@ -664,8 +664,8 @@ void GLView::menu(int key)
 			world->player_right= avg;
 			world->player_left= avg;
 		} else {	
-			float newleft= capm(world->player_left + 0.01 + abs(world->player_right - world->player_left)*0.25, -1, 1);
-			world->player_right= capm(world->player_right - 0.01 - abs(world->player_left - world->player_right)*0.25, -1, 1);
+			float newleft= clamp(world->player_left + 0.01 + abs(world->player_right - world->player_left)*0.25, -1, 1);
+			world->player_right= clamp(world->player_right - 0.01 - abs(world->player_left - world->player_right)*0.25, -1, 1);
 			world->player_left= newleft;
 		}
 	} else if (key==999) { //player control
@@ -1955,17 +1955,17 @@ Color3f GLView::setColorCrossable(float species)
 	//all agents look grey if unrelated or if none is selected, b/c then we don't have a reference
 
 	int selectedindex = world->getSelectedAgentIndex();
-	if(selectedindex>=0){
-		float deviation= abs(species - world->agents[selectedindex].species); //species deviation check
+	if (selectedindex >= 0){
+		float deviation= abs(species - world->agents[selectedindex].traits[Trait::SPECIESID]); //species deviation check
 		if (deviation==0) { //exact copies: cyan
 			color.red= 0.2;
 			color.gre= 0.9;
 			color.blu= 0.9;
-		} else if (deviation<=world->agents[selectedindex].kinrange) {
+		} else if (deviation <= world->agents[selectedindex].traits[Trait::KINRANGE]) {
 			//female-only reproducable relatives: navy blue
 			color.red= 0;
 			color.gre= 0;
-		} else if (deviation<=world->agents[selectedindex].kinrange + conf::VISUALIZE_RELATED_RANGE) {
+		} else if (deviation <= world->agents[selectedindex].traits[Trait::KINRANGE] + conf::VISUALIZE_RELATED_RANGE) {
 			//possible relatives: purple
 			color.gre= 0.4;
 		}
@@ -2040,11 +2040,11 @@ Color3f GLView::setColorMutations(float rate, float size)
 
 Color3f GLView::setColorGeneration(int gen)
 {
-	Color3f color;
-	float relgen= cap((gen - world->STATlowestgen)*world->STATinvgenrange);
+	Color3f color(0);
+	float relgen = cap((gen - world->STATlowestgen + 1)*world->STATinvgenrange);
 
-	if (gen==world->STAThighestgen && gen!=0) { color.red= 0.2; color.gre= 0.9; color.blu= 0.9; }
-	else {
+	if (gen == world->STAThighestgen && gen != 0) { color.red= 0.2; color.gre= 0.9; color.blu= 0.9; }
+	else if (gen != 0) {
 		color.red= powf(relgen,0.25);
 		color.gre= relgen;
 		color.blu= powf(relgen,4);
@@ -2244,8 +2244,8 @@ bool GLView::cullAtCoords(int x, int y)
 void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 {
 	float n;
-	float r= agent.radius;
-	float rp= agent.radius+2.8;
+	float r= agent.traits[Trait::RADIUS];
+	float rp= r + 2.8; //radius plus a buffer
 
 	if ((live_agentsvis!=Visual::NONE && (live_hidedead==0 || !agent.isDead()) && (live_hidegenz==0 || agent.gencount>0)) || ghost) {
 		// don't render if visual set to NONE, or if we're hiding the agent for some reason
@@ -2778,6 +2778,9 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 				// endif sound profile
 
 				} else if (live_profilevis==Profile::METABOLISM) {
+					float metab = agent.traits[Trait::METABOLISM];
+					float metabmult = world->getMetabolismRatio(metab);
+
 					//metabolism profiler: provides a "key" showing all possible colors, an indicator for intake, for health and rep counter distribution, and labels!
 					glBegin(GL_QUADS);
 					glColor3f(0.1,0.1,0.1);
@@ -2800,13 +2803,12 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					// marker showing the selected agent's metabolism
 					glBegin(GL_POLYGON);
 					glColor3f(1,1,1);
-					glVertex3f(40 + 100*agent.metabolism, 9, 0);
-					glVertex3f(40 + 100*agent.metabolism - 2, 13, 0);
-					glVertex3f(40 + 100*agent.metabolism + 2, 13, 0);
+					glVertex3f(40 + 100*metab, 9, 0);
+					glVertex3f(40 + 100*metab - 2, 13, 0);
+					glVertex3f(40 + 100*metab + 2, 13, 0);
 					glEnd();
 
 					//draw vertical bars showing max possible intake, and for real intake now (TODO)
-					float metabmult = world->getMetabolismRatio(agent.metabolism);
 					glBegin(GL_QUADS); //repcount
 					glColor3f(0.1,0.3,0.3);
 					glVertex3f(110, 65 - 50*metabmult, 0);
@@ -2895,7 +2897,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 		if (agent.indicator>0) {
 			if(ghost){
 				//for ghosts, I'm gonna draw a little dot to the top-left for indicator splashes
-				float xi= -18-agent.radius;
+				float xi= -18-agent.traits[Trait::RADIUS];
 				glBegin(GL_POLYGON);
 				glColor4f(agent.ir,agent.ig,agent.ib,1.0);
 				drawCircle(xi, xi, 3);
@@ -2956,8 +2958,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 
 		if(scalemult > .3 && !ghost) {//hide extra visual data if really far away
 
-			int xo=8+agent.radius;
-			int yo=-21;
+			int xo = 8 + r;
+			int yo = -21;
 
 			//health
 			glBegin(GL_QUADS);
@@ -3011,7 +3013,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			if(world->isDebug()) {
 				int ypos = 0;
 				int ydisplace = 12;
-				glTranslatef(8+agent.radius, -32, 0);
+				glTranslatef(8 + r, -32, 0);
 				//print hidden stats & values
 				if(agent.near) {
 					RenderString(0, ypos, GLUT_BITMAP_HELVETICA_12, "near!", 0.8f, 1.0f, 1.0f);
@@ -3083,9 +3085,9 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 {
 	float n;
-	float r= agent.radius;
-	float rp= agent.radius+2.8;
-	float rad= r;
+	float r= agent.traits[Trait::RADIUS];
+	float rp= r + 2.8; //radius plus a buffer
+	float rad= r; //real radius displayed; see jumping and far out zoom code below
 
 	//jumping agents appear magnified
 	if (agent.pos.z > 0) rad+= (agent.pos.z + 1);
@@ -3114,29 +3116,33 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		if (live_agentsvis==Visual::RGB || (live_agentsvis==Visual::NONE && ghost)){ //real rgb values
 			color= Color3f(agent.real_red, agent.real_gre, agent.real_blu);
 		} else if (live_agentsvis==Visual::STOMACH){
-			color = setColorStomach(agent.stomach);
+			color = setColorStomach(
+				agent.traits[Trait::STOMACH + Stomach::PLANT],
+				agent.traits[Trait::STOMACH + Stomach::FRUIT],
+				agent.traits[Trait::STOMACH + Stomach::MEAT]
+			);
 		} else if (live_agentsvis==Visual::DISCOMFORT){
 			color= setColorTempPref(agent.discomfort);
 		} else if (live_agentsvis==Visual::VOLUME) {
 			color= Color3f(agent.volume*(agent.volume+0.1));
 		} else if (live_agentsvis==Visual::SPECIES){ 
-			color= setColorSpecies(agent.species);
+			color= setColorSpecies(agent.traits[Trait::SPECIESID]);
 		} else if (live_agentsvis==Visual::CROSSABLE){ //crossover-compatable to selection
-			color= setColorCrossable(agent.species);
+			color= setColorCrossable(agent.traits[Trait::SPECIESID]);
 		} else if (live_agentsvis==Visual::HEALTH) {
 			color= setColorHealth(agent.health);
 		} else if (live_agentsvis==Visual::REPCOUNTER) {
 			color= setColorRepCount(agent.repcounter, agent.getRepType());
 		} else if (live_agentsvis==Visual::METABOLISM){
-			color= setColorMetabolism(agent.metabolism);
+			color= setColorMetabolism(agent.traits[Trait::METABOLISM]);
 		} else if (live_agentsvis==Visual::STRENGTH){
-			color= setColorStrength(agent.strength);
+			color= setColorStrength(agent.traits[Trait::STRENGTH]);
 		} else if (live_agentsvis==Visual::BRAINMUTATION){
-			color= setColorMutations(agent.brain_mutation_chance, agent.brain_mutation_size);
+			color= setColorMutations(agent.traits[Trait::BRAIN_MUTATION_CHANCE], agent.traits[Trait::BRAIN_MUTATION_SIZE]);
 		} else if (live_agentsvis==Visual::GENEMUTATION){
-			color= setColorMutations(agent.gene_mutation_chance, agent.gene_mutation_size);
+			color= setColorMutations(agent.traits[Trait::GENE_MUTATION_CHANCE], agent.traits[Trait::GENE_MUTATION_SIZE]);
 		} else if (live_agentsvis==Visual::LUNGS){
-			color= setColorLungs(agent.lungs);
+			color= setColorLungs(agent.traits[Trait::LUNGS]);
 		} else if (live_agentsvis==Visual::GENERATIONS){
 			color= setColorGeneration(agent.gencount);
 		} else if (live_agentsvis==Visual::AGE_HYBRID){
@@ -3202,7 +3208,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					glColor4f(agent.real_red,agent.real_gre,agent.real_blu,0.5*dead);
 				}
 
-				drawCircle(rad*cos(aa), rad*sin(aa), 2*agent.hear_mod);
+				drawCircle(rad*cos(aa), rad*sin(aa), 2*agent.traits[Trait::EAR_HEAR_AGENTS]);
 				glColor4f(0,0,0,0.35);
 				glVertex3f(rad*cos(aa), rad*sin(aa),0);
 				glEnd();
@@ -3212,10 +3218,10 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			//boost blur
 			//this needs a rework if we're going to keep agent transparency a thing (used for asexual mode indicator)
 			if (agent.boost){
-				Vector3f displace= (agent.dpos - agent.pos) / agent.radius;
+				Vector3f displace= (agent.dpos - agent.pos) / agent.traits[Trait::RADIUS];
 				for (int q=1; q<4; q++){
-					float xdisp = capm(displace.x, -1, 1)*(q*20);
-					float ydisp = capm(displace.y, -1, 1)*(q*20);
+					float xdisp = clamp(displace.x, -1, 1)*(q*20);
+					float ydisp = clamp(displace.y, -1, 1)*(q*20);
 					glBegin(GL_POLYGON);
 					glColor4f(color.red,color.gre,color.blu,dead*centeralpha*0.1);
 					glVertex3f(xdisp, ydisp, 0);
@@ -3331,19 +3337,20 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 
 			if (scalemult > .3 || ghost) { //render some extra stuff when we're really close
 				//blood sense patch
-				if (agent.blood_mod > 0.25 && world->BLOOD_SENSE_DISTANCE > 0){
-					float count= floorf(agent.blood_mod*4);
-					float aa= 0.02*agent.blood_mod;
+				float blood_sense = agent.traits[Trait::BLOOD_SENSE];
+				if (blood_sense > 0.25 && world->BLOOD_SENSE_DISTANCE > 0){
+					float count= floorf(blood_sense*4)+1;
+					float aa= 0.02*blood_sense;
 					float ca= agent.angle - aa*count/2;
 					//color coresponds to intensity of the input detected, opacity scaled to level of blood_mod over 0.25
-					float alpha= cap(0.5*agent.blood_mod-0.25);
+					float alpha= cap(0.5*blood_sense-0.25);
 					Color3f bloodcolor= setColorMeat(agent.in[Input::BLOOD]+0.5);
 					
 					//the blood sense patch is drawn as multiple circles overlapping. Higher the blood_mult trait, the wider the patch
 					for (int q = 0; q < count; q++) {
 						glBegin(GL_POLYGON);
 						glColor4f(bloodcolor.red, bloodcolor.gre, bloodcolor.blu, alpha);
-						drawCircle((rad*7/8-1)*cos(ca), (rad*7/8-1)*sin(ca), 0.6*agent.blood_mod);
+						drawCircle((rad*7/8-1)*cos(ca), (rad*7/8-1)*sin(ca), 0.6*blood_sense);
 						glEnd();
 						ca+= aa;
 					}
@@ -3362,14 +3369,14 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 					glBegin(GL_POLYGON);
 					glColor4f(0.85,0.85,0.85,1.0);
 					//whites of eyes indicate a > eye cell modifier
-					float eyewhitesize= capm(agent.eye_see_cell_mod/2,0.1,2);
+					float eyewhitesize= clamp(agent.traits[Trait::EYE_SEE_CELLS]/2, 0.1, 2.5);
 					drawCircle((eyerad-1-eyewhitesize/2)*cos(ca), (eyerad-1-eyewhitesize/2)*sin(ca), eyewhitesize);
 					glEnd();
 
 					glBegin(GL_POLYGON);
 					glColor4f(0,0,0,1.0);
 					//the eyes are small and tiny if the agent has a low eye mod. otherwise they are big and buggie
-					float eyesize= capm(agent.eye_see_agent_mod/2,0.1,2);
+					float eyesize= clamp(agent.traits[Trait::EYE_SEE_AGENTS]/2, 0.1, 2.5);
 					drawCircle((eyerad-1-eyesize/2)*cos(ca), (eyerad-1-eyesize/2)*sin(ca), eyesize);
 					glEnd();
 				}
@@ -3399,25 +3406,27 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		//some final final debug stuff that is also shown even on ghosts:
 		if(world->isDebug() || ghost){
 			//wheels and wheel speed indicators, color coded: magenta for right, lime for left
-			float wheelangle= agent.angle+ M_PI/2;
+			float wheelangle = agent.angle + M_PI/2;
+			float axleradius = r/2;
+
 			glBegin(GL_LINES);
 			glColor3f(1,0,1);
-			glVertex3f(agent.radius/2*cos(wheelangle), agent.radius/2*sin(wheelangle), 0);
-			glVertex3f(agent.radius/2*cos(wheelangle)+35*agent.w1*cos(agent.angle), agent.radius/2*sin(wheelangle)+35*agent.w1*sin(agent.angle), 0);
+			glVertex3f(axleradius*cos(wheelangle), axleradius*sin(wheelangle), 0);
+			glVertex3f(axleradius*cos(wheelangle)+35*agent.w1*cos(agent.angle), axleradius*sin(wheelangle)+35*agent.w1*sin(agent.angle), 0);
 			wheelangle-= M_PI;
 			glColor3f(0,1,0);
-			glVertex3f(agent.radius/2*cos(wheelangle), agent.radius/2*sin(wheelangle), 0);
-			glVertex3f(agent.radius/2*cos(wheelangle)+35*agent.w2*cos(agent.angle), agent.radius/2*sin(wheelangle)+35*agent.w2*sin(agent.angle), 0);
+			glVertex3f(axleradius*cos(wheelangle), axleradius*sin(wheelangle), 0);
+			glVertex3f(axleradius*cos(wheelangle)+35*agent.w2*cos(agent.angle), axleradius*sin(wheelangle)+35*agent.w2*sin(agent.angle), 0);
 			glEnd();
 
 			glBegin(GL_POLYGON); 
 			glColor3f(0,1,0);
-			drawCircle(agent.radius/2*cos(wheelangle), agent.radius/2*sin(wheelangle), 1);
+			drawCircle(axleradius*cos(wheelangle), axleradius*sin(wheelangle), 1);
 			glEnd();
 			wheelangle+= M_PI;
 			glColor3f(1,0,1);
 			glBegin(GL_POLYGON); 
-			drawCircle(agent.radius/2*cos(wheelangle), agent.radius/2*sin(wheelangle), 1);
+			drawCircle(axleradius*cos(wheelangle), axleradius*sin(wheelangle), 1);
 			glEnd();
 
 			if(!ghost) {
@@ -3524,14 +3533,14 @@ void GLView::drawData()
 		glEnd();
 
 		//Render data		
-		for(int q=0;q<world->REPORTS_PER_EPOCH-1;q++) {
+		for(int q = 0; q < world->REPORTS_PER_EPOCH - 1; q++) {
 			if(world->numTotal[q]==0) continue;
 
 			//start graphs of aquatics, amphibians, and terrestrials
-			Color3f graphcolor= setColorLungs(0.0);
 			glBegin(GL_QUADS); 
 
 			//aquatic count
+			Color3f graphcolor= setColorLungs(0.15);
 			glColor3f(graphcolor.red,graphcolor.gre,graphcolor.blu);
 			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT - yscaling*world->numTotal[q],0);
 			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT - yscaling*world->numTotal[q+1],0);
@@ -3557,9 +3566,13 @@ void GLView::drawData()
 			glEnd();
 	
 			glBegin(GL_LINES);
-			glColor3f(0,0,0.5); //hybrid count
+			glColor3f(0,0,1); //hybrid count
 			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT - yscaling*world->numHybrid[q],0);
 			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT - yscaling*world->numHybrid[q+1],0);
+
+			glColor3f(0.6,0,0); //spiked count
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT - yscaling*world->numSpiky[q],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT - yscaling*world->numSpiky[q+1],0);
 
 			glColor3f(0,1,0); //herbivore count
 			glVertex3f(-UID::GRAPHWIDTH + q*xinterval,conf::HEIGHT - yscaling*world->numHerbivore[q],0);
@@ -4279,7 +4292,7 @@ void GLView::renderAllTiles()
 			float idboxx2= centerx+idlength/2+10;
 			float idboxy2= idboxy+14;
 
-			Color3f specie= setColorSpecies(selected.species);
+			Color3f specie= setColorSpecies(selected.traits[Trait::SPECIESID]);
 			glColor4f(specie.red,specie.gre,specie.blu,1);
 			glVertex3f(idboxx2,idboxy,0);
 			glVertex3f(idboxx,idboxy,0); 
@@ -4324,20 +4337,20 @@ void GLView::renderAllTiles()
 						glColor3f(0,0.6,0);
 						glVertex3f(ux,uy-UID::CHARHEIGHT,0);
 						glVertex3f(ux,uy-(int)(UID::CHARHEIGHT*2/3),0);
-						glVertex3f(selected.stomach[Stomach::PLANT]*UID::HUDSWIDTH+ux,uy-(int)(UID::CHARHEIGHT*2/3),0);
-						glVertex3f(selected.stomach[Stomach::PLANT]*UID::HUDSWIDTH+ux,uy-UID::CHARHEIGHT,0);
+						glVertex3f(selected.traits[Trait::STOMACH + Stomach::PLANT]*UID::HUDSWIDTH+ux,uy-(int)(UID::CHARHEIGHT*2/3),0);
+						glVertex3f(selected.traits[Trait::STOMACH + Stomach::PLANT]*UID::HUDSWIDTH+ux,uy-UID::CHARHEIGHT,0);
 
 						glColor3f(0.6,0.6,0);
 						glVertex3f(ux,uy-(int)(UID::CHARHEIGHT*2/3),0);
 						glVertex3f(ux,uy-(int)(UID::CHARHEIGHT/3),0);
-						glVertex3f(selected.stomach[Stomach::FRUIT]*UID::HUDSWIDTH+ux,uy-(int)(UID::CHARHEIGHT/3),0);
-						glVertex3f(selected.stomach[Stomach::FRUIT]*UID::HUDSWIDTH+ux,uy-(int)(UID::CHARHEIGHT*2/3),0);
+						glVertex3f(selected.traits[Trait::STOMACH + Stomach::FRUIT]*UID::HUDSWIDTH+ux,uy-(int)(UID::CHARHEIGHT/3),0);
+						glVertex3f(selected.traits[Trait::STOMACH + Stomach::FRUIT]*UID::HUDSWIDTH+ux,uy-(int)(UID::CHARHEIGHT*2/3),0);
 
 						glColor3f(0.6,0,0);
 						glVertex3f(ux,uy-(int)(UID::CHARHEIGHT/3),0);
 						glVertex3f(ux,uy,0);
-						glVertex3f(selected.stomach[Stomach::MEAT]*UID::HUDSWIDTH+ux,uy,0);
-						glVertex3f(selected.stomach[Stomach::MEAT]*UID::HUDSWIDTH+ux,uy-(int)(UID::CHARHEIGHT/3),0);
+						glVertex3f(selected.traits[Trait::STOMACH + Stomach::MEAT]*UID::HUDSWIDTH+ux,uy,0);
+						glVertex3f(selected.traits[Trait::STOMACH + Stomach::MEAT]*UID::HUDSWIDTH+ux,uy-(int)(UID::CHARHEIGHT/3),0);
 					} else if (u==LADHudOverview::REPCOUNTER){ //repcounter indicator, ux=ww-200, uy=25
 						glColor3f(0,0.7,0.7);
 						glVertex3f(ux,uy,0);
@@ -4376,7 +4389,7 @@ void GLView::renderAllTiles()
 					glVertex3f(ux+1+UID::HUDSWIDTH,uy-1-UID::CHARHEIGHT,0);
 					glVertex3f(ux+1+UID::HUDSWIDTH,uy+1,0);
 
-					glColor3f(selected.gene_red,selected.gene_gre,selected.gene_blu);
+					glColor3f(selected.traits[Trait::SKIN_RED], selected.traits[Trait::SKIN_GREEN], selected.traits[Trait::SKIN_BLUE]);
 					glVertex3f(ux+UID::HUDSWIDTH-UID::CHARHEIGHT,uy,0);
 					glVertex3f(ux+UID::HUDSWIDTH-UID::CHARHEIGHT,uy-UID::CHARHEIGHT,0);
 					glVertex3f(ux+UID::HUDSWIDTH,uy-UID::CHARHEIGHT,0);
@@ -4424,6 +4437,7 @@ void GLView::renderAllTiles()
 					} else sprintf(buf, "Not Spikey");
 
 				} else if(u==LADHudOverview::SEXPROJECT){
+					if(live_agentsvis==Visual::REPCOUNTER) drawbox= true;
 					if(selected.isMale()) sprintf(buf, "Sexting (M)");
 					else if(selected.isAsexual()) sprintf(buf, "Is Asexual");
 					else sprintf(buf, "Sexting (F)");
@@ -4489,53 +4503,55 @@ void GLView::renderAllTiles()
 
 				} else if(u==LADHudOverview::TEMPPREF){
 					if(live_agentsvis==Visual::DISCOMFORT) drawbox= true;
-					if(selected.temperature_preference>0.8) sprintf(buf, "Hadean(%.1f)", selected.temperature_preference*100);
-					else if(selected.temperature_preference>0.6)sprintf(buf, "Tropical(%.1f)", selected.temperature_preference*100);
-					else if (selected.temperature_preference<0.2) sprintf(buf, "Arctic(%.1f)", selected.temperature_preference*100);
-					else if (selected.temperature_preference<0.4) sprintf(buf, "Cool(%.1f)", selected.temperature_preference*100);
-					else sprintf(buf, "Temperate(%.1f)", selected.temperature_preference*100);
+					float temp_pref = selected.traits[Trait::THERMAL_PREF];
+					if(temp_pref > 0.8) sprintf(buf, "Hadean(%.1f)", temp_pref*100);
+					else if(temp_pref > 0.6)sprintf(buf, "Tropical(%.1f)", temp_pref*100);
+					else if (temp_pref < 0.2) sprintf(buf, "Arctic(%.1f)", temp_pref*100);
+					else if (temp_pref < 0.4) sprintf(buf, "Cool(%.1f)", temp_pref*100);
+					else sprintf(buf, "Temperate(%.1f)", temp_pref*100);
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::LUNGS){
 					if(live_agentsvis==Visual::LUNGS) drawbox= true;
-					if(selected.isAquatic()) sprintf(buf, "Aquatic(%.3f)", selected.lungs);
-					else if (selected.isTerrestrial()) sprintf(buf, "Terran(%.3f)", selected.lungs);
-					else sprintf(buf, "Amphibian(%.2f)", selected.lungs);
+					if(selected.isAquatic()) sprintf(buf, "Aquatic(%.3f)", selected.traits[Trait::LUNGS]);
+					else if (selected.isTerrestrial()) sprintf(buf, "Terran(%.3f)", selected.traits[Trait::LUNGS]);
+					else sprintf(buf, "Amphibian(%.2f)", selected.traits[Trait::LUNGS]);
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::SIZE){
-					sprintf(buf, "Radius: %.2f", selected.radius);	
+					sprintf(buf, "Radius: %.2f", selected.traits[Trait::RADIUS]);	
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::BRAINMUTCHANCE){
 					if(live_agentsvis==Visual::BRAINMUTATION) drawbox= true;
-					sprintf(buf, "Brain ~%%: %.3f", selected.brain_mutation_chance);
+					sprintf(buf, "Brain ~%%: %.3f", selected.traits[Trait::BRAIN_MUTATION_CHANCE]);
 					isFixedTrait= true;
 				} else if(u==LADHudOverview::BRAINMUTSIZE){ 
 					if(live_agentsvis==Visual::BRAINMUTATION) drawbox= true;
-					sprintf(buf, "Brain ~Sz: %.3f", selected.brain_mutation_size);
+					sprintf(buf, "Brain ~Sz: %.3f", selected.traits[Trait::BRAIN_MUTATION_SIZE]);
 					isFixedTrait= true;
 				} else if(u==LADHudOverview::GENEMUTCHANCE){
 					if(live_agentsvis==Visual::GENEMUTATION) drawbox= true;
-					sprintf(buf, "Gene ~%%: %.3f", selected.gene_mutation_chance);
+					sprintf(buf, "Gene ~%%: %.3f", selected.traits[Trait::GENE_MUTATION_CHANCE]);
 					isFixedTrait= true;
 				} else if(u==LADHudOverview::GENEMUTSIZE){ 
 					if(live_agentsvis==Visual::GENEMUTATION) drawbox= true;
-					sprintf(buf, "Gene ~Sz: %.3f", selected.gene_mutation_size);
+					sprintf(buf, "Gene ~Sz: %.3f", selected.traits[Trait::GENE_MUTATION_SIZE]);
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::CHAMOVID){
 					if(live_agentsvis==Visual::RGB) drawbox= true;
-					sprintf(buf, "Camo: %.3f", selected.chamovid);
+					sprintf(buf, "Camo: %.3f", selected.traits[Trait::SKIN_CHAMOVID]);
 					isFixedTrait= true;
 				
 				} else if(u==LADHudOverview::METABOLISM){
 					if(live_agentsvis==Visual::METABOLISM) drawbox= true;
-					if(selected.metabolism>0.9) sprintf(buf, "Metab:%.2f ++C", selected.metabolism);
-					else if(selected.metabolism>0.6) sprintf(buf, "Metab: %.2f +C", selected.metabolism);
-					else if(selected.metabolism<0.1) sprintf(buf, "Metab:%.2f ++H", selected.metabolism);
-					else if(selected.metabolism<0.4) sprintf(buf, "Metab: %.2f +H", selected.metabolism);
-					else sprintf(buf, "Metab: %.2f B", selected.metabolism);
+					float metab = selected.traits[Trait::METABOLISM];
+					if(metab > 0.9) sprintf(buf, "Metab:%.2f ++C", metab);
+					else if(metab > 0.6) sprintf(buf, "Metab: %.2f +C", metab);
+					else if(metab < 0.1) sprintf(buf, "Metab:%.2f ++H", metab);
+					else if(metab < 0.4) sprintf(buf, "Metab: %.2f +H", metab);
+					else sprintf(buf, "Metab: %.2f B", metab);
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::HYBRID){
@@ -4547,23 +4563,23 @@ void GLView::renderAllTiles()
 
 				} else if(u==LADHudOverview::STRENGTH){
 					if(live_agentsvis==Visual::STRENGTH) drawbox= true;
-					if(selected.strength>0.7) sprintf(buf, "Strong!");
-					else if(selected.strength>0.3) sprintf(buf, "Not Weak");
+					if(selected.traits[Trait::STRENGTH]>0.7) sprintf(buf, "Strong!");
+					else if(selected.traits[Trait::STRENGTH]>0.3) sprintf(buf, "Not Weak");
 					else sprintf(buf, "Weak!");
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::NUMBABIES){
-					sprintf(buf, "Num Babies: %d", selected.numbabies);
+					sprintf(buf, "Num Babies: %.0f", selected.traits[Trait::NUM_BABIES]);
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::SPECIESID){
 					if(live_agentsvis==Visual::SPECIES) drawbox= true;
-					sprintf(buf, "Gene: %d", selected.species);
+					sprintf(buf, "Gene: %.0f", selected.traits[Trait::SPECIESID]);
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::KINRANGE){
 					if(live_agentsvis==Visual::CROSSABLE) drawbox= true;
-					sprintf(buf, "Kin Range: %d", selected.kinrange);
+					sprintf(buf, "Kin Range: %.0f", selected.traits[Trait::KINRANGE]);
 					isFixedTrait= true;
 
 				} else if(u==LADHudOverview::BRAINSIZE){

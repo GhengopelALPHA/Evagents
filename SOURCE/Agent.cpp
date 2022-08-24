@@ -23,30 +23,26 @@ Agent::Agent(
 	angle= randf(-M_PI,M_PI);
 
 	//genes
-	brain_mutation_chance= BRAIN_MUTATION_CHANCE; //abs(BRAIN_MUTATION_CHANCE+randf(-conf::META_MUTCHANCE,conf::META_MUTCHANCE));
-	brain_mutation_size= BRAIN_MUTATION_SIZE; //abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10);
-	gene_mutation_chance= GENE_MUTATION_CHANCE; //abs(BRAIN_MUTATION_CHANCE+randf(-conf::META_MUTCHANCE,conf::META_MUTCHANCE));
-	gene_mutation_size= GENE_MUTATION_SIZE; //abs(MUTARATE2+randf(-conf::META_MUTSIZE,conf::META_MUTSIZE)*10);
-	parentid= -1;
-	radius= randf(MEANRADIUS*0.2,MEANRADIUS*2.2);
-	strength= randf(0.01,1);
-	numbabies= randi(1,7);
-	gene_red= randf(0,1);
-	gene_gre= randf(0,1);
-	gene_blu= randf(0,1);
-	chamovid= cap(randf(-0.25,0.5));
-	lungs= randf(0,1);
-	metabolism= randf(0.25,0.75);
-	setIdealTempPref();
-	species= randi(-conf::SPECIESID_RANGE,conf::SPECIESID_RANGE);
-	kinrange= OVERRIDE_KINRANGE>=0 ? OVERRIDE_KINRANGE : randi(1,conf::SPECIESID_RANGE/10);
-	sexprojectbias= -1; //purposefully excluding "male" and "female" biases for random spawn agents
-	setRandomStomach();
+	//first, set all trait variables to 0
+	traits.resize(Trait::TRAIT_TYPES, 0.0f);
+	counts.resize(Trait::TRAIT_TYPES, 0);
 
-	//senses and sense-ability
+	genes.clear();
+
+	populateGenes(
+		MEANRADIUS,
+		BRAIN_MUTATION_CHANCE,
+		BRAIN_MUTATION_SIZE,
+		GENE_MUTATION_CHANCE,
+		GENE_MUTATION_SIZE
+	);
+
+	setRandomStomach(); // do before expression but after populate
+	
+	expressGenes(OVERRIDE_KINRANGE);	
+
+	//sense structures
 	//eyes
-	eye_see_agent_mod= randf(0.3, 3);
-	eye_see_cell_mod= randf(0.3, 3);
 	for(int i=0;i<NUMEYES;i++) {
 		Eye eye = Eye(EYE_SENSE_MAX_FOV);
 		eyes.push_back(eye);
@@ -59,7 +55,6 @@ Agent::Agent(
 	}
 
 	//ears
-	hear_mod= randf(0.1, 3);
 	for(int i=0;i<NUMEARS;i++) {
 		Ear ear = Ear();
 		ears.push_back(ear);
@@ -72,17 +67,10 @@ Agent::Agent(
 		}
 	}
 
-	clockf1= randf(5,100);
-	clockf2= randf(5,100);
-	clockf3= 5;
-	blood_mod= randf(0.1, 3);
-	smell_mod= randf(0.01, 1);
-
 	//brain matters
 	brain = CPBrain(NUMBOXES, NUMINITCONNS);
 	in.resize(Input::INPUT_SIZE, 0);
 	out.resize(Output::OUTPUT_SIZE, 0);
-	brainmutations= 0;
 	mutations.clear();
 	damages.clear();
 
@@ -94,6 +82,7 @@ Agent::Agent(
 	age = 0;
 	freshkill = 0;
 	gencount = 0;
+	parentid= -1;
 	near = false;
 	discomfort = 0;
 	encumbered = 0;
@@ -119,6 +108,7 @@ Agent::Agent(
 	grabbing= 0;
 	grabangle= 0;
 	sexproject= 0;
+	clockf3 = 5;
 
 	//stats
 	hybrid= false;
@@ -139,19 +129,233 @@ Agent::Agent(
 Agent::Agent(){
 }
 
-/*Agent& Agent::operator=(const Agent& other)
+void Agent::populateGenes(
+	float MEANRADIUS,
+	float BRAIN_MUTATION_CHANCE, 
+	float BRAIN_MUTATION_SIZE,
+	float GENE_MUTATION_CHANCE,
+	float GENE_MUTATION_SIZE
+){
+	//TODO: add a random number of genes initiated randomly on top of at least one copy for every trait
+	for (int i = 0; i < Trait::TRAIT_TYPES; i++) { // TODO: replace later with expanded logic for many copies of genes
+		float value;
+
+		switch (i) {
+			case Trait::SPECIESID :			value = (float)(randi(-conf::SPECIESID_RANGE, conf::SPECIESID_RANGE));				 break;
+			case Trait::KINRANGE :			value = (float)(randi(1, conf::SPECIESID_RANGE/10));								 break;
+			case Trait::BRAIN_MUTATION_CHANCE : value = BRAIN_MUTATION_CHANCE;	/* later TODO: add some variation here */		 break;
+			case Trait::BRAIN_MUTATION_SIZE :	value = BRAIN_MUTATION_SIZE;	/* later TODO: add some variation here */		 break;
+			case Trait::GENE_MUTATION_CHANCE :  value = GENE_MUTATION_CHANCE;	/* later TODO: add some variation here */		 break;
+			case Trait::GENE_MUTATION_SIZE :	value = GENE_MUTATION_SIZE;		/* later TODO: add some variation here */		 break;
+			case Trait::RADIUS :			value = randf(MEANRADIUS*0.2,MEANRADIUS*2.2);										 break;
+			case Trait::SKIN_RED :			value = randf(0,1);																	 break;
+			case Trait::SKIN_GREEN :		value = randf(0,1);																	 break;
+			case Trait::SKIN_BLUE :			value = randf(0,1);																	 break;
+			case Trait::SKIN_CHAMOVID :		value = cap(randf(-0.25,0.5));														 break;
+			case Trait::STRENGTH :			value = randf(0.01,1);																 break;
+			case Trait::THERMAL_PREF :		value = cap(randn(1-2.0*abs(pos.y/conf::HEIGHT - 0.5),0.02));						 break;
+			case Trait::LUNGS :				value = randf(0,1);																	 break;
+			case Trait::NUM_BABIES :		value = (float)(randi(1,7));														 break;
+			case Trait::SEX_PROJECT_BIAS :	value = -1; /*purposefully excluding "male" and "female" biases for random spawns*/	 break;
+			case Trait::METABOLISM :		value = randf(0.25,0.75);															 break;
+			case (Trait::STOMACH + Stomach::PLANT) :	
+			case (Trait::STOMACH + Stomach::FRUIT) :	
+			case (Trait::STOMACH + Stomach::MEAT) :	value = 0; /*it is assumed that we set the stomach later for random spawns*/ break;
+			case Trait::CLOCK1_FREQ :		value = randf(5, 100);																 break;
+			case Trait::CLOCK2_FREQ :		value = randf(5, 100);																 break;
+			case Trait::EYE_SEE_AGENTS :	value = randf(0.3, 3);																 break;
+			case Trait::EYE_SEE_CELLS :		value = randf(0.3, 3);																 break;
+			case Trait::EAR_HEAR_AGENTS :	value = randf(0.1, 3);																 break;
+			case Trait::BLOOD_SENSE :		value = randf(0.1, 3);																 break;
+			case Trait::SMELL_SENSE :		value = randf(0.01, 1);																 break;
+
+			default :		value = randf(0,1);		 break;
+		}
+		Gene newgene(i, value);
+		genes.push_back(newgene);
+	}
+}
+
+void Agent::countGenes()
 {
-	if( this != &other )
-		this
-	return *this;
-}*/
+	//reset
+	for (int i = 0; i < Trait::TRAIT_TYPES; i++) {
+		traits[i] = 0;
+		counts[i] = 0;
+	}
 
-//void Agent::exhibitGenes()
-//{
-	//for every gene in our genelist, we calculate our agent's stats and traits
-//	for(int i=0;i<geneType.size();i++) {
+	//for every Gene in our genelist, we calculate our agent's traits and add up counts
+	for (int i = 0; i < genes.size(); i++) {
+		traits[genes[i].type] += genes[i].value;
+		counts[genes[i].type]++;
+	}
+}
 
-//}
+void Agent::expressGenes(int OVERRIDE_KINRANGE)
+{
+	//first, reset our trait and count lists
+	this->countGenes();
+
+	//after we add them all up, we divide by counts of instances (pure average). TODO: implement age factors here and periodically recalc
+	//and finally, apply limits on the trait values that get expressed depending on trait
+	for (int i = 0; i < Trait::TRAIT_TYPES; i++) {
+		if (counts[i] == 0) {
+			printf("FATAL ERROR: count of a trait (%i) was == 0!", i);
+		}
+		float value = traits[i] / counts[i];
+		
+		switch (i) {
+			case Trait::SPECIESID :				value = floorf(value);															 break;
+			case Trait::KINRANGE :		value = (float)(OVERRIDE_KINRANGE >= 0 ? OVERRIDE_KINRANGE : floorf(abs((int)value)));	 break;
+			case Trait::BRAIN_MUTATION_CHANCE : value = abs(value);																 break;
+			case Trait::BRAIN_MUTATION_SIZE :	value = abs(value);																 break;
+			case Trait::GENE_MUTATION_CHANCE :  value = abs(value);																 break;
+			case Trait::GENE_MUTATION_SIZE :	value = abs(value);																 break;
+			case Trait::RADIUS :				value = lower(value, 1.0);														 break;
+			case Trait::SKIN_RED :				value = cap(abs(value));														 break;
+			case Trait::SKIN_GREEN :			value = cap(abs(value));														 break;
+			case Trait::SKIN_BLUE :				value = cap(abs(value));														 break;
+			case Trait::SKIN_CHAMOVID :			value = cap(value);																 break;
+			case Trait::STRENGTH :				value = cap(abs(value));														 break;
+			case Trait::THERMAL_PREF :			value = cap(value);																 break;
+			case Trait::LUNGS :					value = cap(value);																 break;
+			case Trait::NUM_BABIES :			value = lower(floorf(value), 1.0);												 break;
+			case Trait::SEX_PROJECT_BIAS :		value = clamp(value, -1.0, 1.0);												 break;
+			case Trait::METABOLISM :			value = cap(value);																 break;
+			case (Trait::STOMACH + Stomach::PLANT) :	
+			case (Trait::STOMACH + Stomach::FRUIT) :	
+			case (Trait::STOMACH + Stomach::MEAT): value = cap(value);															 break;
+			case Trait::CLOCK1_FREQ :			value = lower(value, 2);														 break;
+			case Trait::CLOCK2_FREQ :			value = lower(value, 2);														 break;
+			case Trait::EYE_SEE_AGENTS :		value = abs(value);																 break;
+			case Trait::EYE_SEE_CELLS :			value = abs(value);																 break;
+			case Trait::EAR_HEAR_AGENTS :		value = abs(value);																 break;
+			case Trait::BLOOD_SENSE :			value = abs(value);																 break;
+			case Trait::SMELL_SENSE :			value = abs(value);																 break;
+
+			default : break; //for all other types, do nothing. Not advised typically but feel free to go crazy
+		}
+
+		traits[i] = value;
+	}
+}
+
+void Agent::mutateGenes(float basechance, float basesize, bool livemutate)
+{
+	if (!livemutate) {
+		//we need to count genes for delete process. Saving a little bit here by doing under birth mutations only
+		this->countGenes();
+
+		//let's have some fun; add or remove Genes!
+		if (randf(0,1) < this->traits[Trait::GENE_MUTATION_CHANCE]) {
+			//duplicate a random Gene (that's how it works in nature!)
+			int source_index = randf(0, genes.size());
+			genes.push_back( genes[source_index] );
+		}
+
+		//delete a random Gene (ONLY if there is more than 1 copy! This is why we run countGenes prior)
+		if (randf(0,1) < this->traits[Trait::GENE_MUTATION_CHANCE]) {
+			vector<int> match_options;
+			for (int i = 0; i < this->counts.size(); i++) {
+				if (this->counts[i] > 1) match_options.push_back(i); //push the type (i) into a list to randomly select from
+			}
+
+			if (match_options.size() != 0) {
+				int match_type = match_options[randi(0,match_options.size())];
+
+				bool has_erased = false;
+				vector<Gene>::iterator gene = this->genes.begin();
+				while (gene != this->genes.end()) {
+					if (gene->type == match_type && !has_erased) {
+						gene = this->genes.erase(gene);
+						has_erased = true;
+					} else {
+						++gene;
+					}
+				}
+			}
+		}
+	}
+	
+
+	for (int i = 0; i < genes.size(); i++) {
+		float chance = basechance;
+		float size = basesize;
+
+		if (!livemutate) { //if we are a normal mutation, use normal mutation rates
+			switch (genes[i].type) {
+				// here be magic numbers - don't worry about it, at least all the gene mutation rates are here in one place
+				case Trait::SPECIESID :				chance *= 10;		size = (0.5 + basesize*50);								 break;
+				case Trait::KINRANGE :				chance *= 5;	size = (1 + basesize*3*(this->traits[Trait::KINRANGE] + 1)); break;
+				case Trait::BRAIN_MUTATION_CHANCE : chance = conf::META_MUTCHANCE*2;	size = conf::META_MUTSIZE*3;			 break;
+				case Trait::BRAIN_MUTATION_SIZE :	chance = conf::META_MUTCHANCE;		size = conf::META_MUTSIZE;				 break;
+				case Trait::GENE_MUTATION_CHANCE :  chance = conf::META_MUTCHANCE*2;	size = conf::META_MUTSIZE*3;			 break;
+				case Trait::GENE_MUTATION_SIZE :	chance = conf::META_MUTCHANCE;		size = conf::META_MUTSIZE;				 break;
+				case Trait::RADIUS :				chance *= 8;		size *= 16;												 break;
+				case Trait::SKIN_RED :				chance *= 4;		size *= 2;												 break;
+				case Trait::SKIN_GREEN :			chance *= 4;		size *= 2;												 break;
+				case Trait::SKIN_BLUE :				chance *= 4;		size *= 2;												 break;
+				case Trait::SKIN_CHAMOVID :			chance *= 2;																 break;
+				case Trait::STRENGTH :									size *= 4;												 break;
+				case Trait::THERMAL_PREF :			chance *= 2;		size /= 2;												 break;
+				case Trait::LUNGS :					chance *= 4;		size /= 2;												 break;
+				case Trait::NUM_BABIES :			chance /= 2;		size = (0.1 + basesize*50);								 break;
+				case Trait::SEX_PROJECT_BIAS :		chance *= 4;		size *= 5;												 break;
+				case Trait::METABOLISM :			chance /= 2;		size *= 2;												 break;
+				case (Trait::STOMACH + Stomach::PLANT) :	
+				case (Trait::STOMACH + Stomach::FRUIT) :	
+				case (Trait::STOMACH + Stomach::MEAT): chance *= 6;		size *= 3;												 break;
+				case Trait::CLOCK1_FREQ : /*no changes to base rates, still mutates*/											 break;
+				case Trait::CLOCK2_FREQ :																						 break;
+				case Trait::EYE_SEE_AGENTS: 							size *= 4;												 break;
+				case Trait::EYE_SEE_CELLS :								size *= 4;												 break;
+				case Trait::EAR_HEAR_AGENTS:							size *= 4;												 break;
+				case Trait::BLOOD_SENSE :								size *= 4;												 break;
+				case Trait::SMELL_SENSE :								size *= 4;												 break;
+
+				default : break; // don't modify either chance or size for all other cases
+			}
+
+		} else { //else if we are a live mutation, lower chances and sizes are used for mutations
+			chance /= 2;
+			size /= 4;
+
+			switch (genes[i].type) {
+				case Trait::SPECIESID :				chance = 0; /*disable mutation*/											 break;
+				case Trait::KINRANGE :									size *= 10;												 break;
+				case Trait::BRAIN_MUTATION_CHANCE : chance = conf::META_MUTCHANCE;		size = conf::META_MUTSIZE*20;			 break;
+				case Trait::BRAIN_MUTATION_SIZE :	chance = conf::META_MUTCHANCE;		size = conf::META_MUTSIZE/2;			 break;
+				case Trait::GENE_MUTATION_CHANCE :  chance = conf::META_MUTCHANCE;		size = conf::META_MUTSIZE*20;			 break;
+				case Trait::GENE_MUTATION_SIZE :	chance = conf::META_MUTCHANCE;		size = conf::META_MUTSIZE/2;			 break;
+				case Trait::RADIUS :				chance = 0; /*disable mutation*/											 break;
+				case Trait::SKIN_RED :									size *= 2;												 break;
+				case Trait::SKIN_GREEN :								size *= 2;												 break;
+				case Trait::SKIN_BLUE :									size *= 2;												 break;
+				case Trait::SKIN_CHAMOVID :																						 break;
+				case Trait::STRENGTH :				chance *= 2;		size *= 2;												 break;
+				case Trait::THERMAL_PREF :			chance *= 2;																 break;
+				case Trait::LUNGS :					chance *= 2;		size /= 2;												 break;
+				case Trait::NUM_BABIES :			chance = 0; /*disable mutation*/											 break;
+				case Trait::SEX_PROJECT_BIAS :		chance *= 2;		size *= 2;												 break;
+				case Trait::METABOLISM :			chance *= 2;		size /= 2;												 break;
+				case (Trait::STOMACH + Stomach::PLANT) :	
+				case (Trait::STOMACH + Stomach::FRUIT) :	
+				case (Trait::STOMACH + Stomach::MEAT): chance *= 2;		size *= 4;												 break;
+				case Trait::CLOCK1_FREQ :			chance *= 2;		size /= 2;												 break;
+				case Trait::CLOCK2_FREQ :			chance *= 2;		size /= 2;												 break;
+				case Trait::EYE_SEE_AGENTS: 							size *= 4;												 break;
+				case Trait::EYE_SEE_CELLS :								size *= 4;												 break;
+				case Trait::EAR_HEAR_AGENTS:							size *= 4;												 break;
+				case Trait::BLOOD_SENSE :								size *= 4;												 break;
+				case Trait::SMELL_SENSE :								size *= 4;												 break;
+
+				default : break; // don't modify either chance or size for all other cases
+			}
+		}
+
+		genes[i].mutate(chance, size);
+	}
+}
 
 Agent Agent::reproduce(
 	Agent that,
@@ -164,10 +368,14 @@ Agent Agent::reproduce(
 ){
 	//moved muterate gets into reproduce because thats where its needed and used, no reason to go through world
 	//choose a value of our agent's mutation and their saved mutation value, can be anywhere between the parents'
-	float BMR= randf(min(this->brain_mutation_chance, that.brain_mutation_chance), max(this->brain_mutation_chance, that.brain_mutation_chance));
-	float BMR2= randf(min(this->brain_mutation_size, that.brain_mutation_size), max(this->brain_mutation_size, that.brain_mutation_size));
-	float GMR= randf(min(this->gene_mutation_chance, that.gene_mutation_chance), max(this->gene_mutation_chance, that.gene_mutation_chance));
-	float GMR2= randf(min(this->gene_mutation_size, that.gene_mutation_size), max(this->gene_mutation_size, that.gene_mutation_size));
+	float BMR= randf( min(this->traits[Trait::BRAIN_MUTATION_CHANCE], that.traits[Trait::BRAIN_MUTATION_CHANCE]),
+		max(this->traits[Trait::BRAIN_MUTATION_CHANCE], that.traits[Trait::BRAIN_MUTATION_CHANCE]));
+	float BMR2= randf( min(this->traits[Trait::BRAIN_MUTATION_SIZE], that.traits[Trait::BRAIN_MUTATION_SIZE]),
+		max(this->traits[Trait::BRAIN_MUTATION_SIZE], that.traits[Trait::BRAIN_MUTATION_SIZE]));
+	float GMR= randf( min(this->traits[Trait::GENE_MUTATION_CHANCE], that.traits[Trait::GENE_MUTATION_CHANCE]),
+		max(this->traits[Trait::GENE_MUTATION_CHANCE], that.traits[Trait::GENE_MUTATION_CHANCE]));
+	float GMR2= randf( min(this->traits[Trait::GENE_MUTATION_SIZE], that.traits[Trait::GENE_MUTATION_SIZE]),
+		max(this->traits[Trait::GENE_MUTATION_SIZE], that.traits[Trait::GENE_MUTATION_SIZE]));
 
 	//create baby. Note that if the bot selects itself to mate with, this function acts also as assexual reproduction
 	//NOTES: Agent "this" is mother, Agent "that" is father, Agent "a2" is daughter
@@ -190,43 +398,29 @@ Agent Agent::reproduce(
 	//spawn the baby somewhere closeby behind the mother
 	//we want to spawn behind so that agents dont accidentally kill their young right away
 	//note that this relies on bots actally driving forward, not backward. We'll let natural selection choose who lives and who dies
-	Vector3f fb(this->radius*randf(1.9, 2.5), 0, 0);
-	float floatrange = 0.4;
-	fb.rotate(0, 0, this->angle + M_PI*(1 + floatrange - 2*floatrange*(baby+1)/(this->numbabies+1)));
+	Vector3f fb(this->traits[Trait::RADIUS]*(randf(1.9, 2.1) + 0.3*this->traits[Trait::NUM_BABIES]), 0, 0);
+	float floatrange = 0.45;
+	fb.rotate(0, 0, this->angle + M_PI*(1 + floatrange - 2*floatrange*(baby+1)/(this->traits[Trait::NUM_BABIES]+1)));
 	a2.pos= this->pos + fb;
 	a2.dpos= a2.pos;
 	a2.borderRectify();
 
-	//basic trait inheritance
+	//basic stat inheritance
 	a2.gencount= max(this->gencount+1,that.gencount+1);
-	a2.numbabies= randf(0,1)<0.5 ? this->numbabies : that.numbabies;
-	a2.metabolism= randf(0,1)<0.5 ? this->metabolism : that.metabolism;
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) a2.stomach[i]= randf(0,1)<0.5 ? this->stomach[i]: that.stomach[i];
-	a2.species= randf(0,1)<0.5 ? this->species : that.species;
-	a2.kinrange= randf(0,1)<0.5 ? this->kinrange : that.kinrange;
-	a2.radius= randf(0,1)<0.5 ? this->radius : that.radius;
-	a2.strength= randf(0,1)<0.5 ? this->strength : that.strength;
-	a2.chamovid= randf(0,1)<0.5 ? this->chamovid : that.chamovid;
-	a2.gene_red= randf(0,1)<0.5 ? this->gene_red : that.gene_red;
-	a2.gene_gre= randf(0,1)<0.5 ? this->gene_gre : that.gene_gre;
-	a2.gene_blu= randf(0,1)<0.5 ? this->gene_blu : that.gene_blu;
-	a2.sexprojectbias= randf(0,1)<0.5 ? this->sexprojectbias : that.sexprojectbias;
-
-	a2.brain_mutation_chance= randf(0,1)<0.5 ? this->brain_mutation_chance : that.brain_mutation_chance;
-	a2.brain_mutation_size= randf(0,1)<0.5 ? this->brain_mutation_size : that.brain_mutation_size;
 	a2.parentid= this->id; //parent ID is strictly inherited from mothers
-	a2.clockf1= randf(0,1)<0.5 ? this->clockf1 : that.clockf1;
-	a2.clockf2= randf(0,1)<0.5 ? this->clockf2 : that.clockf2;
+	a2.discomfort= this->discomfort; //meh, just get mom's temp discomfort and use that for now
 
-	a2.smell_mod= randf(0,1)<0.5 ? this->smell_mod : that.smell_mod;
-	a2.hear_mod= randf(0,1)<0.5 ? this->hear_mod : that.hear_mod;
-	a2.eye_see_agent_mod= randf(0,1)<0.5 ? this->eye_see_agent_mod : that.eye_see_agent_mod;
-	a2.eye_see_cell_mod= randf(0,1)<0.5 ? this->eye_see_cell_mod : that.eye_see_cell_mod;
-	a2.blood_mod= randf(0,1)<0.5 ? this->blood_mod : that.blood_mod;
+	//gene inheritence, per trait (more complicated version later after Genes fully implemented to allow Genes to control this? TODO)
+	int maxgenes = this->genes.size();
+	if (that.genes.size() > maxgenes) maxgenes = that.genes.size();
 
-	a2.temperature_preference= randf(0,1)<0.5 ? this->temperature_preference : that.temperature_preference;
-	a2.discomfort= this->discomfort;
-	a2.lungs= randf(0,1)<0.5 ? this->lungs : that.lungs;
+	a2.genes.clear();
+
+	for (int i = 0; i < maxgenes; i++) {
+		if (maxgenes > this->genes.size()) a2.genes.push_back(that.genes[i]);
+		else if (maxgenes > that.genes.size()) a2.genes.push_back(this->genes[i]);
+		else a2.genes.push_back( randf(0,1)<0.5 ? this->genes[i] : that.genes[i]);
+	}
 	
 	for (int i=0; i<ears.size(); i++) {
 		//inherrit individual ears
@@ -247,41 +441,11 @@ Agent Agent::reproduce(
 	}
 
 	//---MUTATIONS---//
-	if (randf(0,1)<GMR/2) a2.numbabies= (int) (randn(a2.numbabies, 0.1 + GMR2*50));
-	if (a2.numbabies<1) a2.numbabies= 1; //technically, 0 babies is perfectly logical, but in this sim it is pointless, so it's disallowed
+	a2.mutateGenes(GMR, GMR2, false);		
+
+	//finish by calculating gene expression and setting repcounter
+	a2.expressGenes(OVERRIDE_KINRANGE);
 	a2.resetRepCounter(MEANRADIUS, REP_PER_BABY);
-	if (randf(0,1)<GMR/2) a2.metabolism= cap(randn(a2.metabolism, GMR2*2));
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<GMR*6) a2.stomach[i]= cap(randn(a2.stomach[i], GMR2*3));
-	if (randf(0,1)<GMR*10) a2.species+= (int) (randn(0, 0.5+GMR2*50));
-	if (randf(0,1)<GMR*5 && OVERRIDE_KINRANGE<0) a2.kinrange= (int) abs(randn(a2.kinrange, 1+GMR2*5*(a2.kinrange+1)));
-	if (randf(0,1)<GMR*8) a2.radius= randn(a2.radius, GMR2*16);
-	if (a2.radius<1) a2.radius= 1;
-	if (randf(0,1)<GMR) a2.strength= cap(randn(a2.strength, GMR2*4));
-	if (randf(0,1)<GMR*2) a2.chamovid= cap(randn(a2.chamovid, GMR2));
-	if (randf(0,1)<GMR*4) a2.gene_red= cap(randn(a2.gene_red, GMR2*2));
-	if (randf(0,1)<GMR*4) a2.gene_gre= cap(randn(a2.gene_gre, GMR2*2));
-	if (randf(0,1)<GMR*4) a2.gene_blu= cap(randn(a2.gene_blu, GMR2*2));
-	if (randf(0,1)<GMR*4) a2.sexprojectbias= capm(randn(a2.sexprojectbias, GMR2*5), -1.0, 1.0);
-
-	if (randf(0,1)<conf::META_MUTCHANCE*2) a2.brain_mutation_chance= abs(randn(a2.brain_mutation_chance, conf::META_MUTSIZE*3));
-	if (randf(0,1)<conf::META_MUTCHANCE) a2.brain_mutation_size= abs(randn(a2.brain_mutation_size, conf::META_MUTSIZE));
-	if (randf(0,1)<conf::META_MUTCHANCE*2) a2.gene_mutation_chance= abs(randn(a2.gene_mutation_chance, conf::META_MUTSIZE*3));
-	if (randf(0,1)<conf::META_MUTCHANCE) a2.gene_mutation_size= abs(randn(a2.gene_mutation_size, conf::META_MUTSIZE));
-	//we dont really want mutrates to get to zero; thats too stable, take the absolute randn instead
-
-	if (randf(0,1)<GMR) a2.clockf1= randn(a2.clockf1, GMR2);
-	if (a2.clockf1<2) a2.clockf1= 2;
-	if (randf(0,1)<GMR) a2.clockf2= randn(a2.clockf2, GMR2);
-	if (a2.clockf2<2) a2.clockf2= 2;
-
-	if (randf(0,1)<GMR) a2.smell_mod= abs(randn(a2.smell_mod, GMR2*4));
-	if (randf(0,1)<GMR) a2.hear_mod= abs(randn(a2.hear_mod, GMR2*4));
-	if (randf(0,1)<GMR) a2.eye_see_agent_mod= abs(randn(a2.eye_see_agent_mod, GMR2*4));
-	if (randf(0,1)<GMR) a2.eye_see_cell_mod= abs(randn(a2.eye_see_cell_mod, GMR2*4));
-	if (randf(0,1)<GMR) a2.blood_mod= abs(randn(a2.blood_mod, GMR2*4));
-
-	if (randf(0,1)<GMR*2) a2.temperature_preference= cap(randn(a2.temperature_preference, GMR2/2));
-	if (randf(0,1)<GMR*4) a2.lungs= cap(randn(a2.lungs, GMR2/2));
 
 	for (int i=0 ; i < eyes.size(); i++) {
 		if(PRESERVE_MIRROR_EYES && i%2==1) {
@@ -347,32 +511,67 @@ void Agent::liveMutate(int MUTMULT)
 {
 	initSplash(conf::RENDER_MAXSPLASHSIZE*0.75,0.5,0,1.0);
 	
-	float BMR= this->gene_mutation_chance*MUTMULT;
-	float BMR2= this->gene_mutation_size;
-	float GMR= this->gene_mutation_chance*MUTMULT;
-	float GMR2= this->gene_mutation_size;
-	for(int i= 0; i<randi(1,6); i++){ //mutate between 1 and 5 brain boxes
+	float BMR= this->traits[Trait::BRAIN_MUTATION_CHANCE]*MUTMULT;
+	float BMR2= this->traits[Trait::BRAIN_MUTATION_SIZE];
+	float GMR= this->traits[Trait::GENE_MUTATION_CHANCE]*MUTMULT;
+	float GMR2= this->traits[Trait::GENE_MUTATION_SIZE];
+
+	//mutate between 1 and 5 brain boxes, plus a ratio from the brain_mutation_chance (+1 at a chance of 0.05)
+	int randboxes = randi(1,6) + 20*BMR;
+	for(int i= 0; i < randboxes; i++){
 		this->brain.liveMutate(BMR, BMR2, this->out);
 	}
 
-	//change other live-mutable traits here
-	if (randf(0,1)<GMR) this->metabolism= cap(randn(this->metabolism, GMR2/5));
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) if (randf(0,1)<GMR*2) this->stomach[i]= cap(randn(this->stomach[i], GMR2));
-	if (randf(0,1)<conf::META_MUTCHANCE) this->brain_mutation_chance= abs(randn(this->brain_mutation_chance, conf::META_MUTSIZE*20)); 
-	if (randf(0,1)<conf::META_MUTCHANCE) this->brain_mutation_size= abs(randn(this->brain_mutation_size, conf::META_MUTSIZE/2));
-	if (randf(0,1)<conf::META_MUTCHANCE) this->gene_mutation_chance= abs(randn(this->gene_mutation_chance, conf::META_MUTSIZE*20)); 
-	if (randf(0,1)<conf::META_MUTCHANCE) this->gene_mutation_size= abs(randn(this->gene_mutation_size, conf::META_MUTSIZE/2));
+	//mutate some Genes according to limited rules
+	this->mutateGenes(GMR, GMR2, true);
+	this->mutations.push_back("");
+
+	this->expressGenes();
+
+	//change traits that are live-mutable here. Things like entropic decay of senses
+/*	for (int i = 0; i < traits.size(); i++) {
+		float value = trait[i];
+
+		switch (i) {
+//			case Trait::SPECIESID :				value = (int)value;											 break;
+			case Trait::KINRANGE :				value = OVERRIDE_KINRANGE >= 0 ? OVERRIDE_KINRANGE : (int)abs((int)value); break;
+			case Trait::BRAIN_MUTATION_CHANCE : value = abs(value);											 break;
+			case Trait::BRAIN_MUTATION_SIZE :	value = abs(value);											 break;
+			case Trait::GENE_MUTATION_CHANCE :  value = abs(value);											 break;
+			case Trait::GENE_MUTATION_SIZE :	value = abs(value);											 break;
+			case Trait::RADIUS :				value = lower(value, 1.0);									 break;
+			case Trait::SKIN_RED :				value = cap(abs(value));									 break;
+			case Trait::SKIN_GREEN :			value = cap(abs(value));									 break;
+			case Trait::SKIN_BLUE :				value = cap(abs(value));									 break;
+			case Trait::SKIN_CHAMOVID :			value = cap(value);											 break;
+			case Trait::STRENGTH :				value = cap(abs(value));									 break;
+			case Trait::THERMAL_PREF :			value = cap(value);											 break;
+			case Trait::LUNGS :					value = cap(value);											 break;
+			case Trait::NUM_BABIES :			value = lower(value, 1);									 break;
+			case Trait::SEX_PROJECT_BIAS :		value = clamp(value, -1.0, 1.0);							 break;
+			case Trait::METABOLISM :			value = cap(value);											 break;
+			case (Trait::STOMACH + Stomach::PLANT) :	
+			case (Trait::STOMACH + Stomach::FRUIT) :	
+			case (Trait::STOMACH + Stomach::MEAT) :	value = cap(value);										 break;
+			case Trait::CLOCK1_FREQ :			value = lower(value, 2);									 break;
+			case Trait::CLOCK2_FREQ :			value = lower(value, 2);									 break;
+			case Trait::EYE_SEE_AGENTS :		value = abs(value);											 break;
+			case Trait::EYE_SEE_CELLS :			value = abs(value);											 break;
+			case Trait::EAR_HEAR_AGENTS :		value = abs(value);											 break;
+			case Trait::BLOOD_SENSE :			value = abs(value);											 break;
+			case Trait::SMELL_SENSE :					value = abs(value);											 break;
+
+			default : break; //for all other types, do nothing. Not advised typically but feel free to go crazy
+		}*/
+
+
 	//sensory failure: rare chance that the value of a sense gets cut down by roughly half, depending on mutation size
-	if (randf(0,1)<GMR/30) this->smell_mod /= randf(1, 2+GMR2*50);
-	if (randf(0,1)<GMR/30) this->hear_mod /= randf(1, 2+GMR2*50);
-	if (randf(0,1)<GMR/30) this->eye_see_agent_mod /= randf(1, 2+GMR2*50);
-	if (randf(0,1)<GMR/30) this->eye_see_cell_mod /= randf(1, 2+GMR2*50);
-	if (randf(0,1)<GMR/30) this->blood_mod /= randf(1, 2+GMR2*50);
-	if (randf(0,1)<GMR) this->clockf1= randn(this->clockf1, GMR2/2);
-	if (this->clockf1<2) this->clockf1= 2;
-	if (randf(0,1)<GMR) this->clockf2= randn(this->clockf2, GMR2/2);
-	if (this->clockf2<2) this->clockf2= 2;
-	if (randf(0,1)<GMR) this->temperature_preference= cap(randn(this->temperature_preference, GMR2/4));
+/*	if (randf(0,1)<GMR/30) this->traits[Trait::SMELL_SENSE] /= randf(1, 2+GMR2*50);
+	if (randf(0,1)<GMR/30) this->traits[Trait::EAR_HEAR_AGENTS] /= randf(1, 2+GMR2*50);
+	if (randf(0,1)<GMR/30) this->traits[Trait::EYE_SEE_AGENTS] /= randf(1, 2+GMR2*50);
+	if (randf(0,1)<GMR/30) this->traits[Trait::EYE_SEE_CELLS] /= randf(1, 2+GMR2*50);
+	if (randf(0,1)<GMR/30) this->traits[Trait::BLOOD_SENSE] /= randf(1, 2+GMR2*50); //suspending these mutations until Genes are implemented TODO*/
+
 }
 
 void Agent::tick()
@@ -385,52 +584,53 @@ void Agent::printSelf()
 	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 	//print all Variables
 	//bot basics
-	printf("SELECTED AGENT REPORT, ID: %i\n", id);
-	printf("pos & angle: (%f, %f, %f), %f\n", pos.x, pos.y, pos.z, angle);
-	printf("health, age, & gencount: %f, %.1f days, %i\n", health, (float)age/10, gencount);
-	printf("repcounter: %f\n", repcounter);
-	printf("exhaustion: %f\n", exhaustion);
+	printf("SELECTED AGENT SNAPSHOT REPORT, ID: %i\n", this->id);
+	printf("pos & angle: (%f, %f, %f), %f\n", this->pos.x, this->pos.y, this->pos.z, this->angle);
+	printf("health, age, & gencount: %f, %.1f days, %i\n", this->health, (float)this->age/10, this->gencount);
+	printf("repcounter: %f\n", this->repcounter);
+	printf("exhaustion: %f\n", this->exhaustion);
 
 	//traits
 	printf("======================= traits =======================\n");
-	printf("brain_mutation_chance: %f, brain_mutation_size: %f\n", brain_mutation_chance, brain_mutation_size);
-	printf("gene_mutation_chance: %f, gene_mutation_size: %f\n", gene_mutation_chance, gene_mutation_size);
-	printf("species id: %i, kin_range: +/-%i\n", species, kinrange);
-	printf("radius: %f\n", radius);
-	printf("strength: %f\n", strength);
-	printf("camo: %f, gene_red: %f, gene_gre: %f, gene_blu: %f\n", chamovid, gene_red, gene_gre, gene_blu);
-	printf("num_babies: %f\n", numbabies);
-	printf("max_repcounter: %f\n", maxrepcounter);
-	printf("sex_project_bias: %f\n", sexprojectbias);
-	printf("temp_preference: %f\n", temperature_preference);
-	printf("temp_discomfort: %f\n", discomfort);
-	printf("lungs: %f\n", lungs);
-	printf("metabolism: %f\n", metabolism);
+	printf("Genes count: %i\n", genes.size());
+	printf("brain_mutation_chance: %f, brain_mutation_size: %f\n", this->traits[Trait::BRAIN_MUTATION_CHANCE], this->traits[Trait::BRAIN_MUTATION_SIZE]);
+	printf("gene_mutation_chance: %f, gene_mutation_size: %f\n", this->traits[Trait::GENE_MUTATION_CHANCE], this->traits[Trait::GENE_MUTATION_SIZE]);
+	printf("species id: %f, kin_range: +/-%f\n", this->traits[Trait::SPECIESID], this->traits[Trait::KINRANGE]);
+	printf("radius: %f\n", this->traits[Trait::RADIUS]);
+	printf("strength: %f\n", this->traits[Trait::STRENGTH]);
+	printf("camo: %f, ", this->traits[Trait::SKIN_CHAMOVID]);
+	printf("gene_red: %f, gene_gre: %f, gene_blu: %f\n", this->traits[Trait::SKIN_RED], this->traits[Trait::SKIN_GREEN], this->traits[Trait::SKIN_BLUE]);
+	printf("num_babies: %f\n", this->traits[Trait::NUM_BABIES]);
+	printf("max_repcounter: %f\n", this->maxrepcounter);
+	printf("sex_project_bias: %f\n", this->traits[Trait::SEX_PROJECT_BIAS]);
+	printf("temp_preference: %f\n", this->traits[Trait::THERMAL_PREF]);
+	printf("temp_discomfort: %f\n", this->discomfort);
+	printf("lungs: %f\n", this->traits[Trait::LUNGS]);
+	printf("metabolism: %f\n", this->traits[Trait::METABOLISM]);
 	for(int i=0; i<Stomach::FOOD_TYPES; i++){
-		printf("stomach %i value: %f\n", i, stomach[i]);
+		printf("stomach %i value: %f\n", i, this->traits[Trait::STOMACH + i]);
 	}
-	if (isHerbivore()) printf("Herbivore\n");
-	if (isCarnivore()) printf("Carnivore\n");
-	if (isFrugivore()) printf("Frugivore\n");
+	if (this->isHerbivore()) printf(" Herbivore\n");
+	if (this->isCarnivore()) printf(" Carnivore\n");
+	if (this->isFrugivore()) printf(" Frugivore\n");
 	
 	//senses
 	printf("======================= senses ========================\n");
-	printf("eye_see_agent_mod: %f\n", eye_see_agent_mod);
-	printf("eye_see_cell_mod: %f\n", eye_see_cell_mod);
+	printf("eye_see_agent_mod: %f\n", this->traits[Trait::EYE_SEE_AGENTS]);
+	printf("eye_see_cell_mod: %f\n", this->traits[Trait::EYE_SEE_CELLS]);
 //	std::vector<float> eyefov; //field of view for each eye
 //	std::vector<float> eyedir; //direction of each eye
-	printf("hear_mod: %f\n", hear_mod);
+	printf("hear_mod: %f\n", this->traits[Trait::EAR_HEAR_AGENTS]);
 //	std::vector<float> eardir; //position of ears
 //	std::vector<float> hearlow; //low values of hearing ranges
 //	std::vector<float> hearhigh; //high values of hearing ranges
-	printf("clockf1: %f, clockf2: %f, clockf3: %f\n", clockf1, clockf2, clockf3);
-	printf("blood_mod: %f\n", blood_mod);
-	printf("smell_mod: %f\n", smell_mod);
+	printf("clockf1: %f, clockf2: %f, clockf3: %f\n", this->traits[Trait::CLOCK1_FREQ], this->traits[Trait::CLOCK2_FREQ], this->clockf3);
+	printf("blood_mod: %f\n", this->traits[Trait::BLOOD_SENSE]);
+	printf("smell_mod: %f\n", this->traits[Trait::SMELL_SENSE]);
 
 	//the brain
 	printf("====================== the brain ======================\n");
-	printf("brain mutations: %f\n", brainmutations);
-	for(int i=0; i<Output::OUTPUT_SIZE; i++){
+	for(int i=0; i < Output::OUTPUT_SIZE; i++){
 		switch(i){
 			case Output::BLU :			printf("- blue");				break;
 			case Output::BOOST :		printf("- boost");				break;
@@ -453,11 +653,11 @@ void Agent::printSelf()
 			case Output::VOLUME :		printf("- voice volume");		break;
 			case Output::WASTE_RATE :	printf("- waste");				break;
 		}
-		printf(" output: %f\n", out[i]);
+		printf(" output: %f\n", this->out[i]);
 	}
 	
 	//outputs
-	printf("wheel 1 & 2 sums: %f, %f\n", w1, w2);
+	printf("wheel 1 & 2 sums: %f, %f\n", this->w1, this->w2);
 //	bool boost; //is this agent boosting?
 //	float jump; //what "height" this bot is at after jumping
 //	float red, gre, blu; //colors of the
@@ -474,28 +674,30 @@ void Agent::printSelf()
 	
 	//stats
 	printf("======================== stats ========================\n");
-	if(near) printf("PRESENTLY NEAR\n");
+	if(this->near) printf("PRESENTLY NEAR\n");
 	else printf("PRESENTLY NOT NEAR (not interaction-processed)\n");
-	printf("freshkill: %i\n", freshkill);
-	printf("carcasscount: %i\n", carcasscount);
-	printf("encumbered x%i\n", encumbered);
-	if(hybrid) printf("is hybrid\n");
+	printf("freshkill: %i\n", this->freshkill);
+	printf("carcasscount: %i\n", this->carcasscount);
+	if (this->encumbered > 0) printf("encumbered x%i\n", this->encumbered);
+	else printf("not encumbered\n");
+	if(this->hybrid) printf("is hybrid\n");
 	else printf("is budded\n");
-	if(isDead()) printf("Killed by %s\n", death);
+	if(this->isDead()) printf("Killed by %s\n", this->death);
 	else printf("STILL ALIVE (o)\n");
-	printf("parent ID: %i\n", parentid);
-	printf("children, killed, hits: %i, %i, %i\n", children, killed, hits);
-	printf("indicator size, rgb: %f, %f, %f, %f\n", indicator, ir, ig, ib); 
-	printf("give health gfx magnitude, pos: %f, (%f,%f)\n", dhealth, dhealthx, dhealthy);
-	printf("grab gfx pos: (%f,%f)\n", grabx, graby);
-	printf("jaw gfx counter: %f\n", jawrend);
-	printf("mutations:\n");
-		for (int i=0; i<(int)mutations.size(); i++) {
-		cout << mutations[i] << endl;
+	printf("parent ID: %i\n", this->parentid);
+	printf("children, killed, hits: %i, %i, %i\n", this->children, this->killed, this->hits);
+	printf("indicator size, rgb: %f, %f, %f, %f\n", this->indicator, this->ir, this->ig, this->ib); 
+	printf("give health gfx magnitude, pos: %f, (%f,%f)\n", this->dhealth, this->dhealthx, this->dhealthy);
+	printf("grab gfx pos: (%f,%f)\n", this->grabx, this->graby);
+	printf("jaw gfx counter: %f\n", this->jawrend);
+	printf("mutations: (%i)\n", this->mutations.size());
+	for (int i = 0; i < (int)this->mutations.size(); i++) {
+		cout << this->mutations[i] << ",";
 	}
+	cout << endl;
 	printf("damages:\n");
-	for (int i=0; i<(int)damages.size(); i++) {
-		cout << damages[i].first << ": " << damages[i].second << endl;
+	for (int i=0; i < (int)this->damages.size(); i++) {
+		cout << " " << this->damages[i].first << ": " << this->damages[i].second << endl;
 	}
 	printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
 }
@@ -567,70 +769,102 @@ void Agent::traceBack(int outback)
 
 void Agent::initSplash(float size, float r, float g, float b)
 {
-	indicator=min(size,conf::RENDER_MAXSPLASHSIZE);
-	ir=r;
-	ig=g;
-	ib=b;
+	this->indicator = min(size,conf::RENDER_MAXSPLASHSIZE);
+	this->ir = r;
+	this->ig = g;
+	this->ib = b;
 }
 
 float Agent::getActivity() const
 {
-	float brainact= brain.getActivityRatio();
+	float brainact = this->brain.getActivityRatio();
 	return brainact;
 }
 
 float Agent::getOutputSum() const
 {
-	float sum= 0;
-	for(int op= 0; op<Output::OUTPUT_SIZE; op++){
-		sum+= out[op];
+	float sum = 0;
+	for(int op= 0; op < Output::OUTPUT_SIZE; op++){
+		sum += this->out[op];
 	}
 	return sum;
 }
 
 float Agent::getWheelOutputSum() const
 {
-	return out[Output::RIGHT_WHEEL_F] + out[Output::RIGHT_WHEEL_B] + out[Output::LEFT_WHEEL_F] + out[Output::LEFT_WHEEL_B];
+	return this->out[Output::RIGHT_WHEEL_F] + this->out[Output::RIGHT_WHEEL_B] 
+		+ this->out[Output::LEFT_WHEEL_F] + this->out[Output::LEFT_WHEEL_B];
 }
 
 void Agent::resetRepCounter(float MEANRADIUS, float REP_PER_BABY)
 {
-	this->maxrepcounter= max(conf::REPCOUNTER_MIN, REP_PER_BABY*this->numbabies*sqrt(this->radius/MEANRADIUS));
+	this->maxrepcounter= max(conf::REPCOUNTER_MIN, 
+		REP_PER_BABY*this->traits[Trait::NUM_BABIES]*sqrt(this->traits[Trait::RADIUS]/MEANRADIUS));
 	this->repcounter= this->maxrepcounter;
 }
 
 void Agent::setHerbivore()
 {
-	this->stomach[Stomach::PLANT]= randf(0.5, 1);
-	this->stomach[Stomach::MEAT]= cap(randf(-0.3, 0.3));
-	this->stomach[Stomach::FRUIT]= cap(randf(-0.3, 0.3));
+	float temp_herbivore = randf(0.5, 1);
+	float temp_carnivore = cap(randf(-0.3, 0.3));
+	float temp_frugivore = cap(randf(-0.3, 0.3));
+
+	for (int i = 0; i < genes.size(); i++) {
+		if (this->genes[i].type == Trait::STOMACH + Stomach::PLANT) this->genes[i].value = temp_herbivore; // set all relevant genes to these forced values
+		if (this->genes[i].type == Trait::STOMACH + Stomach::MEAT) this->genes[i].value = temp_carnivore;
+		if (this->genes[i].type == Trait::STOMACH + Stomach::FRUIT) this->genes[i].value = temp_frugivore;
+	}
+	//expressGenes is handled by call sites
 }
 
 void Agent::setCarnivore()
 {
-	this->stomach[Stomach::PLANT]= cap(randf(-0.3, 0.3));
-	this->stomach[Stomach::MEAT]= randf(0.5, 1);
-	this->stomach[Stomach::FRUIT]= cap(randf(-0.3, 0.3));
+	float temp_herbivore = cap(randf(-0.3, 0.3));
+	float temp_carnivore = randf(0.5, 1);
+	float temp_frugivore = cap(randf(-0.3, 0.3));
+
+	for (int i = 0; i < genes.size(); i++) {
+		if (this->genes[i].type == Trait::STOMACH + Stomach::PLANT) this->genes[i].value = temp_herbivore; // set all relevant genes to these forced values
+		if (this->genes[i].type == Trait::STOMACH + Stomach::MEAT) this->genes[i].value = temp_carnivore;
+		if (this->genes[i].type == Trait::STOMACH + Stomach::FRUIT) this->genes[i].value = temp_frugivore;
+	}
+	//expressGenes is handled by call sites
 }
 
 void Agent::setFrugivore()
 {
-	this->stomach[Stomach::PLANT]= cap(randf(-0.3, 0.3));
-	this->stomach[Stomach::MEAT]= cap(randf(-0.3, 0.3));
-	this->stomach[Stomach::FRUIT]= randf(0.5, 1);
+	float temp_herbivore = cap(randf(-0.3, 0.3));
+	float temp_carnivore = cap(randf(-0.3, 0.3));
+	float temp_frugivore = randf(0.5, 1);
+
+	for (int i = 0; i < genes.size(); i++) {
+		if (this->genes[i].type == Trait::STOMACH + Stomach::PLANT) this->genes[i].value = temp_herbivore; // set all relevant genes to these forced values
+		if (this->genes[i].type == Trait::STOMACH + Stomach::MEAT) this->genes[i].value = temp_carnivore;
+		if (this->genes[i].type == Trait::STOMACH + Stomach::FRUIT) this->genes[i].value = temp_frugivore;
+	}
+	//expressGenes is handled by call sites
 }
 
 void Agent::setRandomStomach()
 {
-	for(int i=0; i<Stomach::FOOD_TYPES; i++) stomach[i]= 0;
+	float temp_stomach[Stomach::FOOD_TYPES];
+	for (int i=0; i < Stomach::FOOD_TYPES; i++) temp_stomach[i] = 0;
+
 	float budget= 1.5; //give ourselves a budget that's over 100%
 	int overtype;
-	while(budget>0){ 
-		overtype= randi(0,Stomach::FOOD_TYPES); //pick a random food type
-		float budget_minus= randf(0,budget*1.25); //take a value that could be more than our budget (but will be capped)
-		stomach[overtype]= cap(stomach[overtype] + budget_minus);
-		budget-= budget_minus; //set stomach of type selected and reduce budget, allowing both variety and specialized stomachs
+	while (budget > 0){ 
+		overtype = randi(0, Stomach::FOOD_TYPES); //pick a random food type
+		float budget_taken = randf(0, budget*1.25); //take a value that could be more than our budget (but will be capped)
+		temp_stomach[overtype] = cap(temp_stomach[overtype] + budget_taken);
+		budget -= budget_taken; //set stomach of type selected and reduce budget, allowing both variety and specialized stomachs
 	}
+
+	for (int i = 0; i < genes.size(); i++) {
+		if (this->genes[i].type == Trait::STOMACH + Stomach::PLANT) this->genes[i].value = temp_stomach[Stomach::PLANT]; // set all relevant genes to these forced values
+		if (this->genes[i].type == Trait::STOMACH + Stomach::MEAT) this->genes[i].value = temp_stomach[Stomach::MEAT];
+		if (this->genes[i].type == Trait::STOMACH + Stomach::FRUIT) this->genes[i].value = temp_stomach[Stomach::FRUIT];
+	}
+	//expressGenes is handled by call sites
 }
 
 void Agent::setPos(float x, float y)
@@ -665,66 +899,82 @@ void Agent::borderRectify()
 
 void Agent::setIdealTempPref(float temp)
 {
-	if(temp==-1) temperature_preference= cap(randn(1-2.0*abs(pos.y/conf::HEIGHT - 0.5),0.02)); //logic may need to move when global climate comes in
-	else temperature_preference= randn(temp, 0.02);
+	float ideal_temp;
+
+	if (temp == -1) ideal_temp = cap(randn(1-2.0*abs(pos.y/conf::HEIGHT - 0.5),0.02));
+	else ideal_temp = randn(temp, 0.02);
+
+	for (int i = 0; i < genes.size(); i++) {
+		if (this->genes[i].type == Trait::THERMAL_PREF) this->genes[i].value = ideal_temp; // set all relevant genes to these forced values
+	}
+	//expressGenes is handled by call sites
 }
 
 void Agent::setIdealLungs(float target)
 {
-	lungs= cap(randn(target,0.05));
+	float temp_lungs = cap(randn(target,0.05));
+
+	for (int i = 0; i < genes.size(); i++) {
+		if (this->genes[i].type == Trait::LUNGS) this->genes[i].value = temp_lungs; // set all relevant genes to these forced values
+	}
+	//expressGenes is handled by call sites
 }
 
 bool Agent::isDead() const
 {
-	if (health<=0) return true;
+	if (this->health <= 0) return true;
 	return false;
 }
 
 bool Agent::isHerbivore() const
 {
-	if (stomach[Stomach::PLANT]>=stomach[Stomach::MEAT] && stomach[Stomach::PLANT]>=stomach[Stomach::FRUIT]) return true;
+	if (this->traits[Trait::STOMACH + Stomach::PLANT] >= this->traits[Trait::STOMACH + Stomach::MEAT]
+		&& this->traits[Trait::STOMACH + Stomach::PLANT] >= this->traits[Trait::STOMACH + Stomach::FRUIT]) return true;
 	return false;
 }
 
 bool Agent::isCarnivore() const
 {
-	if (stomach[Stomach::MEAT]>=stomach[Stomach::PLANT] && stomach[Stomach::MEAT]>=stomach[Stomach::FRUIT]) return true;
+	if (this->traits[Trait::STOMACH + Stomach::MEAT] >= this->traits[Trait::STOMACH + Stomach::PLANT] 
+		&& this->traits[Trait::STOMACH + Stomach::MEAT] >= this->traits[Trait::STOMACH + Stomach::FRUIT]) return true;
 	return false;
 }
 
 bool Agent::isFrugivore() const
 {
-	if (stomach[Stomach::FRUIT]>=stomach[Stomach::PLANT] && stomach[Stomach::FRUIT]>=stomach[Stomach::MEAT]) return true;
+	if (this->traits[Trait::STOMACH + Stomach::FRUIT] >= this->traits[Trait::STOMACH + Stomach::PLANT]
+		&& this->traits[Trait::STOMACH + Stomach::FRUIT] >= this->traits[Trait::STOMACH + Stomach::MEAT]) return true;
 	return false;
 }
 
 bool Agent::isTerrestrial() const
 {
-	if (lungs >= conf::AMPHIBIAN_THRESHOLD) return true;
+	if (this->traits[Trait::LUNGS] >= conf::AMPHIBIAN_THRESHOLD) return true;
 	return false;
 }
 
 bool Agent::isAmphibious() const
 {
-	if (lungs > 0.5*(Elevation::BEACH_MID + Elevation::SHALLOWWATER) && lungs < conf::AMPHIBIAN_THRESHOLD) return true;
+	if (this->traits[Trait::LUNGS] > 0.5*(Elevation::BEACH_MID + Elevation::SHALLOWWATER)
+		&& this->traits[Trait::LUNGS] < conf::AMPHIBIAN_THRESHOLD) return true;
 	return false;
 }
 
 bool Agent::isAquatic() const
 {
-	if (lungs <= 0.5*(Elevation::BEACH_MID + Elevation::SHALLOWWATER)) return true;
+	if (this->traits[Trait::LUNGS] <= 0.5*(Elevation::BEACH_MID + Elevation::SHALLOWWATER)) return true;
 	return false;
 }
 
 bool Agent::isSpikey(float SPIKE_LENGTH) const
 {
-	if(spikeLength*SPIKE_LENGTH>=radius) return true;
+	if(spikeLength*SPIKE_LENGTH >= traits[Trait::RADIUS]) return true;
 	return false;
 }
 
 bool Agent::isTiny() const
 {
-	if(radius<=conf::TINY_RADIUS) return true;
+	if(traits[Trait::RADIUS] <= conf::TINY_RADIUS) return true;
 	return false;
 }
 
@@ -736,13 +986,13 @@ bool Agent::isTinyEye(int eyenumber) const
 
 bool Agent::isAsexual() const
 {
-	if(sexproject<=0.5) return true;
+	if(this->sexproject <= 0.5) return true;
 	return false;
 }
 
 bool Agent::isMale() const
 {
-	if(sexproject>1.0) return true;
+	if(this->sexproject>1.0) return true;
 	return false;
 }
 
@@ -755,25 +1005,25 @@ int Agent::getRepType() const
 
 bool Agent::isGrabbing() const
 {
-	if(grabbing>0.5) return true;
+	if(this->grabbing > 0.5) return true;
 	return false;
 }
 
 bool Agent::isGiving() const
 {
-	if(give>0.5) return true;
+	if(this->give > 0.5) return true;
 	return false;
 }
 
 bool Agent::isSelfish(float MAXSELFISH) const
 {
-	if(give<=MAXSELFISH) return true;
+	if(this->give <= MAXSELFISH) return true;
 	return false;
 }
 
 bool Agent::isAirborne() const
 {
-	if(pos.z>0) return true;
+	if(this->pos.z > 0) return true;
 	return false;
 }
 
@@ -781,7 +1031,7 @@ bool Agent::isAirborne() const
 void Agent::addDamage(const char * sourcetext, float amount)
 {
 	std::string newtext= std::string(sourcetext);
-	addDamage(newtext, amount);
+	this->addDamage(newtext, amount);
 }
 
 void Agent::addDamage(std::string sourcetext, float amount)
@@ -837,7 +1087,7 @@ std::pair<std::string, float> Agent::getMostDamage() const
 void Agent::addIntake(const char * sourcetext, float amount)
 {
 	std::string newtext= std::string(sourcetext);
-	addIntake(newtext, amount);
+	this->addIntake(newtext, amount);
 }
 
 void Agent::addIntake(std::string sourcetext, float amount)

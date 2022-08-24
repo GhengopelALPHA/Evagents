@@ -2,8 +2,9 @@
 #define AGENT_H
 
 #include "CPBrain.h"
-#include "vmath.h"
+#include "Gene.h"
 
+#include "vmath.h"
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -67,40 +68,18 @@ public:
 	// --- Design Note: --- //
 	// There are Stats, and there are Traits/Genes.
 	// - Stats are initialized at spawn/reproduction, and OFTEN change. They are SOMETIMES saved, but since they 
-	//    SOMETIMES can be recalculated, we decide case-by-case.
+	//    USUALLY are recalculated every tick, we decide case-by-case.
 	// - Traits/Genes are calculated at spawn/reproduction, and aside from mutations, RARELY change. They are ALWAYS saved.
 	//    The Brain is a kind of trait that is not controlled by genes but rather is it's own thing. It is DEFINITELY saved.
 
-	//Traits/Genes:
-	//std::vector< std::pair<int, float> > genes; //TODO: NEW genes.
-	//REDO! make new class instead. need more variables & functions for later!
-	float brain_mutation_chance; //how often do mutations occur?
-	float brain_mutation_size; //how significant are they?
-	float gene_mutation_chance; //same as above, but for genes
-	float gene_mutation_size;
-	int parentid; //who's your momma? Note that like mitochondrial DNA, this is only passed from mother to children
-	float radius; //radius of bot
-//	float height; //TODO // physical height of the agent. Typically in the neighborhood of radius
-	float gene_red, gene_gre, gene_blu; //genetic color traits of the agent. can be hidden by chamovid= 1
-	float chamovid; //how strongly the output colors are overriding the genetic colors. 0= full genes, 1= full output
-	float strength; //how "strongly" the wheel speeds are pushed towards their outputs (their muscle strength). In range [0,2]
-	int numbabies; //number of children this bot creates with every reproduction event
-	float temperature_preference; //what temperature does this agent like? [0 to 1]
-	float lungs; //what type of environment does this agent need? [0 for "water", 1 for "land"]
-	float metabolism; //rate modifier for food to repcounter conversion, also, a factor of max bot speed
-	float stomach[Stomach::FOOD_TYPES]; //stomach, see settings.h for descriptions and order
-	float maxrepcounter; //value of maximum (initial and reset) repcounter
-	float sexprojectbias; //a physical bias trait, making sexual reproduction easier for some species/members. in range [0,1]
 
-	//senses
-	float eye_see_agent_mod;
-	float eye_see_cell_mod;
+	//Traits/Genes:
+	std::vector<Gene> genes; //list of Genes. Inherited, mutable
+	std::vector<int> counts; //list of traits by number of counts they appear in list of Genes. Used to apply average and mutation deletions
+	std::vector<float> traits; //the final list of trait values. These are added to by Genes and then divided by the number of genes
+
 	std::vector<Eye> eyes; //collection of eye structs
-	float hear_mod;
 	std::vector<Ear> ears; //collection of ear structs
-	float clockf1, clockf2, clockf3; //the frequencies of the three clocks of this bot
-	float blood_mod;
-	float smell_mod;
 
 	//the BRAIN!!!
 	CPBrain brain;
@@ -116,20 +95,18 @@ public:
 			// - preserving selected agent - determined to be unimportant
 	Vector3f pos; // physical position within the world x & y, z is used for jump height
 	Vector3f dpos; // previous position of the agent. For rendering only! Important Note: this is NOT SAVED, but is LOADED, with the pos values
-				// some scenarios that it might want to be saved/loaded: 
-				// - Jump uses the z value to store velocity. ! Simulation fidelity is currently hurt by this, determined to be unimportant for now
 	float angle; // angle of the bot in the world, from the positive x-axis I think
 
 	// - counters & triggers
 	//   - saved:
 	float health; //in range [0,HEALTH_CAP].
+	float maxrepcounter; //value of maximum (initial and reset) repcounter
 	float repcounter; //when repcounter gets to 0, this bot reproduces
 	float exhaustion; //sum of this agent's outputs over time, reduced by a constant. If this gets too high, the agent suffers
 	int age; //how old is the agent, in 1/10ths
-	int freshkill; //were you just stabbed/collided with? if so, how long ago?
-	int species; //if two bots are of significantly different species, then they can't crossover
-	int kinrange; //range from the species ID that this agent will actively reproduce with
 	int gencount; //generation counter
+	int parentid; //who's your momma? Note that like mitochondrial DNA, this is only passed from mother to children
+	int freshkill; //were you just stabbed/collided with? if so, how long ago?
 	int carcasscount; //counter for how long a dead agent stays on the world. Is reset as long as there is meat under the agent
 	bool hybrid; //is this agent result of crossover?
 
@@ -149,7 +126,6 @@ public:
 	int children; //how many kids did you say you had again?
 	int killed; //how many (secret) agents have you murdered???
 	int hits; //you should see the other guy... counts attacks on other agents
-	float brainmutations; //records the number of mutations of the brain
 
 	// - lists & death cause - unsaved
 	std::vector<std::string> mutations;
@@ -173,24 +149,34 @@ public:
 	float grabbing; //is this agent attempting to grab another? If already grabbed, how far are we willing to let them go?
 	float grabangle; //the position of this bot's grab. Other agents can only be grabbed at this angle, and are drawn to this point specifically once grabbed
 	float sexproject; //is this bot trying to give out its genetic data? if so, how strongly? in range [0,2] (bias+output, considered 'father' if >1.0
-
+	float clockf3; //frequency of the third clock, which can change via an output
 
 	//Functions
-	void exhibitGenes(); //process genes list and set/update agent traits & abilities. WIP TODO
+	void populateGenes(
+		float MEANRADIUS,
+		float BRAIN_MUTATION_CHANCE,
+		float BRAIN_MUTATION_SIZE,
+		float GENE_MUTATION_CHANCE,
+		float GENE_MUTATION_SIZE
+	); //give the agent some initial random genes. Run this at init only
+	void countGenes(); // counts up the number of each gene type and adds the value they have to traits (use before mutation and expression)
+	void expressGenes(int OVERRIDE_KINRANGE = -1); //process genes list and set/update agent traits & abilities. Run this to get the trait list updated
+	void mutateGenes(float basechance, float basesize, bool livemutate); //mutate all genes with a given base chance and size. Run this at either birth or live
 
 	void printSelf(); // print agent details
+	void initSplash(float size, float r, float g, float b); // start an indicator
 	void traceBack(int outback=0); // trace back important contributing conns for a given output. UNUSED CURRENTLY
 	
 	void tick();
 	float getActivity() const;
 	float getOutputSum() const;
 	float getWheelOutputSum() const;
+
 	void addDamage(const char * sourcetext, float amount);
 	void addDamage(std::string sourcetext, float amount);
 	std::pair<std::string, float> getMostDamage() const;
 	void addIntake(const char * sourcetext, float amount);
 	void addIntake(std::string sourcetext, float amount);
-	void initSplash(float size, float r, float g, float b); //
 	void writeIfKilled();
 
 	Agent reproduce(

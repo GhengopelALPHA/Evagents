@@ -164,6 +164,7 @@ const enum {
 	WORLD,
 	CELL,
 	AGENT,
+	GENE,
 	BOX,
 	CONN,
 	EYE,
@@ -294,9 +295,9 @@ namespace StaticDisplayExtra{
 const enum {
 	OCEANPERCENT= 0,
 	AVG_LAYERS, //I strongly recommend keeping AVG_LAYERS and xAVG_LAYERS together in this order
-	xAVG_LAYERS= AVG_LAYERS+Layer::LAYERS-3, //-3 because we don't handle LIGHT or ELEVATION (-1-2)
+	xAVG_LAYERS= AVG_LAYERS + Layer::LAYERS - 3, //-3 because we don't handle LIGHT or ELEVATION (-1-2)
 	LIVECOUNTS,
-	xLIVECOUNTS= LIVECOUNTS+LiveCount::COUNTS-1, //same comment as AVG_LAYERS
+	xLIVECOUNTS= LIVECOUNTS + LiveCount::COUNTS - 1, //same comment as AVG_LAYERS
 	OXYGEN,
 	//AVG_METABOLISM, //TODO
 
@@ -542,44 +543,43 @@ const enum {
 	CONN_TYPES
 };};
 
-//defines for genes. every agent can have any number of genes, even 0 (typically defaults the trait to 1.0)
-//each gene also adds to the reproduction cost
-namespace Genetype {
+//defines for gene traits. every agent has exactly one gene for each entry below //can have any number of genes, even 0 (typically defaults the trait to 1.0)
+//Order changes nothing
+namespace Trait {
 const enum {
-	BRAIN_MUTCHANCE,
-	BRAIN_MUTSIZE,
-	GENE_MUTCHANCE,
-	GENE_MUTSIZE,
-	RADIUS,
-	RED,
-	GREEN,
-	BLUE,
-	CHAMOVID,
-	STRENGTH,
-	NUM_BABIES,
-	THERMAL_PREF,
-	LUNGS,
-	METABOLISM,
-	STOMACH_H,
-	STOMACH_F,
-	STOMACH_M,
-	MAX_REPCOUNTER, //will this be used?
-	SEX_PROJECT_BIAS,
-	EYE_SEE_AGENTS,
-	EYE_SEE_CELLS,
-	STRUCT_EYE, //UNUSED
-	EAR_HEAR_AGENT,
-	STRUCT_EAR, //UNUSED
-	CLOCK1,
-	CLOCK2,
-	CLOCK3,
-	SENSE_BLOOD,
-	SMELL_AGENTS,
-	SMELL_CELLS,
-	
+	SPECIESID, //TEMP, will be replaced with raw gene count matching later
+	KINRANGE,					//range from the species ID (later just Genes count) that this agent will actively reproduce with
+	BRAIN_MUTATION_CHANCE,		//Chance: how often do mutations occur? For the brain
+	BRAIN_MUTATION_SIZE,		//Size: how significant are they?
+	GENE_MUTATION_CHANCE,		//same as above, but for the Genes
+	GENE_MUTATION_SIZE,
+	RADIUS,						//radius of agent
+//	HEIGHT, //UNUSED, physical height of the agent. Typically in the neighborhood of radius
+	SKIN_RED,
+	SKIN_GREEN,
+	SKIN_BLUE,					//genetic color traits of the agent.  
+	SKIN_CHAMOVID,				//how strongly the output colors are overriding the genetic colors. 0= full genes, 1= full outputs
+	STRENGTH,					//how "strongly" the wheel speeds are pushed towards their outputs (their muscle strength). In range (0, 1]
+	THERMAL_PREF,				//what temperature does this agent like? In range [0, 1]
+	LUNGS,						//what type of environment does this agent need? In range [0 (for "water"), 1 (for "land")]. See Elevation namespace
+	NUM_BABIES,					//number of children this agent creates with every reproduction event
+	SEX_PROJECT_BIAS,			//a physical bias trait, making sexual reproduction easier for some species/members. in range [-1,1]
+	METABOLISM,					//rate that food is diverted from +health to +repcounter. There is a minimum threshold for this that is scaled to.
+	STOMACH,					//stomach, see Stomach namespace for descriptions and order
+	xSTOMACH = STOMACH + Stomach::FOOD_TYPES - 1, // Do NOT put anything between this and the last entry!!
+	CLOCK1_FREQ,				//the frequencies of the two static clocks of this bot
+	CLOCK2_FREQ,
+	EYE_SEE_AGENTS,				//multiplier for agent's vision of each other. 1 is normal vision, 0 is blind, 2+ increases sensitivity
+	EYE_SEE_CELLS,				//multiplier for agent's vision of cells. 1 is normal vision, 0 is blind, 2+ increases sensitivity
+//	STRUCT_EYE, //UNUSED
+	EAR_HEAR_AGENTS,				//multiplier for agent's hearing of other agent's vocalizations and wheel movements
+//	STRUCT_EAR, //UNUSED
+	BLOOD_SENSE,				//multiplier for agent's blood sense
+	SMELL_SENSE,						//multiplier for agent's smell sense. Effects all types of smell (agent, water, meat, fruit, hazard) simultaneously
+
 	
 	//don't add beyond this entry!
-	GENE_TYPES
+	TRAIT_TYPES
 };};
 
 namespace R {
@@ -824,7 +824,7 @@ namespace conf {
 	const float HEALTHLOSS_SPIKE_EXT= 0.0; //(.cfg)
 	const float HEALTHLOSS_BADTERRAIN= 0.022; //(.cfg)
 	const float HEALTHLOSS_NOOXYGEN= 0.00015; //(.cfg)
-	const float HEALTHLOSS_ASEX= 0.20; //(.cfg)
+	const float HEALTHLOSS_ASEX= 3.00; //(.cfg)
 
 	const float DAMAGE_FULLSPIKE= 12.0; //(.cfg)
 	const float DAMAGE_COLLIDE= 4.0; //(.cfg)

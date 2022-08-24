@@ -104,7 +104,7 @@ public:
 	std::vector<int> numAmphibious;
 	std::vector<int> numAquatic;
 	std::vector<int> numHybrid;
-	std::vector<int> numSpiky; //UNUSED
+	std::vector<int> numSpiky;
 
 	//counters
 	int modcounter;

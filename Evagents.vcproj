@@ -217,6 +217,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\SOURCE\Gene.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\SOURCE\GLView.cpp"
 				>
 			</File>
@@ -256,6 +260,10 @@
 			</File>
 			<File
 				RelativePath=".\SOURCE\CPBrain.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SOURCE\Gene.h"
 				>
 			</File>
 			<File

@@ -151,7 +151,7 @@ void CPBrain::healthCheck()
 int CPBrain::inRef(int id)
 {
 	if (id < 0) id = - id - 1;
-	int refval = capm(id, 0, Input::INPUT_SIZE - 1);
+	int refval = clamp(id, 0, Input::INPUT_SIZE - 1);
 	if (refval != id) {
 		printf("BRAIN ERROR: an input ID passed to 'inRef()' was invalid. Please set a breakpoint\n");
 	}
@@ -160,7 +160,7 @@ int CPBrain::inRef(int id)
 
 int CPBrain::boxRef(int id)
 {
-	int refval = capm(id, 0, boxes.size() - 1);
+	int refval = clamp(id, 0, boxes.size() - 1);
 	if (refval != id) {
 		printf("BRAIN ERROR: a box ID passed to 'boxRef()' was invalid. Please set a breakpoint\n");
 	}
@@ -169,7 +169,7 @@ int CPBrain::boxRef(int id)
 
 int CPBrain::connRef(int id)
 {
-	int refval = capm(id, 0, conns.size() - 1);
+	int refval = clamp(id, 0, conns.size() - 1);
 	if (refval != id) {
 		printf("BRAIN ERROR: a connection ID passed to 'connRef()' was invalid. Please set a breakpoint\n");
 	}
@@ -269,7 +269,7 @@ void CPBrain::initMutate(float MR, float MR2)
 		if (randf(0,1) < MR/100) {
 			//randomize source ID
 			int oldid = conns[i].sid;
-			int newid = capm(randi(0,(int)boxes.size()), -Input::INPUT_SIZE, boxes.size()-1);
+			int newid = clamp(randi(0,(int)boxes.size()), -Input::INPUT_SIZE, boxes.size()-1);
 			if (oldid != newid) {
 				conns[i].sid = newid;
 				conns[i].seed = 0;
@@ -280,7 +280,7 @@ void CPBrain::initMutate(float MR, float MR2)
 		if (randf(0,1) < MR/100) {
 			//randomize target ID
 			int oldid = conns[i].tid;
-			int newid = capm(randi(0,(int)boxes.size()), 0, (int)boxes.size()-1);
+			int newid = clamp(randi(0,(int)boxes.size()), 0, (int)boxes.size()-1);
 			if (oldid != newid) {
 				conns[i].tid = newid;
 				conns[i].seed = 0;
@@ -309,7 +309,7 @@ void CPBrain::initMutate(float MR, float MR2)
 			//target ID bump: +/- 1 or more
 			int oldid = conns[i].tid;
 			int range = (int)ceil(MR2*100);
-			int newid = capm(oldid + randi(-range,range+1), 0, (int)boxes.size()-1);
+			int newid = clamp(oldid + randi(-range,range+1), 0, (int)boxes.size()-1);
 			//+ (int)(MR2*100*randi(-1,2)) this is a jump mutation; implement later
 			if (oldid != newid) {
 				conns[i].tid = newid;
@@ -347,7 +347,7 @@ void CPBrain::initMutate(float MR, float MR2)
 			//source ID bump: +/- 1 or more
 			int oldid = conns[i].sid;
 			int range = (int)ceil(MR2*100);
-			int newid = capm(oldid + randi(-range,range+1), -Input::INPUT_SIZE, boxes.size()-1);
+			int newid = clamp(oldid + randi(-range,range+1), -Input::INPUT_SIZE, boxes.size()-1);
 			//+ (int)(MR2*100*randi(-1,2))
 			if (oldid != newid) {
 				conns[i].sid = newid;

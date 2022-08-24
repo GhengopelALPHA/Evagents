@@ -49,10 +49,21 @@ inline float cap(float a){
 	return a;
 }
 
-inline float capm(float a, float low, float hi){
-	if (a<low) return low;
-	if (a>hi) return hi;
+//return a unless greater than upper, then return upper
+inline float upper(float a, float upper) {
+	if (a > upper) return upper;
 	return a;
+}
+
+//return a unless less than lower, then return lower
+inline float lower(float a, float lower) {
+	if (a < lower) return lower;
+	return a;
+}
+
+//clamp function, combines lower & upper. Note: returns low if high is also less than than low
+inline float clamp(float a, float low, float high){
+	return lower(upper(a, high), low);
 }
 
 inline int fround(float a){

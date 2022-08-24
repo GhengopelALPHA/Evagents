@@ -72,6 +72,7 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "angle= %f\n", a->angle);
 	fprintf(file, "age= %i\n", a->age);
 	fprintf(file, "gen= %i\n", a->gencount);
+	fprintf(file, "parentid= %i\n", a->parentid);
 	fprintf(file, "hybrid= %i\n", (int) a->hybrid);
 	fprintf(file, "health= %f\n", a->health);
 	fprintf(file, "exhaustion= %f\n", a->exhaustion);
@@ -84,32 +85,42 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 	fprintf(file, "dhealth= %f\n", a->dhealth);
 
 	//traits: fixed values
-	fprintf(file, "species= %i\n", a->species);
-	fprintf(file, "kinrange= %i\n", a->kinrange);
-	fprintf(file, "radius= %f\n", a->radius);
-	fprintf(file, "gene_red= %f\ngene_gre= %f\ngene_blu= %f\n", a->gene_red, a->gene_gre, a->gene_blu);
-	fprintf(file, "chamovid= %f\n", a->chamovid);
-	fprintf(file, "sexprojectbias= %f\n", a->sexprojectbias);
-	fprintf(file, "herb= %f\n", a->stomach[Stomach::PLANT]);
-	fprintf(file, "carn= %f\n", a->stomach[Stomach::MEAT]);
-	fprintf(file, "frug= %f\n", a->stomach[Stomach::FRUIT]);
-	fprintf(file, "numbabies= %i\n", a->numbabies);
-	fprintf(file, "metab= %f\n", a->metabolism);
-	fprintf(file, "temppref= %f\n", a->temperature_preference);
-	fprintf(file, "lungs= %f\n", a->lungs);
-	fprintf(file, "brain_mutchance= %f\n", a->brain_mutation_chance);
-	fprintf(file, "brain_mutsize= %f\n", a->brain_mutation_size);
-	fprintf(file, "gene_mutchance= %f\n", a->gene_mutation_chance);
-	fprintf(file, "gene_mutsize= %f\n", a->gene_mutation_size);
-	fprintf(file, "parentid= %i\n", a->parentid);
-	fprintf(file, "strength= %f\n", a->strength);
-	fprintf(file, "cl1= %f\ncl2= %f\n", a->clockf1, a->clockf2);
-	fprintf(file, "smellmod= %f\n", a->smell_mod);
-	fprintf(file, "hearmod= %f\n", a->hear_mod);
-	fprintf(file, "bloodmod= %f\n", a->blood_mod);
-	fprintf(file, "eyemod_agent= %f\n", a->eye_see_agent_mod);
-	fprintf(file, "eyemod_cell= %f\n", a->eye_see_cell_mod);
-//		fprintf(file, "eyecellmod= %f\n", a->eye_see_cell_mod);
+	for(int q = 0; q < a->genes.size(); q++) {
+		fprintf(file, "<g>\n");
+		switch (a->genes[q].type) {
+			case Trait::SPECIESID :				fprintf(file, "species= %f\n", a->genes[q].value);						 break;
+			case Trait::KINRANGE :				fprintf(file, "kinrange= %f\n", a->genes[q].value);						 break;
+			case Trait::BRAIN_MUTATION_CHANCE : fprintf(file, "brain_mutchance= %f\n", a->genes[q].value);				 break;
+			case Trait::BRAIN_MUTATION_SIZE :	fprintf(file, "brain_mutsize= %f\n", a->genes[q].value);				 break;
+			case Trait::GENE_MUTATION_CHANCE :  fprintf(file, "gene_mutchance= %f\n", a->genes[q].value);				 break;
+			case Trait::GENE_MUTATION_SIZE :	fprintf(file, "gene_mutsize= %f\n", a->genes[q].value);					 break;
+			case Trait::RADIUS :				fprintf(file, "radius= %f\n", a->genes[q].value);						 break;
+			case Trait::SKIN_RED :				fprintf(file, "gene_red= %f\n", a->genes[q].value);						 break;
+			case Trait::SKIN_GREEN :			fprintf(file, "gene_gre= %f\n", a->genes[q].value);						 break;
+			case Trait::SKIN_BLUE :				fprintf(file, "gene_blu= %f\n", a->genes[q].value);						 break;
+			case Trait::SKIN_CHAMOVID :			fprintf(file, "chamovid= %f\n", a->genes[q].value);						 break;
+			case Trait::STRENGTH :				fprintf(file, "strength= %f\n", a->genes[q].value);						 break;
+			case Trait::THERMAL_PREF :			fprintf(file, "temppref= %f\n", a->genes[q].value);						 break;
+			case Trait::LUNGS :					fprintf(file, "lungs= %f\n", a->genes[q].value);						 break;
+			case Trait::NUM_BABIES :			fprintf(file, "numbabies= %f\n", a->genes[q].value);					 break;
+			case Trait::SEX_PROJECT_BIAS :		fprintf(file, "sexprojectbias= %f\n", a->genes[q].value);				 break;
+			case Trait::METABOLISM :			fprintf(file, "metab= %f\n", a->genes[q].value);						 break;
+			case (Trait::STOMACH + Stomach::PLANT): fprintf(file, "herb= %f\n", a->genes[q].value);						 break;
+			case (Trait::STOMACH + Stomach::FRUIT): fprintf(file, "frug= %f\n", a->genes[q].value);						 break;
+			case (Trait::STOMACH + Stomach::MEAT) : fprintf(file, "carn= %f\n", a->genes[q].value);						 break;
+			case Trait::CLOCK1_FREQ :			fprintf(file, "cl1= %f\n", a->genes[q].value);							 break;
+			case Trait::CLOCK2_FREQ :			fprintf(file, "cl2= %f\n", a->genes[q].value);							 break;
+			case Trait::EYE_SEE_AGENTS: 		fprintf(file, "eyemod_agent= %f\n", a->genes[q].value);					 break;
+			case Trait::EYE_SEE_CELLS :			fprintf(file, "eyemod_cell= %f\n", a->genes[q].value);					 break;
+			case Trait::EAR_HEAR_AGENTS:		fprintf(file, "hearmod= %f\n", a->genes[q].value);						 break;
+			case Trait::BLOOD_SENSE :			fprintf(file, "bloodmod= %f\n", a->genes[q].value);						 break;
+			case Trait::SMELL_SENSE :			fprintf(file, "smellmod= %f\n", a->genes[q].value);						 break;
+
+			default : break; // make sure to add new traits above if implemented. It's best to use hardcoded strings for the type's value
+		}
+		fprintf(file, "</g>\n");
+	}
+	
 	for(int q=0;q<a->eyes.size();q++) {
 		fprintf(file, "<y>\n");
 		fprintf(file, "eye#= %i\n", q);
@@ -185,16 +196,15 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 		world->DEFAULT_BRAIN_MUTSIZE,
 		world->DEFAULT_GENE_MUTCHANCE,
 		world->DEFAULT_GENE_MUTSIZE
-	); //Agent::Agent //mock agent. gets moved and deleted after loading
-	bool t2= false; //triggers for keeping track of where exactly we are
+	); //dummy agent. gets moved and deleted after loading
 
 	int eyenum= -1; //temporary index holders
 	int earnum= -1;
 	int boxnum= -1;
-	CPConn xconn;
+	CPConn xconn; //dummy templates for conns and genes
+	Gene xgene;
 	int i; //integer buffer
 	float f; //float buffer
-
 
 	while(!feof(file)){
 		fgets(line, sizeof(line), file);
@@ -205,13 +215,16 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			if(strcmp(var, "<a>")==0){
 				mode = ReadWriteMode::AGENT;
 				xa.brain.conns.clear();
+				xa.genes.clear();
+				//REMEMBER to clear any vectors we save/load
 			}
 		} else if (mode==ReadWriteMode::AGENT){
 			if(strcmp(var, "</a>")==0){
-				//end agent tag is checked for, and when found, resets brain, and copies agent xa to the world
+				//end agent tag is checked for, and when found, resets brain, expressed genes as traits, and copies agent xa to the world
 				xa.brain.resetBrain();
+				xa.expressGenes(world->OVERRIDE_KINRANGE);
 				if(loadexact) world->addAgent(xa);
-				else world->loadedagent= xa; //if we are loading a single agent, push it to buffer
+				else world->loadedagent= xa; //if we are loading a single agent, push it to world buffer
 				mode= ReadWriteMode::READY;
 			}else if(strcmp(var, "posx=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
@@ -231,45 +244,13 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "health=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.health= f;
-			}else if(strcmp(var, "gene_red=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.gene_red= f;
-			}else if(strcmp(var, "gene_gre=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.gene_gre= f;
-			}else if(strcmp(var, "gene_blu=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.gene_blu= f;
-			}else if(strcmp(var, "chamovid=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.chamovid= f;
-			}else if(strcmp(var, "sexprojectbias=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.sexprojectbias= f;
-			}else if(strcmp(var, "herb=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.stomach[Stomach::PLANT]= f;
-			}else if(strcmp(var, "carn=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.stomach[Stomach::MEAT]= f;
-			}else if(strcmp(var, "frug=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.stomach[Stomach::FRUIT]= f;
 			}else if(strcmp(var, "exhaustion=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.exhaustion= f;
 			}else if(strcmp(var, "carcasscount=")==0 && loadexact){
 				sscanf(dataval, "%i", &i);
 				xa.carcasscount= i;
-			}else if(strcmp(var, "species=")==0){
-				sscanf(dataval, "%i", &i);
-				xa.species= i;
-			}else if(strcmp(var, "kinrange=")==0){
-				sscanf(dataval, "%i", &i);
-				xa.kinrange= i;
-			}else if(strcmp(var, "radius=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.radius= f;
+			
 			}else if(strcmp(var, "spike=")==0 && loadexact){
 				sscanf(dataval, "%f", &f);
 				xa.spikeLength= f;
@@ -292,81 +273,37 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 				sscanf(dataval, "%i", &i);
 				if(i==1) xa.hybrid= true;
 				else xa.hybrid= false;
-			}else if(strcmp(var, "cl1=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.clockf1= f;
-			}else if(strcmp(var, "cl2=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.clockf2= f;
-			}else if(strcmp(var, "smellmod=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.smell_mod= f;
-			}else if(strcmp(var, "hearmod=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.hear_mod= f;
-			}else if(strcmp(var, "bloodmod=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.blood_mod= f;
-			}else if(strcmp(var, "eyemod_agent=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.eye_see_agent_mod= f;
-			}else if(strcmp(var, "eyemod_cell=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.eye_see_cell_mod= f;
-			}else if(strcmp(var, "numbabies=")==0){
-				sscanf(dataval, "%i", &i);
-				xa.numbabies= i;
-			}else if(strcmp(var, "metab=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.metabolism= f;
 			}else if(strcmp(var, "repcounter=")==0){
 				sscanf(dataval, "%f", &f);
 				xa.repcounter= f;
-			}else if(strcmp(var, "temppref=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.temperature_preference= f;
-			}else if(strcmp(var, "lungs=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.lungs= f;
-			}else if(strcmp(var, "brain_mutchance=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.brain_mutation_chance= f;
-			}else if(strcmp(var, "brain_mutsize=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.brain_mutation_size= f;
-			}else if(strcmp(var, "gene_mutchance=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.gene_mutation_chance= f;
-			}else if(strcmp(var, "gene_mutsize=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.gene_mutation_size= f;
 			}else if(strcmp(var, "parentid=")==0){
 				sscanf(dataval, "%i", &i);
 				xa.parentid= i;
 			}else if(strcmp(var, "freshkill=")==0 && loadexact){
 				sscanf(dataval, "%i", &i);
 				xa.freshkill= i;
-			}else if(strcmp(var, "strength=")==0){
-				sscanf(dataval, "%f", &f);
-				xa.strength= f;
+			
 //			}else if(strcmp(var, "boxes=")==0){
 //				sscanf(dataval, "%i", &i);
 //				xa.brain.boxes.resize(i);
 //			}else if(strcmp(var, "conns=")==0){
 //				sscanf(dataval, "%i", &i);
 //				xa.brain.conns.resize(i);
-			}else if(strcmp(var, "<y>")==0){
-				mode= ReadWriteMode::EYE; //eye mode
+			//mode switches section
 			}else if(strcmp(var, "<n>")==0){
-				mode= ReadWriteMode::CONN; //brain connection mode
+				mode= ReadWriteMode::CONN;
 			}else if(strcmp(var, "<x>")==0){
-				mode= ReadWriteMode::BOX; //brain box mode
+				mode= ReadWriteMode::BOX;
 			}else if(strcmp(var, "<e>")==0){
-				mode= ReadWriteMode::EAR; //ear mode
+				mode= ReadWriteMode::EAR;
+			}else if(strcmp(var, "<y>")==0){ 
+				mode= ReadWriteMode::EYE;
+			}else if(strcmp(var, "<g>")==0){
+				mode= ReadWriteMode::GENE;
 			}
 		}else if(mode==ReadWriteMode::EYE){
-			if(strcmp(var, "</y>")==0){
-				mode= ReadWriteMode::AGENT; //revert to agent mode
+			if(strcmp(var, "</y>")==0){ //end agent tag is checked for, and when found, changes mode back to agent
+				mode= ReadWriteMode::AGENT;
 			}else if(strcmp(var, "eye#=")==0){
 				sscanf(dataval, "%i", &i);
 				eyenum= i;
@@ -378,8 +315,8 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 				xa.eyes[eyenum].fov= f;
 			}
 		}else if(mode==ReadWriteMode::EAR){
-			if(strcmp(var, "</e>")==0){
-				mode= ReadWriteMode::AGENT; //revert to agent mode
+			if(strcmp(var, "</e>")==0){ //end agent tag is checked for, and when found, changes mode back to agent
+				mode= ReadWriteMode::AGENT;
 			}else if(strcmp(var, "ear#=")==0){
 				sscanf(dataval, "%i", &i);
 				earnum= i;
@@ -394,8 +331,8 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 				xa.ears[earnum].high= f;
 			}
 		}else if(mode==ReadWriteMode::BOX){
-			if(strcmp(var, "</x>")==0){
-				mode= ReadWriteMode::AGENT; //revert to agent mode
+			if(strcmp(var, "</x>")==0){ //end agent tag is checked for, and when found, changes mode back to agent
+				mode= ReadWriteMode::AGENT;
 			}else if(strcmp(var, "box#=")==0){
 				sscanf(dataval, "%i", &i);
 				boxnum= i;
@@ -422,9 +359,9 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 				xa.brain.boxes[boxnum].oldout= f;
 			}
 		}else if(mode==ReadWriteMode::CONN){
-			if(strcmp(var, "</n>")==0){
-				xa.brain.conns.push_back(xconn); //push to agent brain
-				mode= ReadWriteMode::AGENT; //revert to agent mode
+			if(strcmp(var, "</n>")==0){ //end agent tag is checked for, and when found, changes mode back to agent
+				xa.brain.conns.push_back(xconn); //push xconn template to agent brain
+				mode= ReadWriteMode::AGENT;
 			}else if(strcmp(var, "type=")==0){
 				sscanf(dataval, "%i", &i);
 				xconn.type = i;
@@ -447,7 +384,94 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 				sscanf(dataval, "%i", &i);
 				xconn.seed = i;
 			}
+		}else if(mode==ReadWriteMode::GENE){
+			if(strcmp(var, "</g>")==0){ //end agent tag is checked for, and when found, changes mode back to agent
+				xa.genes.push_back(xgene); //push xgene template to agent
+				mode = ReadWriteMode::AGENT;
+			}else if(strcmp(var, "species=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::SPECIESID; xgene.value = f;
+			}else if(strcmp(var, "kinrange=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::KINRANGE; xgene.value = f;
+			}else if(strcmp(var, "brain_mutchance=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::BRAIN_MUTATION_CHANCE; xgene.value = f;
+			}else if(strcmp(var, "brain_mutsize=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::BRAIN_MUTATION_SIZE; xgene.value = f;
+			}else if(strcmp(var, "gene_mutchance=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::GENE_MUTATION_CHANCE; xgene.value = f;
+			}else if(strcmp(var, "gene_mutsize=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::GENE_MUTATION_SIZE; xgene.value = f;
+			}else if(strcmp(var, "radius=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::RADIUS; xgene.value = f;
+			}else if(strcmp(var, "gene_red=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::SKIN_RED; xgene.value = f;
+			}else if(strcmp(var, "gene_gre=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::SKIN_GREEN; xgene.value = f;
+			}else if(strcmp(var, "gene_blu=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::SKIN_BLUE; xgene.value = f;
+			}else if(strcmp(var, "chamovid=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::SKIN_CHAMOVID; xgene.value = f;
+			}else if(strcmp(var, "strength=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::STRENGTH; xgene.value = f;
+			}else if(strcmp(var, "temppref=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::THERMAL_PREF; xgene.value = f;
+			}else if(strcmp(var, "lungs=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::LUNGS; xgene.value = f;
+			}else if(strcmp(var, "numbabies=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::NUM_BABIES; xgene.value = f;
+			}else if(strcmp(var, "sexprojectbias=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::SEX_PROJECT_BIAS; xgene.value = f;
+			}else if(strcmp(var, "metab=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::METABOLISM; xgene.value = f;
+			}else if(strcmp(var, "herb=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::STOMACH + Stomach::PLANT; xgene.value = f;
+			}else if(strcmp(var, "carn=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::STOMACH + Stomach::MEAT; xgene.value = f;
+			}else if(strcmp(var, "frug=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::STOMACH + Stomach::FRUIT; xgene.value = f;
+			}else if(strcmp(var, "cl1=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::CLOCK1_FREQ; xgene.value = f;
+			}else if(strcmp(var, "cl2=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::CLOCK2_FREQ; xgene.value = f;
+			}else if(strcmp(var, "eyemod_agent=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::EYE_SEE_AGENTS; xgene.value = f;
+			}else if(strcmp(var, "eyemod_cell=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::EYE_SEE_CELLS; xgene.value = f;
+			}else if(strcmp(var, "hearmod=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::EAR_HEAR_AGENTS; xgene.value = f;
+			}else if(strcmp(var, "bloodmod=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::BLOOD_SENSE; xgene.value = f;
+			}else if(strcmp(var, "smellmod=")==0){
+				sscanf(dataval, "%f", &f);
+				xgene.type = Trait::SMELL_SENSE; xgene.value = f;
+			}
 		}
+
 	}
 }
 
@@ -667,22 +691,28 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 			}else if(mode==ReadWriteMode::WORLD){
 				if(strcmp(var, "</world>")==0){ //check for end of world flag, indicating we're done
 					mode= ReadWriteMode::OFF;
+
+					printf("WORLD LOADED!\n");
+					world->addEvent("World Loaded!", EventColor::MINT);
+
+					world->setStatsAfterLoad();
+
+					world->processCells(true);
+					world->setInputs();
+					world->brainsTick();
+					world->processOutputs(true);
+					world->processOutputs(true);
+					world->processOutputs(true);
+					world->processOutputs(true);
+					world->processOutputs(true);
 				}else if(strcmp(var, "V=")==0){
 					//version number
 					sscanf(dataval, "%f", &f);
 					if(f!=conf::VERSION) {
 						printf("ALERT: Version Number different! Expected V= %.2f, found V= %.2f\n", conf::VERSION, f);
-/*						if(f<0.04) {
-							printf("ALERT: version number < 0.04 detected! Multiplying all cell values by 2!\n");
-							cellmult= 2;
-						} if (f<0.06) {
-							printf("ALERT: version number < 0.06 detected! Agent temp preferences will be automatically inverted!\n");
-						} if (f<0.07) {
-							const char* climatestatus= world->CLIMATE ? "ENABLED" : "DISABLED";
-							printf("ALERT: version number < 0.07 detected! World temperature variables are being corrected and Global Climate change is %s!\n", climatestatus);
-							world->CLIMATEBIAS= 0.5;
-							world->CLIMATEMULT= 1; //these settings ensure global climate matches what was used in versions less than 0.07
-						}*/ //we are not converting old saves in version 0.07
+						if(f < 0.08) {
+							break;
+						} //we are not converting old saves in version 0.08
 					}
 					fileversion= f;
 				}else if(strcmp(var, "BRAINBOXES=")==0){
@@ -848,20 +878,6 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 			}
 		}
 		fclose(fl);
-
-		printf("WORLD LOADED!\n");
-		world->addEvent("World Loaded!", EventColor::MINT);
-
-		world->setStatsAfterLoad();
-
-		world->processCells(true);
-		world->setInputs();
-		world->brainsTick();
-		world->processOutputs(true);
-		world->processOutputs(true);
-		world->processOutputs(true);
-		world->processOutputs(true);
-		world->processOutputs(true);
 
 	} else { //DOH! the file doesn't exist!
 		printf("ERROR: Save file specified, '%s' doesn't exist!\n", address);

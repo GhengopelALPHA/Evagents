@@ -59,12 +59,12 @@ void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitc
 //Control.cpp
 {
 	//try to play audio at location x,y if specified (if not, just play 2D audio), and with a specified pitch change multiple
-	if(dosounds){ //dosounds is set by GLView and disables when rendering is disabled
+	if(dosounds && volume > 0.0){ //dosounds is set by GLView and disables when rendering is disabled
 		#if defined(_DEBUG)
 			if(DEBUG) printf("Trying to play sound '%s' ... ", soundFileName);
 		#endif
 		#pragma omp critical
-		if(soundFileName!=NULL){
+		if(soundFileName != NULL){
 			ISound* play = 0;
 			if(x==0 && y==0) play= audio->play2D(soundFileName, false, false, true);
 			else play= audio->play3D(soundFileName, vec3df(-x, -y, 0), false, false, true);
@@ -72,11 +72,15 @@ void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitc
 			if(play){
 				play->setPlaybackSpeed(pitch);
 				play->setVolume(volume);
+				#if defined(_DEBUG)
+					if(DEBUG) printf("success!\n");
+				#endif
 			}
+		} else {
+			#if defined(_DEBUG)
+				if(DEBUG) printf("failure!\n");
+			#endif
 		}
-		#if defined(_DEBUG)
-			if(DEBUG) printf("success!\n");
-		#endif
 	}
 }
 
@@ -153,6 +157,7 @@ void World::reset()
 	numAmphibious.assign(REPORTS_PER_EPOCH, 0);
 	numAquatic.assign(REPORTS_PER_EPOCH, 0);
 	numHybrid.assign(REPORTS_PER_EPOCH, 0);
+	numSpiky.assign(REPORTS_PER_EPOCH, 0);
 
 	events.clear();
 
@@ -207,7 +212,7 @@ void World::spawn()
 
 				if(targethazard>=1) cells[Layer::HAZARDS][cx][cy]= conf::HAZARD_EVENT_POINT;
 				else if(targethazard<=0) cells[Layer::HAZARDS][cx][cy]= 0.0;
-				else if(targethazard>0.25) cells[Layer::HAZARDS][cx][cy]= capm(randn(targethazard,1-targethazard), 0, conf::HAZARD_EVENT_POINT);
+				else if(targethazard>0.25) cells[Layer::HAZARDS][cx][cy]= clamp(randn(targethazard,1-targethazard), 0, conf::HAZARD_EVENT_POINT);
 
 	//			cells[TEMPLAYER][cx][cy]= 2.0*abs((float)cy/CH - 0.5); [old temperature indicating code]
 			}
@@ -712,7 +717,7 @@ void World::processClimate()
 			if (epochmult != 1.0) {
 				if(isHadean()) addEvent("Global Hadean Epoch Starting!", EventColor::ORANGE);
 				else if(isIceAge()) addEvent("Global Ice Age Epoch Starting!", EventColor::CYAN);
-				if(isExtreme()) addEvent("Global Extreme Temps Epoch Starting!", EventColor::ORANGE);
+				if(isExtreme()) addEvent("Global Extreme Temp Epoch Starting!", EventColor::ORANGE);
 				//else if(CLIMATEMULT<0.25) addEvent("Global Uniform Temp", EventColor::YELLOW);
 			}
 
@@ -920,6 +925,7 @@ void World::processReporting()
 		pop_front(numAmphibious);
 		pop_front(numAquatic);
 		pop_front(numHybrid);
+		pop_front(numSpiky);
 
 		//push back all new values
 		int guideline;
@@ -937,6 +943,7 @@ void World::processReporting()
 		numAmphibious.push_back(getLungAmph());
 		numAquatic.push_back(getLungWater());
 		numHybrid.push_back(getHybrids());
+		numSpiky.push_back(getSpiky());
 
 		//events for achievements and stats every epoch
 		triggerStatEvents();
@@ -1046,7 +1053,7 @@ void World::triggerStatEvents(bool showevents)
 	if(!STATwildspecies && STATstrongspecies) {
 		int wildest= 0;
 		for(int i=0; i<agents.size(); i++){
-			if(abs(agents[i].species)>abs(wildest)) wildest= agents[i].species;
+			if(abs(agents[i].traits[Trait::SPECIESID])>abs(wildest)) wildest= agents[i].traits[Trait::SPECIESID];
 		}
 		if(abs(wildest)>conf::SPECIESID_RANGE){
 			if(showevents) addEvent("It\'s over 9000!", EventColor::MULTICOLOR);
@@ -1265,8 +1272,8 @@ void World::setInputs()
 		int scy= (int)(a->pos.y/conf::CZ);
 
 		float light = (MOONLIT) ? max(MOONLIGHTMULT, cells[Layer::LIGHT][scx][scy]) : cells[Layer::LIGHT][scx][scy]; //grab min light level for conditions
-		float light_cell_mult = light*a->eye_see_cell_mod;
-		float light_agent_mult = light*a->eye_see_agent_mod;
+		float light_cell_mult = light*a->traits[Trait::EYE_SEE_CELLS];
+		float light_agent_mult = light*a->traits[Trait::EYE_SEE_AGENTS];
 
 		vector<float> r(NUMEYES, 0);
 		vector<float> g(NUMEYES, 0);
@@ -1305,7 +1312,7 @@ void World::setInputs()
 					Vector3f cellpos = Vector3f((float)(tcx*conf::CZ+conf::CZ/2), (float)(tcy*conf::CZ+conf::CZ/2), 0);
 					Vector3f diffpos = cellpos - a->pos;
 					//find midpoint of the cell, relative to agent z-axis
-					float d = max((diffpos).length2d(), a->radius); // can't see cells as being inside of us; they're around us
+					float d = max((diffpos).length2d(), a->traits[Trait::RADIUS]); // can't see cells as being inside of us; they're around us
 
 					float ang = v.angle_between2d(diffpos);
 
@@ -1375,7 +1382,7 @@ void World::setInputs()
 		}
 
 		//---FINALIZE AGENT-CELL SMELL---//
-		float smellmult= a->smell_mod/((float)(maxx-minx)*(maxy-miny));
+		float smellmult= a->traits[Trait::SMELL_SENSE]/((float)(maxx-minx)*(maxy-miny));
 		fruit*= smellmult;
 		meat*= smellmult;
 		hazard*= smellmult;
@@ -1399,7 +1406,7 @@ void World::setInputs()
 				//---AGENT-AGENT SMELL---//
 				//adds up all agents inside MAX_SENSORY_DISTANCE (without range mult. Idea being if vision is additive and ranged, but smell is only
 				// additive, then a subtraction between them should allow vision to be solely ranged)
-				if (d < MAX_SENSORY_DISTANCE*conf::SMELL_DIST_MULT) smellsum+= a->smell_mod;		
+				if (d < MAX_SENSORY_DISTANCE*conf::SMELL_DIST_MULT) smellsum+= a->traits[Trait::SMELL_SENSE];		
 
 				//---HEARING---//
 				//adds up vocalization and other emissions from agents inside MAX_SENSORY_DISTANCE
@@ -1407,7 +1414,7 @@ void World::setInputs()
 					for (int q=0; q < NUMEARS; q++){
 						Ear* e = &(a->ears[q]);
 
-						Vector3f earvect(a->radius, 0, 0);
+						Vector3f earvect(a->traits[Trait::RADIUS], 0, 0);
 						earvect.rotate(0, 0, a->angle + e->dir);
 
 						Vector3f earpos = a->pos + earvect;
@@ -1426,7 +1433,7 @@ void World::setInputs()
 								//max of any movement is detected
 							} //future: do agent intake sound
 
-							float heardvolume = a->hear_mod*(1-eardist*invDIST)*ovolume;
+							float heardvolume = a->traits[Trait::EAR_HEAR_AGENTS]*(1-eardist*invDIST)*ovolume;
 
 							//package up this sound source if user is watching
 							if(isAgentSelected(a->id)){
@@ -1474,7 +1481,7 @@ void World::setInputs()
 						else if (eye_target_angle < -M_PI) eye_target_angle += 2*M_PI;
 						eye_target_angle = fabs(eye_target_angle);
 						
-						float fov = e->fov + a2->radius/d; //add in radius/d to allowed fov, which for large distances is the same as the angle
+						float fov = e->fov + a2->traits[Trait::RADIUS]/d; //add in radius/d to allowed fov, which for large distances is the same as the angle
 						//"fov" here is a bit of a misnomer, as it's taking into account the seen agent's radius. This is used later in the calc again
 						//but this is the idea:
 						//											|						 _
@@ -1509,11 +1516,11 @@ void World::setInputs()
 					float bloodangle = a->angle - ang; //remember, a->angle is in [-pi,pi], and ang is in [-pi,pi]
 					if (bloodangle >= M_PI) bloodangle -= 2*M_PI; //correct to within [-pi,pi] again, because a difference of 2pi is no difference at all
 					else if (bloodangle < -M_PI) bloodangle += 2*M_PI;
-					bloodangle= fabs(bloodangle);
+					bloodangle = fabs(bloodangle);
 
 					if (bloodangle < BLOOD_SENSE_MAX_FOV) {
-						float newblood= a->blood_mod*((BLOOD_SENSE_MAX_FOV - bloodangle)/BLOOD_SENSE_MAX_FOV)*(1-d/BLOOD_SENSE_DISTANCE)*(1-agents[j].health/HEALTH_CAP);
-						if(newblood>blood) blood= newblood;
+						float newblood = a->traits[Trait::BLOOD_SENSE]*((BLOOD_SENSE_MAX_FOV - bloodangle)/BLOOD_SENSE_MAX_FOV)*(1-d/BLOOD_SENSE_DISTANCE)*(1-agents[j].health/HEALTH_CAP);
+						if (newblood > blood) blood = newblood;
 						//agents with high life dont bleed. low life makes them bleed more. dead agents bleed the maximum
 					}
 				}
@@ -1521,24 +1528,24 @@ void World::setInputs()
 		}
 
 		//---FINALIZE EYES---//
-		for(int i=0;i<NUMEYES;i++){
-			a->in[Input::EYES+i*3]= cap(r[i]);
-			a->in[Input::EYES+i*3+1]= cap(g[i]);
-			a->in[Input::EYES+i*3+2]= cap(b[i]);
+		for(int i = 0; i < NUMEYES; i++){
+			a->in[Input::EYES+i*3] = cap(r[i]);
+			a->in[Input::EYES+i*3+1] = cap(g[i]);
+			a->in[Input::EYES+i*3+2] = cap(b[i]);
 		}
 
 		//---HEALTH---//
-		a->in[Input::HEALTH]= cap(a->health/HEALTH_CAP);
+		a->in[Input::HEALTH] = cap(a->health/HEALTH_CAP);
 
 		//---REPRODUCTION COUNTER---//
-		a->in[Input::REPCOUNT]= cap((a->maxrepcounter-a->repcounter)/a->maxrepcounter); //inverted repcounter, babytime is input val of 1
+		a->in[Input::REPCOUNT] = cap((a->maxrepcounter-a->repcounter)/a->maxrepcounter); //inverted repcounter, babytime is input val of 1
 
 		// = = = = = END SENSES COLLECTION = = = = = //
 
 		//---PACKAGE UP INPUTS---//
 		float t= (modcounter+current_epoch*FRAMES_PER_EPOCH);
-		a->in[Input::CLOCK1]= abs(sinf(t/a->clockf1));
-		if(!a->isTiny()) a->in[Input::CLOCK2]= abs(sinf(t/a->clockf2));
+		a->in[Input::CLOCK1]= abs(sinf(t/a->traits[Trait::CLOCK1_FREQ]));
+		if(!a->isTiny()) a->in[Input::CLOCK2]= abs(sinf(t/a->traits[Trait::CLOCK2_FREQ]));
 		if(!a->isTiny()) a->in[Input::CLOCK3]= abs(sinf(t/a->clockf3));
 		for(int i=0;i<NUMEARS;i++){
 			a->in[Input::EARS+i]= cap(hearsum[i]);
@@ -1652,10 +1659,10 @@ void World::processOutputs(bool prefire)
 		a->exhaustion = max((float)0, (a->exhaustion + exhaustion_total) + BASEEXHAUSTION)*0.333333; // /3 to average the value
 
 		//temp discomfort gets re-calculated intermittently based on size, to simulate heat absorption/release
-		if (modcounter%(int)ceil(10+2*a->radius) == 0 || prefire){
+		if (modcounter%(int)ceil(10 + 2*a->traits[Trait::RADIUS]) == 0 || prefire){
 			//calculate temperature at the agents spot. (based on distance from horizontal equator)
 			float currenttemp = calcTempAtCoord(a->pos.y);
-			a->discomfort += 0.1*( (currenttemp-a->temperature_preference) - a->discomfort ); //if agent is too cold, value is negative
+			a->discomfort += 0.1*( (currenttemp - a->traits[Trait::THERMAL_PREF]) - a->discomfort ); //if agent is too cold, value is negative
 			if (abs(a->discomfort) < conf::MIN_TEMP_DISCOMFORT_THRESHOLD) a->discomfort = 0; //below a minimum, agent can deal with it, no problem
 		}
 
@@ -1679,24 +1686,29 @@ void World::processOutputs(bool prefire)
 				a->w1= player_right;
 				a->w2= player_left;
 			} else {
-				a->w1+= a->strength*(a->out[Output::LEFT_WHEEL_F] - a->out[Output::LEFT_WHEEL_B] - a->w1);
-				a->w2+= a->strength*(a->out[Output::RIGHT_WHEEL_F] - a->out[Output::RIGHT_WHEEL_B] - a->w2);
+				a->w1+= a->traits[Trait::STRENGTH]*(a->out[Output::LEFT_WHEEL_F] - a->out[Output::LEFT_WHEEL_B] - a->w1);
+				a->w2+= a->traits[Trait::STRENGTH]*(a->out[Output::RIGHT_WHEEL_F] - a->out[Output::RIGHT_WHEEL_B] - a->w2);
 			}
 		}
-		a->real_red+= 0.2*((1-a->chamovid)*a->gene_red + a->chamovid*a->out[Output::RED]-a->real_red);
-		a->real_gre+= 0.2*((1-a->chamovid)*a->gene_gre + a->chamovid*a->out[Output::GRE]-a->real_gre);
-		a->real_blu+= 0.2*((1-a->chamovid)*a->gene_blu + a->chamovid*a->out[Output::BLU]-a->real_blu);
-		if (!a->isAirborne()) a->boost= (a->out[Output::BOOST])>0.5; //if jump height is zero, boost can change. Also, exhaustion doesn't effect the boost toggle
-		a->volume= a->out[Output::VOLUME]*exh;
-		a->tone+= (a->out[Output::TONE]-a->tone)*exh; //exhaustion effects the change rate of tone
-		a->give= a->out[Output::GIVE]*exh;
-		a->sexproject= a->sexprojectbias + a->out[Output::PROJECT]; //exhaustion does not effect the physical type of sexual rep; should it somehow?
+		a->real_red += 0.2*((1-a->traits[Trait::SKIN_CHAMOVID])*a->traits[Trait::SKIN_RED] + a->traits[Trait::SKIN_CHAMOVID]*a->out[Output::RED] - a->real_red);
+		a->real_gre += 0.2*((1-a->traits[Trait::SKIN_CHAMOVID])*a->traits[Trait::SKIN_GREEN] + a->traits[Trait::SKIN_CHAMOVID]*a->out[Output::GRE] - a->real_gre);
+		a->real_blu += 0.2*((1-a->traits[Trait::SKIN_CHAMOVID])*a->traits[Trait::SKIN_BLUE] + a->traits[Trait::SKIN_CHAMOVID]*a->out[Output::BLU] - a->real_blu);
+		
+		if (!a->isAirborne()) a->boost = (a->out[Output::BOOST])>0.5; //if jump height is zero, boost can change. Also, exhaustion doesn't effect the boost toggle
+		
+		a->volume = a->out[Output::VOLUME]*exh;
+		a->tone += (a->out[Output::TONE]-a->tone)*exh; //exhaustion effects the change rate of tone
+		
+		a->give = a->out[Output::GIVE]*exh;
+		
+		a->sexproject = a->traits[Trait::SEX_PROJECT_BIAS] + a->out[Output::PROJECT]; //exhaustion does not effect the physical type of sexual rep; should it somehow?
 
 		//spike length should slowly tend towards spike output
 		float g= a->out[Output::SPIKE];
 		if (a->spikeLength<g && !a->isTiny()) { //its easy to retract spike, just hard to put it up. Also, Tiny agents can't wield spikes (can still bite)
 			a->spikeLength+=SPIKESPEED*exh; //exhaustion does not effect spike length, but rather spike extension speed
 			if(HEALTHLOSS_SPIKE_EXT!=0) a->addDamage(conf::DEATH_SPIKERAISE, HEALTHLOSS_SPIKE_EXT);
+		
 		} else if (a->spikeLength>g) a->spikeLength= g;
 
 		//grab gets set
@@ -1724,7 +1736,7 @@ void World::processOutputs(bool prefire)
 			if(isAgentSelected(a->id)) { playx= 0; playy= 0; } //if we're selected, forget position, set us right at the listener position
 
 			//Finally, these tones and volumes have been pre-adjusted for the sounds used in game:
-			if(a->isTiny()) tryPlayAudio(conf::SFX_CHIRP1, playx, playy, a->tone*0.8+0.3, (a->volume+0.2)*0.5-0.1); //tiny agents make a high-pitched chirp, like crickets
+			if(a->isTiny()) tryPlayAudio(conf::SFX_CHIRP1, playx, playy, a->tone*0.5+0.3, (a->volume+0.05)*0.5-0.1); //tiny agents make a high-pitched chirp, like crickets
 			else tryPlayAudio(conf::SFX_CHIRP2, playx, playy, a->tone*0.8+0.2, a->volume); //large agents make a lower, cat-like "churr"
 		}
 
@@ -1757,7 +1769,7 @@ void World::processOutputs(bool prefire)
 				a->encumbered = 0;
 			} else if (a->boost) basewheel *= BOOST_MOVE_MULT;
 			else if (a->isAirborne()) basewheel *= JUMP_MOVE_BONUS_MULT; //only if boost isn't active.
-			basewheel *= sqrt(a->radius*invMEANRADIUS); //wheel speed depends on the size of the agent: smaller agents move slower
+			basewheel *= sqrt(a->traits[Trait::RADIUS]*invMEANRADIUS); //wheel speed depends on the size of the agent: smaller agents move slower
 
 			basewheel /= 2*(1.0+a->exhaustion); //apply exhaustion. Wheels are very sensitive
 			float BW1 = basewheel*a->w1;
@@ -1804,12 +1816,13 @@ void World::processCellInteractions()
 		//if the agent is alive, we process them. If they are dead and the tick count mod 25 is 0, we process them
 		//we want to process dead agents because we want to check if they have meat under them, and if so, reset the corpse counter
 
-		float randr= min(a->radius, (float)abs(randn(0.0,a->radius/3)));
+		//find a random spot inside the agent and use it as the source location for all interactions this tick
+		float randr= min(a->traits[Trait::RADIUS], (float)abs(randn(0.0,a->traits[Trait::RADIUS]/3)));
 		Vector2f source(randr, 0);
 		source.rotate(randf(-M_PI,M_PI));
 
-		int scx= (int) capm(a->pos.x + source.x, 0, conf::WIDTH-1)/conf::CZ;
-		int scy= (int) capm(a->pos.y + source.y, 0, conf::HEIGHT-1)/conf::CZ;
+		int scx= (int) clamp(a->pos.x + source.x, 0, conf::WIDTH-1)/conf::CZ;
+		int scy= (int) clamp(a->pos.y + source.y, 0, conf::HEIGHT-1)/conf::CZ;
 
 /*		#if defined(_DEBUG)
 		if(isDebug() && isAgentSelected(agents[i].id)) {
@@ -1848,7 +1861,7 @@ void World::processCellInteractions()
 				//agents fill up hazard cells only up to 9/10, because any greater is a special event
 				if(hazard < conf::HAZARD_EVENT_POINT) hazard += HAZARD_DEPOSIT*freqwaste*a->health/HEALTH_CAP;
 				
-				cells[Layer::HAZARDS][scx][scy] = capm(hazard, 0, conf::HAZARD_EVENT_POINT);
+				cells[Layer::HAZARDS][scx][scy] = clamp(hazard, 0, conf::HAZARD_EVENT_POINT);
 			}
 
 			//land/water (always interacted with)
@@ -1856,9 +1869,9 @@ void World::processCellInteractions()
 			if(a->isAirborne()){
 				//jumping while underwater allows one to breathe at their desired lung value if aquatic and too deep, or 0.5 if terrestrial,
 				//meaning land creatures can "float" when they jump. Amphibians have best of both worlds
-				land= max(land, min(Elevation::BEACH_MID, a->lungs));
+				land= max(land, min(Elevation::BEACH_MID, a->traits[Trait::LUNGS]));
 			}
-			float dd= pow(land - a->lungs,2);
+			float dd= pow(land - a->traits[Trait::LUNGS],2);
 			if (dd>=0.01){ //a difference of 0.1 or less between lung and land type lets us skip taking damage
 				if(dd>=0.1) a->encumbered += (int)(dd*10); //a diff of 0.4 -> +1 encumberment. diff of 0.5 -> +2, 0.6 -> +3, 0.7 -> +4, 0.8 -> +6, 0.9+ -> +10
 				//this should reeeeeally be some sort of "leg type" mechanic, not lungs
@@ -1886,9 +1899,9 @@ void World::applyIntakes(Agent* a, float &plant, float &fruit, float &meat)
 	speedmult /= (1.0+a->exhaustion); //exhaustion reduces agent physical actions including all intake
 
 	float invmult = 1-STOMACH_EFFICIENCY;
-	float invplant = 1-a->stomach[Stomach::PLANT]*invmult;
-	float invmeat = 1-a->stomach[Stomach::MEAT]*invmult;
-	float invfruit = 1-a->stomach[Stomach::FRUIT]*invmult;
+	float invplant = 1-a->traits[Trait::STOMACH + Stomach::PLANT]*invmult;
+	float invmeat = 1-a->traits[Trait::STOMACH + Stomach::MEAT]*invmult;
+	float invfruit = 1-a->traits[Trait::STOMACH + Stomach::FRUIT]*invmult;
 	//inverted stomach vals, with the efficiency mult applied
 
 	//---START FOOD---//
@@ -1896,7 +1909,7 @@ void World::applyIntakes(Agent* a, float &plant, float &fruit, float &meat)
 	if (plant > 0) { //agent eats the food
 		//Plant intake is proportional to plant stomach, inverse to speed & exhaustion
 		//min rate is the actual amount of food we can take. Otherwise, apply wasterate
-		float planttake = min(plant, PLANT_WASTE*a->stomach[Stomach::PLANT]*invmeat*invfruit*speedmult);
+		float planttake = min(plant, PLANT_WASTE*a->traits[Trait::STOMACH + Stomach::PLANT]*invmeat*invfruit*speedmult);
 		//unique for plant food: the less there is, the harder it is to eat, but not impossible
 		planttake *= max(plant, PLANT_TENACITY);
 		//decrease cell content
@@ -1909,7 +1922,7 @@ void World::applyIntakes(Agent* a, float &plant, float &fruit, float &meat)
 
 	//meat food
 	if (meat > 0) { //agent eats meat
-		float meattake = min(meat, MEAT_WASTE*a->stomach[Stomach::MEAT]*invplant*invfruit*speedmult);
+		float meattake = min(meat, MEAT_WASTE*a->traits[Trait::STOMACH + Stomach::MEAT]*invplant*invfruit*speedmult);
 		meat -= meattake;
 		intake += MEAT_INTAKE*meattake/MEAT_WASTE;
 		a->addIntake(conf::MEAT_TEXT, meattake);
@@ -1917,7 +1930,7 @@ void World::applyIntakes(Agent* a, float &plant, float &fruit, float &meat)
 
 	//Fruit food
 	if (fruit > 0) { //agent eats fruit
-		float fruittake = min(fruit,FRUIT_WASTE*a->stomach[Stomach::FRUIT]*invmeat*invplant*cap(speedmult-0.5)*2);
+		float fruittake = min(fruit,FRUIT_WASTE*a->traits[Trait::STOMACH + Stomach::FRUIT]*invmeat*invplant*cap(speedmult-0.5)*2);
 		//unique for fruit - speed penalty is more extreme, being completely 0 until agents slow down <0.25
 		fruit -= fruittake;
 		intake += FRUIT_INTAKE*fruittake/FRUIT_WASTE;
@@ -1925,7 +1938,7 @@ void World::applyIntakes(Agent* a, float &plant, float &fruit, float &meat)
 	}
 
 	// proportion intake via metabolism
-	float metabmult = getMetabolismRatio(a->metabolism);
+	float metabmult = getMetabolismRatio(a->traits[Trait::METABOLISM]);
 	a->repcounter -= metabmult*intake;
 	if (a->repcounter < 0 && !a->isMale()) a->encumbered += 1;
 
@@ -1990,7 +2003,7 @@ void World::processAgentInteractions()
 
 			Agent* a = &agents[i];
 
-			float ainvrad = 1/a->radius;
+			float ainvrad = 1/a->traits[Trait::RADIUS];
 
 			for (int j=0; j<(int)agents.size(); j++) {
 				if (i==j || !agents[j].near) continue;
@@ -1999,24 +2012,24 @@ void World::processAgentInteractions()
 				Agent* a2 = &agents[j];
 
 				float d = (a->pos - a2->pos).length2d();
-				float sumrad = a->radius + a2->radius;
-				float a2invrad = 1/a2->radius;
+				float sumrad = a->traits[Trait::RADIUS] + a2->traits[Trait::RADIUS];
+				float a2invrad = 1/a2->traits[Trait::RADIUS];
 
 				//---HEALTH GIVING---//
 
 				if (FOOD_SHARING_DISTANCE>0 && GENEROSITY_RATE!=0 && !a->isSelfish(conf::MAXSELFISH) && a2->health+GENEROSITY_RATE<2) {
 					//all non-selfish agents allow health trading to anyone within their kin range
-					float deviation = abs(a->species - a2->species);
+					float deviation = abs(a->traits[Trait::SPECIESID] - a2->traits[Trait::SPECIESID]);
 
 					float rd = a->isGiving() ? FOOD_SHARING_DISTANCE : sumrad+1;
 					//rd is the max range allowed to agent j. If generous, range allowed, otherwise bots must basically touch
 
-					if (d <= rd && deviation <= a->kinrange) {
+					if (d <= rd && deviation <= a->traits[Trait::KINRANGE]) {
 						float healthrate = a->isGiving() ? GENEROSITY_RATE*a->give : GENEROSITY_RATE*2*a->give;
 						//healthrate goes from 0->1 for give [0,0.5], and from 0.5->1 for give (0.5,1]...
 						if(d <= sumrad + 1 && a->isGiving()) healthrate = GENEROSITY_RATE;
 						//...it is maxxed when touching and generous...
-						if(a->give != 1 && AGENTS_DONT_OVERDONATE) healthrate = capm(healthrate, 0, cap(a->health - a2->health)/2);
+						if(a->give != 1 && AGENTS_DONT_OVERDONATE) healthrate = clamp(healthrate, 0, cap(a->health - a2->health)/2);
 						//...and can't give more than half the diff in health if agent is max giving (if they are, it is possible to give till they die)
 
 						//initiate transfer
@@ -2052,8 +2065,8 @@ void World::processAgentInteractions()
 							if(a2->age < TENDERAGE) a2agemult = (float)(a2->age+1)*INV_TENDERAGE;
 							float damagemult = ov*DAMAGE_COLLIDE*MEANRADIUS/sumrad;
 
-							float DMG1 = capm(damagemult*ainvrad*aagemult, 0, HEALTH_CAP); //larger, younger bots take less damage, bounce less
-							float DMG2 = capm(damagemult*a2invrad*a2agemult, 0, HEALTH_CAP);
+							float DMG1 = clamp(damagemult*ainvrad*aagemult, 0, HEALTH_CAP); //larger, younger bots take less damage, bounce less
+							float DMG2 = clamp(damagemult*a2invrad*a2agemult, 0, HEALTH_CAP);
 
 							if(DEBUG) printf("\na collision occured. overlap: %.4f, aagemult: %.2f, a2agemult: %.2f, Damage on a: %f. Damage on a2: %f\n", ov, aagemult, a2agemult, DMG1, DMG2);
 							a->addDamage(conf::DEATH_COLLIDE, DMG1);
@@ -2079,8 +2092,8 @@ void World::processAgentInteractions()
 
 						//now anti-kith...
 						float bumpmult = ov*BUMP_PRESSURE/d;
-						float ff1 = capm(bumpmult*a2->radius*ainvrad, 0, 2); //the radii come in here for inertia-like effect
-						float ff2 = capm(bumpmult*a->radius*a2invrad, 0, 2);
+						float ff1 = clamp(bumpmult*a2->traits[Trait::RADIUS]*ainvrad, 0, 2); //the radii come in here for inertia-like effect
+						float ff2 = clamp(bumpmult*a->traits[Trait::RADIUS]*a2invrad, 0, 2);
 						float diffx = (a2->pos.x-a->pos.x);
 						float diffy = (a2->pos.y-a->pos.y);
 
@@ -2099,13 +2112,13 @@ void World::processAgentInteractions()
 				//---SPIKING---//
 
 				//small spike doesn't count. If the target is jumping in midair, can't attack them either
-				if(a->isSpikey(SPIKE_LENGTH) && d <= (a2->radius + SPIKE_LENGTH*a->spikeLength) && !a2->isAirborne()){
+				if(a->isSpikey(SPIKE_LENGTH) && d <= (a2->traits[Trait::RADIUS] + SPIKE_LENGTH*a->spikeLength) && !a2->isAirborne()){
 					Vector3f v(1,0,0);
 					v.rotate(0, 0, a->angle);
 					float diff= v.angle_between2d(a2->pos - a->pos);
 					if (fabs(diff) < conf::SPIKE_MAX_FOV){ //need to be in front
 						float spikerange= d*abs(sin(diff)); //get range to agent from spike, closest approach
-						if (a2->radius>spikerange) { //other agent is properly aligned and in range!!! getting close now...
+						if (a2->traits[Trait::RADIUS]>spikerange) { //other agent is properly aligned and in range!!! getting close now...
 							//need to calculate the velocity differential of the agents
 							Vector3f velocitya(a->pos.x-a->dpos.x, a->pos.y-a->dpos.y, 0);
 							Vector3f velocitya2(a2->pos.x-a2->dpos.x, a2->pos.y-a2->dpos.y, 0);
@@ -2117,7 +2130,7 @@ void World::processAgentInteractions()
 							if(veldiff>conf::VELOCITYSPIKEMIN){
 								//these two are in collision and agent a has extended spike and is going decently fast relatively! That's a hit!
 							
-								float DMG= DAMAGE_FULLSPIKE*a->spikeLength*veldiff*(1-1.0/(1+expf(-(a2->radius/2-MEANRADIUS))));
+								float DMG= DAMAGE_FULLSPIKE*a->spikeLength*veldiff*(1-1.0/(1+expf(-(a2->traits[Trait::RADIUS]/2-MEANRADIUS))));
 								//tiny, small, & average agents take full damage, scaled by the difference in velocity. 
 								//large (2*MEANRADIUS) agents take half damage, and huge agents (2*MEANRADIUS+10) take no damage from spikes at all
 
@@ -2159,7 +2172,7 @@ void World::processAgentInteractions()
 					v.rotate(0, 0, a->angle);
 					float diff= v.angle_between2d(a2->pos - a->pos);
 					if (fabs(diff) < conf::JAW_MAX_FOV) { //advantage over spike: wide AOE
-						float DMG= DAMAGE_JAWSNAP*a->jawPosition*(a->radius*a2invrad); //advantage over spike: large agents do more damage to smaller agents
+						float DMG= DAMAGE_JAWSNAP*a->jawPosition*(a->traits[Trait::RADIUS]*a2invrad); //advantage over spike: large agents do more damage to smaller agents
 
 						if(DEBUG) printf("\nan agent received bite damage: %.4f\n", DMG);
 						a2->addDamage(conf::DEATH_BITE, DMG);
@@ -2176,17 +2189,20 @@ void World::processAgentInteractions()
 							a->killed++;
 							if(a->grabID == a2->id) a->grabID= -1;
 
-							//The agent has been killed, but
-							if (a->radius*a2invrad >= conf::BITE_EATS_RATIO) {
-								//if the ratio of the sizes is over a certain ratio (the attacker is larger), then the target is eaten instead. Yum!
-								float meat = getDroppedMeat(a2);
-								float dummy = 0.0;
-								applyIntakes(a, dummy, dummy, meat);
+							//The agent has definitely been killed, but we have some things to check
 
-								a->initSplash(conf::RENDER_MAXSPLASHSIZE,0.25,1,0.25);
-								addTipEvent("Agent Ate Another!", EventColor::RED, a->id);
+							//Swallowing feature:
+							if (a->traits[Trait::RADIUS]*a2invrad >= conf::BITE_EATS_RATIO) {
+								//if the ratio of the sizes is over a certain ratio (the attacker is larger), then the target is eaten instead.
+								float meat = getDroppedMeat(a2); //get the whole amount of meat this agent would drop...
+								float dummy = 0.0;
+								applyIntakes(a, dummy, dummy, meat); //and force-feed it to the agent!
+
+								//lime splash means agent ate the other agent. Yum!
+								a->initSplash(conf::RENDER_MAXSPLASHSIZE,0.5,1,0.3);
+								addTipEvent("Agent Ate Another!", EventColor::LIME, a->id);
 							} else {
-								//red splash means bot has killed the other bot. Murderer!
+								//red splash means agent has killed the other agent. Murderer!
 								a->initSplash(conf::RENDER_MAXSPLASHSIZE,1,0,0);
 								addTipEvent("Agent Killed Another!", EventColor::RED, a->id);
 							}
@@ -2204,17 +2220,17 @@ void World::processAgentInteractions()
 				//---GRABBING---//
 
 				//doing this last because agent deaths may occur up till now, and we don't want to worry about holding onto things that die while holding them
-				if(GRAB_PRESSURE!=0 && GRABBING_DISTANCE>0 && a->isGrabbing() && !a2->isDead()) {
-					if(d<=GRABBING_DISTANCE+a->radius){
+				if (GRAB_PRESSURE != 0 && GRABBING_DISTANCE > 0 && a->isGrabbing() && !a2->isDead()) {
+					if (d <= GRABBING_DISTANCE + a->traits[Trait::RADIUS]){
 						Vector3f v(1,0,0);
 						v.rotate(0, 0, a->angle + a->grabangle);
 						float diff= v.angle_between2d(a2->pos - a->pos);
 
 						//check init grab
-						if(a->grabID==-1){
+						if (a->grabID == -1){
 							if (fabs(diff) < GRAB_MAX_FOV && randf(0,1)<0.3) { //very wide AOE centered on a's grabangle, 30% chance any one bot is picked
 								a->grabID= a2->id;
-								if(!STATuserseengrab) {
+								if (!STATuserseengrab) {
 									addTipEvent("Agent grabbed another", EventColor::CYAN, a->id);
 									addTipEvent("Agent was grabbed", EventColor::CYAN, a2->id);
 									if (randf(0,1)<0.05) STATuserseengrab = true;
@@ -2222,7 +2238,7 @@ void World::processAgentInteractions()
 							}
 						} 
 
-						if (a->grabID==a2->id) {
+						if (a->grabID == a2->id) {
 							//we have a grab target, and it is this other agent. 
 							//"grab" (hehe) the coords of the other agent, relative to current agent
 							a->grabx= a2->pos.x-a->pos.x; a->graby= a2->pos.y-a->pos.y;
@@ -2233,8 +2249,8 @@ void World::processAgentInteractions()
 								float dpref= sumrad + 1.5;
 								Vector2f tpos(a->pos.x + dpref*cos(a->angle + a->grabangle), a->pos.y + dpref*sin(a->angle + a->grabangle));
 
-								float ff1= a2->radius*ainvrad*a->grabbing*GRAB_PRESSURE; //the radii come in here for inertia-like effect
-								float ff2= a->radius*a2invrad*a->grabbing*GRAB_PRESSURE;
+								float ff1= a2->traits[Trait::RADIUS]*ainvrad*a->grabbing*GRAB_PRESSURE; //the radii come in here for inertia-like effect
+								float ff2= a->traits[Trait::RADIUS]*a2invrad*a->grabbing*GRAB_PRESSURE;
 								a->pos.x-= (tpos.x-a2->pos.x)*ff1;
 								a->pos.y-= (tpos.y-a2->pos.y)*ff1;
 								a2->pos.x+= (tpos.x-a2->pos.x)*ff2;
@@ -2245,7 +2261,7 @@ void World::processAgentInteractions()
 							}
 
 							//the graber gets rotated toward the grabbed agent by a ratio of their radii, limited in radians
-							a->angle+= capm(a->grabbing*diff*a2->radius*ainvrad, -conf::GRAB_ROTATION_LIMIT, conf::GRAB_ROTATION_LIMIT);
+							a->angle+= clamp(a->grabbing*diff*a2->traits[Trait::RADIUS]*ainvrad, -conf::GRAB_ROTATION_LIMIT, conf::GRAB_ROTATION_LIMIT);
 						}
 					} else if (a->grabID==a2->id) {
 						//grab distance exceeded, break the bond
@@ -2300,27 +2316,28 @@ void World::healthTick()
 void World::processReproduction()
 {
 	//the reasoning for this seems to be that if we process every tick, it opens up weird memory reference inaccessible issues, so we mod it
-	if(modcounter%2==0) {
-		for (int mother=0; mother < (int)agents.size(); mother++) {
-			if (agents[mother].repcounter<0 && agents[mother].health>=MINMOMHEALTH) { 
+	if(modcounter%2 == 0) {
+		for (int mother = 0; mother < (int)agents.size(); mother++) {
+			if (agents[mother].repcounter < 0 && agents[mother].health >= MINMOMHEALTH) { 
 				//agent is healthy and is ready to reproduce. Now to decide how...
 
-				if(SEXTING_DISTANCE>0 && !agents[mother].isAsexual()){
+				if(SEXTING_DISTANCE > 0 && !agents[mother].isAsexual()){
 					if(agents[mother].isMale()) continue;; //'fathers' cannot themselves reproduce, only be reproduced with
 
-					for (int father=0; father < (int)agents.size(); father++) {
+					for (int father = 0; father < (int)agents.size(); father++) {
 						if (mother == father) continue;
 
 						if (agents[father].isAsexual()) continue;
 
-						float deviation= abs(agents[mother].species - agents[father].species); //species deviation check
-						if (deviation>=agents[mother].kinrange) continue; //uses mother's kinrange; if outside, skip
+						float deviation = abs(agents[mother].traits[Trait::SPECIESID] - agents[father].traits[Trait::SPECIESID]);
+						//if either one is outside the other's kinrange (attraction?), skip
+						if (deviation >= agents[mother].traits[Trait::KINRANGE] || deviation >= agents[father].traits[Trait::KINRANGE]) continue; 
 
-						float distance= (agents[mother].pos - agents[father].pos).length2d();
-						if(distance>SEXTING_DISTANCE) continue;
+						float distance = (agents[mother].pos - agents[father].pos).length2d();
+						if(distance > SEXTING_DISTANCE) continue;
 
-						if(agents[father].repcounter<=0){
-							//prepare to add agents[i].numbabies to world, with two parents
+						if(agents[father].repcounter <= 0){
+							//prepare to add num_babies to world, with two parents
 							if(DEBUG) printf("Attempting to have children...");
 
 							reproduce(mother, father);
@@ -2346,11 +2363,11 @@ void World::processReproduction()
 					break;
 				}
 			}
-			if(FUN && randf(0,1)<0.3){
-				if(agents[mother].indicator<=0) agents[mother].indicator= 60;
-				agents[mother].ir= randf(0,1);
-				agents[mother].ig= randf(0,1);
-				agents[mother].ib= randf(0,1);
+			if(FUN && randf(0,1) < 0.3){
+				if(agents[mother].indicator <= 0) agents[mother].indicator = 60;
+				agents[mother].ir = randf(0,1);
+				agents[mother].ig = randf(0,1);
+				agents[mother].ib = randf(0,1);
 			}
 		}
 	}
@@ -2405,7 +2422,7 @@ float World::getDroppedMeat(Agent* a)
 {
 	float agemult =  a->age<TENDERAGE ? ((float)a->age+1)*INV_TENDERAGE : 1.0; //young killed agents should give very little resources until age 9
 	float freshmult = a->freshkill>0 ? 1.0 : MEAT_NON_FRESHKILL_MULT; //agents which were spiked recently will give full meat, otherwise give MEAT_NON_FRESHKILL_MULT
-	float stomachmult = 1+(conf::CARNIVORE_TO_MEAT_EFF-1)*sqrt(a->stomach[Stomach::MEAT]); //carnivores give less, specified by CARNIVORE_TO_MEAT_EFF
+	float stomachmult = 1+(conf::CARNIVORE_TO_MEAT_EFF-1)*sqrt(a->traits[Trait::STOMACH + Stomach::MEAT]); //carnivores give less, specified by CARNIVORE_TO_MEAT_EFF
 
 	return MEAT_DEPOSIT_VALUE*agemult*freshmult*stomachmult;
 }
@@ -2519,7 +2536,9 @@ void World::setSelection(int type)
 			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract at half value
 			float maxindex= -1;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float index= agents[i].stomach[Stomach::PLANT] - 0.5*agents[i].stomach[Stomach::MEAT] - 0.5*agents[i].stomach[Stomach::FRUIT];
+				float index = agents[i].traits[Trait::STOMACH + Stomach::PLANT] - 
+					0.5*agents[i].traits[Trait::STOMACH + Stomach::MEAT] - 
+					0.5*agents[i].traits[Trait::STOMACH + Stomach::FRUIT];
 				if (!agents[i].isDead() && agents[i].gencount>0 && index>maxindex) {
 					maxindex= index;
 					maxi= i;
@@ -2529,7 +2548,9 @@ void World::setSelection(int type)
 			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract at half value
 			float maxindex= -1;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float index= agents[i].stomach[Stomach::FRUIT] - 0.5*agents[i].stomach[Stomach::MEAT] - 0.5*agents[i].stomach[Stomach::PLANT];
+				float index = agents[i].traits[Trait::STOMACH + Stomach::FRUIT] - 
+					0.5*agents[i].traits[Trait::STOMACH + Stomach::MEAT] - 
+					0.5*agents[i].traits[Trait::STOMACH + Stomach::PLANT];
 				if (!agents[i].isDead() && agents[i].gencount>0 && index>maxindex) {
 					maxindex= index;
 					maxi= i;
@@ -2539,7 +2560,9 @@ void World::setSelection(int type)
 			//best of a given stomach type, not counting gen 0. calculates stomach score and then compares; unlike types subtract at half value
 			float maxindex= -1;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float index= agents[i].stomach[Stomach::MEAT] - 0.5*agents[i].stomach[Stomach::FRUIT] - 0.5*agents[i].stomach[Stomach::PLANT];
+				float index = agents[i].traits[Trait::STOMACH + Stomach::MEAT] - 
+					0.5*agents[i].traits[Trait::STOMACH + Stomach::FRUIT] -
+					0.5*agents[i].traits[Trait::STOMACH + Stomach::PLANT];
 				if (!agents[i].isDead() && agents[i].gencount>0 && index>maxindex) {
 					maxindex= index;
 					maxi= i;
@@ -2549,7 +2572,7 @@ void World::setSelection(int type)
 			//best aquatic (lung=0) living with gen > 0, earliest born if multiple
 			float minlung= 1000;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float lung= agents[i].lungs;
+				float lung= agents[i].traits[Trait::LUNGS];
 				if (!agents[i].isDead() && agents[i].gencount>0 && lung < minlung) {
 					minlung= lung;
 					maxi= i;
@@ -2559,7 +2582,7 @@ void World::setSelection(int type)
 			//best amphibian (lung=0.5, or whatever Elevation::BEACH_MID is) living with gen > 0
 			float minindex= 1000;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float index= abs(agents[i].lungs - Elevation::BEACH_MID);
+				float index= abs(agents[i].traits[Trait::LUNGS] - Elevation::BEACH_MID);
 				if (!agents[i].isDead() && agents[i].gencount>0 && index < minindex) {
 					minindex= index;
 					maxi= i;
@@ -2569,7 +2592,7 @@ void World::setSelection(int type)
 			//best terrestrial (lung=1) living with gen > 0, earliest born if multiple
 			float maxlung= -1;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float lung= agents[i].lungs;
+				float lung= agents[i].traits[Trait::LUNGS];
 				if (!agents[i].isDead() && agents[i].gencount>0 && lung > maxlung) {
 					maxlung= lung;
 					maxi= i;
@@ -2610,7 +2633,7 @@ void World::setSelection(int type)
 			//widest kinrange of all alive
 			float maxrange= 0;
 			for (int i=0; i<(int)agents.size(); i++) {
-				float range= agents[i].kinrange;
+				float range= agents[i].traits[Trait::KINRANGE];
 				if (!agents[i].isDead() && range > maxrange) {
 					maxrange= range;
 					maxi= i;
@@ -2637,15 +2660,15 @@ bool World::setSelectionRelative(int posneg)
 	int sid= getSelectedAgentIndex();
 	if(sid>=0){
 		//get selected species id
-		int species= agents[sid].species;
+		int species= agents[sid].traits[Trait::SPECIESID];
 		int bestidx= sid;
-		int bestdd= agents[sid].kinrange + conf::VISUALIZE_RELATED_RANGE;
+		int bestdd= agents[sid].traits[Trait::KINRANGE] + conf::VISUALIZE_RELATED_RANGE;
 
 		//for each agent, check if its alive, not exactly like us, within kin range, and a positive difference in speciesID
 		for(int i=0; i<agents.size(); i++){
-			if(agents[i].isDead() || agents[i].species==species) continue;
+			if(agents[i].isDead() || agents[i].traits[Trait::SPECIESID]==species) continue;
 
-			int dd= posneg*(agents[i].species - species);
+			int dd= posneg*(agents[i].traits[Trait::SPECIESID] - species);
 			if(dd>=bestdd || dd<0) continue;
 
 			if(dd<bestdd){ //if its the best so far, pick it
@@ -2713,9 +2736,10 @@ int World::getClosestRelative(int idx)
 		for (int i=0; i<(int)agents.size(); i++) {
 			if(idx==i) continue;
 
-			if(!agents[i].isDead() && agents[i].gencount > 0 && abs(agents[idx].species - agents[i].species) <= agents[idx].kinrange){
+			if(!agents[i].isDead() && agents[i].gencount > 0 && 
+				abs(agents[idx].traits[Trait::SPECIESID] - agents[i].traits[Trait::SPECIESID]) <= agents[idx].traits[Trait::KINRANGE]){
 				//choose an alive agent that is within kin range; closer the better
-				meta= agents[idx].kinrange/2 - abs(agents[idx].species - agents[i].species);
+				meta= agents[idx].traits[Trait::KINRANGE]/2 - abs(agents[idx].traits[Trait::SPECIESID] - agents[i].traits[Trait::SPECIESID]);
 			} else continue; //if you aren't related, or dead, or init, you're off to a very bad start if we're trying to find relatives... skip!
 
 			if(agents[i].age<TENDERAGE) meta+= 1; //choose young agents at least
@@ -2747,10 +2771,11 @@ int World::getClosestRelative(int idx)
 			}
 
 			for(int j=0; j<Stomach::FOOD_TYPES; j++){ //penalize mis-matching stomach types harshly
-				meta-= ceilf(5*abs(agents[idx].stomach[j]-agents[i].stomach[j])); //diff of 0.2 scales to a -1 penalty, max possible= -15
+				meta-= ceilf(5*abs(agents[idx].traits[Trait::STOMACH + j] - agents[i].traits[Trait::STOMACH + j]));
+				//diff of 0.2 scales to a -1 penalty, max possible= -15
 			}
-			meta-= ceilf(10*abs(agents[idx].lungs-agents[i].lungs)); //penalize mis-matching lung types, max possible= -10
-			meta-= ceilf(5*abs(agents[idx].temperature_preference-agents[i].temperature_preference)); //penalize mis-matching temp preference, max possible: -5
+			meta-= ceilf(10*abs(agents[idx].traits[Trait::LUNGS] - agents[i].traits[Trait::LUNGS])); //penalize mis-matching lung types, max possible= -10
+			meta-= ceilf(5*abs(agents[idx].traits[Trait::THERMAL_PREF] - agents[i].traits[Trait::THERMAL_PREF])); //penalize mis-matching temp preference, max possible: -5
 			
 			//if the meta counter is better than the best selection so far*, return our new target
 			//*note that it has to do better than MAXDEVIATION as a baseline because we want ONLY relatives, and if no matches, we return -1
@@ -2828,13 +2853,13 @@ void World::selectedMutate() {
 
 void World::selectedStomachMut() {
 	//rotate selected agent's stomach
-	int sidx= getSelectedAgentIndex();
-	if(sidx>=0){
-		float temp= agents[sidx].stomach[0];
-		for(int i=0; i<Stomach::FOOD_TYPES-1; i++){
-			agents[sidx].stomach[i]= agents[sidx].stomach[i+1];
+	int sidx = getSelectedAgentIndex();
+	if (sidx >= 0){
+		float temp = agents[sidx].traits[Trait::STOMACH + 0];
+		for (int i = 0; i < Stomach::FOOD_TYPES-1; i++) {
+			agents[sidx].traits[Trait::STOMACH + i] = agents[sidx].traits[Trait::STOMACH + i+1];
 		}
-		agents[sidx].stomach[Stomach::FOOD_TYPES-1]= temp;
+		agents[sidx].traits[Trait::STOMACH + Stomach::FOOD_TYPES-1] = temp;
 	}
 }
 
@@ -2910,6 +2935,7 @@ void World::addAgent(Agent &agent)
 {
 	agent.id= idcounter;
 	idcounter++;
+	agent.expressGenes();
 	agents.push_back(agent);
 }
 
@@ -2926,6 +2952,7 @@ bool World::addLoadedAgent(float x, float y)
 
 void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pref, float nx, float ny)
 {
+	//expressGenes is run in addAgent(a)
 	for (int i=0;i<num;i++) {
 		int scx= 0,scy= 0;
 		Agent a(
@@ -2945,18 +2972,18 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pr
 		scx= (int) a.pos.x/conf::CZ;
 		scy= (int) a.pos.y/conf::CZ;
 
-		if (set_stomach==Stomach::PLANT) a.setHerbivore(); //if told to predetermine stomach type
-		else if (set_stomach==Stomach::MEAT) a.setCarnivore();
-		else if (set_stomach==Stomach::FRUIT) a.setFrugivore();
-		else if (set_stomach==-2) i%2==0 ? a.setHerbivore() : a.setFrugivore();
-		else if (getEpoch()==0 && a.isCarnivore()) randf(0,1)<0.5 ? a.setHerbivore() : a.setFrugivore(); //epoch 0 has no carnivores forced
+		if (set_stomach == Stomach::PLANT) a.setHerbivore(); //if told to predetermine stomach type
+		else if (set_stomach == Stomach::MEAT) a.setCarnivore();
+		else if (set_stomach == Stomach::FRUIT) a.setFrugivore();
+		else if (set_stomach == -2) i%2==0 ? a.setHerbivore() : a.setFrugivore();
+		else if (getEpoch() == 0 && a.isCarnivore()) randf(0,1)<0.5 ? a.setHerbivore() : a.setFrugivore(); //epoch 0 has no carnivores forced
 		
 		if (nx!=-1 && ny!=-1){ //if custom location given
 			a.pos.x= nx;
 			a.pos.y= ny;
 
 		} else {
-			for(int count= 0; count<100000; count++){
+			for(int count= 0; count < 100000; count++){
 				if(count>0){
 					a.setPosRandom(conf::WIDTH, conf::HEIGHT);
 					scx= (int) a.pos.x/conf::CZ;
@@ -2964,7 +2991,7 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pr
 				}
 
 				//add various spawn-blocking conditions here
-				if(DISABLE_LAND_SPAWN && cells[Layer::ELEVATION][scx][scy]>=Elevation::BEACH_MID) continue;
+				if(DISABLE_LAND_SPAWN && cells[Layer::ELEVATION][scx][scy] >= Elevation::BEACH_MID) continue;
 				else break;
 
 				if(STATlandratio==1.0) {
@@ -2979,12 +3006,15 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pr
 		if (set_lungs){ //if told to fix lungs for agent's position
 			a.setIdealLungs(cells[Layer::ELEVATION][scx][scy]);
 		}
+		else {
+			printf("uh oh");
+		}
 
 		if (set_temp_pref) {
 			a.setIdealTempPref(calcTempAtCoord(a.pos.y));
 		}
 
-		addAgent(a);
+		addAgent(a); //runs expressGenes() before adding
 	}
 }
 
@@ -2993,10 +3023,10 @@ void World::reproduce(int mother, int father)
 {
 	float healthloss= 0; //health lost by mother for assexual reproduction
 	bool hybridoffspring = false; //if parents are not the same agent (sexual reproduction), then mark the child
-	int numbabies = agents[mother].numbabies;
+	int numbabies = agents[mother].traits[Trait::NUM_BABIES];
 
 	if (mother==father){ //if assexual rep, father is just the mother again
-		healthloss= agents[mother].radius/MEANRADIUS*HEALTHLOSS_ASEX;
+		healthloss= agents[mother].traits[Trait::RADIUS]/MEANRADIUS*HEALTHLOSS_ASEX;
 
 		agents[mother].initSplash(conf::RENDER_MAXSPLASHSIZE,0,0.8,0); //green splash means agent asexually reproduced
 
@@ -3058,20 +3088,20 @@ void World::writeReport()
 	int randagent= randi(0,agents.size());
 	randspawned= agents[randagent].gencount==0 ? 1 : 0;
 	randgen= agents[randagent].gencount;
-	randspecies= agents[randagent].species;
-	randkinrange= agents[randagent].kinrange;
+	randspecies= agents[randagent].traits[Trait::SPECIESID];
+	randkinrange= agents[randagent].traits[Trait::KINRANGE];
 	for (int i= 0; i<(int)agents[randagent].brain.boxes.size(); i++){
 		if (agents[randagent].brain.boxes[i].seed>randseed) randseed=agents[randagent].brain.boxes[i].seed;
 	}
 	randbrainsize = agents[randagent].brain.lives.size(); //using live conns
-	randradius= agents[randagent].radius;
-	randmetab= agents[randagent].metabolism;
+	randradius= agents[randagent].traits[Trait::RADIUS];
+	randmetab= agents[randagent].traits[Trait::METABOLISM];
 	randsex = agents[randagent].sexproject;
-	randbrainmutchance= agents[randagent].brain_mutation_chance;
-	randbrainmutsize= agents[randagent].brain_mutation_size;
-	randgenemutchance= agents[randagent].gene_mutation_chance;
-	randgenemutsize= agents[randagent].gene_mutation_size;
-	randtemppref= agents[randagent].temperature_preference;
+	randbrainmutchance= agents[randagent].traits[Trait::BRAIN_MUTATION_CHANCE];
+	randbrainmutsize= agents[randagent].traits[Trait::BRAIN_MUTATION_SIZE];
+	randgenemutchance= agents[randagent].traits[Trait::GENE_MUTATION_CHANCE];
+	randgenemutsize= agents[randagent].traits[Trait::GENE_MUTATION_SIZE];
+	randtemppref= agents[randagent].traits[Trait::THERMAL_PREF];
 	randchildren= agents[randagent].children;
 
 /*	for(int s=0;s<(int)species.size();s++){
