@@ -79,9 +79,10 @@ namespace UID {
 	const int CHARHEIGHT= 9;
 	const int CHARWIDTH= 6; //height and width (on screen) allowed for text characters
 	const int HUDSWIDTH= 88; //the column width we are assuming when it comes to text space in the Selected Agent Display.
-	const int TILEMARGIN= 10; //what is the min margin between a sub-tile and the next tile above (or window if main tile)
+	const int TILEMARGIN= 9; //what is the min margin between a sub-tile and the next tile above (or window if main tile)
 	const int TILEBEVEL= 5; //bevel size on tiles. 5 was scaled for the LAD; consider code for smaller tiles to have smaller bevels
 	const int TINYTILEWIDTH= 20; //the size of tiny tiles
+	const int LADHEIGHTLINES = 11; //how many lines of text the LAD is configured to be sized for
 	const int LADWIDTH= 440; //Loaded / seLected Agent Display width. SHOULD be tied to HUDSWIDTH above, but there's a lot more stuff going on in there
 	const int BUFFER= 6; //extra buffer space, mostly for text
 	const int EVENTSWIDTH= 210; //Event toast width (length?)... x-dimension-size
@@ -143,18 +144,212 @@ const enum {
 	MODES
 };};
 
-//defines for LAD (Loaded Agent Display) body modes. Order changes nothing. CURRENTLY UNUSED
-namespace LADBodyMode{
+//defines for LAD (Loaded Agent Display) data modes. Order changes nothing.
+namespace LADDataMode{
 const enum {
 	NONE= 0,
 	COMMON, //show traits and stats that are commonly looked at
-	TRAITS_ONLY, //only show traits (fixed values), and more of them
-	STATS_ONLY, //only show stats (changing values), and more of them
-	//PROFILE, //display the selected agent's profile
+	TRAITS, //only show traits (fixed values), and more of them
+	STATS, //only show stats (changing values), and more of them
+	//PROFILE, //display the selected agent's profile, TODO
 
 	//Don't add beyond this entry!
 	MODES
 };};
+
+//defines for selected agent heads up display ordering. Changing order here changes arrangement order
+//keep in mind, it is displayed in 3 columns, so the 4th entry will be in the same column as the 1st,
+//5th with the 2nd, etc
+namespace LADData{
+	const enum {
+		HEALTH= 0,		//stat
+		DHEALTH,		//stat
+		REPCOUNTER,		//stat
+		EXHAUSTION,		//stat
+		AGE,			//stat
+		CARCASSCOUNT,	//stat
+		FRESHKILL,		//stat
+		GENERATION,		//stat (fixed)
+		STOMACH,		
+		METABOLISM,	
+		NUMBABIES,
+		SPECIESID,
+		PARENTID,		//UNUSED
+		STRENGTH,
+		HYBRID,			//stat (fixed)
+		KINRANGE,
+		MOTION,			//stat
+		WHEEL_L,		//stat
+		WHEEL_R,		//stat
+		SEXPROJECT,		//stat
+		SEXPROJECT_VAL,	//stat
+		SEXPROJECTBIAS,
+		RADIUS,
+		GIVING,			//stat
+		GIVING_VAL,		//stat
+		WASTE,			//stat
+		WASTE_VAL,		//stat
+		LUNGS,		
+		GRAB,			//stat
+		GRAB_VAL,		//stat
+		SPIKE,			//stat
+		TEMPPREF,
+		VOLUME,			//stat
+		BITE,			//stat
+		CHAMOVID,
+		TONE,			//stat
+		NEAR,			//stat
+		STAT_HITS,		//stat
+		STAT_KILLED,	//stat
+		STAT_CHILDREN,	//stat
+		BRAINSIZE,
+		BRAINLIVECONNS,
+		BRAINMUTCHANCE,
+		BRAINMUTSIZE,
+		GENEMUTCHANCE,
+		GENEMUTSIZE,
+		CLOCK1_FREQ,
+		CLOCK2_FREQ,
+		EYE_MULT_SEE_AGENTS,
+		EYE_MULT_SEE_CELLS,
+		EAR_MULT_HEAR_AGENTS,
+		BLOOD_MULT_SENSE,
+		SMELL_MULT_SENSE,
+		NUMGENES,
+
+		//Don't add beyond this entry!
+		HUDS
+	};
+
+	// arrays with the order of the above ids set for their particular display.
+	const int COMMON[UID::LADHEIGHTLINES*3] = {
+		HEALTH,
+		REPCOUNTER,
+		EXHAUSTION,
+		AGE, //I'm underneath HEALTH!
+		GENERATION, //I'm underneath REPCOUNTER! Etc
+		STOMACH,
+		METABOLISM,
+		NUMBABIES,
+		SPECIESID,
+		STRENGTH,
+		HYBRID,
+		KINRANGE,
+		MOTION,
+		SEXPROJECT,
+		RADIUS,
+		GIVING,
+		WASTE,
+		LUNGS,
+		GRAB,
+		SPIKE,
+		TEMPPREF,
+		VOLUME,
+		BITE,
+		CHAMOVID,
+		TONE,
+		STAT_KILLED,
+		STAT_CHILDREN,
+		BRAINMUTCHANCE,
+		BRAINMUTSIZE,
+		BRAINSIZE,
+		GENEMUTCHANCE,
+		GENEMUTSIZE,
+		BRAINLIVECONNS
+	};
+
+	const int TRAITS[UID::LADHEIGHTLINES*3] = {
+		HEALTH,
+		CHAMOVID,
+		STOMACH,
+
+		NUMGENES,
+		RADIUS,
+		METABOLISM,
+		
+		LUNGS,
+		TEMPPREF,
+		GENERATION,
+
+		STRENGTH,
+		SEXPROJECTBIAS,
+		NUMBABIES,
+		
+		SPECIESID,
+		KINRANGE,
+		HYBRID,
+
+		CLOCK1_FREQ,
+		CLOCK2_FREQ,
+		-1,
+
+		EYE_MULT_SEE_AGENTS,
+		EYE_MULT_SEE_CELLS,
+		EAR_MULT_HEAR_AGENTS,
+
+		BLOOD_MULT_SENSE,
+		SMELL_MULT_SENSE,
+		-1,
+
+		BRAINMUTCHANCE,
+		BRAINMUTSIZE,
+		BRAINSIZE,
+
+		GENEMUTCHANCE,
+		GENEMUTSIZE,
+		BRAINLIVECONNS,
+
+		-1,
+		-1,
+		-1
+	};
+
+	const int STATS[UID::LADHEIGHTLINES*3] = {
+		HEALTH,
+		REPCOUNTER,
+		EXHAUSTION,
+
+		WHEEL_L,
+		MOTION,
+		WHEEL_R,
+
+		NEAR,
+		AGE,
+		CARCASSCOUNT,
+
+		GIVING,
+		SEXPROJECT,
+		GRAB,
+
+		GIVING_VAL,
+		SEXPROJECT_VAL,
+		GRAB_VAL,
+
+		WASTE,
+		SPIKE,
+		BITE,
+
+		WASTE_VAL,
+		VOLUME,
+		TONE,
+
+		STAT_HITS,
+		STAT_KILLED,
+		STAT_CHILDREN,
+
+		-1,
+		-1,
+		-1,
+
+		-1,
+		-1,
+		-1,
+
+		-1,
+		-1,
+		-1
+	};
+};
 
 //defines for read-write modes. Changing order does nothing
 namespace ReadWriteMode{
@@ -299,7 +494,6 @@ const enum {
 	LIVECOUNTS,
 	xLIVECOUNTS= LIVECOUNTS + LiveCount::COUNTS - 1, //same comment as AVG_LAYERS
 	OXYGEN,
-	//AVG_METABOLISM, //TODO
 
 	//Don't add beyond this entry!
 	STATICDISPLAYS
@@ -352,75 +546,6 @@ const enum {
 	DATADISPLAYS
 };};
 
-//defines for selected agent heads up display ordering. Changing order here changes arrangement order
-//keep in mind, it is displayed in 3 columns, so the 4th entry will be in the same column as the 1st,
-//5th with the 2nd, etc
-namespace LADHudOverview{
-const enum {
-	HEALTH= 0,
-	REPCOUNTER,
-	EXHAUSTION,
-	AGE, //I'm underneath HEALTH!
-	GENERATION, //I'm underneath REPCOUNTER! Etc
-	STOMACH,
-	METABOLISM,
-	NUMBABIES,
-	SPECIESID,
-	STRENGTH,
-	HYBRID,
-	KINRANGE,
-	MOTION,
-	SEXPROJECT,
-	SIZE,
-	GIVING,
-	WASTE,
-	LUNGS,
-	GRAB,
-	SPIKE,
-	TEMPPREF,
-	VOLUME,
-	BITE,
-	CHAMOVID,
-	TONE,
-	STAT_KILLED,
-	STAT_CHILDREN,
-	BRAINMUTCHANCE,
-	BRAINMUTSIZE,
-	BRAINSIZE,
-	GENEMUTCHANCE,
-	GENEMUTSIZE,
-	BRAINLIVECONNS,
-
-	//Don't add beyond this entry!
-	HUDS
-};};
-
-//defines for selected agent heads up display ordering, for stats, so similar to above, but more specific. Changing order here changes arrangement order
-//keep in mind, it is displayed in 3 columns, so the 4th entry will be in the same column as the 1st,
-//5th with the 2nd, etc
-//these are STATS, so they can CHANGE!
-namespace LADHudStats{
-const enum {
-	HEALTH= 0,
-	REPCOUNTER,
-	EXHAUSTION,
-	AGE, //I'm underneath HEALTH!
-	MOTION, //I'm underneath REPCOUNTER! Etc
-	SEXPROJECT,
-	WASTE,
-	GIVING,
-	SPIKE,
-	GRAB,
-	BITE,
-	VOLUME,
-	TONE,
-	STAT_KILLED,
-	STAT_CHILDREN,
-
-	//Don't add beyond this entry!
-	HUDS
-};};
-
 //defines for selection code. Changing order here changes menu-listing order
 namespace Select {
 const enum {
@@ -434,13 +559,12 @@ const enum {
 	BEST_CARNIVORE,
 	BEST_AQUATIC,
 	BEST_AMPHIBIAN,
-	BEST_TERRESTRIAL,//After this 10th entry, selection modes keys are shift + top number keys
+	BEST_TERRESTRIAL, //After this 10th entry, selection modes keys are shift + top number keys
 	HEALTHY,
 	ENERGETIC,
 	FASTEST, 
 	PRODUCTIVE,
 	AGGRESSIVE,
-	//TILES, //UNUSED
 	SEXIEST,
 	GENEROUS_EST,
 	KINRANGE_EST,
@@ -688,7 +812,7 @@ namespace conf {
 	const float AMBIENT_LIGHT_PERCENT= 0.25; //(.cfg)
 	const bool AGENTS_SEE_CELLS = true; //(.cfg & save)
 	const bool AGENTS_DONT_OVERDONATE = false; //(.cfg & save)
-	const int MAXWASTEFREQ= 200; //(.cfg)
+	const int MAX_WASTE_FREQ = 500; //(.cfg)
 
 	//World settings
 	const bool DISABLE_LAND_SPAWN= true; //(.cfg & GUI)
@@ -745,6 +869,7 @@ namespace conf {
 	const float GENEROSITY_RATE= 0.1; //(.cfg)
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
 	const float SPIKESPEED= 0.003; //(.cfg)
+	const float JAW_RESET_SPEED = 0.003; //the speed factor at which the jaw returns to 0 (open & ready)
 	const float VELOCITYSPIKEMIN= 0.2; //minimum velocity difference between two agents in the positive direction to be spiked by the other
 	const float BITE_EATS_RATIO = 1.5; //minimum size ratio of a bitting agent where it will eat the target whole and gain instant reward. Default is 1.5* the size of the target
 	const bool SPAWN_MIRROR_EYES = true; //(.cfg)
@@ -876,7 +1001,7 @@ namespace conf {
 	const float MEAT_DECAY= 0.00001; //(.cfg)
 	const float MEAT_WASTE= 0.001; //(.cfg)
 	const float MEAT_DEPOSIT_VALUE= 1.0; //(.cfg)
-	const float MEAT_NON_FRESHKILL_MULT = 0.75; //(.cfg)
+	const float MEAT_NON_FRESHKILL_MULT = 0.5; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)
 
 	const int HAZARD_EVENT_FREQ= 30; //(.cfg)

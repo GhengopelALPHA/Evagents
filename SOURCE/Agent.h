@@ -113,7 +113,7 @@ public:
 	//   - unsaved, are recalculated at load
 	float discomfort; //what level of temperature discomfort this agent is currently experiencing [0,1]
 	int encumbered; //is this agent experiencing any encumbering effects (childbearing, difficult terrain), and if so, how many?
-	int jawrend; //render counter for jaw. Past ~10 ticks of no jaw action, it is "retracted" visually
+	int jaw_render_timer; //render counter for jaw. Past ~10 ticks of no jaw action, it is "retracted" visually
 	float centerrender; //alpha of the agent's center. This is changed slowly by current reproduction mode: asexual= 0, clear; sexual (F)= 1.0, (M)= 2.0
 	float indicator;
 	float ir, ig, ib; //indicator colors
@@ -143,7 +143,7 @@ public:
 	float tone; //sound tone of this bot. it can be low pitched (<0.5) or high (>0.5), where only bots with hearing in range of tone will hear
 	float give;	//is this agent attempting to give food to other agent?
 	float spikeLength; //"my, what a long spike you have!"
-	float jawPosition; //what "position" the jaw is in. 0 for open, 1 for closed
+	float jawPosition; //what "position" the jaw is in. 0 for open, positive for activated (apply damage), negative for opening (going back to 0)
 	float jawOldOutput; //the previous output of the jaw
 	int grabID; //id of agent this agent is "glued" to. =-1 if none selected
 	float grabbing; //is this agent attempting to grab another? If already grabbed, how far are we willing to let them go?

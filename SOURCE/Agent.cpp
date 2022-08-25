@@ -121,7 +121,7 @@ Agent::Agent(
 	ir= 0;
 	ig= 0;
 	ib= 0;
-	jawrend= 0;
+	jaw_render_timer= 0;
 	centerrender= 0.5;
 	dhealth= 0;
 }
@@ -689,7 +689,7 @@ void Agent::printSelf()
 	printf("indicator size, rgb: %f, %f, %f, %f\n", this->indicator, this->ir, this->ig, this->ib); 
 	printf("give health gfx magnitude, pos: %f, (%f,%f)\n", this->dhealth, this->dhealthx, this->dhealthy);
 	printf("grab gfx pos: (%f,%f)\n", this->grabx, this->graby);
-	printf("jaw gfx counter: %f\n", this->jawrend);
+	printf("jaw gfx counter: %f\n", this->jaw_render_timer);
 	printf("mutations: (%i)\n", this->mutations.size());
 	for (int i = 0; i < (int)this->mutations.size(); i++) {
 		cout << this->mutations[i] << ",";

@@ -182,7 +182,8 @@ GLView::GLView(World *s) :
 	currentTime= glutGet(GLUT_ELAPSED_TIME);
 	lastsavedtime= currentTime;
 
-	ui_ladmode = LADVisualMode::GHOST;
+	ui_lad_visual_mode = LADVisualMode::GHOST;
+	ui_lad_data_mode = LADDataMode::COMMON;
 }
 
 
@@ -1501,15 +1502,23 @@ void GLView::checkTileListClicked(std::vector<UIElement> tiles, int mx, int my, 
 			if(tiles[ti].clickable && state == 1){ //if clickable, process actions
 				if(tiles[ti].key == "Follow") { 
 					live_follow = 1-live_follow;
-					ui_ladmode = LADVisualMode::GHOST;
+					ui_lad_visual_mode = LADVisualMode::GHOST;
 				}
 				else if(tiles[ti].key == "Damages") {
-					if (ui_ladmode != LADVisualMode::DAMAGES) ui_ladmode = LADVisualMode::DAMAGES;
-					else ui_ladmode = LADVisualMode::GHOST;
+					if (ui_lad_visual_mode != LADVisualMode::DAMAGES) ui_lad_visual_mode = LADVisualMode::DAMAGES;
+					else ui_lad_visual_mode = LADVisualMode::GHOST;
 				}
 				else if(tiles[ti].key=="Intake") {
-					if (ui_ladmode != LADVisualMode::INTAKES) ui_ladmode = LADVisualMode::INTAKES;
-					else ui_ladmode = LADVisualMode::GHOST;
+					if (ui_lad_visual_mode != LADVisualMode::INTAKES) ui_lad_visual_mode = LADVisualMode::INTAKES;
+					else ui_lad_visual_mode = LADVisualMode::GHOST;
+				}
+				else if(tiles[ti].key=="Traits") {
+					if (ui_lad_data_mode != LADDataMode::TRAITS) ui_lad_data_mode = LADDataMode::TRAITS;
+					else ui_lad_data_mode = LADDataMode::COMMON;
+				}
+				else if(tiles[ti].key=="Stats") {
+					if (ui_lad_data_mode != LADDataMode::STATS) ui_lad_data_mode = LADDataMode::STATS;
+					else ui_lad_data_mode = LADDataMode::COMMON;
 				}
 			}
 
@@ -1642,8 +1651,7 @@ void GLView::handleIdle()
 
 			//create the UI tiles 
 			//I don't like destroying and creating these live, but for reasons beyond me, initialization won't accept variables like glutGet()
-			int ladheight= 3*UID::BUFFER + ((int)ceil((float)LADHudOverview::HUDS*0.333333))*(UID::CHARHEIGHT + UID::BUFFER);
-			//The LAD requires a special height measurement based on the Hud construct, expanding it easily if more readouts are added
+			int ladheight= 3*UID::BUFFER + UID::LADHEIGHTLINES*(UID::CHARHEIGHT + UID::BUFFER);
 
 			maintiles.clear();
 			for(int i=0; i<MainTiles::TILES; i++){
@@ -1652,6 +1660,8 @@ void GLView::handleIdle()
 					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Follow", "F", true, false);
 					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Damages", "D", false, true);
 					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Intake", "I", false, true);
+					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Traits", "T", false, true);
+					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Stats", "S", false, true);
 				} else if(i==MainTiles::TOOLBOX) {
 					createTile(UID::BUFFER, 190, 50, 300, "", "Tools");
 					createTile(maintiles[MainTiles::TOOLBOX], UID::BUFFER+UID::TILEMARGIN, 215, 30, 30, "UnpinUI", "UI.");
@@ -2055,9 +2065,14 @@ Color3f GLView::setColorGeneration(int gen)
 
 Color3f GLView::setColorAgeHybrid(int age, bool hybrid)
 {
-	float agefact = pow(1.1 - (float)age/std::max(world->STAThighestage, 10), 2);
+	float agefact = pow(0.95 - (float)age/std::max(world->STAThighestage, 10), 2);
 	Color3f color(agefact);
 
+	if (age < world->TENDERAGE) { // newborns should always be white, slowly fade, and then drop a bit after TENDERAGE
+		color.red += 0.1;
+		color.gre += 0.1;
+		color.blu += 0.1;
+	}
 	if (age == world->STAThighestage) {
 		if (world->modcounter%10 >= 5) color= Color3f(1.0);
 		if (world->FUN) color= Color3f(randf(0,1),randf(0,1),randf(0,1));
@@ -3275,13 +3290,13 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		if (ghost) blur= 1; //disable effect for static rendering
 
 		//jaws
-		if ((scalemult > .08 || ghost) && agent.jawrend>0) {
+		if ((scalemult > .08 || ghost) && agent.jaw_render_timer>0) {
 			//dont render jaws if zoomed too far out, but always render them on ghosts, and only if they've been active within the last few ticks
 			glColor4f(0.9,0.9,0,blur);
 
 			// 1/2*JAW_MAX_FOV because being able to bite relies on other agents size. Plus it looks stupid but works great
 			float jawangle = ( 1 - powf(abs(agent.jawPosition), 0.5) ) * conf::JAW_MAX_FOV / 2;
-			if(agent.jawrend == conf::JAWRENDERTIME) jawangle = conf::JAW_MAX_FOV / 2; //at the start of the timer the jaws are rendered open for aesthetic
+			if(agent.jaw_render_timer == conf::JAWRENDERTIME) jawangle = conf::JAW_MAX_FOV / 2; //at the start of the timer the jaws are rendered open for aesthetic
 			float jawlength = world->BITE_DISTANCE - 2; //shave just a little bit off the jaw length
 
 			glVertex3f(rad*cos(agent.angle), rad*sin(agent.angle), 0);
@@ -3879,7 +3894,7 @@ void GLView::drawStatic()
 
 
 	//event display y coord, based on Selected Agent Hud to avoid overlap
-	int euy = 20 + 2*UID::BUFFER+((int)ceil((float)LADHudOverview::HUDS/3))*(UID::CHARHEIGHT+UID::BUFFER);
+	int euy = 20 + 2*UID::BUFFER + UID::LADHEIGHTLINES*(UID::CHARHEIGHT + UID::BUFFER);
 
 	//event log display
 	float ss = 18;
@@ -4267,19 +4282,19 @@ void GLView::renderAllTiles()
 
 			if(live_cursormode == MouseMode::PLACE_AGENT){
 				RenderString(tx+centery-35, ty2-15, GLUT_BITMAP_HELVETICA_12, "Place me!", 0.8f, 1.0f, 1.0f);
-				ui_ladmode = LADVisualMode::GHOST; //force ghost display mode if we're in PLACE_AGENT mode
+				ui_lad_visual_mode = LADVisualMode::GHOST; //force ghost display mode if we're in PLACE_AGENT mode
 			}
 
 			//depending on the current LAD visual mode, we render something in our left-hand space
-			if(ui_ladmode == LADVisualMode::GHOST) {
+			if(ui_lad_visual_mode == LADVisualMode::GHOST) {
 				drawPreAgent(selected, centerx, centery, true);
 				drawAgent(selected, centerx, centery, true);
 
-			} else if (ui_ladmode == LADVisualMode::DAMAGES) {
+			} else if (ui_lad_visual_mode == LADVisualMode::DAMAGES) {
 				RenderString(centerx-35, ty+40, GLUT_BITMAP_HELVETICA_12, "Damage Taken:", 0.8f, 1.0f, 1.0f);
 				drawPieDisplay(centerx, centery, 32, selected.damages);
 
-			} else if (ui_ladmode == LADVisualMode::INTAKES) {
+			} else if (ui_lad_visual_mode == LADVisualMode::INTAKES) {
 				RenderString(centerx-35, ty+40, GLUT_BITMAP_HELVETICA_12, "Food Intaken:", 0.8f, 1.0f, 1.0f);
 				drawPieDisplay(centerx, centery, 32, selected.intakes);
 			} //note NONE is an option and renders nothing, leaving space for other things...
@@ -4310,21 +4325,27 @@ void GLView::renderAllTiles()
 			}
 
 			Color3f defaulttextcolor(0.8,1,1);
-			Color3f traittextcolor(0.6,0.7,0.8);
+			Color3f greytextcolor(0.6,0.7,0.8);
 
-			for(int u=0; u<LADHudOverview::HUDS; u++) {
-				bool drawbox= false;
-
-				bool isFixedTrait= false;
+			for(int j = 0; j < UID::LADHEIGHTLINES*3; j++) {
+				bool drawbox = false;
+				bool is_common_grey = false; // lines where this is set will be grey on LADDataMode::COMMON, but white everywhere else
+				bool is_minor_grey = false; // lines where this is set will always be grey
 				Color3f* textcolor= &defaulttextcolor;
 
-				int ux= tx2-5-(UID::BUFFER+UID::HUDSWIDTH)*(3-(int)(u%3));
-				int uy= ty+15+UID::BUFFER+((int)(u/3))*(UID::CHARHEIGHT+UID::BUFFER);
+				int ux= tx2 - 5 - (UID::BUFFER+UID::HUDSWIDTH)*(3 - (int)(j%3));
+				int uy= ty + 15 + UID::BUFFER + ((int)(j/3))*(UID::CHARHEIGHT + UID::BUFFER);
 				//(ux,uy)= lower left corner of element
 				//must + ul to ux, must - uw to uy, for other corners
 
+				int id; // get the id of the array reference for the mode we have selected
+				if (ui_lad_data_mode == LADDataMode::COMMON) id = LADData::COMMON[j];
+				else if (ui_lad_data_mode == LADDataMode::TRAITS) id = LADData::TRAITS[j];
+				else if (ui_lad_data_mode == LADDataMode::STATS) id = LADData::STATS[j];
+				else id = -1;
+
 				//Draw graphs
-				if(u==LADHudOverview::HEALTH || u==LADHudOverview::REPCOUNTER || u==LADHudOverview::STOMACH || u==LADHudOverview::EXHAUSTION){
+				if(id == LADData::HEALTH || id == LADData::REPCOUNTER || id == LADData::STOMACH || id == LADData::EXHAUSTION){
 					//all graphs get a trasparent black box put behind them first
 					glBegin(GL_QUADS);
 					glColor4f(0,0,0,0.7);
@@ -4333,7 +4354,7 @@ void GLView::renderAllTiles()
 					glVertex3f(ux+1+UID::HUDSWIDTH,uy-1-UID::CHARHEIGHT,0);
 					glVertex3f(ux+1+UID::HUDSWIDTH,uy+1,0);
 
-					if(u==LADHudOverview::STOMACH){ //stomach indicators, ux= ww-100, uy= 40
+					if(id == LADData::STOMACH){ //stomach indicators, ux= ww-100, uy= 40
 						glColor3f(0,0.6,0);
 						glVertex3f(ux,uy-UID::CHARHEIGHT,0);
 						glVertex3f(ux,uy-(int)(UID::CHARHEIGHT*2/3),0);
@@ -4351,7 +4372,7 @@ void GLView::renderAllTiles()
 						glVertex3f(ux,uy,0);
 						glVertex3f(selected.traits[Trait::STOMACH + Stomach::MEAT]*UID::HUDSWIDTH+ux,uy,0);
 						glVertex3f(selected.traits[Trait::STOMACH + Stomach::MEAT]*UID::HUDSWIDTH+ux,uy-(int)(UID::CHARHEIGHT/3),0);
-					} else if (u==LADHudOverview::REPCOUNTER){ //repcounter indicator, ux=ww-200, uy=25
+					} else if (id == LADData::REPCOUNTER){ //repcounter indicator, ux=ww-200, uy=25
 						glColor3f(0,0.7,0.7);
 						glVertex3f(ux,uy,0);
 						glColor3f(0,0.5,0.6);
@@ -4360,14 +4381,14 @@ void GLView::renderAllTiles()
 						glVertex3f(cap(selected.repcounter/selected.maxrepcounter)*-UID::HUDSWIDTH+ux+UID::HUDSWIDTH,uy-UID::CHARHEIGHT,0);
 						glColor3f(0,0.5,0.6);
 						glVertex3f(cap(selected.repcounter/selected.maxrepcounter)*-UID::HUDSWIDTH+ux+UID::HUDSWIDTH,uy,0);
-					} else if (u==LADHudOverview::HEALTH){ //health indicator, ux=ww-300, uy=25
+					} else if (id == LADData::HEALTH){ //health indicator, ux=ww-300, uy=25
 						glColor3f(0,0.8,0);
 						glVertex3f(ux,uy-UID::CHARHEIGHT,0);
 						glVertex3f(selected.health/world->HEALTH_CAP*UID::HUDSWIDTH+ux,uy-UID::CHARHEIGHT,0);
 						glColor3f(0,0.6,0);
 						glVertex3f(selected.health/world->HEALTH_CAP*UID::HUDSWIDTH+ux,uy,0);
 						glVertex3f(ux,uy,0);
-					} else if (u==LADHudOverview::EXHAUSTION){ //Exhaustion/energy indicator ux=ww-100, uy=25
+					} else if (id == LADData::EXHAUSTION){ //Exhaustion/energy indicator ux=ww-100, uy=25
 						float exh= 2/(1+exp(selected.exhaustion));
 						glColor3f(0.8,0.8,0);
 						glVertex3f(ux,uy,0);
@@ -4381,7 +4402,7 @@ void GLView::renderAllTiles()
 				}
 
 				//extra color tile for gene color
-				if(u==LADHudOverview::CHAMOVID) {
+				if(id == LADData::CHAMOVID) {
 					glBegin(GL_QUADS);
 					glColor4f(0,0,0,0.7);
 					glVertex3f(ux-2+UID::HUDSWIDTH-UID::CHARHEIGHT,uy+1,0);
@@ -4398,35 +4419,46 @@ void GLView::renderAllTiles()
 				}
 
 				//write text and values
-				//VOLITILE TRAITS:
-				if(u==LADHudOverview::HEALTH){
+				//VOLITILE STATS:
+				if(id == LADData::HEALTH) {
 					if(live_agentsvis==Visual::HEALTH) drawbox= true;
 					if(selected.health > 10) sprintf(buf, "Health: %.1f/%.0f", selected.health, world->HEALTH_CAP);
 					else sprintf(buf, "Health: %.2f/%.0f", selected.health, world->HEALTH_CAP);
 
-				} else if(u==LADHudOverview::REPCOUNTER){
+				} else if (id == LADData::DHEALTH){
+					if(live_agentsvis==Visual::HEALTH) drawbox= true;
+					if (selected.dhealth <= 0) sprintf(buf, "Give H: %.3f", selected.dhealth);
+					else sprintf(buf, "Take H: %.3f", selected.dhealth);
+
+				} else if(id == LADData::REPCOUNTER){
 					if(live_agentsvis==Visual::REPCOUNTER) drawbox= true;
 					sprintf(buf, "Child: %.2f/%.0f", selected.repcounter, selected.maxrepcounter);
 				
-				} else if(u==LADHudOverview::EXHAUSTION){
+				} else if(id == LADData::EXHAUSTION){
 					if(selected.exhaustion>5) sprintf(buf, "Exhausted!");
 					else if (selected.exhaustion<2) sprintf(buf, "Energetic!");
 					else sprintf(buf, "Tired.");
 
-				} else if(u==LADHudOverview::AGE){
+				} else if(id == LADData::AGE){
 					if(live_agentsvis==Visual::AGE_HYBRID) drawbox= true;
 					sprintf(buf, "Age: %.1f days", (float)selected.age/10);
 
-				} else if(u==LADHudOverview::GIVING){
+				} else if(id == LADData::CARCASSCOUNT){
+					sprintf(buf, "Carcass: %d", selected.carcasscount);
+
+				} else if(id == LADData::FRESHKILL){
+					sprintf(buf, "Freshkill: %d", selected.freshkill);
+
+				} else if(id == LADData::GIVING){
 					if(selected.isGiving()) sprintf(buf, "Generous");
 					else if(selected.give>conf::MAXSELFISH) sprintf(buf, "Autocentric");
 					else sprintf(buf, "Selfish");
 
-//				} else if(u==LADHudOverview::DHEALTH){
-//					if(selected.dhealth==0) sprintf(buf, "Delta H: 0");
-//					else sprintf(buf, "Delta H: %.2f", selected.dhealth);
+				} else if(id == LADData::GIVING_VAL){
+					sprintf(buf, "Give: %.3f", selected.give);
+					is_minor_grey = true;
 
-				} else if(u==LADHudOverview::SPIKE){
+				} else if(id == LADData::SPIKE){
 					if(!selected.isDead() && selected.isSpikey(world->SPIKE_LENGTH)){
 						float mw = selected.w1 > selected.w2 ? selected.w1 : selected.w2;
 						if(mw < 0) mw= 0;
@@ -4436,13 +4468,18 @@ void GLView::renderAllTiles()
 						else sprintf(buf, "Spike: ~%.2f h", val);
 					} else sprintf(buf, "Not Spikey");
 
-				} else if(u==LADHudOverview::SEXPROJECT){
+				} else if(id == LADData::SEXPROJECT){
 					if(live_agentsvis==Visual::REPCOUNTER) drawbox= true;
 					if(selected.isMale()) sprintf(buf, "Sexting (M)");
 					else if(selected.isAsexual()) sprintf(buf, "Is Asexual");
 					else sprintf(buf, "Sexting (F)");
 
-				} else if(u==LADHudOverview::MOTION){
+				} else if(id == LADData::SEXPROJECT_VAL) {
+					if(live_agentsvis==Visual::REPCOUNTER) drawbox= true;
+					sprintf(buf, "Sex: %.3f", selected.sexproject);
+					is_minor_grey = true;
+
+				} else if(id == LADData::MOTION){
 					if(selected.isAirborne()) sprintf(buf, "Airborne!");
 					else if(selected.encumbered > 0) sprintf(buf, "Encumbered x%i", selected.encumbered);
 					else if(selected.boost) sprintf(buf, "Boosting");
@@ -4452,56 +4489,85 @@ void GLView::renderAllTiles()
 					else if(selected.isDead()) sprintf(buf, "Dead.");
 					else sprintf(buf, "Idle");
 
-				} else if(u==LADHudOverview::GRAB){
+				} else if(id == LADData::WHEEL_R){
+					sprintf(buf, "Wheel R: %.3f", selected.w1);
+					is_minor_grey = true;
+
+				} else if(id == LADData::WHEEL_L){
+					sprintf(buf, "Wheel L: %.3f", selected.w2);
+					is_minor_grey = true;
+
+				} else if(id == LADData::GRAB){
 					if(selected.isGrabbing()){
 						if(selected.grabID==-1) sprintf(buf, "Grabbing");
 						else sprintf(buf, "Hold %d (%.2f)", selected.grabID, selected.grabbing);
 					} else sprintf(buf, "Not Grabbing");
 
-				} else if(u==LADHudOverview::BITE){
-					if(selected.jawrend!=0) sprintf(buf, "Bite: %.2f h", abs(selected.jawPosition*world->DAMAGE_JAWSNAP));
+				} else if(id == LADData::GRAB_VAL){
+					sprintf(buf, "Grab V: %.3f", selected.grabbing);
+					is_minor_grey = true;
+
+				} else if(id == LADData::BITE){
+					if(selected.jaw_render_timer!=0) sprintf(buf, "Bite: %.2f h", abs(selected.jawPosition*world->DAMAGE_JAWSNAP));
 					else sprintf(buf, "Not Biting");
 
-				} else if(u==LADHudOverview::WASTE){
+				} else if(id == LADData::WASTE){
 					if(selected.out[Output::WASTE_RATE]<0.05) sprintf(buf, "Has the Runs");
 					else if(selected.out[Output::WASTE_RATE]<0.3) sprintf(buf, "Incontinent");
 					else if(selected.out[Output::WASTE_RATE]>0.7) sprintf(buf, "Waste Prudent");
 					else sprintf(buf, "Avg Waste Rate");
 
-				} else if(u==LADHudOverview::VOLUME){
+				} else if(id == LADData::WASTE_VAL){
+					sprintf(buf, "Waste: %.3f", selected.out[Output::WASTE_RATE]);
+					is_minor_grey = true;
+
+				} else if(id == LADData::VOLUME){
 					if(live_agentsvis==Visual::VOLUME) drawbox= true;
 					if(selected.volume>0.8) sprintf(buf, "Loud! (%.3f)", selected.volume);
 					else if(selected.volume<=conf::RENDER_MINVOLUME) sprintf(buf, "Silent.");
 					else if(selected.volume<0.2) sprintf(buf, "Quiet (%.3f)", selected.volume);
 					else sprintf(buf, "Volume: %.3f", selected.volume);
 
-				} else if(u==LADHudOverview::TONE){
+				} else if(id == LADData::TONE){
+					if(live_agentsvis==Visual::VOLUME) drawbox= true;
 					sprintf(buf, "Tone: %.3f", selected.tone);
 
+				} else if(id == LADData::NEAR){
+					if (selected.near) sprintf(buf, "Is Near Other");
+					else sprintf(buf, "No Others Near");
 
-				//STATS:
-				} else if(u==LADHudOverview::STAT_CHILDREN){
-					sprintf(buf, "Children: %d", selected.children);
+				} else if(id == LADData::STAT_HITS){
+					sprintf(buf, "# Attacked: %d", selected.hits);
+					is_minor_grey = true;
 
-				} else if(u==LADHudOverview::STAT_KILLED){
-					sprintf(buf, "Has Killed: %d", selected.killed);
+				} else if(id == LADData::STAT_KILLED){
+					sprintf(buf, "# Killed: %d", selected.killed);
+					is_minor_grey = true;
+
+				} else if(id == LADData::STAT_CHILDREN){
+					sprintf(buf, "# Children: %d", selected.children);
+					is_minor_grey = true;
 
 
 				//FIXED TRAITS
-				} else if(u==LADHudOverview::STOMACH){
+				} else if(id == LADData::NUMGENES){
+					sprintf(buf, "Gene Count: %d", selected.genes.size());
+					is_common_grey= true;
+
+				} else if(id == LADData::STOMACH){
 					if(live_agentsvis==Visual::STOMACH) drawbox= true;
 					if(selected.isHerbivore()) sprintf(buf, "\"Herbivore\"");
 					else if(selected.isFrugivore()) sprintf(buf, "\"Frugivore\"");
 					else if(selected.isCarnivore()) sprintf(buf, "\"Carnivore\"");
 					else sprintf(buf, "\"???\"...");
-					isFixedTrait= true;
+					is_common_grey= true;
 
-				} else if(u==LADHudOverview::GENERATION){
+				} else if(id == LADData::GENERATION){
 					if(live_agentsvis==Visual::GENERATIONS) drawbox= true;
 					sprintf(buf, "Gen: %d", selected.gencount);
-					isFixedTrait= true;
+					is_common_grey= true;
 
-				} else if(u==LADHudOverview::TEMPPREF){
+				} else if(id == LADData::TEMPPREF){
 					if(live_agentsvis==Visual::DISCOMFORT) drawbox= true;
 					float temp_pref = selected.traits[Trait::THERMAL_PREF];
 					if(temp_pref > 0.8) sprintf(buf, "Hadean(%.1f)", temp_pref*100);
@@ -4509,42 +4575,74 @@ void GLView::renderAllTiles()
 					else if (temp_pref < 0.2) sprintf(buf, "Arctic(%.1f)", temp_pref*100);
 					else if (temp_pref < 0.4) sprintf(buf, "Cool(%.1f)", temp_pref*100);
 					else sprintf(buf, "Temperate(%.1f)", temp_pref*100);
-					isFixedTrait= true;
+					is_common_grey= true;
 
-				} else if(u==LADHudOverview::LUNGS){
+				} else if(id == LADData::LUNGS){
 					if(live_agentsvis==Visual::LUNGS) drawbox= true;
 					if(selected.isAquatic()) sprintf(buf, "Aquatic(%.3f)", selected.traits[Trait::LUNGS]);
 					else if (selected.isTerrestrial()) sprintf(buf, "Terran(%.3f)", selected.traits[Trait::LUNGS]);
 					else sprintf(buf, "Amphibian(%.2f)", selected.traits[Trait::LUNGS]);
-					isFixedTrait= true;
+					is_common_grey= true;
 
-				} else if(u==LADHudOverview::SIZE){
+				} else if(id == LADData::RADIUS){
 					sprintf(buf, "Radius: %.2f", selected.traits[Trait::RADIUS]);	
-					isFixedTrait= true;
+					is_common_grey= true;
 
-				} else if(u==LADHudOverview::BRAINMUTCHANCE){
-					if(live_agentsvis==Visual::BRAINMUTATION) drawbox= true;
-					sprintf(buf, "Brain ~%%: %.3f", selected.traits[Trait::BRAIN_MUTATION_CHANCE]);
-					isFixedTrait= true;
-				} else if(u==LADHudOverview::BRAINMUTSIZE){ 
-					if(live_agentsvis==Visual::BRAINMUTATION) drawbox= true;
-					sprintf(buf, "Brain ~Sz: %.3f", selected.traits[Trait::BRAIN_MUTATION_SIZE]);
-					isFixedTrait= true;
-				} else if(u==LADHudOverview::GENEMUTCHANCE){
-					if(live_agentsvis==Visual::GENEMUTATION) drawbox= true;
-					sprintf(buf, "Gene ~%%: %.3f", selected.traits[Trait::GENE_MUTATION_CHANCE]);
-					isFixedTrait= true;
-				} else if(u==LADHudOverview::GENEMUTSIZE){ 
-					if(live_agentsvis==Visual::GENEMUTATION) drawbox= true;
-					sprintf(buf, "Gene ~Sz: %.3f", selected.traits[Trait::GENE_MUTATION_SIZE]);
-					isFixedTrait= true;
+				} else if(id == LADData::SEXPROJECTBIAS){
+					sprintf(buf, "Sex Bias:%.3f", selected.traits[Trait::SEX_PROJECT_BIAS]);	
+					is_common_grey= true;
 
-				} else if(u==LADHudOverview::CHAMOVID){
+				} else if(id == LADData::BRAINMUTCHANCE){
+					if(live_agentsvis==Visual::BRAINMUTATION) drawbox= true;
+					sprintf(buf, "Brain~%%: %.3f", selected.traits[Trait::BRAIN_MUTATION_CHANCE]);
+					is_common_grey= true;
+				} else if(id == LADData::BRAINMUTSIZE){ 
+					if(live_agentsvis==Visual::BRAINMUTATION) drawbox= true;
+					sprintf(buf, "Brain~Sz: %.3f", selected.traits[Trait::BRAIN_MUTATION_SIZE]);
+					is_common_grey= true;
+				} else if(id == LADData::GENEMUTCHANCE){
+					if(live_agentsvis==Visual::GENEMUTATION) drawbox= true;
+					sprintf(buf, "Gene~%%: %.3f", selected.traits[Trait::GENE_MUTATION_CHANCE]);
+					is_common_grey= true;
+				} else if(id == LADData::GENEMUTSIZE){ 
+					if(live_agentsvis==Visual::GENEMUTATION) drawbox= true;
+					sprintf(buf, "Gene~Sz: %.3f", selected.traits[Trait::GENE_MUTATION_SIZE]);
+					is_common_grey= true;
+
+				} else if(id == LADData::CLOCK1_FREQ){ 
+					sprintf(buf, "Clock1F: %.2f", selected.traits[Trait::CLOCK1_FREQ]);
+					is_minor_grey = true;
+
+				} else if(id == LADData::CLOCK2_FREQ){ 
+					sprintf(buf, "Clock2F: %.2f", selected.traits[Trait::CLOCK2_FREQ]);
+					is_minor_grey = true;
+
+				} else if(id == LADData::EYE_MULT_SEE_AGENTS){ 
+					sprintf(buf, "Eyes(Ag): %.3f", selected.traits[Trait::EYE_SEE_AGENTS]);
+					is_minor_grey = true;
+
+				} else if(id == LADData::EYE_MULT_SEE_CELLS){ 
+					sprintf(buf, "Eyes(C): %.3f", selected.traits[Trait::EYE_SEE_CELLS]);
+					is_minor_grey = true;
+
+				} else if(id == LADData::EAR_MULT_HEAR_AGENTS){ 
+					sprintf(buf, "Ears: %.3f", selected.traits[Trait::EAR_HEAR_AGENTS]);
+					is_minor_grey = true;
+
+				} else if(id == LADData::BLOOD_MULT_SENSE){ 
+					sprintf(buf, "Blood: %.3f", selected.traits[Trait::BLOOD_SENSE]);
+					is_minor_grey = true;
+
+				} else if(id == LADData::SMELL_MULT_SENSE){ 
+					sprintf(buf, "Smell: %.3f", selected.traits[Trait::SMELL_SENSE]);
+					is_minor_grey = true;
+
+				} else if(id == LADData::CHAMOVID){
 					if(live_agentsvis==Visual::RGB) drawbox= true;
 					sprintf(buf, "Camo: %.3f", selected.traits[Trait::SKIN_CHAMOVID]);
-					isFixedTrait= true;
+					is_common_grey= true;
 				
-				} else if(u==LADHudOverview::METABOLISM){
+				} else if(id == LADData::METABOLISM){
 					if(live_agentsvis==Visual::METABOLISM) drawbox= true;
 					float metab = selected.traits[Trait::METABOLISM];
 					if(metab > 0.9) sprintf(buf, "Metab:%.2f ++C", metab);
@@ -4552,52 +4650,52 @@ void GLView::renderAllTiles()
 					else if(metab < 0.1) sprintf(buf, "Metab:%.2f ++H", metab);
 					else if(metab < 0.4) sprintf(buf, "Metab: %.2f +H", metab);
 					else sprintf(buf, "Metab: %.2f B", metab);
-					isFixedTrait= true;
+					is_common_grey= true;
 
-				} else if(u==LADHudOverview::HYBRID){
+				} else if(id == LADData::HYBRID){
 					if(live_agentsvis==Visual::AGE_HYBRID) drawbox= true;
 					if(selected.hybrid) sprintf(buf, "Is Hybrid");
 					else if(selected.gencount==0) sprintf(buf, "Was Spawned");
 					else sprintf(buf, "Was Budded");
-					isFixedTrait= true;
+					is_minor_grey = true;
 
-				} else if(u==LADHudOverview::STRENGTH){
+				} else if(id == LADData::STRENGTH){
 					if(live_agentsvis==Visual::STRENGTH) drawbox= true;
 					if(selected.traits[Trait::STRENGTH]>0.7) sprintf(buf, "Strong!");
 					else if(selected.traits[Trait::STRENGTH]>0.3) sprintf(buf, "Not Weak");
 					else sprintf(buf, "Weak!");
-					isFixedTrait= true;
+					is_common_grey= true;
 
-				} else if(u==LADHudOverview::NUMBABIES){
+				} else if(id == LADData::NUMBABIES){
 					sprintf(buf, "Num Babies: %.0f", selected.traits[Trait::NUM_BABIES]);
-					isFixedTrait= true;
+					is_common_grey= true;
 
-				} else if(u==LADHudOverview::SPECIESID){
+				} else if(id == LADData::SPECIESID){
 					if(live_agentsvis==Visual::SPECIES) drawbox= true;
 					sprintf(buf, "Gene: %.0f", selected.traits[Trait::SPECIESID]);
-					isFixedTrait= true;
+					is_common_grey= true;
 
-				} else if(u==LADHudOverview::KINRANGE){
+				} else if(id == LADData::KINRANGE){
 					if(live_agentsvis==Visual::CROSSABLE) drawbox= true;
 					sprintf(buf, "Kin Range: %.0f", selected.traits[Trait::KINRANGE]);
-					isFixedTrait= true;
+					is_common_grey= true;
 
-				} else if(u==LADHudOverview::BRAINSIZE){
+				} else if(id == LADData::BRAINSIZE){
 					sprintf(buf, "Total Conns: %d", selected.brain.conns.size());
-					isFixedTrait= true;
+					is_minor_grey = true;
 
-				} else if(u==LADHudOverview::BRAINLIVECONNS){
+				} else if(id == LADData::BRAINLIVECONNS){
 					sprintf(buf, "Live Conns: %d", selected.brain.lives.size());
-					//isFixedTrait= true; //technically is a fixed trait, but it's like, really important!
+					is_common_grey= true;
 
-//				} else if(u==LADHudOverview::DEATH && selected.isDead()){
+//				} else if(id == LADData::DEATH && selected.isDead()){
 //					sprintf(buf, selected.death.c_str());
-					//isFixedTrait= true; //technically is an unchanging stat, but every agent only ever gets just one, so let's keep it bright
+					//is_common_grey= true; //technically is an unchanging stat, but every agent only ever gets just one, so let's keep it bright
 
 				} else sprintf(buf, "");
 
 				//render box around our stat that we're visualizing to help user follow along
-				if(drawbox) {
+				if (drawbox) {
 					glBegin(GL_LINES);
 					glColor3f(0.7,0.7,0.75);
 					glVertex3f(ux-2,uy+2,0);
@@ -4612,9 +4710,11 @@ void GLView::renderAllTiles()
 					drawbox= false;
 				}
 
+				if (ui_lad_data_mode != LADDataMode::COMMON) is_common_grey = false;
+
 				//Render text
-				if(isFixedTrait) {
-					textcolor= &traittextcolor;
+				if (is_common_grey || is_minor_grey) {
+					textcolor= &greytextcolor;
 					RenderStringBlack(ux, uy, GLUT_BITMAP_HELVETICA_12, buf, textcolor->red, textcolor->gre, textcolor->blu);
 				} else
 					RenderString(ux, uy, GLUT_BITMAP_HELVETICA_12, buf, textcolor->red, textcolor->gre, textcolor->blu);

@@ -1584,7 +1584,7 @@ void World::processCounters()
 		if (a->indicator < 0) a->indicator -= 1;
 
 		//process jaw renderer
-		if (a->jawrend > 0 && a->jawPosition == 0 || a->jawrend == conf::JAWRENDERTIME) a->jawrend -= 1;
+		if (a->jaw_render_timer > 0 && a->jawPosition == 0 || a->jaw_render_timer == conf::JAWRENDERTIME) a->jaw_render_timer -= 1;
 
 		//process carcass counter, which keeps dead agents on the world while meat is under them
 		if (a->carcasscount >= 0) a->carcasscount++;
@@ -1610,10 +1610,10 @@ void World::processCounters()
 			//update jaw
 			if (a->jawPosition > 0) {
 				a->jawPosition *= -1; //jaw is an instantaneous source of damage. Reset to a negative number if positive
-				a->jawrend = conf::JAWRENDERTIME; //set render timer
+				a->jaw_render_timer = conf::JAWRENDERTIME; //set render timer
 
 			//once negative, jaw moves toward to 0, slowly if near -1, faster once closer to 0
-			} else if (a->jawPosition < 0) a->jawPosition = min(0.0, a->jawPosition + 0.01*(2 + a->jawPosition));
+			} else if (a->jawPosition < 0) a->jawPosition = min(0.0, a->jawPosition + conf::JAW_RESET_SPEED*(2.0 + a->jawPosition));
 
 			//update center render mode. Asexual pulls toward 0, female sexual pulls toward 1, male sexual towards 2
 			if (a->isAsexual()) a->centerrender -= 0.01*(a->centerrender);
@@ -1718,7 +1718,7 @@ void World::processOutputs(bool prefire)
 		//jaw *snap* mechanic
 		float newjaw= cap(a->out[Output::JAW] - a->jawOldOutput)*exh; //new output has to be at least twice the old output to really trigger
 
-		if (BITE_DISTANCE > 0 && a->jawPosition==0 && a->age>TENDERAGE && newjaw>0.01) a->jawPosition= newjaw;
+		if (BITE_DISTANCE > 0 && a->jawPosition == 0 && a->age > TENDERAGE && newjaw > 0.01) a->jawPosition= newjaw;
 		a->jawOldOutput= a->out[Output::JAW];
 
 		//clock 3 gets frequency set by output, but not immediately
@@ -1854,12 +1854,13 @@ void World::processCellInteractions()
 			}
 
 			//waste deposit; done regardless of boost or jump
-			int freqwaste = (int)max(1.0f, a->out[Output::WASTE_RATE]*MAXWASTEFREQ);
-			//agents can control the rate of deposit, [1,MAXWASTEFREQ] frames
-			if (modcounter%freqwaste == 0){
+			int freqwaste = (int)max(1.0f, a->out[Output::WASTE_RATE]*MAX_WASTE_FREQ);
+			//agents can control the rate of deposit, [1,MAX_WASTE_FREQ] frames
+			if (modcounter % freqwaste == 0){
 				float hazard = cells[Layer::HAZARDS][scx][scy];
 				//agents fill up hazard cells only up to 9/10, because any greater is a special event
-				if(hazard < conf::HAZARD_EVENT_POINT) hazard += HAZARD_DEPOSIT*freqwaste*a->health/HEALTH_CAP;
+				if(hazard < conf::HAZARD_EVENT_POINT) hazard += HAZARD_DEPOSIT*freqwaste*max(0.5f,a->health/HEALTH_CAP);
+				//healthier agents have more waste (helps fight overpopulation)
 				
 				cells[Layer::HAZARDS][scx][scy] = clamp(hazard, 0, conf::HAZARD_EVENT_POINT);
 			}
@@ -2375,13 +2376,13 @@ void World::processReproduction()
 
 void World::processDeath()
 {
+	//#pragma omp parallel for schedule(dynamic) //cannot omp because the major conditional has a critical section within
 	for (int i=0; i<(int)agents.size(); i++) {
 		Agent* a = &agents[i];
-		if(a->health < 0) {
+		if (a->health < 0) {
 			printf("An agent unexpectedly had negative health when it should have had exactly zero\n");
 			a->health = 0;
-		}
-		if (a->health == 0 && a->carcasscount == 0) { 
+		} else if (a->health == 0 && a->carcasscount == 0) { 
 			//world is only now picking up the fact that the agent died from the agent itself
 			if (isAgentSelected(a->id)){
 				printf("The Selected Agent was %s!\n", a->death.c_str());
@@ -2404,16 +2405,18 @@ void World::processDeath()
 		}
 	}
 
-	vector<Agent>::iterator iter= agents.begin();
-	while (iter != agents.end()) {
-		if (iter->isDead() && iter->carcasscount >= conf::CORPSE_FRAMES) {
-			if(isAgentSelected(iter->id)) {
-				lifepath.clear();
-				if (isDemo()) addEvent("The Selected Agent decayed", EventColor::BROWN);
+	if(modcounter%2 == 0) { // saving some time by skipping every other frame.
+		vector<Agent>::iterator iter= agents.begin();
+		while (iter != agents.end()) {
+			if (iter->isDead() && iter->carcasscount >= conf::CORPSE_FRAMES) {
+				if(isAgentSelected(iter->id)) {
+					lifepath.clear();
+					if (isDemo()) addEvent("The Selected Agent decayed", EventColor::BROWN);
+				}
+				iter= agents.erase(iter);
+			} else {
+				++iter;
 			}
-			iter= agents.erase(iter);
-		} else {
-			++iter;
 		}
 	}
 }
@@ -3523,7 +3526,7 @@ void World::init()
 	DEFAULT_GENE_MUTSIZE= conf::DEFAULT_GENE_MUTSIZE;
 	LIVE_MUTATE_CHANCE= conf::LIVE_MUTATE_CHANCE;
     MAXAGE= conf::MAXAGE;
-	MAXWASTEFREQ= conf::MAXWASTEFREQ;
+	MAX_WASTE_FREQ = conf::MAX_WASTE_FREQ;
 
     MAX_SENSORY_DISTANCE= conf::MAX_SENSORY_DISTANCE;
 	INV_MAX_SENSORY_DISTANCE= 1/MAX_SENSORY_DISTANCE;
@@ -4097,10 +4100,10 @@ void World::readConfig()
 				sscanf(dataval, "%i", &i);
 				if(i!=MAXAGE) printf("MAXAGE, ");
 				MAXAGE= i;
-			}else if(strcmp(var, "MAXWASTEFREQ=")==0){
+			}else if(strcmp(var, "MAX_WASTE_FREQ=")==0 || strcmp(var, "MAXWASTEFREQ=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=MAXWASTEFREQ) printf("MAXWASTEFREQ, ");
-				MAXWASTEFREQ= i;
+				if(i!=MAX_WASTE_FREQ) printf("MAX_WASTE_FREQ, ");
+				MAX_WASTE_FREQ= i;
 			}else if(strcmp(var, "MAX_SENSORY_DISTANCE=")==0 || strcmp(var, "DIST=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=MAX_SENSORY_DISTANCE) printf("MAX_SENSORY_DISTANCE, ");
@@ -4413,7 +4416,7 @@ void World::writeConfig()
 	fprintf(cf, "BRAINBOXES= %i \t\t\t//number boxes in every agent brain. Note: the sim will NEVER make brains smaller than # of Outputs. Saved per world, loaded worlds will override this value. You cannot change this value for worlds already in progress; either use New World options or restart\n", conf::BRAINBOXES);
 	fprintf(cf, "BRAINCONNS= %i \t\t//number connections attempted for every init agent brain. Sim may make brains with less than this number, due to trimming. Changing this value will only effect newly spawned agents.\n", conf::BRAINCONNS);
 	fprintf(cf, "MEANRADIUS= %f \t\t//\"average\" agent radius, range [0.2*this,2.2*this) (only applies to random agents, no limits on mutations). This effects SOOOO much stuff, and I would not recommend setting negative unless you like crashing programs.\n", conf::MEANRADIUS);
-	fprintf(cf, "MAXWASTEFREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. 1= no agent control allowed, 0= program crash\n", conf::MAXWASTEFREQ);
+	fprintf(cf, "MAX_WASTE_FREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. 1= no agent control allowed, 0= program crash\n", conf::MAX_WASTE_FREQ);
 	fprintf(cf, "GENEROSITY_RATE= %f \t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::GENEROSITY_RATE);
 	fprintf(cf, "SPIKESPEED= %f \t\t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKESPEED);
 	fprintf(cf, "SPAWN_MIRROR_EYES= %i \t\t//true-false flag for if random spawn agents have mirrored eyes. 0= asymmetry, 1= symmetry\n", (int)conf::SPAWN_MIRROR_EYES);
