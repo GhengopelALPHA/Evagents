@@ -178,7 +178,7 @@ int CPBrain::connRef(int id)
 
 //do a single tick of the brain, for each conn. Note that all conns are assumed live and lead to live boxes per "resetBrain()"
 //DO NOT OMP anything, we handle that on the layer above, for each agent
-void CPBrain::tick(vector< float >& in, vector< float >& out)
+void CPBrain::tick(vector< float >& in, vector< float >& out, int modcount)
 {	
 	for (int i=0; i < (int)lives.size(); i++){
 		//first, get the source value. if -, it's an input; otherwise if +, it's a brain box
@@ -199,30 +199,34 @@ void CPBrain::tick(vector< float >& in, vector< float >& out)
 
 	//next, for all live boxes...
 	for (int i=0; i < (int)boxes.size(); i++) {
-		if (boxes[i].dead) continue;
+		if ((i+modcount)%conf::BRAIN_TICK_RATE == 0) {
+			if (boxes[i].dead) continue;
 
-		CPBox* box = &boxes[i]; //DO NOT De-Pointer-ize! It causes glitches!
+			CPBox* box = &boxes[i]; //DO NOT De-Pointer-ize! It causes glitches!
 
-		float presig = (box->acc + box->bias)*box->gw;
-		
-		//put value through fast sigmoid. very negative values -> 0, very positive values -> 1, values close to 0 -> near 0.5
-		box->target = 0.5 * (presig / ( 1 + abs(presig)) + 1);
-		//box->target = 1.0 / (1.0 + exp( -(box->acc + box->bias)*box->gw )); //old sigmoid
+			float presig = (box->acc + box->bias)*box->gw;
+			
+			//put value through fast sigmoid. very negative values -> 0, very positive values -> 1, values close to 0 -> near 0.5
+			box->target = 0.5 * (presig / ( 1 + abs(presig)) + 1);
+			//box->target = 1.0 / (1.0 + exp( -(box->acc + box->bias)*box->gw )); //old sigmoid 
 
-		//done with acc, reset it, and back up current out for each box
-		box->acc = 0;
-		box->oldout = box->out;
+			//done with acc, reset it, and back up current out for each box
+			box->acc = 0;
+			box->oldout = box->out;
 
-		//make all boxes go a bit toward target, with dampening applied
-		box->out += (box->target - box->out) * box->kp;
+			//make all boxes go a bit toward target, with dampening applied
+			box->out += (box->target - box->out) * box->kp;
 
-		//finally, set out[] to the last few boxes to the output
-		if (i >= (int)boxes.size() - Output::OUTPUT_SIZE) {
-			int outidx = i - ( (int)boxes.size() - Output::OUTPUT_SIZE );
+			//finally, set out[] to the last few boxes to the output
+			if (i >= (int)boxes.size() - Output::OUTPUT_SIZE) {
+				int outidx = i - ( (int)boxes.size() - Output::OUTPUT_SIZE );
 
-			//jump has different response because we've made it into a change sensitive output
-			if (outidx == Output::JUMP) out[outidx] = cap(10 * (box->out - box->oldout));
-			else out[outidx] = box->out;
+				//jump has different response because we've made it into a change sensitive output
+				if (outidx == Output::JUMP) out[outidx] = cap(10 * (box->out - box->oldout));
+				else out[outidx] = box->out;
+			}
+		} else { //end BRAIN_TICK_RATE check
+			boxes[i].acc = 0;
 		}
 	}
 }

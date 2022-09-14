@@ -574,9 +574,9 @@ void Agent::liveMutate(int MUTMULT)
 
 }
 
-void Agent::tick()
+void Agent::tick(int modcount)
 {
-	brain.tick(in, out);
+	brain.tick(in, out, modcount);
 }
 
 void Agent::printSelf()

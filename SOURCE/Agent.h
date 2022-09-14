@@ -167,7 +167,7 @@ public:
 	void initSplash(float size, float r, float g, float b); // start an indicator
 	void traceBack(int outback=0); // trace back important contributing conns for a given output. UNUSED CURRENTLY
 	
-	void tick();
+	void tick(int modcount);
 	float getActivity() const;
 	float getOutputSum() const;
 	float getWheelOutputSum() const;

@@ -771,9 +771,13 @@ namespace conf {
 	const int REPORTS_PER_EPOCH = 500; //(.cfg)
 	const int FRAMES_PER_EPOCH = 400000; //(.cfg)
 	const int FRAMES_PER_DAY= 8000; //(.cfg)
-	const int CELL_TICK_RATE= 4; //Tick rate of all cells in the world. IMPACTS PERFORMANCE!!! 1= every cell calculated every tick, 
+	const int CELL_TICK_RATE = 4; //Tick rate of all cells in the world. IMPACTS PERFORMANCE!!! 1= every cell calculated every tick, 
 	 // 2= every other tick for every other cell, 4= every 4th cell is calculated every 4 ticks, etc. This value also multiplies all cell 
 	 // growth/decay rates so no differences should be observed. Setting to 5+ will cause light to look weird, and has diminishing performance returns
+	const int BRAIN_TICK_RATE = 100; //Tick rate of all brain boxes in all agents. IMPACTS PERFORMANCE HEAVILY!!! 1= every box calculated every tick,
+	 //2= every other tick for every other box, 4= every 4th box is calculated every 4 ticks, etc. Increase this to the same as BRAINBOXES,
+	 //and you'll get an effect where every box is run through once every [BRAINBOXES] ticks, essentially slowing down the brains. Higher,
+	 //and you will introduce a delay before the brain is run through again. NOTE: this does not effect conns, only boxes
 
 	//WORLD ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ WORLD
 	const int CZ= 50; //cell size in pixels, for food squares. Should divide well into Width, Height

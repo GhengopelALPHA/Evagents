@@ -66,7 +66,7 @@ public:
 	int boxRef(int id);
 	int connRef(int id);
 
-    void tick(std::vector<float>& in, std::vector<float>& out);
+    void tick(std::vector<float>& in, std::vector<float>& out, int modcount);
 
 	float getActivityRatio() const;
 //	std::vector<int> traceBack(int outback);

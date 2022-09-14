@@ -1569,7 +1569,7 @@ void World::brainsTick()
 	#pragma omp parallel for schedule(dynamic)
 	for (int i=0; i<(int)agents.size(); i++) {
 		if(agents[i].isDead()) continue;
-		agents[i].tick();
+		agents[i].tick(modcounter);
 	}
 }
 
