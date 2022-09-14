@@ -4489,6 +4489,10 @@ void GLView::renderAllTiles()
 					else if(selected.isDead()) sprintf(buf, "Dead.");
 					else sprintf(buf, "Idle");
 
+				} else if(id == LADData::JUMP_VAL){
+					sprintf(buf, "Jump: %.3f", selected.pos.z);
+					is_minor_grey = true;
+
 				} else if(id == LADData::WHEEL_R){
 					sprintf(buf, "Wheel R: %.3f", selected.w1);
 					is_minor_grey = true;

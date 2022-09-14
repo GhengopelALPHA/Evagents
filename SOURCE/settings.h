@@ -179,6 +179,7 @@ namespace LADData{
 		HYBRID,			//stat (fixed)
 		KINRANGE,
 		MOTION,			//stat
+		JUMP_VAL,		//stat
 		WHEEL_L,		//stat
 		WHEEL_R,		//stat
 		SEXPROJECT,		//stat
@@ -309,12 +310,16 @@ namespace LADData{
 		REPCOUNTER,
 		EXHAUSTION,
 
+		AGE,
+		VOLUME,
+		TONE,
+
 		WHEEL_L,
 		MOTION,
 		WHEEL_R,
 
 		NEAR,
-		AGE,
+		JUMP_VAL,
 		CARCASSCOUNT,
 
 		GIVING,
@@ -330,16 +335,12 @@ namespace LADData{
 		BITE,
 
 		WASTE_VAL,
-		VOLUME,
-		TONE,
+		-1,
+		-1,
 
 		STAT_HITS,
 		STAT_KILLED,
 		STAT_CHILDREN,
-
-		-1,
-		-1,
-		-1,
 
 		-1,
 		-1,
@@ -980,7 +981,7 @@ namespace conf {
 	const char PLANT_TEXT[]= "Plant Food";
 	const float PLANT_INTAKE= 0.01; //(.cfg)
 	const float PLANT_DECAY = 0.000004; //(.cfg)
-	const float PLANT_GROWTH= 0.0000025; //(.cfg)
+	const float PLANT_GROWTH= 0.000003; //(.cfg)
 	const float PLANT_WASTE= 0.003;//0.0007; //(.cfg)
 	const int PLANT_ADD_FREQ= 225; //(.cfg)
 	const float PLANT_SPREAD= 0.00012; //(.cfg)
