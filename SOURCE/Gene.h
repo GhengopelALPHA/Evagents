@@ -11,7 +11,7 @@ public:
 
 	virtual Gene& operator=(const Gene& other);
 
-	int type; //the Type of the Gene. See Genes namespace in settings.h
+	int type; //the Type of the Gene. See "Genes" namespace in settings.h
 	float value; //the Value of the Gene. How it is used to calculate traits partially depends on the Type
 
 	//float rate;

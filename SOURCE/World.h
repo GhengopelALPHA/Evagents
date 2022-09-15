@@ -133,6 +133,7 @@ public:
 	void applyIntakes(Agent* a, float &plant, float &fruit, float &meat); // applies intake for all given values, and alters the values back out
 	float getMetabolismRatio(float metabolism);
 	void processAgentInteractions(); //does interactions of agents with agents
+	void resetAgentGrab(Agent* a, bool play_sfx); //reset a given agent's grab (usually if losing target for some reason and need to play sfx)
 	void processDeath(); //manage the distribution of meat, alerts, and death system functions
 	float getDroppedMeat(Agent* a);
 	void processRandomSpawn(); //handle spawning of random agents; gotta keep the world filled!

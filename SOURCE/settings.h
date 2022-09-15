@@ -179,6 +179,7 @@ namespace LADData{
 		HYBRID,			//stat (fixed)
 		KINRANGE,
 		MOTION,			//stat
+		REVERSE,		//stat
 		JUMP_VAL,		//stat
 		WHEEL_L,		//stat
 		WHEEL_R,		//stat
@@ -318,25 +319,25 @@ namespace LADData{
 		MOTION,
 		WHEEL_R,
 
-		NEAR,
+		REVERSE,
 		JUMP_VAL,
 		CARCASSCOUNT,
 
+		NEAR,
 		GIVING,
 		SEXPROJECT,
-		GRAB,
 
+		GRAB,
 		GIVING_VAL,
 		SEXPROJECT_VAL,
-		GRAB_VAL,
 
+		GRAB_VAL,
 		WASTE,
 		SPIKE,
-		BITE,
 
 		WASTE_VAL,
 		-1,
-		-1,
+		BITE,
 
 		STAT_HITS,
 		STAT_KILLED,
@@ -626,6 +627,7 @@ const enum {
 	RIGHT_WHEEL_F,
 	LEFT_WHEEL_B,
 	RIGHT_WHEEL_B,
+	REVERSE,			//are we reversing wheel outputs? >0.5: true, <=0.5: false
 	BOOST,
 	JUMP,
 	RED,
@@ -733,10 +735,19 @@ namespace conf {
 	const char SFX_STAB1[]= "sounds/agents/stab1.ogg";
 	const char SFX_CHOMP1[]= "sounds/agents/chomp1.ogg";
 	const char SFX_CHOMP2[]= "sounds/agents/chomp2.ogg";
+	const char SFX_GRAB1[] = "sounds/agents/grab1.ogg";
+	const char SFX_RIP1[] = "sounds/agents/rip1.ogg";
 
 	const char SFX_BEACH1[]= "sounds/environment/beach1.ogg";
 
 	const char SFX_UI_RELATIVESELECT[]= "sounds/interaction/selection1.ogg";
+	const char SFX_UI_AUTOSELECT[]= "sounds/interaction/selection2.ogg";
+	const char SFX_UI_AUTOSELECT_FAIL[]= "sounds/interaction/select_fail1.ogg";
+	const char SFX_UI_MANUALSELECT[]= "sounds/interaction/selection3.ogg";
+	const char SFX_UI_CLEAR_AGENT[] = "sounds/interaction/woosh1.ogg";
+	const char SFX_UI_ZAP1[] = "sounds/interaction/zap1.ogg";
+	const char SFX_UI_ZAP2[] = "sounds/interaction/zap2.ogg";
+	const char SFX_UI_ZAP3[] = "sounds/interaction/zap3.ogg";
 
 	const std::string MUSIC_FOLDER= "sounds/music/";
 	const std::string MAIN_SONG= "sounds/music/sleep no more - evanjones4.ogg";
@@ -937,7 +948,7 @@ namespace conf {
 	const int FRESHKILLTIME= 50; //(.cfg)
 	const int CORPSE_FRAMES= 400; //(.cfg)
 	const float CORPSE_MEAT_MIN= 0.25; //(.cfg)
-	const float DEADSLOWDOWN= 0.8; //slowdown multiplier of agent speed when they die
+	const float DEAD_SLOWDOWN= 0.8; //slowdown multiplier of agent speed when they die
 
 	//Health losses
 	const int MAXAGE=10000; //(.cfg)

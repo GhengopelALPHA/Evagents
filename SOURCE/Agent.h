@@ -72,7 +72,6 @@ public:
 	// - Traits/Genes are calculated at spawn/reproduction, and aside from mutations, RARELY change. They are ALWAYS saved.
 	//    The Brain is a kind of trait that is not controlled by genes but rather is it's own thing. It is DEFINITELY saved.
 
-
 	//Traits/Genes:
 	std::vector<Gene> genes; //list of Genes. Inherited, mutable
 	std::vector<int> counts; //list of traits by number of counts they appear in list of Genes. Used to apply average and mutation deletions

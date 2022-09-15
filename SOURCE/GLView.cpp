@@ -274,10 +274,12 @@ void GLView::processMouse(int button, int state, int x, int y)
 			int wx= convertMousePosToWorld(true, x);
 			int wy= convertMousePosToWorld(false, y);
 
-			if(live_cursormode==MouseMode::SELECT){
+			if (live_cursormode == MouseMode::SELECT){
 				//This line both processes mouse (via world) and sets selection mode if it was successfull
-				if(world->processMouse(button, state, wx, wy, scalemult) && live_selection!=Select::RELATIVE) live_selection = Select::MANUAL;
-
+				if (world->processMouse(button, state, wx, wy, scalemult) && live_selection != Select::RELATIVE) {
+					live_selection = Select::MANUAL;
+					world->tryPlayAudio(conf::SFX_UI_MANUALSELECT);
+				}
 			} else if(live_cursormode==MouseMode::PLACE_AGENT){
 				if(world->addLoadedAgent(wx, wy)) printf("agent placed!    yay\n");
 				else world->addEvent("No agent loaded! Load an Agent 1st", EventColor::BLOOD);
@@ -539,10 +541,11 @@ void GLView::menu(int key)
 	} else if (key==48) { //number key 0: select random from alive
 		int count = 0;
 		while(count<10000){ //select random agent, among alive
-			int idx= randi(0,world->agents.size());
+			int idx = randi(0,world->agents.size());
 			if (world->agents[idx].health>0.1) {
 				world->setSelectedAgent(idx);
-				live_selection= Select::MANUAL;
+				live_selection = Select::MANUAL;
+				world->tryPlayAudio(conf::SFX_UI_MANUALSELECT);
 				break;
 			} else count++;
 		}
@@ -566,7 +569,8 @@ void GLView::menu(int key)
 		menu(1056); //convert to numerical in order to handle below
 	} else if (key==')') {
 		world->setSelectedAgent(randi(0,world->agents.size())); //select random agent, among all
-		live_selection= Select::MANUAL;
+		live_selection = Select::MANUAL;
+		world->tryPlayAudio(conf::SFX_UI_MANUALSELECT);
 	} else if (key==62 || key=='.') { //[>] - zoom+
 		scalemult += 10*conf::ZOOM_SPEED;
 	} else if (key==60 || key==',') { //[<] - zoom-
@@ -1775,7 +1779,7 @@ void GLView::handleIdle()
 void GLView::renderScene()
 {
 	#if defined(_DEBUG)
-	if(world->isDebug()) printf("D");
+	if (world->isDebug()) printf("D");
 	#endif
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -1792,29 +1796,30 @@ void GLView::renderScene()
 	//CONTROL.CPP
 	//handle world agent selection interface
 	world->setSelection(live_selection);
-	if (world->getSelectedID()==-1 && live_selection!=Select::MANUAL && live_selection!=Select::NONE) {
-		live_selection= Select::NONE;
+	if (world->getSelectedID() == -1 && live_selection != Select::MANUAL && live_selection != Select::NONE) {
+		live_selection = Select::NONE;
 		world->addEvent("No valid Autoselect targets", EventColor::BLACK);
+		world->tryPlayAudio(conf::SFX_UI_AUTOSELECT_FAIL);
 	}
 
-	if(live_follow==1){ //if we're following,
-		float xi=0, yi=0;
+	if (live_follow == 1){ //if we're following,
+		float xi = 0, yi = 0;
 		world->getFollowLocation(xi, yi); //get the follow location from the world (location of selected agent)
 
-		if(xi!=0 && yi!=0){
+		if (xi != 0 && yi != 0){
 			// if we got to move the screen completly accross the world, jump instead
-			if(abs(-xi-xtranslate)>0.95*conf::WIDTH || abs(-yi-ytranslate)>0.95*conf::HEIGHT){
-				xtranslate= -xi; ytranslate= -yi;
+			if (abs(xi + xtranslate) > 0.95*conf::WIDTH || abs(yi + ytranslate) > 0.95*conf::HEIGHT) {
+				xtranslate = -xi; ytranslate = -yi;
 			} else {
-				float speed= conf::SNAP_SPEED;
-				if(scalemult>0.5) speed= cap(speed*pow(scalemult + 0.5,3));
-				xtranslate+= speed*(-xi-xtranslate); ytranslate+= speed*(-yi-ytranslate);
+				float speed = conf::SNAP_SPEED;
+				if (scalemult > 0.5) speed = cap(speed*pow(scalemult + 0.5,3));
+				xtranslate += speed*(-xi-xtranslate); ytranslate+= speed*(-yi-ytranslate);
 			}
 		}
 	}
 
 	//update the popup text sparingly if it already exists
-	if(popupxy[0]>=0 && popupxy[1]>=0 && world->modcounter%8==0) {
+	if (popupxy[0] >= 0 && popupxy[1] >= 0 && world->modcounter%8 == 0) {
 		handlePopup(mousex, mousey);
 	}
 
@@ -2533,6 +2538,9 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "!", 1.0f, 0.0f, 1.0f);
 							} else if(j==Output::RIGHT_WHEEL_B || j==Output::RIGHT_WHEEL_F){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "!", 0.0f, 1.0f, 0.0f);
+							} else if(j==Output::REVERSE){
+								float isreverse = value > 0.5 ? 1 : 0; //red for "reverse", blue for "normal"
+								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "R", isreverse, 0.0f, 1-isreverse);
 							} else if(j==Output::VOLUME){
 								float compcol = value>0.75 ? 0.0f : 1.0f;
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "V", compcol, compcol, compcol);
@@ -2591,19 +2599,18 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 
 							if (absw > 1.0) glLineWidth((int)ceil(absw/4));
 							else {
-								absw *= 5; //adjust alpha so we aren't completely invisible
+								absw *= 4; //adjust alpha so we aren't completely invisible
 								glLineWidth(2);
 							}
 							
 							//check if input, use raw acc value for alpha mult. otherwise, use delta for box values
 							if (sid < 0) {
-								// Input lines ALWAYS shown with width of 2
-								//glLineWidth(2);
+								absw /= 2;
 								if (type == ConnType::INVERTED) acc = 1-agent.in[-sid-1]; // Invert it if the conn is an inverted type
 								else acc = agent.in[-sid-1];
 							} else {
 								//this serves to hide the majority of connections which aren't "doing" anything at a given moment
-								acc = cap(10*abs(agent.brain.boxes[sid].out - agent.brain.boxes[sid].oldout));
+								acc = cap(100*abs(agent.brain.boxes[sid].out - agent.brain.boxes[sid].oldout));
 							}
 							acc = std::max((float)0.1, acc); //always display something
 							
@@ -2625,23 +2632,24 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 
 							glBegin(GL_LINES);
 							if (tid == sid) {
-								glColor4f(cap(-w/5), cap(w/5), 0, 0.3*absw*acc);
+								glColor4f(cap(-w/4), cap(w/4), 0, 0.3*absw*acc);
 								drawOutlineRes(tx, ty, 3, 1);
 							} else {
+								float blu = type == ConnType::INVERTED ? cap(abs(w)/4+0.1) : 0.1;
 								if (sid < 0) {
 									sy = ioboxsize/2 + (ioboxsize+xoffset)*(int)((float)(-sid-1)/(float)conf::INPUTS_OUTPUTS_PER_ROW);
 									sx = ioboxsize/2 + (ioboxsize+xoffset)*((-sid-1)%conf::INPUTS_OUTPUTS_PER_ROW);
+									glColor4f(cap(-w/4+0.1), cap(w/4 + cap(-w/4)*0.75+0.1), blu, 0.3*absw/5*acc);
 								} else { 
 									sy = inputlines*ioboxsize + yoffset + boxsize/2 + boxsize*(int)((float)(sid)/(float)conf::BOXES_PER_ROW);
 									sx = boxsize/2 + boxsize*(sid%conf::BOXES_PER_ROW);
+									glColor4f(cap(-w/4+0.1), cap(w/4 + cap(-w/4)*0.75+0.1), blu, 0.3*acc);
 								}
-								float blu = type == ConnType::INVERTED ? cap(abs(w)/5+0.1) : 0.1;
-								glColor4f(cap(-w/5+0.1), cap(w/5 + cap(-w/5)*0.75+0.1), blu, 0.3*absw/5*acc);
 								glVertex3f(sx, sy, 0.0f);
 								glVertex3f((sx+tx)/2, (sy+ty)/2, 0.0f);
 
 								glVertex3f((sx+tx)/2, (sy+ty)/2, 0.0f);
-								glColor4f(1, 1, 1, 0.3*absw/5*acc);
+								glColor4f(1, 1, 1, 0.3*acc);
 								glVertex3f(tx, ty, 0.0f);
 							}
 							glEnd();
@@ -4491,6 +4499,10 @@ void GLView::renderAllTiles()
 
 				} else if(id == LADData::JUMP_VAL){
 					sprintf(buf, "Jump: %.3f", selected.pos.z);
+					is_minor_grey = true;
+
+				} else if(id == LADData::REVERSE){
+					sprintf(buf, "%sWheels", selected.out[Output::REVERSE] > 0.5 ? "-" : "+");
 					is_minor_grey = true;
 
 				} else if(id == LADData::WHEEL_R){

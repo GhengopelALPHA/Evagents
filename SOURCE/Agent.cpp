@@ -593,6 +593,40 @@ void Agent::printSelf()
 	//traits
 	printf("======================= traits =======================\n");
 	printf("Genes count: %i\n", genes.size());
+	for (int i = 0; i < genes.size(); i++) {
+		string typetext;
+		switch (genes[i].type) {
+			case Trait::SPECIESID :				typetext = "SPECIESID";											 break;
+			case Trait::KINRANGE :				typetext = "KINRANGE";											 break;
+			case Trait::BRAIN_MUTATION_CHANCE : typetext = "BRAIN_MUTATION_CHANCE";								 break;
+			case Trait::BRAIN_MUTATION_SIZE :	typetext = "BRAIN_MUTATION_SIZE";								 break;
+			case Trait::GENE_MUTATION_CHANCE :  typetext = "GENE_MUTATION_CHANCE";								 break;
+			case Trait::GENE_MUTATION_SIZE :	typetext = "GENE_MUTATION_SIZE";								 break;
+			case Trait::RADIUS :				typetext = "RADIUS";											 break;
+			case Trait::SKIN_RED :				typetext = "SKIN_RED";											 break;
+			case Trait::SKIN_GREEN :			typetext = "SKIN_GREEN";										 break;
+			case Trait::SKIN_BLUE :				typetext = "SKIN_BLUE";											 break;
+			case Trait::SKIN_CHAMOVID :			typetext = "SKIN_CHAMOVID";										 break;
+			case Trait::STRENGTH :				typetext = "STRENGTH";											 break;
+			case Trait::THERMAL_PREF :			typetext = "THERMAL_PREF";										 break;
+			case Trait::LUNGS :					typetext = "LUNGS";												 break;
+			case Trait::NUM_BABIES :			typetext = "NUM_BABIES";										 break;
+			case Trait::SEX_PROJECT_BIAS :		typetext = "SEX_PROJECT_BIAS";									 break;
+			case Trait::METABOLISM :			typetext = "METABOLISM";										 break;
+			case (Trait::STOMACH + Stomach::PLANT) : typetext = "STOMACH::PLANT";								 break;
+			case (Trait::STOMACH + Stomach::FRUIT) : typetext = "STOMACH::FRUIT";								 break;
+			case (Trait::STOMACH + Stomach::MEAT) :	typetext = "STOMACH::MEAT";									 break;
+			case Trait::CLOCK1_FREQ :			typetext = "CLOCK1_FREQ";										 break;
+			case Trait::CLOCK2_FREQ :			typetext = "CLOCK2_FREQ";										 break;
+			case Trait::EYE_SEE_AGENTS :		typetext = "EYE_SEE_AGENTS";									 break;
+			case Trait::EYE_SEE_CELLS :			typetext = "EYE_SEE_CELLS";										 break;
+			case Trait::EAR_HEAR_AGENTS :		typetext = "EAR_HEAR_AGENTS";									 break;
+			case Trait::BLOOD_SENSE :			typetext = "BLOOD_SENSE";										 break;
+			case Trait::SMELL_SENSE :			typetext = "SMELL_SENSE";										 break;
+			default :							typetext = "Trait unknown";
+		}
+		printf(" gene #%i: type: %s, val: %f\n", i, typetext.c_str(), genes[i].value);
+	}
 	printf("brain_mutation_chance: %f, brain_mutation_size: %f\n", this->traits[Trait::BRAIN_MUTATION_CHANCE], this->traits[Trait::BRAIN_MUTATION_SIZE]);
 	printf("gene_mutation_chance: %f, gene_mutation_size: %f\n", this->traits[Trait::GENE_MUTATION_CHANCE], this->traits[Trait::GENE_MUTATION_SIZE]);
 	printf("species id: %f, kin_range: +/-%f\n", this->traits[Trait::SPECIESID], this->traits[Trait::KINRANGE]);
@@ -645,6 +679,7 @@ void Agent::printSelf()
 			case Output::LEFT_WHEEL_F :	printf("- left wheel (F)");		break;
 			case Output::PROJECT :		printf("- sexual proj.");		break;
 			case Output::RED :			printf("- red");				break;
+			case Output::REVERSE :		printf("- reverse wheels");		break;
 			case Output::RIGHT_WHEEL_B : printf("- right wheel (B)");	break;
 			case Output::RIGHT_WHEEL_F : printf("- right wheel (F)");	break;
 			case Output::SPIKE :		printf("- spike");				break;
@@ -658,6 +693,7 @@ void Agent::printSelf()
 	
 	//outputs
 	printf("wheel 1 & 2 sums: %f, %f\n", this->w1, this->w2);
+	printf("reverse wheels? %s\n", this->out[Output::REVERSE]>0.5 ? "true" : "false");
 //	bool boost; //is this agent boosting?
 //	float jump; //what "height" this bot is at after jumping
 //	float red, gre, blu; //colors of the

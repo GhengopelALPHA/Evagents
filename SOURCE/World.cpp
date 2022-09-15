@@ -1527,40 +1527,37 @@ void World::setInputs()
 			}
 		}
 
-		//---FINALIZE EYES---//
-		for(int i = 0; i < NUMEYES; i++){
-			a->in[Input::EYES+i*3] = cap(r[i]);
-			a->in[Input::EYES+i*3+1] = cap(g[i]);
-			a->in[Input::EYES+i*3+2] = cap(b[i]);
+		//--- PACKAGE UP INPUTS ---//
+		float t = (modcounter + current_epoch*FRAMES_PER_EPOCH);
+
+		a->in[Input::CLOCK1] = abs(sinf(t/a->traits[Trait::CLOCK1_FREQ]));
+		if (!a->isTiny()) a->in[Input::CLOCK2] = abs(sinf(t/a->traits[Trait::CLOCK2_FREQ]));
+		if (!a->isTiny()) a->in[Input::CLOCK3] = abs(sinf(t/a->clockf3));
+
+		for (int i = 0; i < NUMEYES; i++) {
+			a->in[Input::EYES + i*3] = cap(r[i]);
+			a->in[Input::EYES + i*3 + 1] = cap(g[i]);
+			a->in[Input::EYES + i*3 + 2] = cap(b[i]);
 		}
 
-		//---HEALTH---//
+		for (int i = 0; i < NUMEARS; i++) {
+			a->in[Input::EARS + i] = cap(hearsum[i]);
+		}
+
 		a->in[Input::HEALTH] = cap(a->health/HEALTH_CAP);
+		a->in[Input::REPCOUNT] = cap((a->maxrepcounter-a->repcounter)/a->maxrepcounter); //inverted repcounter, baby-time has input value of 1		
+		a->in[Input::BLOOD] = cap(blood);
+		a->in[Input::TEMP] = calcTempAtCoord(a->pos.y);
+		a->in[Input::BOT_SMELL] = cap(smellsum);
+		a->in[Input::FRUIT_SMELL] = cap(fruit);
+		a->in[Input::MEAT_SMELL] = cap(meat);
+		a->in[Input::HAZARD_SMELL] = cap(hazard);
+		a->in[Input::WATER_SMELL] = cap(water);
+		a->in[Input::RANDOM] = cap(randn(a->in[Input::RANDOM],0.08));
 
-		//---REPRODUCTION COUNTER---//
-		a->in[Input::REPCOUNT] = cap((a->maxrepcounter-a->repcounter)/a->maxrepcounter); //inverted repcounter, babytime is input val of 1
-
-		// = = = = = END SENSES COLLECTION = = = = = //
-
-		//---PACKAGE UP INPUTS---//
-		float t= (modcounter+current_epoch*FRAMES_PER_EPOCH);
-		a->in[Input::CLOCK1]= abs(sinf(t/a->traits[Trait::CLOCK1_FREQ]));
-		if(!a->isTiny()) a->in[Input::CLOCK2]= abs(sinf(t/a->traits[Trait::CLOCK2_FREQ]));
-		if(!a->isTiny()) a->in[Input::CLOCK3]= abs(sinf(t/a->clockf3));
-		for(int i=0;i<NUMEARS;i++){
-			a->in[Input::EARS+i]= cap(hearsum[i]);
-		}
-		a->in[Input::BOT_SMELL]= cap(smellsum);
-		a->in[Input::BLOOD]= cap(blood);
-		a->in[Input::TEMP]= calcTempAtCoord(a->pos.y);
 		if (!isAgentSelected(a->id)) {
-			a->in[Input::PLAYER]= 0.0;
+			a->in[Input::PLAYER] = 0.0;
 		}
-		a->in[Input::FRUIT_SMELL]= cap(fruit);
-		a->in[Input::MEAT_SMELL]= cap(meat);
-		a->in[Input::HAZARD_SMELL]= cap(hazard);
-		a->in[Input::WATER_SMELL]= cap(water);
-		a->in[Input::RANDOM]= cap(randn(a->in[Input::RANDOM],0.08));
 	}
 }
 
@@ -1632,12 +1629,12 @@ void World::processOutputs(bool prefire)
 // A prefire is needed when loading, as many values need refreshing (for example, from save loading), but the agents shouldn't move yet
 {
 	#pragma omp parallel for schedule(dynamic)
-	for (int i=0; i<(int)agents.size(); i++) {
+	for (int i = 0; i < (int)agents.size(); i++) {
 		Agent* a = &agents[i];
 
 		if (a->isDead()) {
-			//dead agents continue to exist, slow down, and loose their voice, but skip everything else
-			float sp = conf::DEADSLOWDOWN*(a->w1+a->w2)*0.5;
+			//dead agents coast straight forward to a stop, and loose their voice, but skip everything else
+			float sp = conf::DEAD_SLOWDOWN*(a->w1 + a->w2)*0.5;
 			a->w1 = sp;
 			a->w2 = sp;
 
@@ -1686,8 +1683,9 @@ void World::processOutputs(bool prefire)
 				a->w1= player_right;
 				a->w2= player_left;
 			} else {
-				a->w1+= a->traits[Trait::STRENGTH]*(a->out[Output::LEFT_WHEEL_F] - a->out[Output::LEFT_WHEEL_B] - a->w1);
-				a->w2+= a->traits[Trait::STRENGTH]*(a->out[Output::RIGHT_WHEEL_F] - a->out[Output::RIGHT_WHEEL_B] - a->w2);
+				int reverse_mult = a->out[Output::REVERSE] > 0.5 ? -1 : 1;
+				a->w1+= a->traits[Trait::STRENGTH]*(reverse_mult*(a->out[Output::LEFT_WHEEL_F] - a->out[Output::LEFT_WHEEL_B]) - a->w1);
+				a->w2+= a->traits[Trait::STRENGTH]*(reverse_mult*(a->out[Output::RIGHT_WHEEL_F] - a->out[Output::RIGHT_WHEEL_B]) - a->w2);
 			}
 		}
 		a->real_red += 0.2*((1-a->traits[Trait::SKIN_CHAMOVID])*a->traits[Trait::SKIN_RED] + a->traits[Trait::SKIN_CHAMOVID]*a->out[Output::RED] - a->real_red);
@@ -1983,7 +1981,8 @@ void World::processAgentInteractions()
 					|| a1->pos.y < a2->pos.y - NEAREST) continue;
 
 				if (a2->isDead()) {
-					if(a1->isGrabbing() && a1->grabID==a2->id) a1->grabID= -1;
+					//target agent died, so let body go (with no sound effect) 
+					if (a1->isGrabbing() && a1->grabID == a2->id) resetAgentGrab(a1, false);
 					continue;
 				}
 
@@ -1996,13 +1995,13 @@ void World::processAgentInteractions()
 		#pragma omp parallel for schedule(dynamic)
 		for (int i=0; i<(int)agents.size(); i++) {
 			if(agents[i].isDead()) continue;
-			if(!agents[i].near){
-				//no one is near enough this agent to process interactions. break grabbing and skip
-				agents[i].grabID= -1;
-				continue;
-			}
 
 			Agent* a = &agents[i];
+			if(!a->near){
+				//no one is near enough this agent to process interactions, so break grabbing and skip
+				if (a->grabID != -1) resetAgentGrab(a, true);
+				continue;
+			}
 
 			float ainvrad = 1/a->traits[Trait::RADIUS];
 
@@ -2188,7 +2187,7 @@ void World::processAgentInteractions()
 						if (a2->health == 0){ 
 							chompvolume = 1;
 							a->killed++;
-							if(a->grabID == a2->id) a->grabID= -1;
+							if(a->grabID == a2->id) resetAgentGrab(a, false); //we bit our grabbed agent to death; don't play grab break sfx
 
 							//The agent has definitely been killed, but we have some things to check
 
@@ -2229,8 +2228,11 @@ void World::processAgentInteractions()
 
 						//check init grab
 						if (a->grabID == -1){
-							if (fabs(diff) < GRAB_MAX_FOV && randf(0,1)<0.3) { //very wide AOE centered on a's grabangle, 30% chance any one bot is picked
-								a->grabID= a2->id;
+							if (fabs(diff) < GRAB_MAX_FOV && randf(0,1) < 0.3) { //very wide AOE centered on a's grabangle, 30% chance any one bot is picked
+								
+								a->grabID = a2->id;
+								tryPlayAudio(conf::SFX_GRAB1, a2->pos.x, a2->pos.y, randn(1.0,0.2), 1.0); //play sfx at the target's location
+
 								if (!STATuserseengrab) {
 									addTipEvent("Agent grabbed another", EventColor::CYAN, a->id);
 									addTipEvent("Agent was grabbed", EventColor::CYAN, a2->id);
@@ -2265,15 +2267,22 @@ void World::processAgentInteractions()
 							a->angle+= clamp(a->grabbing*diff*a2->traits[Trait::RADIUS]*ainvrad, -conf::GRAB_ROTATION_LIMIT, conf::GRAB_ROTATION_LIMIT);
 						}
 					} else if (a->grabID==a2->id) {
-						//grab distance exceeded, break the bond
-						a->grabID= -1;
+						//grab distance exceeded, break the bond & play sfx
+						resetAgentGrab(a, true);
 					}
 				} else {
-					//if we can't grab, or the other agent died, clear the grab target
-					a->grabID= -1;
+					//if we can't grab, or the other agent died, clear the grab target. Can't say exactly why, so don't play sfx
+					resetAgentGrab(a, false);
 				} //end grab mechanics. DO NOT ADD DEATH CAUSES AFTER THIS
 			}
 		}
+	}
+}
+
+void World::resetAgentGrab(Agent *a, bool play_sfx) {
+	a->grabID= -1;
+	if (play_sfx) {
+		tryPlayAudio(conf::SFX_RIP1, a->pos.x, a->pos.y, randn(1.0,0.2), 1.0);
 	}
 }
 
@@ -2412,6 +2421,7 @@ void World::processDeath()
 				if(isAgentSelected(iter->id)) {
 					lifepath.clear();
 					if (isDemo()) addEvent("The Selected Agent decayed", EventColor::BROWN);
+					tryPlayAudio(conf::SFX_UI_CLEAR_AGENT, 0, 0, randn(1.0,0.1));
 				}
 				iter= agents.erase(iter);
 			} else {
@@ -2642,16 +2652,17 @@ void World::setSelection(int type)
 					maxi= i;
 				}
 			}
-		}
+		} //note: do not handle Manual - as the name implies, it is not an autoselect mode
 			
 		if (maxi!=-1) {
-			if(!isAgentSelected(agents[maxi].id)) {
+			if (!isAgentSelected(agents[maxi].id)) {
 				setSelectedAgent(maxi);
-				if(type==Select::RELATIVE) tryPlayAudio(conf::SFX_UI_RELATIVESELECT);
-				//else PLAY SIMPLE WOOSH SFX
+				if (type == Select::RELATIVE) tryPlayAudio(conf::SFX_UI_RELATIVESELECT);
+				else if (type != Select::MANUAL) tryPlayAudio(conf::SFX_UI_AUTOSELECT);
+				else tryPlayAudio(conf::SFX_UI_MANUALSELECT);
 			}
-		} else if (type!=Select::MANUAL) {
-			SELECTION= -1;
+		} else if (type != Select::MANUAL) {
+			SELECTION = -1;
 		}
 	}
 }
@@ -2829,11 +2840,18 @@ void World::selectedHeal()
 
 void World::selectedKill() {
 	//kill (delete) selected agent
-	int sidx= getSelectedAgentIndex();
-	if(sidx>=0){
+	int sidx = getSelectedAgentIndex();
+	if (sidx >= 0) {
 		//if we press the button on an agent already dead, mark them for clearing them from the world
-		if(agents[sidx].isDead()) agents[sidx].carcasscount= conf::CORPSE_FRAMES;
-		else agents[sidx].addDamage(conf::DEATH_USER, 9001);
+		if (agents[sidx].isDead()) {
+			agents[sidx].carcasscount = conf::CORPSE_FRAMES;
+		} else {
+			agents[sidx].addDamage(conf::DEATH_USER, 9001);
+
+			if (randf(0,1) < 0.35) tryPlayAudio(conf::SFX_UI_ZAP1, agents[sidx].pos.x, agents[sidx].pos.y, randn(1.0,0.1));
+			else if (randf(0,1) < 0.5) tryPlayAudio(conf::SFX_UI_ZAP2, agents[sidx].pos.x, agents[sidx].pos.y, randn(1.0,0.1)); //real chance: 0.325
+			else tryPlayAudio(conf::SFX_UI_ZAP3, agents[sidx].pos.x, agents[sidx].pos.y, randn(1.0,0.1)); //real chance: 0.325
+		}
 	}
 }
 
