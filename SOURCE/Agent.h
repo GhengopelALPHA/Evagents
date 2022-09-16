@@ -156,11 +156,13 @@ public:
 		float BRAIN_MUTATION_CHANCE,
 		float BRAIN_MUTATION_SIZE,
 		float GENE_MUTATION_CHANCE,
-		float GENE_MUTATION_SIZE
+		float GENE_MUTATION_SIZE,
+		int OVERRIDE_KINRANGE
 	); //give the agent some initial random genes. Run this at init only
 	void countGenes(); // counts up the number of each gene type and adds the value they have to traits (use before mutation and expression)
-	void expressGenes(int OVERRIDE_KINRANGE = -1); //process genes list and set/update agent traits & abilities. Run this to get the trait list updated
-	void mutateGenes(float basechance, float basesize, bool livemutate); //mutate all genes with a given base chance and size. Run this at either birth or live
+	void expressGenes(); //process genes list and set/update agent traits & abilities. Run this to get the trait list updated
+	void mutateGenesBirth(float basechance, float basesize, int OVERRIDE_KINRANGE); //mutate all genes with a given base chance and size at births
+	void mutateGenesLive(float basechance, float basesize, int OVERRIDE_KINRANGE); //mutate some genes with a given base chance and size for live agents
 
 	void printSelf(); // print agent details
 	void initSplash(float size, float r, float g, float b); // start an indicator
@@ -189,7 +191,7 @@ public:
 	);
 	void resetRepCounter(float MEANRADIUS, float REP_PER_BABY);
 
-	void liveMutate(int MUTMULT= 1);
+	void liveMutate(int MUTMULT = 1, int OVERRIDE_KINRANGE = -1);
 
 	//random agent creation tweakers
 	void setHerbivore();

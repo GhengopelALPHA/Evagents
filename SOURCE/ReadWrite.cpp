@@ -222,7 +222,7 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			if(strcmp(var, "</a>")==0){
 				//end agent tag is checked for, and when found, resets brain, expressed genes as traits, and copies agent xa to the world
 				xa.brain.resetBrain();
-				xa.expressGenes(world->OVERRIDE_KINRANGE);
+				xa.expressGenes();
 				if(loadexact) world->addAgent(xa);
 				else world->loadedagent= xa; //if we are loading a single agent, push it to world buffer
 				mode= ReadWriteMode::READY;

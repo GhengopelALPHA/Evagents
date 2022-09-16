@@ -889,11 +889,12 @@ namespace conf {
 	const float MIN_TEMP_DISCOMFORT_THRESHOLD = 0.005; //minimum discomfort value below which it's just overridden to 0
 	
 	//energy settings
-	const float BOOST_EXAUSTION_MULT= 1.2; //(.cfg)
+	const float WHEEL_ZERO_EXHAUSTION_THRESHOLD = 0.00001; //threshold value of the wheel values summed * Boost exhaustion that, if below, sets all energy drain to 0 (sleep)
+	const float BOOST_EXAUSTION_MULT= 2.0; //(.cfg)
 	const float BASEEXHAUSTION= -12; //(.cfg)
 	const float EXHAUSTION_MULT_PER_OUTPUT= 1.0; //(.cfg)
 	const float EXHAUSTION_MULT_PER_CONN= 0.025; //(.cfg)
-
+	
 	//stomach intake settings
 	const float MAX_INTAKE_RATE = 0.005; //(.cfg)
 	const float MIN_INTAKE_RATE = 0.0001; //(.cfg)

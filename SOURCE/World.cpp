@@ -1594,7 +1594,7 @@ void World::processCounters()
 			//Live mutations
 			for (int m = 0; m < MUTEVENTMULT; m++) {
 				if (randf(0,1) < LIVE_MUTATE_CHANCE) {
-					a->liveMutate(MUTEVENTMULT);
+					a->liveMutate(MUTEVENTMULT, OVERRIDE_KINRANGE);
 					addTipEvent("Selected Agent Was Mutated!", EventColor::PURPLE, a->id); //control.cpp - want this to be supressed when in fast mode
 					if (!isDemo()) STATlivemutations++;
 					if (DEBUG) printf("Live Mutation Event\n");
@@ -1647,11 +1647,16 @@ void World::processOutputs(bool prefire)
 		}
 
 		//set exhaustion
+		float exhaustion_total = 0;
+
 		float boostmult = a->boost ? BOOST_EXAUSTION_MULT : 1;
-		float exhaustion_wheels = a->getWheelOutputSum()*boostmult;
-		float exhaustion_outputs = a->getOutputSum()*EXHAUSTION_MULT_PER_OUTPUT;
-		float exhaustion_conns = a->brain.lives.size()*EXHAUSTION_MULT_PER_CONN;
-		float exhaustion_total = exhaustion_wheels + exhaustion_outputs + exhaustion_conns;
+		float exhaustion_wheels = (abs(a->w1) + abs(a->w2))*boostmult;
+
+		if (exhaustion_wheels > conf::WHEEL_ZERO_EXHAUSTION_THRESHOLD) { //below the wheel sum threshold, exhaustion_total stays 0; sleep is active!
+			float exhaustion_outputs = a->getOutputSum()*EXHAUSTION_MULT_PER_OUTPUT;
+			float exhaustion_conns = a->brain.lives.size()*EXHAUSTION_MULT_PER_CONN;
+			exhaustion_total = exhaustion_wheels + exhaustion_outputs + exhaustion_conns;
+		}
 
 		a->exhaustion = max((float)0, (a->exhaustion + exhaustion_total) + BASEEXHAUSTION)*0.333333; // /3 to average the value
 
@@ -1679,6 +1684,7 @@ void World::processOutputs(bool prefire)
 		} //do this before setting wheels
 
 		if (!a->isAirborne()) { //if not jumping, then change wheel speeds. otherwise, we want to keep wheel speeds constant
+			//Note: we do NOT apply exhaustion to w1 & w2; that is because they feed back and effect exhaustion. We only modify their final effect on the movement, se below
 			if (player_control && isAgentSelected(a->id)) {
 				a->w1= player_right;
 				a->w2= player_left;
@@ -2196,7 +2202,9 @@ void World::processAgentInteractions()
 								//if the ratio of the sizes is over a certain ratio (the attacker is larger), then the target is eaten instead.
 								float meat = getDroppedMeat(a2); //get the whole amount of meat this agent would drop...
 								float dummy = 0.0;
+								float prehealth = a->health;
 								applyIntakes(a, dummy, dummy, meat); //and force-feed it to the agent!
+								/*if(DEBUG)*/ printf("\nan agent SWALLOWED another agent, and received %f meat, translating to %f health\n", meat, a->health - prehealth);
 
 								//lime splash means agent ate the other agent. Yum!
 								a->initSplash(conf::RENDER_MAXSPLASHSIZE,0.5,1,0.3);
