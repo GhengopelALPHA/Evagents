@@ -74,8 +74,8 @@ public:
 
 	//Traits/Genes:
 	std::vector<Gene> genes; //list of Genes. Inherited, mutable
-	std::vector<int> counts; //list of traits by number of counts they appear in list of Genes. Used to apply average and mutation deletions
-	std::vector<float> traits; //the final list of trait values. These are added to by Genes and then divided by the number of genes
+	int counts[Trait::TRAIT_TYPES]; //list of traits by number of counts they appear in list of Genes. Used to apply average and mutation deletions
+	float traits[Trait::TRAIT_TYPES]; //the final list of trait values. These are added to by Genes and then divided by the number of genes
 
 	std::vector<Eye> eyes; //collection of eye structs
 	std::vector<Ear> ears; //collection of ear structs
@@ -148,7 +148,7 @@ public:
 	int grabID; //id of agent this agent is "glued" to. =-1 if none selected
 	float grabbing; //is this agent attempting to grab another? If already grabbed, how far are we willing to let them go?
 	float grabangle; //the position of this bot's grab. Other agents can only be grabbed at this angle, and are drawn to this point specifically once grabbed
-	float sexproject; //is this bot trying to give out its genetic data? if so, how strongly? in range [0,2] (bias+output, considered 'father' if >1.0
+	float sexproject; //is this bot trying to give out its genetic data? if so, how strongly? in range [0,2] (bias+output), considered 'father' if >1.0
 	float clockf3; //frequency of the third clock, which can change via an output
 
 	//Functions

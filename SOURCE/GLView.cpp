@@ -2984,7 +2984,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			int xo = 8 + r;
 			int yo = -21;
 
-			//health
+			//health bar
 			glBegin(GL_QUADS);
 			glColor3f(0,0,0);
 			glVertex3f(xo,yo,0);
@@ -2999,7 +2999,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			glVertex3f(xo+5,yo+42,0);
 			glVertex3f(xo,yo+42,0);
 
-			//energy
+			//energy bar
 			xo+= 7;
 			glColor3f(0,0,0);
 			glVertex3f(xo,yo,0);
@@ -3015,7 +3015,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			glVertex3f(xo+5,yo+42,0);
 			glVertex3f(xo,yo+42,0);
 
-			//repcounter
+			//repcounter bar
 			xo+= 7;
 			glColor3f(0,0,0);
 			glVertex3f(xo,yo,0);
@@ -3033,6 +3033,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 			//end side-by-side displays
 			glEnd();
 			
+			//debug text near agents (deprecated)
 			if(world->isDebug()) {
 				int ypos = 0;
 				int ydisplace = 12;
@@ -3041,20 +3042,7 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 				if(agent.near) {
 					RenderString(0, ypos, GLUT_BITMAP_HELVETICA_12, "near!", 0.8f, 1.0f, 1.0f);
 					ypos-= ydisplace;
-				}
-
-				//wheel speeds
-				sprintf(buf2, "w1: %.3f", agent.w1);
-				RenderString(0, ypos, GLUT_BITMAP_HELVETICA_12, buf2, 0.8f, 0.0f, 1.0f);
-				ypos-= ydisplace;
-
-				sprintf(buf2, "w2: %.3f", agent.w2);
-				RenderString(0, ypos, GLUT_BITMAP_HELVETICA_12, buf2, 0.0f, 1.0f, 0.0f);
-				ypos-= ydisplace;
-
-				//exhaustion readout
-				sprintf(buf2, "exh: %.3f", agent.exhaustion);
-				RenderString(0, ypos, GLUT_BITMAP_HELVETICA_12, buf2, 1.0f, 1.0f, 0.0f);
+				} //if adding a new display, ypos ensures we move enough to display a new line of text *above* the last
 			}
 		}
 
@@ -4461,6 +4449,10 @@ void GLView::renderAllTiles()
 					if(selected.exhaustion>5) sprintf(buf, "Exhausted!");
 					else if (selected.exhaustion<2) sprintf(buf, "Energetic!");
 					else sprintf(buf, "Tired.");
+
+				} else if(id == LADData::EXHAUSTION_VAL) {
+					sprintf(buf, "Exh: %.3f", selected.exhaustion);
+					is_minor_grey = true;
 
 				} else if(id == LADData::AGE){
 					if(live_agentsvis==Visual::AGE_HYBRID) drawbox= true;

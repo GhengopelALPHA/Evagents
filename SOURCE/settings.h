@@ -166,6 +166,7 @@ namespace LADData{
 		DHEALTH,		//stat
 		REPCOUNTER,		//stat
 		EXHAUSTION,		//stat
+		EXHAUSTION_VAL,	//stat
 		AGE,			//stat
 		CARCASSCOUNT,	//stat
 		FRESHKILL,		//stat
@@ -312,8 +313,8 @@ namespace LADData{
 		EXHAUSTION,
 
 		AGE,
-		VOLUME,
-		TONE,
+		NEAR,
+		EXHAUSTION_VAL,
 
 		WHEEL_L,
 		MOTION,
@@ -323,28 +324,28 @@ namespace LADData{
 		JUMP_VAL,
 		CARCASSCOUNT,
 
-		NEAR,
+		SPIKE,
 		GIVING,
 		SEXPROJECT,
 
-		GRAB,
+		BITE,
 		GIVING_VAL,
 		SEXPROJECT_VAL,
 
-		GRAB_VAL,
+		GRAB,
 		WASTE,
-		SPIKE,
+		-1,
 
+		GRAB_VAL,
 		WASTE_VAL,
 		-1,
-		BITE,
 
 		STAT_HITS,
 		STAT_KILLED,
 		STAT_CHILDREN,
 
-		-1,
-		-1,
+		VOLUME,
+		TONE,
 		-1,
 
 		-1,

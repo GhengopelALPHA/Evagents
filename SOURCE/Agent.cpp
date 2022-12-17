@@ -23,10 +23,6 @@ Agent::Agent(
 	angle= randf(-M_PI,M_PI);
 
 	//genes
-	//first, set all trait variables to 0
-	traits.resize(Trait::TRAIT_TYPES, 0.0f);
-	counts.resize(Trait::TRAIT_TYPES, 0);
-
 	genes.clear();
 
 	populateGenes(
