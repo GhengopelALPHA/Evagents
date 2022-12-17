@@ -875,7 +875,9 @@ namespace conf {
 	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
 	const float ENCUMBERED_MOVE_MULT= 0.3; //(.cfg)
 
-	//trait settings
+	//gene/trait settings
+	const float GENE_ADD_BASE_CHANCE = 0.01; //min chance that a new gene is randomly added (technically duplicated)
+	const float GENE_DELETE_BASE_CHANCE = 0.3; //min chance that an extra gene is randomly deleted
 	const float MEANRADIUS= 10.0; //(.cfg)
 	const float TINY_RADIUS = 5.0; //radius below which an agent is considered tiny.
 	const float GENEROSITY_RATE= 0.1; //(.cfg)

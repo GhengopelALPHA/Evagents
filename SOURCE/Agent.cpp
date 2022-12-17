@@ -223,33 +223,35 @@ void Agent::mutateGenesBirth(float basechance, float basesize, int OVERRIDE_KINR
 
 	//let's have some fun; add or remove Genes!
 	for (int i = 0; i < 6; i++) {
-		if (randf(0,1) < this->traits[Trait::GENE_MUTATION_CHANCE]) {
+		if (randf(0,1) < max(conf::GENE_ADD_BASE_CHANCE, this->traits[Trait::GENE_MUTATION_CHANCE])) {
 			//sometimes duplicate Genes (that's how it works in nature!), up to 6 times
 			int source_index = randi(0, genes.size());
 			genes.push_back(genes[source_index]);
 		}
 	}
 
-	//delete Genes (ONLY if there is more than 1 copy! This is why we run countGenes prior)
+	//delete Genes, ONLY if there is more than 1 copy! This is why we run countGenes prior, and there SHOULD always be at least 2
 	if (genes.size() > Trait::TRAIT_TYPES) {
 		vector<int> match_type_options;
 		for (int i = 0; i < this->counts.size(); i++) {
-			if (this->counts[i] > 1) match_type_options.push_back(i); //push the type (i) into a list to randomly select from
+			for (int j = this->counts[i]; j > 1; j--) { //for each count - 1, we add an entry...
+				match_type_options.push_back(i); //push the type (i) into the list to randomly select from
+			}
 		}
 
 		for (int i = 0; i < match_type_options.size(); i++) {
-			if (randf(0,1) < this->traits[Trait::GENE_MUTATION_CHANCE]) continue;
+			if (randf(-conf::GENE_DELETE_BASE_CHANCE,1) < this->traits[Trait::GENE_MUTATION_CHANCE]) {
+				int match_type = match_type_options[i];
 
-			int match_type = match_type_options[i];
-
-			bool has_erased = false;
-			vector<Gene>::iterator gene = this->genes.begin();
-			while (gene != this->genes.end()) {
-				if (gene->type == match_type && !has_erased) {
-					gene = this->genes.erase(gene);
-					has_erased = true;
-				} else {
-					++gene;
+				bool has_erased = false;
+				vector<Gene>::iterator gene = this->genes.begin();
+				while (gene != this->genes.end()) {
+					if (gene->type == match_type && !has_erased) {
+						gene = this->genes.erase(gene);
+						has_erased = true;
+					} else {
+						++gene;
+					}
 				}
 			}
 		}
@@ -322,17 +324,21 @@ Agent Agent::reproduce(
 	a2.parentid= this->id; //parent ID is strictly inherited from mothers
 	a2.discomfort= this->discomfort; //meh, just get mom's temp discomfort and use that for now
 
-	//gene inheritence, per trait (more complicated version later after Genes fully implemented to allow Genes to control this? TODO)
+	//gene inheritence, per trait type
 	int maxgenes = this->genes.size();
 	if (that.genes.size() > maxgenes) maxgenes = that.genes.size();
 
 	a2.genes.clear();
 
-	for (int i = 0; i < maxgenes; i++) {
-		if (maxgenes > this->genes.size()) a2.genes.push_back(that.genes[i]);
-		else if (maxgenes > that.genes.size()) a2.genes.push_back(this->genes[i]);
-		else a2.genes.push_back( randf(0,1)<0.5 ? this->genes[i] : that.genes[i]);
+	for (int i = 0; i < this->genes.size(); i++) {
+		a2.genes.push_back(this->genes[i]);
 	}
+	for (int i = 0; i < that.genes.size(); i++) {
+		a2.genes.push_back(that.genes[i]);
+	}
+
+	printf("created a monster with  %i  genes,", a2.genes.size());
+	//printf(" tring reduce to %i,", a2.genes.size() - reducecount);
 	
 	for (int i=0; i<ears.size(); i++) {
 		//inherrit individual ears
@@ -354,6 +360,7 @@ Agent Agent::reproduce(
 
 	//---MUTATIONS---//
 	a2.mutateGenesBirth(GMR, GMR2, OVERRIDE_KINRANGE);		
+	printf(" got it down to %i!\n", a2.genes.size());
 
 	//finish by calculating gene expression and setting repcounter
 	a2.expressGenes();

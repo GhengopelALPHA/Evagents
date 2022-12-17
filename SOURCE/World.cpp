@@ -3113,6 +3113,7 @@ void World::writeReport()
 	float randtemppref = 0;
 	int randchildren = 0;
 	int randbrainsize = 0;
+	int randgenesize = 0;
 
 	int randagent= randi(0,agents.size());
 	randspawned= agents[randagent].gencount==0 ? 1 : 0;
@@ -3123,6 +3124,7 @@ void World::writeReport()
 		if (agents[randagent].brain.boxes[i].seed>randseed) randseed=agents[randagent].brain.boxes[i].seed;
 	}
 	randbrainsize = agents[randagent].brain.lives.size(); //using live conns
+	randgenesize = agents[randagent].genes.size();
 	randradius= agents[randagent].traits[Trait::RADIUS];
 	randmetab= agents[randagent].traits[Trait::METABOLISM];
 	randsex = agents[randagent].sexproject;
@@ -3168,9 +3170,11 @@ void World::writeReport()
 	//print world stats: cell counts
 	fprintf(fr, "#Plant:\t%i\t#Meat:\t%i\t#Hazard:\t%i\t#Fruit:\t%i\t",
 		getFood(), getMeat(), getHazards(), getFruit());
-	//print random selections: Genome, brain seeds, [[[generation]]]
-	fprintf(fr, "RGenome:\t%i\tRKinRange:\t%i\tRBrainSize:\t%i\tRSeed:\t%i\tRGen:\t%i\tRRadius:\t%f\tRMetab:\t%f\tRSexProj:\t%f\tRTempP:\t%f\tRBrainMutChance:\t%f\tRBrainMutSize:\t%f\tRGeneMutChance:\t%f\tRGeneMutSize:\t%f\tRChildren:\t%i\t",
-		randspecies, randkinrange, randbrainsize, randseed, randgen, randradius, randmetab, randsex, randtemppref, randbrainmutchance, randbrainmutsize, randgenemutchance, randgenemutsize, randchildren);
+	//print random selections: Genome, brain seeds, generation, temp pref, etc
+	fprintf(fr, "RGenome:\t%i\tRKinRange:\t%i\tRBrainSize:\t%i\tRGeneSize:\t%i\tRSeed:\t%i\tRGen:\t%i\tRRadius:\t%f\tRMetab:\t%f\tRSexProj:\t%f\t",
+		randspecies, randkinrange, randbrainsize, randgenesize, randseed, randgen, randradius, randmetab, randsex);
+	fprintf(fr, "RTempP:\t%f\tRBrainMutChance:\t%f\tRBrainMutSize:\t%f\tRGeneMutChance:\t%f\tRGeneMutSize:\t%f\tRChildren:\t%i\t",
+		randtemppref, randbrainmutchance, randbrainmutsize, randgenemutchance, randgenemutsize, randchildren);
 	//print generations: Top Gen counts
 	fprintf(fr, "TopHGen:\t%i\tTopFGen:\t%i\tTopCGen:\t%i\tTopLGen:\t%i\tTopAGen:\t%i\tTopWGen:\t%i\t",
 		STATbestherbi, STATbestfrugi, STATbestcarni, STATbestterran, STATbestamphibious, STATbestaquatic);
