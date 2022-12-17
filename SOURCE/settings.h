@@ -464,6 +464,7 @@ const enum {
 	TERRESTRIAL,
 	HYBRID,
 	SPIKED,
+	BITEY,
 
 	//Don't add beyond this entry!
 	COUNTS
@@ -853,9 +854,9 @@ namespace conf {
 	//brain settings
 	const int BRAINBOXES= 70 + Output::OUTPUT_SIZE; //(.cfg)
 	const int BRAINCONNS= 300; //(.cfg)
-	const float BRAIN_CONN_WEIGHT_STD= 8; //std of the randn centered on 0 that new connection weights generate with. 
+	const float BRAIN_CONN_WEIGHT_STD= 7; //std of the randn centered on 0 that new connection weights generate with. 
 	const float BRAIN_CONN_WEIGHT_MUTATION_DAMPEN= 0.1; //multiplier applied to new connection weights that are randomized and new conn mutations.
-	const float BRAIN_CONN_BIAS_STD= 0.5; //std of the randn centered on 0 that new connection biases generate with.
+	const float BRAIN_CONN_BIAS_STD= 5; //std of the randn centered on 0 that new connection biases generate with.
 	const float BRAIN_BOX_BIAS_STD= 0.5;  //std of the randn centered on 0 that new box biases generate with.
 	const float BRAIN_BOX_GW_RANGE= 2; // +/- range of values new box global weights generate within.
 	const float BRAIN_BOX_KP_MAX = 1.2; //max value between [0,this) that new box kp (dampening) values generate within. Remember that the difference to a new output is multiplied by this to get the target value
@@ -875,21 +876,42 @@ namespace conf {
 	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
 	const float ENCUMBERED_MOVE_MULT= 0.3; //(.cfg)
 
-	//trait settings
+	//gene/trait settings
 	const float MEANRADIUS= 10.0; //(.cfg)
 	const float TINY_RADIUS = 5.0; //radius below which an agent is considered tiny.
 	const float GENEROSITY_RATE= 0.1; //(.cfg)
 	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
 	const float SPIKESPEED= 0.003; //(.cfg)
+	const float JAW_INTAKE_MAX_MULT = 3; //(.cfg)
 	const float JAW_RESET_SPEED = 0.003; //the speed factor at which the jaw returns to 0 (open & ready)
 	const float VELOCITYSPIKEMIN= 0.2; //minimum velocity difference between two agents in the positive direction to be spiked by the other
 	const float BITE_EATS_RATIO = 1.5; //minimum size ratio of a bitting agent where it will eat the target whole and gain instant reward. Default is 1.5* the size of the target
 	const bool SPAWN_MIRROR_EYES = true; //(.cfg)
 	const bool PRESERVE_MIRROR_EYES = true; //(.cfg)
 	const float MIN_TEMP_DISCOMFORT_THRESHOLD = 0.005; //minimum discomfort value below which it's just overridden to 0
+
+	//mutations
+	const int OVERRIDE_KINRANGE= -1; //(.cfg)
+	const int VISUALIZE_RELATED_RANGE= 30; // what's the range in addition to agent's kinrange that we go ahead and say maybe they were related
+	const int BRAINSEEDHALFTOLERANCE= 3; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances. Only effects sexual reproduction
+	const float META_MUTCHANCE= 0.08; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
+	const float META_MUTSIZE= 0.002;
+	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
+	const float DEFAULT_BRAIN_MUTCHANCE= 0.03; //(.cfg)
+	const float DEFAULT_BRAIN_MUTSIZE= 0.01; //(.cfg)
+	const float DEFAULT_GENE_MUTCHANCE= 0.05; //(.cfg)
+	const float DEFAULT_GENE_MUTSIZE= 0.03; //(.cfg)
+
+	//movement settings
+	const float WHEEL_SPEED= 1.5; //(.cfg)
+	const float JUMP_VELOCITY_MULT= 0.5; //this value multiplies in to the final velocity value for the jump when getting set. Otherwise, velocities are in range (0,1) for jump > (0.5, 1)
+	const float JUMP_MOVE_BONUS_MULT= 2.0; //(.cfg)
+	const float BOOST_MOVE_MULT= 2.0; //(.cfg)
+	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
+	const float ENCUMBERED_MOVE_MULT= 0.3; //(.cfg)
 	
 	//energy settings
-	const float WHEEL_ZERO_EXHAUSTION_THRESHOLD = 0.00001; //threshold value of the wheel values summed * Boost exhaustion that, if below, sets all energy drain to 0 (sleep)
+	const float WHEEL_ZERO_EXHAUSTION_THRESHOLD = 0.0001; //threshold value of the wheel values summed * Boost exhaustion that, if below, sets all energy drain to 0 (sleep)
 	const float BOOST_EXAUSTION_MULT= 2.0; //(.cfg)
 	const float BASEEXHAUSTION= -12; //(.cfg)
 	const float EXHAUSTION_MULT_PER_OUTPUT= 1.0; //(.cfg)
@@ -914,21 +936,9 @@ namespace conf {
 	const float REPCOUNTER_MIN= 8; //minimum value the Repcounter may be set to
 	const float OVERHEAL_REPFILL= 0; //(.cfg)
 
-	//mutations
-	const int OVERRIDE_KINRANGE= -1; //(.cfg)
-	const int VISUALIZE_RELATED_RANGE= 30; // what's the range in addition to agent's kinrange that we go ahead and say maybe they were related
-	const int BRAINSEEDHALFTOLERANCE= 3; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances. Only effects sexual reproduction
-	const float META_MUTCHANCE= 0.08; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
-	const float META_MUTSIZE= 0.002;
-	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)
-	const float DEFAULT_BRAIN_MUTCHANCE= 0.03; //(.cfg)
-	const float DEFAULT_BRAIN_MUTSIZE= 0.01; //(.cfg)
-	const float DEFAULT_GENE_MUTCHANCE= 0.05; //(.cfg)
-	const float DEFAULT_GENE_MUTSIZE= 0.03; //(.cfg)
-
 	//distances
 	const float MAX_SENSORY_DISTANCE= 400; //(.cfg)
-	const float SPIKE_LENGTH=30; //(.cfg)
+	const float MAX_SPIKE_LENGTH=30; //(.cfg)
 	const float BITE_DISTANCE = 12; //(.cfg)
 	const float BUMP_DAMAGE_OVERLAP=8; //(.cfg)
 	const float FOOD_SHARING_DISTANCE= 60; //(.cfg)
@@ -939,6 +949,7 @@ namespace conf {
 
 	//angles
 	const float EYE_SENSE_MAX_FOV = M_PI/2; //(.cfg)
+	const float EYE_SENSE_FOV_STD_DEV = 0.3; //the angle value standard deviation for field of view of new eyes
 	const float BLOOD_SENSE_MAX_FOV = 3*M_PI/16; //(.cfg)
 	const float GRAB_MAX_FOV = M_PI/8; //(.cfg)
 	const float SPIKE_MAX_FOV = M_PI/2; //the angle maximim from the center of the spike direction where other agents may be stabbed, in radians. From center to each edge, double this for full range

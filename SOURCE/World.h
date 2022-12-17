@@ -105,6 +105,7 @@ public:
 	std::vector<int> numAquatic;
 	std::vector<int> numHybrid;
 	std::vector<int> numSpiky;
+	std::vector<int> numBitey;
 
 	//counters
 	int modcounter;
@@ -166,6 +167,7 @@ public:
     int getAgents() const;
 	int getHybrids() const;
 	int getSpiky() const;
+	int getBitey() const;
 	int getAlive() const;
 	int getDead() const;
 	int getMutations();
@@ -264,6 +266,7 @@ public:
 	float EXHAUSTION_MULT_PER_OUTPUT;
 	float EXHAUSTION_MULT_PER_CONN;
 	float SPIKESPEED;
+	float JAW_INTAKE_MAX_MULT;
 	bool SPAWN_MIRROR_EYES;
 	bool PRESERVE_MIRROR_EYES;
 
@@ -291,7 +294,7 @@ public:
 
 	float MAX_SENSORY_DISTANCE;
 	float INV_MAX_SENSORY_DISTANCE;
-	float SPIKE_LENGTH;
+	float MAX_SPIKE_LENGTH;
 	float BITE_DISTANCE;
 	float BUMP_DAMAGE_OVERLAP;
 	float FOOD_SHARING_DISTANCE;
@@ -377,7 +380,8 @@ private:
 	int STATalive; //count of alive, not total
 	int STATdead; //count of dead agents
 	int STATlivemutations; //count of live mutations occured
-	int STATspiky; //count of spikey agents
+	int STATspiky; //count of spiky agents
+	int STATbitey; //count of biting agents
 	int STAThybrids; //count of hybrid (sexually produced) babies
 	int STATbestherbi; //best generation of the different stomach types and land types
 	int STATbestfrugi;

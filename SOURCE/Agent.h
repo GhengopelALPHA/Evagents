@@ -13,7 +13,7 @@ struct Eye
 {
 	Eye(float maxfov) { //default eye spawn values
 		dir = randf(0, 2*M_PI);
-		fov = randf(0.001, maxfov);
+		fov = std::min(maxfov, (float)abs(randn(0.0, conf::EYE_SENSE_FOV_STD_DEV)));
 		type = 0;
 	}
 	Eye(float dir, float fov, int type) : dir(dir), fov(fov), type(type) {}
@@ -143,6 +143,7 @@ public:
 	float give;	//is this agent attempting to give food to other agent?
 	float spikeLength; //"my, what a long spike you have!"
 	float jawPosition; //what "position" the jaw is in. 0 for open, positive for activated (apply damage), negative for opening (going back to 0)
+	float jawMaxRecent; //what jaw value was recently applied? Used for display only
 	float jawOldOutput; //the previous output of the jaw
 	int grabID; //id of agent this agent is "glued" to. =-1 if none selected
 	float grabbing; //is this agent attempting to grab another? If already grabbed, how far are we willing to let them go?
@@ -213,7 +214,9 @@ public:
 	bool isTerrestrial() const;
 	bool isAmphibious() const;
 	bool isAquatic() const;
-	bool isSpikey(float SPIKE_LENGTH) const;
+	bool isSpiky(float MAX_SPIKE_LENGTH) const;
+	bool isSpikedDist(float MAX_SPIKE_LENGTH, float d) const;
+	bool isBitey() const;
 	bool isTiny() const;
 	bool isTinyEye(int eyenumber) const;
 	bool isAsexual() const;

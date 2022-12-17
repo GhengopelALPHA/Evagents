@@ -104,6 +104,7 @@ Agent::Agent(
 	give= 0;
 	spikeLength= 0;
 	jawPosition= 0;
+	jawMaxRecent = 0;
 	jawOldOutput= 0;
 	grabID= -1;
 	grabbing= 0;
@@ -318,9 +319,9 @@ Agent Agent::reproduce(
 	a2.borderRectify();
 
 	//basic stat inheritance
-	a2.gencount= max(this->gencount+1,that.gencount+1);
-	a2.parentid= this->id; //parent ID is strictly inherited from mothers
-	a2.discomfort= this->discomfort; //meh, just get mom's temp discomfort and use that for now
+	a2.gencount = max(this->gencount,that.gencount) + 1;
+	a2.parentid = this->id; //parent ID is strictly inherited from mothers
+	a2.discomfort = this->discomfort; //meh, just get mom's temp discomfort and use that for now
 
 	//gene inheritence, per trait (more complicated version later after Genes fully implemented to allow Genes to control this? TODO)
 	int maxgenes = this->genes.size();
@@ -727,7 +728,7 @@ void Agent::resetRepCounter(float MEANRADIUS, float REP_PER_BABY)
 
 void Agent::setHerbivore()
 {
-	float temp_herbivore = randf(0.5, 1);
+	float temp_herbivore = randf(0.75, 1);
 	float temp_carnivore = cap(randf(-0.3, 0.3));
 	float temp_frugivore = cap(randf(-0.3, 0.3));
 
@@ -742,7 +743,7 @@ void Agent::setHerbivore()
 void Agent::setCarnivore()
 {
 	float temp_herbivore = cap(randf(-0.3, 0.3));
-	float temp_carnivore = randf(0.5, 1);
+	float temp_carnivore = randf(0.75, 1);
 	float temp_frugivore = cap(randf(-0.3, 0.3));
 
 	for (int i = 0; i < genes.size(); i++) {
@@ -757,7 +758,7 @@ void Agent::setFrugivore()
 {
 	float temp_herbivore = cap(randf(-0.3, 0.3));
 	float temp_carnivore = cap(randf(-0.3, 0.3));
-	float temp_frugivore = randf(0.5, 1);
+	float temp_frugivore = randf(0.75, 1);
 
 	for (int i = 0; i < genes.size(); i++) {
 		if (this->genes[i].type == Trait::STOMACH + Stomach::PLANT) this->genes[i].value = temp_herbivore; // set all relevant genes to these forced values
@@ -888,9 +889,21 @@ bool Agent::isAquatic() const
 	return false;
 }
 
-bool Agent::isSpikey(float SPIKE_LENGTH) const
+bool Agent::isSpiky(float MAX_SPIKE_LENGTH) const
 {
-	if(spikeLength*SPIKE_LENGTH >= traits[Trait::RADIUS]) return true;
+	if(this->spikeLength*MAX_SPIKE_LENGTH >= this->traits[Trait::RADIUS]) return true;
+	return false;
+}
+
+bool Agent::isSpikedDist(float MAX_SPIKE_LENGTH, float d) const
+{
+	if(d < (this->traits[Trait::RADIUS] + MAX_SPIKE_LENGTH*this->spikeLength)) return true;
+	return false;
+}
+
+bool Agent::isBitey() const
+{
+	if(jaw_render_timer > 0) return true;
 	return false;
 }
 

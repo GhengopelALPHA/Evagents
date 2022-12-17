@@ -37,7 +37,7 @@ public:
 	int gw; //greater weight. for now, either 1 or -1 applied After the activation function
     int sid; //source. +: box id in boxes[], -: input id in inputs list
 	int tid; //target box id in boxes[]
-    int type; //0: regular synapse. 1: change-sensitive synapse. 2: NOT IMPLEMENTED memory trigger synapse
+    int type; //see ConnType for details
 
 	bool dead; //t/f flag for if this conn links to a dead target or not. Can also become dead if weight == 0
 	int seed; //number of successes (reproduction events) this conn has experienced whilst unmodified

@@ -521,15 +521,15 @@ CPBrain CPBrain::crossover(const CPBrain& other)
 		newbrain = other;
 	}
 
-	for (int i=0; i < (int)newbrain.conns.size(); i++){
-		if(i >= other.conns.size() || i >= this->conns.size()) continue; //allow the rest of the conns to be whichever they were inherited from
+	for (int i = 0; i < (int)newbrain.conns.size(); i++){
+		if (i >= other.conns.size() || i >= this->conns.size()) continue; //allow the rest of the conns to be whichever they were inherited from
 
-		int s1= this->conns[i].seed;
-		int s2= other.conns[i].seed;
+		int s1 = this->conns[i].seed;
+		int s2 = other.conns[i].seed;
 		//function which offers probability of which parent to use, based on relative seed counters
-		float threshold= ((s1 - s2) / (conf::BRAINSEEDHALFTOLERANCE + abs(s1 - s2)) + 1) / 2;
+		float threshold = ((s1 - s2) / (conf::BRAINSEEDHALFTOLERANCE + abs(s1 - s2)) + 1) / 2;
 
-		if(randf(0,1)<threshold){
+		if (randf(0,1) < threshold){
 			newbrain.conns[i] = this->conns[i];
 		} else {
 			newbrain.conns[i] = other.conns[i];
@@ -538,14 +538,14 @@ CPBrain CPBrain::crossover(const CPBrain& other)
 	}
 
 	for (int i = 0; i < (int)newbrain.boxes.size(); i++){
-		if(i >= other.boxes.size() || i >= this->boxes.size()) continue; //allowing for variable box counts (NOT IMPLEMENTED)
+		if (i >= other.boxes.size() || i >= this->boxes.size()) continue; //allowing for variable box counts (NOT IMPLEMENTED)
 
-		int s1= this->boxes[i].seed;
-		int s2= other.boxes[i].seed;
+		int s1 = this->boxes[i].seed;
+		int s2 = other.boxes[i].seed;
 		//function which offers probability of which parent to use, based on relative seed counters
-		float threshold= ((s1 - s2) / (conf::BRAINSEEDHALFTOLERANCE + abs(s1 - s2)) + 1) / 2;
+		float threshold = ((s1 - s2) / (conf::BRAINSEEDHALFTOLERANCE + abs(s1 - s2)) + 1) / 2;
 
-		if(randf(0,1)<threshold){
+		if(randf(0,1) < threshold){
 			newbrain.boxes[i] = this->boxes[i];
 		} else {
 			newbrain.boxes[i] = other.boxes[i];

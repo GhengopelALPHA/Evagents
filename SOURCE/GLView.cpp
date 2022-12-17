@@ -2304,19 +2304,19 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 				glEnd();
 
 				//spike effective zone
-				if(agent.isSpikey(world->SPIKE_LENGTH)){
+				if(agent.isSpiky(world->MAX_SPIKE_LENGTH)){
 					glBegin(GL_POLYGON);
 					glColor4f(1,0,0,0.25);
 					glVertex3f(0,0,0);
 					//displaying quarter fov because spikes are tricky and depend on the other's size too
-					glVertex3f((r+agent.spikeLength*world->SPIKE_LENGTH)*cos(agent.angle+conf::SPIKE_MAX_FOV/4),
-							   (r+agent.spikeLength*world->SPIKE_LENGTH)*sin(agent.angle+conf::SPIKE_MAX_FOV/4),0);
+					glVertex3f((r+agent.spikeLength*world->MAX_SPIKE_LENGTH)*cos(agent.angle+conf::SPIKE_MAX_FOV/4),
+							   (r+agent.spikeLength*world->MAX_SPIKE_LENGTH)*sin(agent.angle+conf::SPIKE_MAX_FOV/4),0);
 					glColor4f(1,0.25,0.25,0.75);
-					glVertex3f((r+agent.spikeLength*world->SPIKE_LENGTH)*cos(agent.angle),
-							   (r+agent.spikeLength*world->SPIKE_LENGTH)*sin(agent.angle),0);
+					glVertex3f((r+agent.spikeLength*world->MAX_SPIKE_LENGTH)*cos(agent.angle),
+							   (r+agent.spikeLength*world->MAX_SPIKE_LENGTH)*sin(agent.angle),0);
 					glColor4f(1,0,0,0.25);
-					glVertex3f((r+agent.spikeLength*world->SPIKE_LENGTH)*cos(agent.angle-conf::SPIKE_MAX_FOV/4),
-							   (r+agent.spikeLength*world->SPIKE_LENGTH)*sin(agent.angle-conf::SPIKE_MAX_FOV/4),0);
+					glVertex3f((r+agent.spikeLength*world->MAX_SPIKE_LENGTH)*cos(agent.angle-conf::SPIKE_MAX_FOV/4),
+							   (r+agent.spikeLength*world->MAX_SPIKE_LENGTH)*sin(agent.angle-conf::SPIKE_MAX_FOV/4),0);
 					glVertex3f(0,0,0);
 					glEnd();
 				}
@@ -3298,7 +3298,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		if (ghost) blur= 1; //disable effect for static rendering
 
 		//jaws
-		if ((scalemult > .08 || ghost) && agent.jaw_render_timer>0) {
+		if ((scalemult > .08 || ghost) && agent.isBitey()) {
 			//dont render jaws if zoomed too far out, but always render them on ghosts, and only if they've been active within the last few ticks
 			glColor4f(0.9,0.9,0,blur);
 
@@ -3348,12 +3348,12 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		if(scalemult > .1 || ghost){
 
 			//spike, but only if sticking out
-			if (agent.isSpikey(world->SPIKE_LENGTH)) {
+			if (agent.isSpiky(world->MAX_SPIKE_LENGTH)) {
 				glBegin(GL_LINES);
 				glColor4f(0.7,0,0,blur);
 				glVertex3f(0,0,0);
-				glVertex3f((world->SPIKE_LENGTH*agent.spikeLength)*cos(agent.angle),
-						   (world->SPIKE_LENGTH*agent.spikeLength)*sin(agent.angle),
+				glVertex3f((world->MAX_SPIKE_LENGTH*agent.spikeLength)*cos(agent.angle),
+						   (world->MAX_SPIKE_LENGTH*agent.spikeLength)*sin(agent.angle),
 						   0);
 				glEnd();
 			}
@@ -3362,56 +3362,65 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 				//blood sense patch
 				float blood_sense = agent.traits[Trait::BLOOD_SENSE];
 				if (blood_sense > 0.25 && world->BLOOD_SENSE_DISTANCE > 0){
-					float count= floorf(blood_sense*4)+1;
-					float aa= 0.02*blood_sense;
-					float ca= agent.angle - aa*count/2;
+					float count = floorf(blood_sense*4)+1;
+					float aa = 0.02*blood_sense;
+					float ca = agent.angle - aa*count/2; //current angle. We adjust this as we draw
+
 					//color coresponds to intensity of the input detected, opacity scaled to level of blood_mod over 0.25
-					float alpha= cap(0.5*blood_sense-0.25);
-					Color3f bloodcolor= setColorMeat(agent.in[Input::BLOOD]+0.5);
+					float alpha = cap(0.5*blood_sense-0.25);
+					Color3f bloodcolor = setColorMeat(agent.in[Input::BLOOD]+0.5);
 					
 					//the blood sense patch is drawn as multiple circles overlapping. Higher the blood_mult trait, the wider the patch
+					float patchrad = 0.6*blood_sense;
+					float patchdist = rad > conf::TINY_RADIUS ? rad*7/8 - 1 : rad + patchrad - 1;
+
 					for (int q = 0; q < count; q++) {
 						glBegin(GL_POLYGON);
 						glColor4f(bloodcolor.red, bloodcolor.gre, bloodcolor.blu, alpha);
-						drawCircle((rad*7/8-1)*cos(ca), (rad*7/8-1)*sin(ca), 0.6*blood_sense);
+						drawCircle(patchdist*cos(ca), patchdist*sin(ca), patchrad);
 						glEnd();
 						ca+= aa;
 					}
 				}
 
 				//draw cute little dots for eyes
-				for (int q=0;q<NUMEYES;q++) {
+				for (int q = 0; q < NUMEYES; q++) {
 					if (agent.isTiny() && !agent.isTinyEye(q)) break;
-					if ((world->modcounter+agent.id)%conf::BLINKDELAY >= q*10 && 
-						(world->modcounter+agent.id)%conf::BLINKDELAY < q*10 + conf::BLINKTIME && 
+					if ((world->modcounter + agent.id)%conf::BLINKDELAY >= q*10 && 
+						(world->modcounter + agent.id)%conf::BLINKDELAY < q*10 + conf::BLINKTIME && 
 						!agent.isDead()) continue; //blink eyes ocasionally... DAWWWWWW
 
-					float ca= agent.angle+agent.eyes[q].dir;
-					float eyerad = std::max(conf::TINY_RADIUS, rad);
+					float ca = agent.angle + agent.eyes[q].dir;
+
+					float eyeblacksize = clamp(agent.traits[Trait::EYE_SEE_AGENTS]/2, 0.1, 2.5);
+					float eyewhitesize = clamp(agent.traits[Trait::EYE_SEE_CELLS]/2, 0.1, 2.5);
+
+					int eyeradmult = rad > conf::TINY_RADIUS ? -1 : 1;
+					float eyeblackrad = rad + eyeradmult*eyeblacksize/2 - 1;
+					float eyewhiterad = rad + eyeradmult*eyewhitesize/2 - 1 ;
 
 					glBegin(GL_POLYGON);
 					glColor4f(0.85,0.85,0.85,1.0);
 					//whites of eyes indicate a > eye cell modifier
-					float eyewhitesize= clamp(agent.traits[Trait::EYE_SEE_CELLS]/2, 0.1, 2.5);
-					drawCircle((eyerad-1-eyewhitesize/2)*cos(ca), (eyerad-1-eyewhitesize/2)*sin(ca), eyewhitesize);
+					drawCircle(eyewhiterad*cos(ca), eyewhiterad*sin(ca), eyewhitesize);
 					glEnd();
 
 					glBegin(GL_POLYGON);
 					glColor4f(0,0,0,1.0);
 					//the eyes are small and tiny if the agent has a low eye mod. otherwise they are big and buggie
-					float eyesize= clamp(agent.traits[Trait::EYE_SEE_AGENTS]/2, 0.1, 2.5);
-					drawCircle((eyerad-1-eyesize/2)*cos(ca), (eyerad-1-eyesize/2)*sin(ca), eyesize);
+					drawCircle(eyeblackrad*cos(ca), eyeblackrad*sin(ca), eyeblacksize);
 					glEnd();
 				}
 
 				//render grab target line if we have one
-				if(world->GRAB_PRESSURE != 0 && agent.isGrabbing() && !agent.isDead() && agent.grabID != -1 && !ghost){
+				if (world->GRAB_PRESSURE != 0 && agent.isGrabbing() && !agent.isDead() && agent.grabID != -1 && !ghost) {
 					glLineWidth(3);
 					glBegin(GL_LINES);
 
 					//agent->agent directed grab vis
-					float time= (float)(currentTime)/1000;
-					float mid= time - floor(time);
+					float time = (float)(currentTime)/1000;
+					float mid = time - floor(time);
+
 					glColor4f(0,0.85,0.85,1.0);
 					glVertex3f(0,0,0);
 					glColor4f(0,0.25,0.25,1.0);
@@ -3427,7 +3436,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 		}
 
 		//some final final debug stuff that is also shown even on ghosts:
-		if(world->isDebug() || ghost){
+		if (world->isDebug() || ghost) {
 			//wheels and wheel speed indicators, color coded: magenta for right, lime for left
 			float wheelangle = agent.angle + M_PI/2;
 			float axleradius = r/2;
@@ -3452,7 +3461,7 @@ void GLView::drawAgent(const Agent& agent, float x, float y, bool ghost)
 			drawCircle(axleradius*cos(wheelangle), axleradius*sin(wheelangle), 1);
 			glEnd();
 
-			if(!ghost) {
+			if (!ghost) {
 				//draw velocity vector
 				glBegin(GL_LINES);
 				glColor3f(0,1,1);
@@ -3593,6 +3602,10 @@ void GLView::drawData()
 			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT - yscaling*world->numHybrid[q],0);
 			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT - yscaling*world->numHybrid[q+1],0);
 
+			glColor3f(1,1,0.3); //biting count
+			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT - yscaling*world->numBitey[q],0);
+			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT - yscaling*world->numBitey[q+1],0);
+
 			glColor3f(0.6,0,0); //spiked count
 			glVertex3f(-UID::GRAPHWIDTH + q*xinterval, conf::HEIGHT - yscaling*world->numSpiky[q],0);
 			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval, conf::HEIGHT - yscaling*world->numSpiky[q+1],0);
@@ -3605,10 +3618,11 @@ void GLView::drawData()
 			glVertex3f(-UID::GRAPHWIDTH + q*xinterval,conf::HEIGHT - yscaling*world->numCarnivore[q],0);
 			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval,conf::HEIGHT - yscaling*world->numCarnivore[q+1],0);
 
-			glColor3f(0.9,0.9,0); //frugivore count
+			glColor3f(0.9,0.8,0); //frugivore count
 			glVertex3f(-UID::GRAPHWIDTH + q*xinterval,conf::HEIGHT - yscaling*world->numFrugivore[q],0);
 			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval,conf::HEIGHT - yscaling*world->numFrugivore[q+1],0);
 
+			//total count should be last rendered of all the alive agent graphs so it stays on top
 			glColor3f(0,0,0); //total count
 			glVertex3f(-UID::GRAPHWIDTH + q*xinterval,conf::HEIGHT - yscaling*world->numTotal[q],0);
 			glVertex3f(-UID::GRAPHWIDTH +(q+1)*xinterval,conf::HEIGHT - yscaling*world->numTotal[q+1],0);
@@ -3837,6 +3851,7 @@ void GLView::drawStatic()
 					case LiveCount::FRUGIVORE : sprintf(buf, "Frugivores: %i", world->getFrugivores()); break;
 					case LiveCount::HERBIVORE : sprintf(buf, "Herbivores: %i", world->getHerbivores()); break;
 					case LiveCount::SPIKED : sprintf(buf, "Spiky: %i", world->getSpiky());				break;
+					case LiveCount::BITEY : sprintf(buf, "Bitey: %i", world->getBitey());				break;
 					case LiveCount::HYBRID : sprintf(buf, "Hybrids: %i", world->getHybrids());			break;
 					default : sprintf(buf, "UNKNOWN_LiveCount_in_StaticDisplayExtra");
 				}
@@ -4467,7 +4482,7 @@ void GLView::renderAllTiles()
 					is_minor_grey = true;
 
 				} else if(id == LADData::SPIKE){
-					if(!selected.isDead() && selected.isSpikey(world->SPIKE_LENGTH)){
+					if(!selected.isDead() && selected.isSpiky(world->MAX_SPIKE_LENGTH)){
 						float mw = selected.w1 > selected.w2 ? selected.w1 : selected.w2;
 						if(mw < 0) mw= 0;
 						float val = world->DAMAGE_FULLSPIKE*selected.spikeLength*mw;
@@ -4524,7 +4539,7 @@ void GLView::renderAllTiles()
 					is_minor_grey = true;
 
 				} else if(id == LADData::BITE){
-					if(selected.jaw_render_timer!=0) sprintf(buf, "Bite: %.2f h", abs(selected.jawPosition*world->DAMAGE_JAWSNAP));
+					if(selected.jaw_render_timer!=0) sprintf(buf, "Bite: %.2f h", abs(selected.jawMaxRecent));
 					else sprintf(buf, "Not Biting");
 
 				} else if(id == LADData::WASTE){

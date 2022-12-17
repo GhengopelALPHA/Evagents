@@ -158,6 +158,7 @@ void World::reset()
 	numAquatic.assign(REPORTS_PER_EPOCH, 0);
 	numHybrid.assign(REPORTS_PER_EPOCH, 0);
 	numSpiky.assign(REPORTS_PER_EPOCH, 0);
+	numBitey.assign(REPORTS_PER_EPOCH, 0);
 
 	events.clear();
 
@@ -792,6 +793,7 @@ void World::findStats()
 	STATalive= 0;
 	STATdead= 0; 
 	STATspiky= 0;
+	STATbitey = 0;
 	STAThybrids= 0;
 	STAThighestgen= 0;
 	STATlowestgen= INT_MAX;
@@ -847,7 +849,9 @@ void World::findStats()
 
 			if (agents[i].age > STAThighestage) STAThighestage = agents[i].age;
 
-			if (agents[i].isSpikey(SPIKE_LENGTH)) STATspiky++;
+			if (agents[i].isSpiky(MAX_SPIKE_LENGTH)) STATspiky++;
+
+			if (agents[i].isBitey()) STATbitey++;
 
 			if (agents[i].hybrid) {
 				STAThybrids++;
@@ -926,6 +930,7 @@ void World::processReporting()
 		pop_front(numAquatic);
 		pop_front(numHybrid);
 		pop_front(numSpiky);
+		pop_front(numBitey);
 
 		//push back all new values
 		int guideline;
@@ -944,6 +949,7 @@ void World::processReporting()
 		numAquatic.push_back(getLungWater());
 		numHybrid.push_back(getHybrids());
 		numSpiky.push_back(getSpiky());
+		numBitey.push_back(getBitey());
 
 		//events for achievements and stats every epoch
 		triggerStatEvents();
@@ -1581,7 +1587,7 @@ void World::processCounters()
 		if (a->indicator < 0) a->indicator -= 1;
 
 		//process jaw renderer
-		if (a->jaw_render_timer > 0 && a->jawPosition == 0 || a->jaw_render_timer == conf::JAWRENDERTIME) a->jaw_render_timer -= 1;
+		if (a->isBitey() && a->jawPosition == 0 || a->jaw_render_timer == conf::JAWRENDERTIME) a->jaw_render_timer -= 1;
 
 		//process carcass counter, which keeps dead agents on the world while meat is under them
 		if (a->carcasscount >= 0) a->carcasscount++;
@@ -1608,6 +1614,7 @@ void World::processCounters()
 			if (a->jawPosition > 0) {
 				a->jawPosition *= -1; //jaw is an instantaneous source of damage. Reset to a negative number if positive
 				a->jaw_render_timer = conf::JAWRENDERTIME; //set render timer
+				a->jawMaxRecent = a->jawPosition*DAMAGE_JAWSNAP;
 
 			//once negative, jaw moves toward to 0, slowly if near -1, faster once closer to 0
 			} else if (a->jawPosition < 0) a->jawPosition = min(0.0, a->jawPosition + conf::JAW_RESET_SPEED*(2.0 + a->jawPosition));
@@ -1901,20 +1908,23 @@ void World::applyIntakes(Agent* a, float &plant, float &fruit, float &meat)
 {
 	float intake = 0;
 	float speedmult = pow(1 - max(abs(a->w1), abs(a->w2)),3); //penalty for moving
-	speedmult /= (1.0+a->exhaustion); //exhaustion reduces agent physical actions including all intake
+	speedmult /= (1.0 + a->exhaustion); //exhaustion reduces agent physical actions including all intake
 
+	//inverted stomach vals, with the efficiency mult applied
 	float invmult = 1-STOMACH_EFFICIENCY;
 	float invplant = 1-a->traits[Trait::STOMACH + Stomach::PLANT]*invmult;
 	float invmeat = 1-a->traits[Trait::STOMACH + Stomach::MEAT]*invmult;
 	float invfruit = 1-a->traits[Trait::STOMACH + Stomach::FRUIT]*invmult;
-	//inverted stomach vals, with the efficiency mult applied
+	
+	// take multiplier, for when agent is "chewing", or using bite, takes a little more resources (up to *JAW_INTAKE_MAX_MULT)
+	float takemult = JAW_INTAKE_MAX_MULT != 0 ? 1.0 + (JAW_INTAKE_MAX_MULT - 1.0)*cap(a->jawPosition) : 1.0;
 
 	//---START FOOD---//
 	//plant food
 	if (plant > 0) { //agent eats the food
 		//Plant intake is proportional to plant stomach, inverse to speed & exhaustion
 		//min rate is the actual amount of food we can take. Otherwise, apply wasterate
-		float planttake = min(plant, PLANT_WASTE*a->traits[Trait::STOMACH + Stomach::PLANT]*invmeat*invfruit*speedmult);
+		float planttake = min(plant, PLANT_WASTE*a->traits[Trait::STOMACH + Stomach::PLANT]*invmeat*invfruit*speedmult*takemult);
 		//unique for plant food: the less there is, the harder it is to eat, but not impossible
 		planttake *= max(plant, PLANT_TENACITY);
 		//decrease cell content
@@ -1927,7 +1937,7 @@ void World::applyIntakes(Agent* a, float &plant, float &fruit, float &meat)
 
 	//meat food
 	if (meat > 0) { //agent eats meat
-		float meattake = min(meat, MEAT_WASTE*a->traits[Trait::STOMACH + Stomach::MEAT]*invplant*invfruit*speedmult);
+		float meattake = min(meat, MEAT_WASTE*a->traits[Trait::STOMACH + Stomach::MEAT]*invplant*invfruit*speedmult*takemult);
 		meat -= meattake;
 		intake += MEAT_INTAKE*meattake/MEAT_WASTE;
 		a->addIntake(conf::MEAT_TEXT, meattake);
@@ -1935,7 +1945,7 @@ void World::applyIntakes(Agent* a, float &plant, float &fruit, float &meat)
 
 	//Fruit food
 	if (fruit > 0) { //agent eats fruit
-		float fruittake = min(fruit,FRUIT_WASTE*a->traits[Trait::STOMACH + Stomach::FRUIT]*invmeat*invplant*cap(speedmult-0.5)*2);
+		float fruittake = min(fruit,FRUIT_WASTE*a->traits[Trait::STOMACH + Stomach::FRUIT]*invmeat*invplant*cap(speedmult-0.5)*2*takemult);
 		//unique for fruit - speed penalty is more extreme, being completely 0 until agents slow down <0.25
 		fruit -= fruittake;
 		intake += FRUIT_INTAKE*fruittake/FRUIT_WASTE;
@@ -2118,13 +2128,13 @@ void World::processAgentInteractions()
 				//---SPIKING---//
 
 				//small spike doesn't count. If the target is jumping in midair, can't attack them either
-				if(a->isSpikey(SPIKE_LENGTH) && d <= (a2->traits[Trait::RADIUS] + SPIKE_LENGTH*a->spikeLength) && !a2->isAirborne()){
+				if(a->isSpiky(MAX_SPIKE_LENGTH) && a->isSpikedDist(MAX_SPIKE_LENGTH, d) && !a2->isAirborne()){
 					Vector3f v(1,0,0);
 					v.rotate(0, 0, a->angle);
 					float diff= v.angle_between2d(a2->pos - a->pos);
 					if (fabs(diff) < conf::SPIKE_MAX_FOV){ //need to be in front
 						float spikerange= d*abs(sin(diff)); //get range to agent from spike, closest approach
-						if (a2->traits[Trait::RADIUS]>spikerange) { //other agent is properly aligned and in range!!! getting close now...
+						if (a2->traits[Trait::RADIUS] > spikerange) { //other agent is properly aligned and in range!!! getting close now...
 							//need to calculate the velocity differential of the agents
 							Vector3f velocitya(a->pos.x-a->dpos.x, a->pos.y-a->dpos.y, 0);
 							Vector3f velocitya2(a2->pos.x-a2->dpos.x, a2->pos.y-a2->dpos.y, 0);
@@ -3314,6 +3324,11 @@ int World::getSpiky() const
 	return STATspiky;
 }
 
+int World::getBitey() const
+{
+	return STATbitey;
+}
+
 int World::getDead() const
 {
 	return STATdead;
@@ -3530,6 +3545,7 @@ void World::init()
 	ENCUMBERED_MOVE_MULT= conf::ENCUMBERED_MOVE_MULT;
 	MEANRADIUS= conf::MEANRADIUS;
     SPIKESPEED= conf::SPIKESPEED;
+	JAW_INTAKE_MAX_MULT = conf::JAW_INTAKE_MAX_MULT;
 	SPAWN_MIRROR_EYES= conf::SPAWN_MIRROR_EYES;
 	PRESERVE_MIRROR_EYES= conf::PRESERVE_MIRROR_EYES;
 	HEALTH_CAP = conf::HEALTH_CAP;
@@ -3556,7 +3572,7 @@ void World::init()
 
     MAX_SENSORY_DISTANCE= conf::MAX_SENSORY_DISTANCE;
 	INV_MAX_SENSORY_DISTANCE= 1/MAX_SENSORY_DISTANCE;
-    SPIKE_LENGTH= conf::SPIKE_LENGTH;
+    MAX_SPIKE_LENGTH = conf::MAX_SPIKE_LENGTH;
 	BITE_DISTANCE = conf::BITE_DISTANCE;
     BUMP_DAMAGE_OVERLAP= conf::BUMP_DAMAGE_OVERLAP;
     FOOD_SHARING_DISTANCE= conf::FOOD_SHARING_DISTANCE;
@@ -4022,6 +4038,10 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=SPIKESPEED) printf("SPIKESPEED, ");
 				SPIKESPEED= f;
+			}else if(strcmp(var, "JAW_INTAKE_MAX_MULT=")==0){
+				sscanf(dataval, "%f", &f);
+				if(f!=JAW_INTAKE_MAX_MULT) printf("JAW_INTAKE_MAX_MULT, ");
+				SPIKESPEED= f;
 			}else if(strcmp(var, "SPAWN_MIRROR_EYES=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=(int)SPAWN_MIRROR_EYES) printf("SPAWN_MIRROR_EYES, ");
@@ -4134,10 +4154,10 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=MAX_SENSORY_DISTANCE) printf("MAX_SENSORY_DISTANCE, ");
 				MAX_SENSORY_DISTANCE= f;
-			}else if(strcmp(var, "SPIKE_LENGTH=")==0 || strcmp(var, "SPIKELENGTH=")==0){
+			}else if(strcmp(var, "MAX_SPIKE_LENGTH=")==0 || strcmp(var, "SPIKELENGTH=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=SPIKE_LENGTH) printf("SPIKE_LENGTH, ");
-				SPIKE_LENGTH= f;
+				if(f!=MAX_SPIKE_LENGTH) printf("MAX_SPIKE_LENGTH, ");
+				MAX_SPIKE_LENGTH= f;
 			}else if(strcmp(var, "BITE_DISTANCE=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=BITE_DISTANCE) printf("BITE_DISTANCE, ");
@@ -4368,7 +4388,7 @@ void World::readConfig()
 	}
 
 	//set the highest distance config value as the distance within which we check if an agent is "near" another, for tree processing
-	NEAREST= max(max(max(max(FOOD_SHARING_DISTANCE, SEXTING_DISTANCE), GRABBING_DISTANCE), SPIKE_LENGTH + MEANRADIUS*3), BITE_DISTANCE + MEANRADIUS*3);
+	NEAREST= max(max(max(max(FOOD_SHARING_DISTANCE, SEXTING_DISTANCE), GRABBING_DISTANCE), MAX_SPIKE_LENGTH + MEANRADIUS*2), BITE_DISTANCE + MEANRADIUS*3);
 	INV_MAX_SENSORY_DISTANCE = 1/MAX_SENSORY_DISTANCE;
 	INV_TENDERAGE = 1/(float)TENDERAGE;
 	INV_SOUND_PITCH_RANGE = 1/SOUND_PITCH_RANGE;
@@ -4445,6 +4465,7 @@ void World::writeConfig()
 	fprintf(cf, "MAX_WASTE_FREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. 1= no agent control allowed, 0= program crash\n", conf::MAX_WASTE_FREQ);
 	fprintf(cf, "GENEROSITY_RATE= %f \t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::GENEROSITY_RATE);
 	fprintf(cf, "SPIKESPEED= %f \t\t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKESPEED);
+	fprintf(cf, "JAW_INTAKE_MAX_MULT= %f \t//max value that jaw chew will multiply intake by (both removal of resources and intake). =0 will disable the chewing feature. Does not apply to hazard.\n", conf::JAW_INTAKE_MAX_MULT);
 	fprintf(cf, "SPAWN_MIRROR_EYES= %i \t\t//true-false flag for if random spawn agents have mirrored eyes. 0= asymmetry, 1= symmetry\n", (int)conf::SPAWN_MIRROR_EYES);
 	fprintf(cf, "PRESERVE_MIRROR_EYES= %i \t//true-false flag for if mutations can break mirrored eye symmetry. 0= mutations do not preserve symmetry, 1= agents always have mirrored eyes\n", (int)conf::PRESERVE_MIRROR_EYES);
 	fprintf(cf, "\n");
@@ -4472,7 +4493,7 @@ void World::writeConfig()
 	fprintf(cf, "LIVE_MUTATE_CHANCE= %f \t//chance, per tick, that a given agent will be mutated alive. Not typically harmful. Can be increased by mutation events if enabled.\n", conf::LIVE_MUTATE_CHANCE);
 	fprintf(cf, "\n");
 	fprintf(cf, "MAX_SENSORY_DISTANCE= %f //old DIST, how far the senses can detect other agents or cells\n", conf::MAX_SENSORY_DISTANCE);
-	fprintf(cf, "SPIKE_LENGTH= %f \t//full spike length. Should not be more than MAX_SENSORY_DISTANCE. 0 disables interaction\n", conf::SPIKE_LENGTH);
+	fprintf(cf, "MAX_SPIKE_LENGTH= %f \t//full spike length. Should not be more than MAX_SENSORY_DISTANCE. 0 disables interaction\n", conf::MAX_SPIKE_LENGTH);
 	fprintf(cf, "BITE_DISTANCE= %f \t//distance that the bite feature ranges out beyond agent radius. Should not be more than MAX_SENSORY_DISTANCE. 0 disables interaction & rendering\n", conf::BITE_DISTANCE);
 	fprintf(cf, "BUMP_DAMAGE_OVERLAP= %f \t//how much two agents can be overlapping before they take damage. 0 disables interaction\n", conf::BUMP_DAMAGE_OVERLAP);
 	fprintf(cf, "FOOD_SHARING_DISTANCE= %f //how far away can food be shared between agents? Should not be more than MAX_SENSORY_DISTANCE. 0 disables interaction\n", conf::FOOD_SHARING_DISTANCE);
