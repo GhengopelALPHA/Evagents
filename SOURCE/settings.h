@@ -868,14 +868,6 @@ namespace conf {
 	const float BRAIN_MIRRORCONNS= 0.5; //probablility of random brain conns which will be made as mirror-compare connections with a random other connection, range(0,i)
 //	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
 
-	//movement settings
-	const float WHEEL_SPEED= 1.5; //(.cfg)
-	const float JUMP_VELOCITY_MULT= 0.5; //this value multiplies in to the final velocity value for the jump when getting set. Otherwise, velocities are in range (0,1) for jump > (0.5, 1)
-	const float JUMP_MOVE_BONUS_MULT= 2.0; //(.cfg)
-	const float BOOST_MOVE_MULT= 2.0; //(.cfg)
-	const float WHEEL_LOCATION= 0.5; //proportion of the agent's radius that the wheels are located
-	const float ENCUMBERED_MOVE_MULT= 0.3; //(.cfg)
-
 	//gene/trait settings
 	const float MEANRADIUS= 10.0; //(.cfg)
 	const float TINY_RADIUS = 5.0; //radius below which an agent is considered tiny.

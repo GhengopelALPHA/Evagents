@@ -219,9 +219,10 @@ void Agent::expressGenes()
 
 void Agent::mutateGenesBirth(float basechance, float basesize, int OVERRIDE_KINRANGE)
 {
+	/*TODO: See branch "experimental_gene_copies" for work related to variable gene lengths
 	//we need to count genes for delete process
 	this->countGenes();
-
+	
 	//let's have some fun; add or remove Genes!
 	for (int i = 0; i < 6; i++) {
 		if (randf(0,1) < this->traits[Trait::GENE_MUTATION_CHANCE]) {
@@ -254,7 +255,7 @@ void Agent::mutateGenesBirth(float basechance, float basesize, int OVERRIDE_KINR
 				}
 			}
 		}
-	}
+	}*/
 	
 	for (int i = 0; i < genes.size(); i++) {
 		genes[i].birthMutate(basechance, basesize); //all traits can mutate with birth mutations
