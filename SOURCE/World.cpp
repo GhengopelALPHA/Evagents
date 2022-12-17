@@ -1315,7 +1315,7 @@ void World::setInputs()
 				//---AGENT-CELL EYESIGHT---//
 				//slow, but realistic, and applies selection pressure to agents of certain colors of various reasons. can be disabled
 				if(AGENTS_SEE_CELLS && light != 0) {
-					Vector3f cellpos = Vector3f((float)(tcx*conf::CZ+conf::CZ/2), (float)(tcy*conf::CZ+conf::CZ/2), 0);
+					Vector3f cellpos = Vector3f((float)(tcx*conf::CZ + conf::CZ/2), (float)(tcy*conf::CZ + conf::CZ/2), 0);
 					Vector3f diffpos = cellpos - a->pos;
 					//find midpoint of the cell, relative to agent z-axis
 					float d = max((diffpos).length2d(), a->traits[Trait::RADIUS]); // can't see cells as being inside of us; they're around us
@@ -1343,7 +1343,7 @@ void World::setInputs()
 						else if (eye_target_angle < -M_PI) eye_target_angle += 2*M_PI;
 						eye_target_angle = fabs(eye_target_angle);
 						
-						float fov = e->fov + conf::CZ/d;
+						float fov = e->fov + conf::CZ/2/d; //*radius* of a cell. See AGENT-AGENT eyesight code for explination
 
 						if (eye_target_angle < fov) {
 							float invDIST = INV_MAX_SENSORY_DISTANCE/conf::SMELL_DIST_MULT;

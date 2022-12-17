@@ -822,7 +822,7 @@ namespace conf {
 	const float SOUND_PITCH_RANGE= 0.1; //(.cfg)
 	const float WHEEL_VOLUME= 0.1; //multiplier of the wheel speeds when being heard
 	const float WHEEL_TONE= 0.125; //tone value that wheels are heard at, in range [0,1]
-	const float AMBIENT_LIGHT_PERCENT= 0.25; //(.cfg)
+	const float AMBIENT_LIGHT_PERCENT= 0.5; //(.cfg)
 	const bool AGENTS_SEE_CELLS = true; //(.cfg & save)
 	const bool AGENTS_DONT_OVERDONATE = false; //(.cfg & save)
 	const int MAX_WASTE_FREQ = 500; //(.cfg)

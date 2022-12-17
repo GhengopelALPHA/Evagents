@@ -172,8 +172,8 @@ void Agent::populateGenes(
 				/*it is assumed that we set the stomach later for random spawns*/
 			case Trait::CLOCK1_FREQ :		value = randf(5, 100);													 break;
 			case Trait::CLOCK2_FREQ :		value = randf(5, 100);													 break;
-			case Trait::EYE_SEE_AGENTS :	value = randf(0.3, 3);													 break;
-			case Trait::EYE_SEE_CELLS :		value = randf(0.3, 3);													 break;
+			case Trait::EYE_SEE_AGENTS :	value = randf(0.3, 4);													 break;
+			case Trait::EYE_SEE_CELLS :		value = randf(0.3, 4);													 break;
 			case Trait::EAR_HEAR_AGENTS :	value = randf(0.1, 3);													 break;
 			case Trait::BLOOD_SENSE :		value = randf(0.1, 3);													 break;
 			case Trait::SMELL_SENSE :		value = randf(0.01, 1);													 break;
