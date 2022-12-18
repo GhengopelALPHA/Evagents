@@ -23,12 +23,12 @@ CPConn::CPConn(int numboxes)
 {
 	w = randn(0, conf::BRAIN_CONN_WEIGHT_STD);
 	bias = randn(0, conf::BRAIN_CONN_BIAS_STD);
-	gw = randf(0,1) < 0.5 ? 1 : -1;
+	relu = randn(0, conf::BRAIN_CONN_RELU_STD);
+
+	tid = randi(0, numboxes);
 
 	if (randf(0,1) < conf::BRAIN_DIRECTINPUTS) sid = randi(-Input::INPUT_SIZE, 0); //connect a portion of the brain directly to input (negative sid).
-	else sid = randi(-Input::INPUT_SIZE, numboxes);
-
-	tid = randi(max(0, min(sid + 1, numboxes - 1)), numboxes); //always connect forward in new brains, to emulate layering
+	else sid = randi(-Input::INPUT_SIZE, tid + 1); //always connect forward in new brains, to emulate layering
 
 	type = ConnType::NORMAL;
 	if(randf(0,1) < conf::BRAIN_INVERTCONNS) type = ConnType::INVERTED; //some conns have their inputs inverted (1-x)
@@ -56,8 +56,9 @@ CPBrain::CPBrain(int numboxes, int numconns)
 		CPConn a = CPConn(boxes.size());
 		if (randf(0,1) < conf::BRAIN_MIRRORCONNS && i > 0) {
 			int randconnidx = randi(0, i);
-			a.w = -conns[randconnidx].w + randn(0, 0.002);
+			a.w = -conns[randconnidx].w + randn(0, 0.001);
 			a.tid = conns[randconnidx].tid;
+			a.type = conns[randconnidx].type;
 		}
 		conns.push_back(a);
 	}
@@ -190,11 +191,11 @@ void CPBrain::tick(vector< float >& in, vector< float >& out)
 			value *= 10;
 		}
 
-		//add bias and apply a ReLU, a Rectified Linear Unit as an activation function
-		value = max((float)value*lives[i].w + lives[i].bias, (float)0.5);
+		//add bias and apply a max with ReLU, the Rectified Linear Unit, as an activation function
+		value = max((float)value*lives[i].w + lives[i].bias, lives[i].relu);
 
 		//multiply by greater weight and add to the accumulation of the target box
-		boxes[boxRef(lives[i].tid)].acc += value*lives[i].gw;
+		boxes[boxRef(lives[i].tid)].acc += value;
 	}
 
 	//next, for all live boxes...
@@ -240,9 +241,9 @@ float CPBrain::getActivityRatio() const
 void CPBrain::initMutate(float MR, float MR2)
 {
 	//connection (conn) mutations.
-	//Extraordinary (/100+): random type, random source ID, random target ID,
-	//Rare (/10+): new conn, invert type, mirror conn, target ID bump, split conn, random weight, random bias
-	//Common: source ID bump, invert great weight, bias jiggle, weight wither, weight jiggle
+	//Extraordinary (/100+): random type, random source ID, random target ID
+	//Rare (/10+): random relu, new conn, invert type, mirror conn, target ID bump, split conn, random weight, random bias
+	//Common: source ID bump, bias jiggle, relu jiggle, weight wither, weight jiggle
 
 	for(int i= 0; i<randi(1,6); i++){ //possibly add between 0 and 5 new connections
 		if (randf(0,1) < MR/10) {
@@ -290,6 +291,14 @@ void CPBrain::initMutate(float MR, float MR2)
 		}
 
 		//Rare:
+		if (randf(0,1) < MR/75) {
+			//randomize relu
+			CPConn dummy = CPConn(conf::BRAINBOXES);
+			conns[i].relu = dummy.relu;
+			conns[i].seed = 0;
+			boxes[boxRef(conns[i].tid)].seed = 0;
+		}
+
 		if (randf(0,1) < MR/50) {
 			//invert type: if type==normal or type==inverted, swap it
 			if (conns[i].type == ConnType::NORMAL) {
@@ -357,10 +366,8 @@ void CPBrain::initMutate(float MR, float MR2)
 		}
 
 		if (randf(0,1) < MR/8) {
-			//invert great weight
-			conns[i].gw = -conns[i].gw;
-			conns[i].seed = 0;
-			boxes[boxRef(conns[i].tid)].seed = 0;
+			//relu jiggle
+			conns[i].relu += randn(0, MR2);
 		}
 
 		if (randf(0,1) < MR/5) {
@@ -483,6 +490,16 @@ void CPBrain::liveMutate(float MR, float MR2, vector<float>& out)
 			conns[randconn].seed = 0;
 			boxes[boxRef(conns[randconn].tid)].seed = 0;
 		}
+	}
+
+	if (randf(0,1) < MR/8) {
+		//relu jiggle
+		conns[randconn].relu += randn(0, MR2/8);
+	}
+
+	if (randf(0,1) < MR/2) {
+		//bias jiggle
+		conns[randconn].bias += randn(0, MR2/8);
 	}
 
 	if (randf(0,1) < MR) {

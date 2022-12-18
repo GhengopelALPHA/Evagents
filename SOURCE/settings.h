@@ -823,7 +823,7 @@ namespace conf {
 	const float SOUND_PITCH_RANGE= 0.1; //(.cfg)
 	const float WHEEL_VOLUME= 0.1; //multiplier of the wheel speeds when being heard
 	const float WHEEL_TONE= 0.125; //tone value that wheels are heard at, in range [0,1]
-	const float AMBIENT_LIGHT_PERCENT= 0.5; //(.cfg)
+	const float AMBIENT_LIGHT_PERCENT= 0.25; //(.cfg)
 	const bool AGENTS_SEE_CELLS = true; //(.cfg & save)
 	const bool AGENTS_DONT_OVERDONATE = false; //(.cfg & save)
 	const int MAX_WASTE_FREQ = 500; //(.cfg)
@@ -855,9 +855,10 @@ namespace conf {
 	//brain settings
 	const int BRAINBOXES= 70 + Output::OUTPUT_SIZE; //(.cfg)
 	const int BRAINCONNS= 300; //(.cfg)
-	const float BRAIN_CONN_WEIGHT_STD= 7; //std of the randn centered on 0 that new connection weights generate with. 
+	const float BRAIN_CONN_WEIGHT_STD= 5; //std of the randn centered on 0 that new connection weights generate with. 
 	const float BRAIN_CONN_WEIGHT_MUTATION_DAMPEN= 0.1; //multiplier applied to new connection weights that are randomized and new conn mutations.
-	const float BRAIN_CONN_BIAS_STD= 5; //std of the randn centered on 0 that new connection biases generate with.
+	const float BRAIN_CONN_BIAS_STD= 2; //std of the randn centered on 0 that new connection biases generate with.
+	const float BRAIN_CONN_RELU_STD= 0.25; //std of the randn centered on 0 that new connection relu's generate with.
 	const float BRAIN_BOX_BIAS_STD= 0.5;  //std of the randn centered on 0 that new box biases generate with.
 	const float BRAIN_BOX_GW_RANGE= 2; // +/- range of values new box global weights generate within.
 	const float BRAIN_BOX_KP_MAX = 1.2; //max value between [0,this) that new box kp (dampening) values generate within. Remember that the difference to a new output is multiplied by this to get the target value
@@ -920,7 +921,7 @@ namespace conf {
 	const int BLINKDELAY= 105; //blink delay time. In ticks
 	const int JAWRENDERTIME= 20; //time allowed for jaw to be rendered after a bite starts
 	const int INPUTS_OUTPUTS_PER_ROW = 20; //visually how many inputs and outputs are we showing before starting a new row?
-	const int BOXES_PER_ROW = 30; //same as above, but for boxes
+	const int BOXES_PER_ROW = 37; //same as above, but for boxes
 
 	//reproduction
 	const int TENDERAGE= 10; //(.cfg)
@@ -1014,9 +1015,9 @@ namespace conf {
 	//Fruit is a quick and easy alternative to plants. Also partially randomly populated, harkening back to ScriptBots origins
 
 	const char MEAT_TEXT[]= "Meat Food";
-	const float MEAT_INTAKE= 0.03; //(.cfg)
+	const float MEAT_INTAKE= 0.04; //(.cfg)
 	const float MEAT_DECAY= 0.00001; //(.cfg)
-	const float MEAT_WASTE= 0.001; //(.cfg)
+	const float MEAT_WASTE= 0.0014; //(.cfg)
 	const float MEAT_DEPOSIT_VALUE= 1.0; //(.cfg)
 	const float MEAT_NON_FRESHKILL_MULT = 0.5; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)

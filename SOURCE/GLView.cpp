@@ -2358,17 +2358,19 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 				}
 			}
 
-			glTranslatef(-90,24+0.5*r,0);
-
 			if(scalemult > .5){
 				//Draw one of the profilers based on the mode we have selected
+				glTranslatef(-90,24+0.5*r,0);
 				
 				if(live_profilevis==Profile::INOUT || live_profilevis==Profile::BOXES || live_profilevis==Profile::BRAIN){
 					float value;
 					float ioboxsize = 14; //x&y size of boxes
-					float boxsize= 8;
-					float xoffset= 1; //offsets for when "whitespace" is needed
-					float yoffset= 8;
+					float ioboxsize_half = 7;
+					float ioboxsize_text = 4;
+					float boxsize = 8;
+					float boxsize_half = 4;
+					float xoffset = 1; //offsets for when "whitespace" is needed
+					float yoffset = 8;
 					float drawx = 0; //current draw positions
 					float drawy = 0;
 
@@ -2386,8 +2388,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						if(scalemult > .7){
 							//draw text initials on inputs if zoomed in close
 							glEnd();
-							float textx = drawx + ioboxsize/3;
-							float texty = drawy + ioboxsize*2/3;
+							float textx = drawx + ioboxsize_text;
+							float texty = drawy + 2*ioboxsize_text;
 
 							if(j>=Input::EYES && j<=Input::xEYES && j%3==0){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "R", 1.0f, 0.0f, 0.0f);
@@ -2531,8 +2533,8 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 
 						if(scalemult > .7){
 							glEnd();
-							float textx = drawx + ioboxsize/3;
-							float texty = drawy + ioboxsize*2/3;
+							float textx = drawx + ioboxsize_text;
+							float texty = drawy + 2*ioboxsize_text;
 
 							if(j==Output::LEFT_WHEEL_B || j==Output::LEFT_WHEEL_F){
 								RenderString(textx, texty, GLUT_BITMAP_HELVETICA_12, "!", 1.0f, 0.0f, 1.0f);
@@ -2588,6 +2590,10 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 						//int brainlines = (int)ceil((float)agent.brain.boxes.size/(float)conf::BOXES_PER_ROW);
 
 						float sx,sy,tx,ty;
+						float y_input_offset = inputlines*ioboxsize + yoffset;
+						float ty_out = y_input_offset + ioboxsize_half + yoffset
+							+ boxsize*(int)((float)(agent.brain.boxes.size())/(float)conf::BOXES_PER_ROW);
+						float x_ioboxsize = ioboxsize + xoffset;
 
 						for (int c = 0; c < agent.brain.lives.size(); c++) {
 							int sid = agent.brain.lives[c].sid;
@@ -2616,35 +2622,39 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 							
 							//filter by target id; if in range of outputs, change target coords to match output range
 							if (tid >= agent.brain.boxes.size() - Output::OUTPUT_SIZE) {
+								int tid_out = Output::OUTPUT_SIZE - agent.brain.boxes.size() + tid;
 								//for all output-targeting connections
-								ty = inputlines*ioboxsize + xoffset + 3*yoffset + boxsize/2 + boxsize*(int)((float)(agent.brain.boxes.size())/(float)conf::BOXES_PER_ROW);
-								tx = ioboxsize/2 + (ioboxsize+xoffset)*((Output::OUTPUT_SIZE - agent.brain.boxes.size() + tid)%conf::BOXES_PER_ROW);
+								ty = ty_out + yoffset + x_ioboxsize*(int)((float)(tid_out)/(float)conf::INPUTS_OUTPUTS_PER_ROW);
+								tx = ioboxsize_half + x_ioboxsize*(tid_out%conf::INPUTS_OUTPUTS_PER_ROW);
 							} else {
 								//for all brain interior connections
-								ty = inputlines*ioboxsize + xoffset + yoffset + boxsize/2 + boxsize*(int)((float)(tid)/(float)conf::BOXES_PER_ROW);
-								tx = boxsize/2 + boxsize*(tid%conf::BOXES_PER_ROW);
+								ty = y_input_offset + boxsize_half + xoffset + boxsize*(int)((float)(tid)/(float)conf::BOXES_PER_ROW);
+								tx = boxsize_half + boxsize*(tid%conf::BOXES_PER_ROW);
 							}
 
 							if (tid == sid) {
-								//must happen before glBegin
-								glLineWidth(2);
-							}
+								glLineWidth(2); //must happen before glBegin
+								glBegin(GL_LINES);
 
-							glBegin(GL_LINES);
-							if (tid == sid) {
+								//self-referencing gets shown as a circle on the spot
 								glColor4f(cap(-w/4), cap(w/4), 0, 0.3*absw*acc);
 								drawOutlineRes(tx, ty, 3, 1);
 							} else {
+								glBegin(GL_LINES);
 								float blu = type == ConnType::INVERTED ? cap(abs(w)/4+0.1) : 0.1;
 								if (sid < 0) {
-									sy = ioboxsize/2 + (ioboxsize+xoffset)*(int)((float)(-sid-1)/(float)conf::INPUTS_OUTPUTS_PER_ROW);
-									sx = ioboxsize/2 + (ioboxsize+xoffset)*((-sid-1)%conf::INPUTS_OUTPUTS_PER_ROW);
+									//if Input-connected, set source coords to the source input
+									sy = ioboxsize_half + x_ioboxsize*(int)((float)(-sid-1)/(float)conf::INPUTS_OUTPUTS_PER_ROW);
+									sx = ioboxsize_half + x_ioboxsize*((-sid-1)%conf::INPUTS_OUTPUTS_PER_ROW);
 									glColor4f(cap(-w/4+0.1), cap(w/4 + cap(-w/4)*0.75+0.1), blu, 0.3*absw/5*acc);
-								} else { 
-									sy = inputlines*ioboxsize + yoffset + boxsize/2 + boxsize*(int)((float)(sid)/(float)conf::BOXES_PER_ROW);
-									sx = boxsize/2 + boxsize*(sid%conf::BOXES_PER_ROW);
+								} else {
+									//otherwise if normal internal brain conn, set to brain box coords
+									sy = y_input_offset + boxsize_half + boxsize*(int)((float)(sid)/(float)conf::BOXES_PER_ROW);
+									sx = boxsize_half + boxsize*(sid%conf::BOXES_PER_ROW);
 									glColor4f(cap(-w/4+0.1), cap(w/4 + cap(-w/4)*0.75+0.1), blu, 0.3*acc);
 								}
+
+								//finally, draw the line
 								glVertex3f(sx, sy, 0.0f);
 								glVertex3f((sx+tx)/2, (sy+ty)/2, 0.0f);
 
@@ -2872,49 +2882,9 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 					}
 				}
 
+				glTranslatef(90,-24-0.5*r,0); //return to agent location for later stuff
 			}
-			glTranslatef(90,-24-0.5*r,0); //return to agent location for later stuff
-
 		}
-
-		/*
-		//draw lines connecting connected brain boxes, but only in debug mode (NEEDS SIMPLIFICATION)
-		if(world->isDebug()){
-			glEnd();
-			glBegin(GL_LINES);
-			float offx=0;
-			ss=30;
-			xboxsize=ss;
-			for (int j=0;j<BRAINBOXES;j++) {
-				for(int k=0;k<CONNS;k++){
-					int j2= agent.brain.boxes[j].id[k];
-					
-					//project indices j and j2 into pixel space
-					float x1= 0;
-					float y1= 0;
-					if(j<Input::INPUT_SIZE) { x1= j*ss; y1= yy; }
-					else { 
-						x1= ((j-Input::INPUT_SIZE)%30)*ss;
-						y1= yy+ss+2*ss*((int) (j-Input::INPUT_SIZE)/30);
-					}
-					
-					float x2= 0;
-					float y2= 0;
-					if(j2<Input::INPUT_SIZE) { x2= j2*ss; y2= yy; }
-					else { 
-						x2= ((j2-Input::INPUT_SIZE)%30)*ss;
-						y2= yy+ss+2*ss*((int) (j2-Input::INPUT_SIZE)/30);
-					}
-					
-					float ww= agent.brain.boxes[j].w[k];
-					if(ww<0) glColor3f(-ww, 0, 0);
-					else glColor3f(0,0,ww);
-					
-					glVertex3f(x1,y1,0);
-					glVertex3f(x2,y2,0);
-				}
-			}
-		}*/
 
 		//draw indicator of all agents... used for various events
 		if (agent.indicator>0) {

@@ -1348,7 +1348,7 @@ void World::setInputs()
 						if (eye_target_angle < fov) {
 							float invDIST = INV_MAX_SENSORY_DISTANCE/conf::SMELL_DIST_MULT;
 							//we see the cell with this eye. Accumulate stats
-							float sight_mult= AMBIENT_LIGHT_PERCENT*cap(light_cell_mult*((fov - eye_target_angle*0.75)/fov)*(1-d*d*invDIST*invDIST));
+							float sight_mult= AMBIENT_LIGHT_PERCENT*cap(light_cell_mult*((fov - eye_target_angle*0.75)/fov)*(1-d*d*4*invDIST*invDIST));
 
 							for (int l=0; l < Layer::LAYERS; l++) {
 								float seen_r = 0, seen_g = 0, seen_b = 0;
