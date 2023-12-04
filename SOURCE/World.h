@@ -26,8 +26,12 @@ public:
 	int timenewsong; //timer. Gets set when a song ends, and when it hits 0, a new song starts
     
 	void init();
+
+	/// file functions
 	void readConfig();
 	void writeConfig();
+	std::vector<std::string> listFilesInDirectory(const std::string& path);
+	std::vector<std::string> music_list;
 
 	//setup functions
 	void setSeed(unsigned int seed);

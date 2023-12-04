@@ -5,9 +5,12 @@
 #include "settings.h"
 #include "helpers.h"
 #include "vmath.h"
+
 #ifdef _WIN32
 #define _CRT_SECURE_NO_DEPRECATE
+//#include <windows.h>
 #endif
+
 #include <stdio.h>
 #include <iostream>
 
@@ -1193,7 +1196,11 @@ void World::tryPlayMusic()
 				printf(", index: %i", songindex);
 			#endif
 
-			currentsong= audio->play2D(songfile.c_str(), false, false, true, ESM_NO_STREAMING);
+			std::string songlocation;
+			songlocation.append(conf::MUSIC_FOLDER);
+			songlocation.append(songfile);
+
+			currentsong = audio->play2D(songlocation.c_str(), false, false, true, ESM_NO_STREAMING);
 
 			if(currentsong){
 				currentsong->setVolume(0.7);
@@ -1957,19 +1964,19 @@ float World::getMetabolismRatio(float metabolism)
 void World::processAgentInteractions()
 {
 	//process agent-agent dynamics
-	if (modcounter%2==0) { //we dont need to do this TOO often. can save efficiency here since this is n^2 op in #agents
+	if (modcounter%2 == 0) { //we dont need to do this TOO often. can save efficiency here since this is n^2 op in #agents
 
 		//phase 1: determine for all agents if they are near enough to another agent to warrant processing them
 		#pragma omp parallel for schedule(dynamic)
 		for (int i=0; i<(int)agents.size(); i++) {
-			Agent* a1= &agents[i];
+			Agent* a1 = &agents[i];
 
-			a1->near= false;
-			a1->dhealth= 0; //no better place for this now, since we use it in phase 2
+			a1->near = false;
+			a1->dhealth = 0; //no better place for this now, since we use it in phase 2
 			if (a1->isDead()) continue; //skip dead agents
 
 			for (int j=0; j<i; j++) {
-				Agent* a2= &agents[j];
+				Agent* a2 = &agents[j];
 				//note: NEAREST is calculated upon config load/reload
 				if (a1->pos.x < a2->pos.x - NEAREST
 					|| a1->pos.x > a2->pos.x + NEAREST
@@ -3505,6 +3512,8 @@ void World::setStatsAfterLoad()
 void World::init()
 {
 	printf("...starting up...\n");
+
+	music_list = listFilesInDirectory(conf::MUSIC_FOLDER);
 	last5songs[0]= -1;
 
 	//ALL .cfg constants must be initially declared in world.h and defined here.
@@ -4583,4 +4592,25 @@ void World::writeConfig()
 	fprintf(cf, "SUN_BLU= %f \t\t//???\n", SUN_BLU);
 	if(STATallachieved) fprintf(cf, "FUN= 1\n");
 	fclose(cf);
+}
+
+std::vector<std::string> World::listFilesInDirectory(const std::string& path)
+{
+    std::vector<std::string> fileNames;
+    /*WIN32_FIND_DATA findFileData;
+    HANDLE hFind = FindFirstFile((path + "/*").c_str(), &findFileData);
+
+    if (hFind == INVALID_HANDLE_VALUE) {
+        std::cerr << "Error opening directory" << std::endl;
+        return fileNames;
+    }
+
+    do {
+        if (findFileData.dwFileAttributes & FILE_ATTRIBUTE_NORMAL) {
+            fileNames.push_back(findFileData.cFileName);
+        }
+    } while (FindNextFile(hFind, &findFileData) != 0);
+
+    FindClose(hFind);*/
+    return fileNames;
 }
