@@ -422,9 +422,9 @@ void World::cellsLandMasses()
 
 	for (int n=0; n<FEATURES_TO_SPAWN; n++) {
 		//what's this? What's going on? Why is the sky all lit up?
-		int cx=randi(20,CW-20);
-		int cy=randi(20,CH-20);
-		int radius= randi(7,16);
+		int cx = randi(20,CW-20);
+		int cy = randi(20,CH-20);
+		int radius = randi(7,16);
 		bool peak = randf(0,1)<0.5;
 		bool flatter = randf(0,1)<0.5;
 
@@ -466,7 +466,7 @@ void World::cellsLandMasses()
 
 
 	printf("...rolling hills...\n");
-	for(int n=0;n<4;n++){
+	for (int n=0;n<4;n++){
 		cellsRoundTerrain();
 	}
 
@@ -477,8 +477,8 @@ void World::cellsLandMasses()
 	#endif
 
 	//briefly allow land spawn for Init ONLY! See update() for long-term
-	if(DISABLE_LAND_SPAWN && STATlandratio>0.75){
-		DISABLE_LAND_SPAWN= false;
+	if (DISABLE_LAND_SPAWN && STATlandratio > 0.75){
+		DISABLE_LAND_SPAWN = false;
 		printf("ALERT: Enabled Land Init Spawns due to high land:water ratio.\n");
 	}
 }
@@ -695,7 +695,7 @@ void World::processClimate()
 				//else if(CLIMATEMULT<0.25) addEvent("Global Uniform Temp", EventColor::YELLOW);
 			}
 
-			if (DEBUG) printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
+			if (isDebug()) printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
 		}
 
 		if (DROUGHTS){
@@ -723,7 +723,7 @@ void World::processClimate()
 			else if (beforeovergrowth && !isOvergrowth())
 				addEvent("Global Overgrowth Ended!", EventColor::PINK);
 
-			if (DEBUG)
+			if (isDebug())
 				printf("Set Drought Multiplier to %f\n", DROUGHTMULT);
 		} else {
 			DROUGHTMULT= 1.0;
@@ -747,7 +747,7 @@ void World::processMutationEvent()
 			addEvent("QUADRUPLE Mutation chance Epoch!", EventColor::LAVENDER);
 		else if (MUTEVENTMULT>4) 
 			addEvent("Mutation chance > *4!!!", EventColor::LAVENDER);
-		if(DEBUG) 
+		if (isDebug()) 
 			printf("Set Mutation Multiplier to %i\n", MUTEVENTMULT);
 	} else {
 		MUTEVENTMULT = 1;
@@ -1191,7 +1191,7 @@ void World::tryPlayMusic()
 			
 			std::string songfile = conf::SONGS[songindex];
 
-			printf("Now playing track: %s", songfile.c_str());
+			printf("Now playing track: \"%s\"", songfile.c_str());
 			#if defined(_DEBUG) 
 				printf(", index: %i", songindex);
 			#endif
@@ -1215,7 +1215,7 @@ void World::tryPlayMusic()
 				}
 			} else {
 				#if defined(_DEBUG)
-				printf("...failed!\n");
+				printf("...failed!");
 				#endif
 			}
 			printf("\n");
@@ -1278,7 +1278,7 @@ void World::setInputs()
 		int miny= max((scy - celldist), 0);
 		int maxy= min((scy+1 + celldist), CH);
 
-		if(isDebug() && isAgentSelected(a->id)) printf("\n");
+		//if(isDebug() && isAgentSelected(a->id)) printf("\n");
 
 		//---AGENT-CELL SENSES---//
 		for(int tcx= minx; tcx<maxx; tcx++){
@@ -1329,7 +1329,7 @@ void World::setInputs()
 
 						if (eye_target_angle < fov) {
 							// we see the cell with this eye! Accumulate stats
-							if(isDebug() && isAgentSelected(a->id) && q==0) printf("eye0 sees cellpos: %d, %d. fov: %f, angle: %f  - ", tcx, tcy, fov, eye_target_angle);
+							//if(isDebug() && isAgentSelected(a->id) && q==0) printf("eye0 sees cellpos: %d, %d. fov: %f, angle: %f  - ", tcx, tcy, fov, eye_target_angle);
 
 							float invDIST = INV_MAX_SENSORY_DISTANCE/conf::CELL_SIGHT_DIST_MULT;
 							float sight_mult= AMBIENT_LIGHT_PERCENT*cap(light_cell_mult*((fov - eye_target_angle*0.75)/fov)*(1-d*invDIST));
@@ -1361,7 +1361,7 @@ void World::setInputs()
 								if(g[q] < seen_g) g[q] = seen_g;
 								if(b[q] < seen_b) b[q] = seen_b;
 							}
-							if(isDebug() && isAgentSelected(a->id) && q==0) printf("sight_mult: %f\n", sight_mult);
+							//if(isDebug() && isAgentSelected(a->id) && q==0) printf("sight_mult: %f\n", sight_mult);
 
 							if(isAgentSelected(a->id) && isDebug()){
 								linesA.push_back(a->pos);
@@ -1822,11 +1822,9 @@ void World::processCellInteractions()
 		int scx= (int) clamp(a->pos.x + source.x, 0, conf::WIDTH-1)/conf::CZ;
 		int scy= (int) clamp(a->pos.y + source.y, 0, conf::HEIGHT-1)/conf::CZ;
 
-/*		#if defined(_DEBUG)
-		if(isDebug() && isAgentSelected(agents[i].id)) {
+/*		if(isDebug() && isAgentSelected(agents[i].id)) {
 			printf("scx: %i, scy: %i\n", scx, scy);
-		}
-		#endif*/
+		}*/
 
 		if(!a->isDead()){
 			if (!a->isAirborne()){ //no interaction if jumping
@@ -2071,29 +2069,32 @@ void World::processAgentInteractions()
 							float DMG1 = clamp(damagemult*ainvrad*aagemult, 0, HEALTH_CAP); //larger, younger bots take less damage, bounce less
 							float DMG2 = clamp(damagemult*a2invrad*a2agemult, 0, HEALTH_CAP);
 
-							if(DEBUG) printf("\na collision occured. overlap: %.4f, aagemult: %.2f, a2agemult: %.2f, Damage on a: %f. Damage on a2: %f\n", ov, aagemult, a2agemult, DMG1, DMG2);
+							if (isDebug()) printf("Collision! overlap: %.4f, aagemult: %.2f, a2agemult: %.2f, Damage on a: %f. Damage on a2: %f\n", ov, aagemult, a2agemult, DMG1, DMG2);
 							a->addDamage(conf::DEATH_COLLIDE, DMG1);
 							a2->addDamage(conf::DEATH_COLLIDE, DMG2);
 
-							if(a->health==0){
+							//only trigger collision splash if another splash not being displayed
+							if (a->indicator <= 0) a->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0,0.5,1);
+							if (a2->indicator <= 0) a2->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0,0.5,1);
+							addTipEvent("Agent collided hard", EventColor::CYAN, a->id);
+							addTipEvent("Agent collided hard", EventColor::CYAN, a2->id);
+							if (isAgentSelected(a->id)) printf("The Selected Agent collided, and took %.3f damage!\n", DMG1);
+							if (isAgentSelected(a2->id)) printf("The Selected Agent collided, and took %.3f damage!\n", DMG2);
+
+							a->freshkill = FRESHKILLTIME; //this agent was hit this turn, giving full meat value
+							a2->freshkill = FRESHKILLTIME;
+
+							if (a->health == 0){
 								continue;
 							}
-							if(a2->health==0){
+							if (a2->health == 0){
 								a->killed++;
 								continue;
 							}
-
-							//only trigger collision splash if another splash not being displayed
-							if(a->indicator <= 0) a->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0,0.5,1);
-							if(a2->indicator <= 0) a2->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0,0.5,1);
-							addTipEvent("Agent collided hard", EventColor::CYAN, a->id);
-							addTipEvent("Agent collided hard", EventColor::CYAN, a2->id);
-							
-							a->freshkill = FRESHKILLTIME; //this agent was hit this turn, giving full meat value
-							a2->freshkill = FRESHKILLTIME;
 						}
 
 						//now anti-kith...
+						printDebug("Applying Physics degree...");
 						float bumpmult = ov*BUMP_PRESSURE/d;
 						float ff1 = clamp(bumpmult*a2->traits[Trait::RADIUS]*ainvrad, 0, 2); //the radii come in here for inertia-like effect
 						float ff2 = clamp(bumpmult*a->traits[Trait::RADIUS]*a2invrad, 0, 2);
@@ -2108,6 +2109,7 @@ void World::processAgentInteractions()
 						a->borderRectify();
 						a2->borderRectify();
 
+						printDebug(" Success!\n");
 //						printf("%f, %f, %f, %f, and %f\n", a->pos.x, a->pos.y, a2->pos.x, a2->pos.y, ov);
 					}
 				} //end collision mechanics
@@ -2133,27 +2135,35 @@ void World::processAgentInteractions()
 							if(veldiff>conf::VELOCITYSPIKEMIN){
 								//these two are in collision and agent a has extended spike and is going decently fast relatively! That's a hit!
 							
-								float DMG= DAMAGE_FULLSPIKE*a->spikeLength*veldiff*(1-1.0/(1+expf(-(a2->traits[Trait::RADIUS]/2-MEANRADIUS))));
+								float DMG = DAMAGE_FULLSPIKE*a->spikeLength*veldiff*(1-1.0/(1+expf(-(a2->traits[Trait::RADIUS]/2-MEANRADIUS))));
 								//tiny, small, & average agents take full damage, scaled by the difference in velocity. 
 								//large (2*MEANRADIUS) agents take half damage, and huge agents (2*MEANRADIUS+10) take no damage from spikes at all
 
-								if(DEBUG) printf("\nan agent received spike damage: %.4f\n", DMG);
+								if (isDebug()) printf("an agent received spike damage: %.4f\n", DMG);
 								a2->addDamage(conf::DEATH_SPIKE, DMG); 
 								a2->freshkill= FRESHKILLTIME; //this agent was hit this turn, giving full meat value
-								addTipEvent("Agent was Stabbed!", EventColor::BLOOD, a2->id);
 
 								a->hits++;
-								a->spikeLength= 0; //retract spike down
+								a->spikeLength = 0; //retract spike down
+
+								addTipEvent("Agent was Stabbed!", EventColor::BLOOD, a2->id);
 								a->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5*DMG,1,0.5,0); //orange splash means bot has spiked the other bot. nice!
 								tryPlayAudio(conf::SFX_STAB1, a2->pos.x, a2->pos.y, randn(1.0,0.2));
 
-								if (a2->health==0){ 
+								if (a2->health == 0){ 
 									//red splash means bot has killed the other bot. Murderer!
 									a->initSplash(conf::RENDER_MAXSPLASHSIZE,1,0,0);
 									addTipEvent("Agent Killed Another!", EventColor::RED, a->id);
+									if (isAgentSelected(a->id)) printf("The Selected Agent spiked and killed another!\n");
+									if (isAgentSelected(a2->id)) printf("The Selected Agent was killed by spiking!\n");
+
 									a->killed++;
 									continue;
-								} else addTipEvent("Agent Stabbed Another!", EventColor::ORANGE, a->id);
+								} else {
+									addTipEvent("Agent Stabbed Another!", EventColor::ORANGE, a->id);
+									if (isAgentSelected(a->id)) printf("The Selected Agent spiked another for %.3f damage!\n", DMG);
+									if (isAgentSelected(a2->id)) printf("The Selected Agent was spiked for %.3f damage!\n", DMG);
+								}
 
 								/*Vector2f v2(1,0);
 								v2.rotate(a2->angle);
@@ -2177,9 +2187,10 @@ void World::processAgentInteractions()
 					if (fabs(diff) < conf::JAW_MAX_FOV) { //advantage over spike: wide AOE
 						float DMG= DAMAGE_JAWSNAP*a->jawPosition*(a->traits[Trait::RADIUS]*a2invrad); //advantage over spike: large agents do more damage to smaller agents
 
-						if(DEBUG) printf("\nan agent received bite damage: %.4f\n", DMG);
+						if(isDebug()) printf("an agent received bite damage: %.4f\n", DMG);
 						a2->addDamage(conf::DEATH_BITE, DMG);
 						a2->freshkill = FRESHKILLTIME;
+
 						addTipEvent("Agent was Bitten!", EventColor::BLOOD, a2->id);
 
 						a->hits++;
@@ -2192,18 +2203,18 @@ void World::processAgentInteractions()
 							a->killed++;
 							if(a->grabID == a2->id) resetAgentGrab(a, false); //we bit our grabbed agent to death; don't play grab break sfx
 
-							//The agent has definitely been killed, but we have some things to check
+							// The target agent has definitely been killed, but we have some things to check
 
 							//Swallowing feature:
 							if (a->traits[Trait::RADIUS]*a2invrad >= conf::BITE_EATS_RATIO) {
-								//if the ratio of the sizes is over a certain ratio (the attacker is larger), then the target is eaten instead.
+								//if the ratio of the sizes is over a certain ratio (the attacker is larger), then the target is SWALLOWED instead.
 								float meat = getDroppedMeat(a2); //get the whole amount of meat this agent would drop...
 								float dummy = 0.0;
 								float prehealth = a->health;
 								applyIntakes(a, dummy, dummy, meat); //and force-feed it to the agent!
-								if (DEBUG) {
+								if (isDebug()) {
 									float meatstomach = a->traits[Trait::STOMACH + Stomach::MEAT];
-									printf("\nan agent SWALLOWED another! meat stomach val: %f, received %f meat, giving %f health\n", meatstomach, meat, a->health - prehealth);
+									printf("an agent SWALLOWED another! meat stomach val: %f, received %f meat, giving %f health\n", meatstomach, meat, a->health - prehealth);
 								}
 
 								//lime splash means agent ate the other agent. Yum!
@@ -2290,7 +2301,7 @@ void World::processAgentInteractions()
 void World::resetAgentGrab(Agent *a, bool play_sfx) {
 	a->grabID= -1;
 	if (play_sfx) {
-		tryPlayAudio(conf::SFX_RIP1, a->pos.x, a->pos.y, randn(1.0,0.2), 1.0);
+		tryPlayAudio(conf::SFX_RIP1, a->pos.x, a->pos.y, randn(1.0,0.2), 0.75);
 	}
 }
 
@@ -2356,7 +2367,7 @@ void World::processReproduction()
 
 						if(agents[father].repcounter <= 0){
 							//prepare to add num_babies to world, with two parents
-							if(DEBUG) printf("Attempting to have children...");
+							if(isDebug()) printf("Attempting to have children...");
 
 							reproduce(mother, father);
 
@@ -2364,20 +2375,20 @@ void World::processReproduction()
 							addTipEvent("Agent Sexually Reproduced", EventColor::BLUE, agents[father].id);
 							tryPlayAudio(conf::SFX_SMOOCH1, agents[mother].pos.x, agents[mother].pos.y, randn(1.0,0.15));
 
-							if(DEBUG) printf(" Success!\n");
+							if(isDebug()) printf(" Success!\n");
 							break;
 						}
 					}
 				} else {
 					//this adds mother's numbabies to world, but with just one parent (budding)
-					if(DEBUG) printf("Attempting budding...");
+					if(isDebug()) printf("Attempting budding...");
 
 					reproduce(mother, mother);
 
 					addTipEvent("Agent Assexually Budded", EventColor::NEON, agents[mother].id);
 					tryPlayAudio(conf::SFX_PLOP1, agents[mother].pos.x, agents[mother].pos.y, randn(1.0,0.15));
 
-					if(DEBUG) printf(" Success!\n");
+					if(isDebug()) printf(" Success!\n");
 					break;
 				}
 			}
@@ -2451,18 +2462,18 @@ float World::getDroppedMeat(Agent* a)
 
 void World::processRandomSpawn()
 {
-	if (!CLOSED) {
-		int alive= agents.size()-getDead();
+	if (!isClosed()) {
+		int alive = agents.size() - getDead();
 		//make sure environment is always populated with at least AGENTS_MIN_NOTCLOSED bots
-		if (alive<AGENTS_MIN_NOTCLOSED) {
-			if(DEBUG) printf("Attempting agent conservation program...");
-			addAgents(AGENTS_MIN_NOTCLOSED-alive,-1);
-			if(DEBUG) printf(" Success!\n");
+		if (alive < AGENTS_MIN_NOTCLOSED) {
+			if (isDebug()) printf("Attempting agent conservation program...");
+			addAgents(AGENTS_MIN_NOTCLOSED-alive, -1);
+			if (isDebug()) printf(" Success!\n");
 		}
-		if (alive<AGENTS_MAX_SPAWN && modcounter%AGENTSPAWN_FREQ==0 && randf(0,1)<0.5) {
-			if(DEBUG) printf("Attempting random spawn...");
-			addAgents(1,-1); //every now and then add random bot in if population too low
-			if(DEBUG) printf(" Success!\n");
+		if (alive < AGENTS_MAX_SPAWN && modcounter % AGENTSPAWN_FREQ == 0 && randf(0,1) < 0.5) {
+			if (isDebug()) printf("Attempting random spawn...");
+			addAgents(1, -1); //every now and then add random bot in if population too low
+			if (isDebug()) printf(" Success!\n");
 		}
 	}
 }
@@ -2812,13 +2823,13 @@ int World::getClosestRelative(int idx)
 		}
 	}
 
-	if(bestrelative!="") {
-		bestrelative= "Autoselected living "+bestrelative;
+	if (bestrelative != "") {
+		bestrelative = "Autoselected living " + bestrelative;
 		addEvent(bestrelative, EventColor::BLACK);
-		printf("---> New relative selected: %s\n", bestrelative.c_str());
+		printf("---> %s\n", bestrelative.c_str());
 	} else {
 		addEvent("No More Living Relatives!", EventColor::BLACK);
-		printf("---> No More Living Relatives.\n");
+		printf("---> No More Living Relatives!\n");
 	}
 
 	//IMPORTANT: we may return -1 here; DO NOT USE FOR ARRAYS DIRECTLY
@@ -4392,27 +4403,27 @@ void World::readConfig()
 	}
 
 	//set some other variables that are based on the possibly loaded config values
-	CW= conf::WIDTH/conf::CZ;
-	CH= conf::HEIGHT/conf::CZ; //note: may add custom variables from loaded saves/config here eventually
-	int CS= CW*CH;
+	CW = conf::WIDTH/conf::CZ;
+	CH = conf::HEIGHT/conf::CZ; //note: may add custom variables from loaded saves/config here eventually
+	int CS = CW*CH;
 
-	if(INITPLANT==-1) INITPLANT = (int)(INITPLANTDENSITY*CS);
-	if(INITFRUIT==-1) INITFRUIT = (int)(INITFRUITDENSITY*CS);
-	if(INITMEAT==-1) INITMEAT = (int)(INITMEATDENSITY*CS);
-	if(INITHAZARD==-1) INITHAZARD = (int)(INITHAZARDDENSITY*CS);
-	if(INITPLANT>CS) INITPLANT= CS;
-	if(INITFRUIT>CS) INITFRUIT= CS;
-	if(INITMEAT>CS) INITMEAT= CS;
-	if(INITHAZARD>CS) INITHAZARD= CS;
+	if (INITPLANT == -1) INITPLANT = (int)(INITPLANTDENSITY*CS);
+	if (INITFRUIT == -1) INITFRUIT = (int)(INITFRUITDENSITY*CS);
+	if (INITMEAT == -1) INITMEAT = (int)(INITMEATDENSITY*CS);
+	if (INITHAZARD == -1) INITHAZARD = (int)(INITHAZARDDENSITY*CS);
+	if (INITPLANT > CS) INITPLANT = CS;
+	if (INITFRUIT > CS) INITFRUIT = CS;
+	if (INITMEAT > CS) INITMEAT = CS;
+	if (INITHAZARD > CS) INITHAZARD = CS;
 
-	if(DEBUG){
+	if (isDebug()){
 		printf("INITPLANT: %i\n", INITPLANT);
 		printf("INITFRUIT: %i\n", INITFRUIT);
 		printf("INITMEAT: %i\n", INITMEAT);
 		printf("INITHAZARD: %i\n", INITHAZARD);
 	}
 
-	if(BRAINBOXES < Output::OUTPUT_SIZE) {
+	if (BRAINBOXES < Output::OUTPUT_SIZE) {
 		printf("BRAINBOXES config value was too small. It has been reset to min allowed (number of Outputs)\n");
 		BRAINBOXES = Output::OUTPUT_SIZE;
 	}

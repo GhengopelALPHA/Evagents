@@ -280,9 +280,9 @@ void GLView::processMouse(int button, int state, int x, int y)
 					live_selection = Select::MANUAL;
 					world->tryPlayAudio(conf::SFX_UI_MANUALSELECT);
 				}
-			} else if(live_cursormode==MouseMode::PLACE_AGENT){
-				if(world->addLoadedAgent(wx, wy)) printf("agent placed!    yay\n");
-				else world->addEvent("No agent loaded! Load an Agent 1st", EventColor::BLOOD);
+			} else if (live_cursormode==MouseMode::PLACE_AGENT){
+				if (world->addLoadedAgent(wx, wy)) printf("agent placed!    yay\n");
+				else world->addEvent("No agent loaded! Load an Agent first", EventColor::BLOOD);
 			}
 		}
 	}
@@ -1205,7 +1205,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 		if (checkFileName(filename)) {
 			//file name is valid, but is it a valid file???
 			std::string address;
-			address= "saves\\";
+			address = "saves\\";
 			address.append(filename);
 			address.append(R::WORLD_SAVE_EXT);
 
@@ -1214,7 +1214,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 			if(!fl) { //file doesn't exist. Alert the user
 				Alert = GLUI_Master.create_glui("Alert",0,50,50);
 
-				sprintf(buf,"No file could be found with the name \"%s%s\".\n", filename, R::WORLD_SAVE_EXT.c_str());
+				sprintf(buf,"No file could be found at \"%s\".\n", address.c_str());
 				printf("%s", buf);
 
 				new GLUI_StaticText(Alert,"");
@@ -1531,6 +1531,7 @@ void GLView::checkTileListClicked(std::vector<UIElement> tiles, int mx, int my, 
 				}
 				else if(tiles[ti].key == UIKeys::LAD_PREVIOUS) {
 					world->selectPreviousSelected();
+					live_selection = Select::MANUAL;
 				}
 			}
 
