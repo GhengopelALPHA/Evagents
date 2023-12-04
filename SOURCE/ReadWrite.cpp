@@ -148,7 +148,6 @@ void ReadWrite::saveAgent(Agent *a, FILE *file)
 		fprintf(file, "conn#= %i\n", c);
 		fprintf(file, "type= %i\n", a->brain.conns[c].type);
 		fprintf(file, "w= %f\n", a->brain.conns[c].w);
-		fprintf(file, "relu= %f\n", a->brain.conns[c].relu);
 		fprintf(file, "bias= %f\n", a->brain.conns[c].bias);
 		fprintf(file, "sid= %i\n", a->brain.conns[c].sid);
 		fprintf(file, "tid= %i\n", a->brain.conns[c].tid);
@@ -188,9 +187,6 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 		world->BRAINBOXES,
 		world->BRAINCONNS,
 		world->SPAWN_MIRROR_EYES,
-		world->OVERRIDE_KINRANGE,
-		world->MEANRADIUS,
-		world->REP_PER_BABY,
 		world->EYE_SENSE_MAX_FOV,
 		world->DEFAULT_BRAIN_MUTCHANCE,
 		world->DEFAULT_BRAIN_MUTSIZE,
@@ -368,9 +364,6 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 			}else if(strcmp(var, "w=")==0){
 				sscanf(dataval, "%f", &f);
 				xconn.w = f;
-			}else if(strcmp(var, "relu=")==0){
-				sscanf(dataval, "%f", &f);
-				xconn.relu= f;
 			}else if(strcmp(var, "bias=")==0){
 				sscanf(dataval, "%f", &f);
 				xconn.bias= f;
@@ -665,7 +658,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 	FILE *fl;
 	fl= fopen(address.c_str(), "r");
 	if(fl){
-		printf("file '%s' exists! loading.\n", address.c_str());
+		printf("file '%s' exists! loading...\n", address.c_str());
 		//real quick: don't keep user control active from last world
 		world->player_control = false;
 		//also disable demo mode
@@ -681,18 +674,18 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 					//if we find a <world> tag, enable world loading and reset. simple
 					mode= ReadWriteMode::WORLD;
 					world->reset();
-					printf("discovered world.\n"); //report status
+					printf("...discovered world...\n"); //report status
 				} else if(strcmp(var, "<a>")==0){ //UNUSED
 					//if we instead immediately find an <a> tag, switch to agent loading mode - this save was only made with agents and we're meant to only load them
 					mode= ReadWriteMode::AGENT;
 					world->sanitize();
-					printf("discovered agent database.\n"); //report status
+					printf("...discovered agent database...\n"); //report status
 				}
 			}else if(mode==ReadWriteMode::WORLD){
 				if(strcmp(var, "</world>")==0){ //check for end of world flag, indicating we're done
 					mode= ReadWriteMode::OFF;
 
-					printf("WORLD LOADED!\n");
+					printf("...WORLD LOADED!\n");
 					world->addEvent("World Loaded!", EventColor::MINT);
 
 					world->setStatsAfterLoad();
@@ -840,12 +833,12 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 				}else if(strcmp(var, "<c>")==0){
 					//cells tag activates cell reading mode
 					mode= ReadWriteMode::CELL;
-					if (!t1) printf("loading cells.\n"); //report status
+					if (!t1) printf("...loading cells...\n"); //report status
 					t1= true;
 				}else if(strcmp(var, "<a>")==0){
 					//agent tag activates agent reading mode
 					//version 0.05: this is no longer a mode, but rather a whole another method. Should function identically
-					if (!t2) printf("loading agents.\n"); //report status
+					if (!t2) printf("...loading agents...\n"); //report status
 					t2= true;
 					loadAgents(world, fl, fileversion); //when we leave here, should be EOF		
 				}

@@ -1,7 +1,38 @@
 #include "Gene.h"
 
 #include "helpers.h"
-#include "settings.h"
+
+/*const float DEFAULT_TRAITS[Trait::TRAIT_TYPES] = {
+	//list of trait defaults, used when an agent has no genes for a given trait (because certain values would be very bad).
+	// this does NOT initialize new gene values, and is only located here to try and concentrate all trait switches (and arrays) here
+		0, //case Trait::SPECIESID :	
+		0, //case Trait::KINRANGE :		
+		0.1, //case Trait::BRAIN_MUTATION_CHANCE :
+		0.1, //case Trait::BRAIN_MUTATION_SIZE :	
+		0.1, //case Trait::GENE_MUTATION_CHANCE :  
+		0.1, //case Trait::GENE_MUTATION_SIZE :	
+		1, //case Trait::RADIUS :		
+		1, //case Trait::SKIN_RED :		
+		1, //case Trait::SKIN_GREEN :	
+		1, //case Trait::SKIN_BLUE :		
+		0, //case Trait::SKIN_CHAMOVID :	
+		1, //case Trait::STRENGTH :		
+		0.5, //case Trait::THERMAL_PREF :	
+		0, //case Trait::LUNGS :		
+		1, //case Trait::NUM_BABIES :	
+		-1, //case Trait::SEX_PROJECT_BIAS :
+		1, //case Trait::METABOLISM :	
+		0, //case (Trait::STOMACH + Stomach::PLAN
+		0, //case (Trait::STOMACH + Stomach::FRUI
+		0, //case (Trait::STOMACH + Stomach::MEAT
+		10, //case Trait::CLOCK1_FREQ :		
+		50, //case Trait::CLOCK2_FREQ :		
+		1, //case Trait::EYE_SEE_AGENTS :	
+		1, //case Trait::EYE_SEE_CELLS :	
+		1, //case Trait::EAR_HEAR_AGENTS :	
+		1, //case Trait::BLOOD_SENSE :	
+		1 //case Trait::SMELL_SENSE :	
+	};*/
 
 Gene::Gene() {
 	Gene(-1, 0);
@@ -89,7 +120,7 @@ void Gene::birthMutate(float basechance, float basesize) {
 		case Trait::SKIN_CHAMOVID :			chance *= 2;																 break;
 		case Trait::STRENGTH :									size *= 4;												 break;
 		case Trait::THERMAL_PREF :			chance *= 2;		size /= 2;												 break;
-		case Trait::LUNGS :					chance *= 4;		size /= 2;												 break;
+		case Trait::LUNGS :					chance *= 2;		size /= 2;												 break;
 		case Trait::NUM_BABIES :			chance /= 2;		size = (0.1 + basesize*50);								 break;
 		case Trait::SEX_PROJECT_BIAS :		chance *= 4;		size *= 5;												 break;
 		case Trait::METABOLISM :			chance /= 2;		size *= 2;												 break;
@@ -128,7 +159,7 @@ void Gene::liveMutate(float basechance, float basesize) {
 		case Trait::SKIN_CHAMOVID :																						 break;
 		case Trait::STRENGTH :				chance *= 2;		size *= 2;												 break;
 		case Trait::THERMAL_PREF :			chance *= 2;																 break;
-		case Trait::LUNGS :					chance *= 2;		size /= 2;												 break;
+		case Trait::LUNGS :					chance = 0; /*disable mutation*/											 break;
 		case Trait::NUM_BABIES :			chance = 0; /*disable mutation*/											 break;
 		case Trait::SEX_PROJECT_BIAS :		chance *= 2;		size *= 2;												 break;
 		case Trait::METABOLISM :			chance *= 2;		size /= 2;												 break;

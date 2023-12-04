@@ -7,10 +7,7 @@ using namespace std;
 Agent::Agent(
 	int NUMBOXES, 
 	int NUMINITCONNS, 
-	bool SPAWN_MIRROR_EYES, 
-	int OVERRIDE_KINRANGE, 
-	float MEANRADIUS, 
-	float REP_PER_BABY, 
+	bool SPAWN_MIRROR_EYES,
 	float EYE_SENSE_MAX_FOV, 
 	float BRAIN_MUTATION_CHANCE, 
 	float BRAIN_MUTATION_SIZE,
@@ -24,19 +21,7 @@ Agent::Agent(
 
 	//genes
 	genes.clear();
-
-	populateGenes(
-		MEANRADIUS,
-		BRAIN_MUTATION_CHANCE,
-		BRAIN_MUTATION_SIZE,
-		GENE_MUTATION_CHANCE,
-		GENE_MUTATION_SIZE,
-		OVERRIDE_KINRANGE
-	);
-
-	setRandomStomach(); // do before expression but after populate
-	
-	expressGenes();	
+	//gene creation is handled after agent creation
 
 	//sense structures
 	//eyes
@@ -74,7 +59,6 @@ Agent::Agent(
 
 	//triggers, counters, and stats
 	health = 1+randf(0.5,0.75);
-	resetRepCounter(MEANRADIUS, REP_PER_BABY); //make sure numbabies is set before this!
 	exhaustion = 0;
 	age = 0;
 	freshkill = 0;
@@ -129,6 +113,7 @@ Agent::Agent(){
 
 void Agent::populateGenes(
 	float MEANRADIUS,
+	float REP_PER_BABY,
 	float BRAIN_MUTATION_CHANCE, 
 	float BRAIN_MUTATION_SIZE,
 	float GENE_MUTATION_CHANCE,
@@ -179,6 +164,35 @@ void Agent::populateGenes(
 		Gene newgene(i, value);
 		genes.push_back(newgene);
 	}
+
+	//need to force stomach genes to pick random, but complementary, values
+	populateStomach();
+
+	//finally, express all genes as traits; initialization is now done!
+	expressGenes();	
+
+	resetRepCounter(MEANRADIUS, REP_PER_BABY); //make sure numbabies is set before this!
+}
+
+void Agent::populateStomach()
+{
+	float temp_stomach[Stomach::FOOD_TYPES];
+	for (int i=0; i < Stomach::FOOD_TYPES; i++) temp_stomach[i] = 0;
+
+	float budget= 1.5; //give ourselves a budget that's over 100%
+	int overtype;
+	while (budget > 0){ 
+		overtype = randi(0, Stomach::FOOD_TYPES); //pick a random food type
+		float budget_taken = randf(0, budget*1.25); //take a value that could be more than our budget (but will be capped)
+		temp_stomach[overtype] = cap(temp_stomach[overtype] + budget_taken);
+		budget -= budget_taken; //set stomach of type selected and reduce budget, allowing both variety and specialized stomachs
+	}
+
+	for (int i = 0; i < genes.size(); i++) {
+		if (this->genes[i].type == Trait::STOMACH + Stomach::PLANT) this->genes[i].value = temp_stomach[Stomach::PLANT]; // set all relevant genes to these forced values
+		if (this->genes[i].type == Trait::STOMACH + Stomach::MEAT) this->genes[i].value = temp_stomach[Stomach::MEAT];
+		if (this->genes[i].type == Trait::STOMACH + Stomach::FRUIT) this->genes[i].value = temp_stomach[Stomach::FRUIT];
+	}
 }
 
 void Agent::countGenes()
@@ -204,10 +218,13 @@ void Agent::expressGenes()
 	//after we add them all up, we divide by counts of instances (pure average). TODO: implement age factors here and periodically recalc
 	//and finally, apply limits on the trait values that get expressed depending on trait
 	for (int i = 0; i < Trait::TRAIT_TYPES; i++) {
+		float value;
 		if (counts[i] == 0) {
-			printf("FATAL ERROR: count of a trait (%i) was == 0!", i);
+			printf("DEBUG: count of a trait (%i) was == 0!", i);
+			//value = DEFAULT_TRAITS[i]; //load up a default value for a given trait, see Gene.cpp for details
+		} else { 
+			value = traits[i] / counts[i];
 		}
-		float value = traits[i] / counts[i];
 
 		traits[i] = value;
 	}
@@ -215,10 +232,10 @@ void Agent::expressGenes()
 
 void Agent::mutateGenesBirth(float basechance, float basesize, int OVERRIDE_KINRANGE)
 {
-	/*TODO: See branch "experimental_gene_copies" for work related to variable gene lengths
 	//we need to count genes for delete process
 	this->countGenes();
 	
+	/* Not ready for variable sized arrays of genes
 	//let's have some fun; add or remove Genes!
 	for (int i = 0; i < 6; i++) {
 		if (randf(0,1) < this->traits[Trait::GENE_MUTATION_CHANCE]) {
@@ -231,7 +248,7 @@ void Agent::mutateGenesBirth(float basechance, float basesize, int OVERRIDE_KINR
 	//delete Genes (ONLY if there is more than 1 copy! This is why we run countGenes prior)
 	if (genes.size() > Trait::TRAIT_TYPES) {
 		vector<int> match_type_options;
-		for (int i = 0; i < this->counts.size(); i++) {
+		for (int i = 0; i < Trait::TRAIT_TYPES; i++) {
 			if (this->counts[i] > 1) match_type_options.push_back(i); //push the type (i) into a list to randomly select from
 		}
 
@@ -251,7 +268,7 @@ void Agent::mutateGenesBirth(float basechance, float basesize, int OVERRIDE_KINR
 				}
 			}
 		}
-	}*/
+	} */
 	
 	for (int i = 0; i < genes.size(); i++) {
 		genes[i].birthMutate(basechance, basesize); //all traits can mutate with birth mutations
@@ -294,16 +311,13 @@ Agent Agent::reproduce(
 		this->brain.boxes.size(),
 		this->brain.conns.size(),
 		PRESERVE_MIRROR_EYES,
-		OVERRIDE_KINRANGE,
-		MEANRADIUS,
-		this->maxrepcounter,
 		EYE_SENSE_MAX_FOV,
 		BMR,
 		BMR2,
 		GMR,
 		GMR2
 		);
-	//Agent::Agent(
+	//Agent::Agent
 
 	//spawn the baby somewhere closeby behind the mother
 	//we want to spawn behind so that agents dont accidentally kill their young right away
@@ -324,12 +338,11 @@ Agent Agent::reproduce(
 	int maxgenes = this->genes.size();
 	if (that.genes.size() > maxgenes) maxgenes = that.genes.size();
 
-	a2.genes.clear();
-
 	for (int i = 0; i < maxgenes; i++) {
-		if (maxgenes > this->genes.size()) a2.genes.push_back(that.genes[i]);
-		else if (maxgenes > that.genes.size()) a2.genes.push_back(this->genes[i]);
-		else a2.genes.push_back( randf(0,1)<0.5 ? this->genes[i] : that.genes[i]);
+		if (i > this->genes.size()) a2.genes.push_back(that.genes[i]); //if current gene index only exists in father, inherit it
+		else if (i > that.genes.size()) a2.genes.push_back(this->genes[i]); //else if current gene index only exists in mother, inherit it
+		else a2.genes.push_back( randf(0,1)<0.5 ? this->genes[i] : that.genes[i]); //otherwise if current gene index exists in both, random tossup
+		//IMPORTANT NOTE: This method does NOT guarentee all possible traits are inherited. see setDefaultTraits() for details
 	}
 	
 	for (int i=0; i<ears.size(); i++) {
@@ -536,8 +549,6 @@ void Agent::printSelf()
 		printf("(dir: %f, fov: %f),", this->eyes[i].dir, this->eyes[i].fov);
 	}
 	printf("]");
-//	std::vector<float> eyefov; //field of view for each eye
-//	std::vector<float> eyedir; //direction of each eye
 	printf("hear_mod: %f\n", this->traits[Trait::EAR_HEAR_AGENTS]);
 //	std::vector<float> eardir; //position of ears
 //	std::vector<float> hearlow; //low values of hearing ranges
@@ -578,19 +589,21 @@ void Agent::printSelf()
 	//outputs
 	printf("wheel 1 & 2 sums: %f, %f\n", this->w1, this->w2);
 	printf("reverse wheels? %s\n", this->out[Output::REVERSE]>0.5 ? "true" : "false");
-//	bool boost; //is this agent boosting?
-//	float jump; //what "height" this bot is at after jumping
-//	float red, gre, blu; //colors of the
-//	float volume; //sound volume of this bot. It can scream, or be very sneaky.
-//	float tone; //sound tone of this bot. it can be low pitched (<0.5) or high (>0.5), where only bots with hearing in range of tone will hear
-//	float give;	//is this agent attempting to give food to other agent?
-//	float spikeLength; //"my, what a long spike you have!"
-//	float jawPosition; //what "position" the jaw is in. 0 for open, 1 for closed
-//	float jawOldPos; //the previous "position" of the jaw
-//	int grabID; //id of agent this agent is "glued" to. ==-1 if none selected
-//	float grabbing; //is this agent attempting to grab another? If already grabbed, how far are we willing to let them go?
-//	float grabangle; //the position of this bot's grab. Other agents can only be grabbed at this angle, and are drawn to this point specifically once grabbed
-//	bool sexproject; //is this bot trying to give out its genetic data?
+	printf("boost? %s\n", this->out[Output::BOOST]>0.5 ? "true" : "false");
+	printf("jump? %s\n", this->out[Output::JUMP]>0.5 ? "true" : "false");
+	printf("pos.z (jump height): %f\n", this->pos.z);
+	printf("spikeLength: %f\n", this->spikeLength);
+	printf("jawPosition: %f\n", this->jawPosition);
+	printf("jawOldOutput: %f\n", this->jawOldOutput);
+	printf("jawMaxRecent: %f\n", this->jawMaxRecent);
+	printf("volume: %f\n", this->volume);
+	printf("tone: %f\n", this->tone);
+	printf("give: %f\n", this->give);
+	printf("grabID: %i\n", this->grabID);
+	printf("grabbing: %f\n", this->grabbing);
+	printf("grabangle: %f\n", this->grabangle);
+	//more detailed grabangle output?
+	printf("sexproject TOTAL: %f\n", this->sexproject);
 	
 	//stats
 	printf("======================== stats ========================\n");
@@ -761,28 +774,6 @@ void Agent::setFrugivore()
 		if (this->genes[i].type == Trait::STOMACH + Stomach::PLANT) this->genes[i].value = temp_herbivore; // set all relevant genes to these forced values
 		if (this->genes[i].type == Trait::STOMACH + Stomach::MEAT) this->genes[i].value = temp_carnivore;
 		if (this->genes[i].type == Trait::STOMACH + Stomach::FRUIT) this->genes[i].value = temp_frugivore;
-	}
-	//expressGenes is handled by call sites
-}
-
-void Agent::setRandomStomach()
-{
-	float temp_stomach[Stomach::FOOD_TYPES];
-	for (int i=0; i < Stomach::FOOD_TYPES; i++) temp_stomach[i] = 0;
-
-	float budget= 1.5; //give ourselves a budget that's over 100%
-	int overtype;
-	while (budget > 0){ 
-		overtype = randi(0, Stomach::FOOD_TYPES); //pick a random food type
-		float budget_taken = randf(0, budget*1.25); //take a value that could be more than our budget (but will be capped)
-		temp_stomach[overtype] = cap(temp_stomach[overtype] + budget_taken);
-		budget -= budget_taken; //set stomach of type selected and reduce budget, allowing both variety and specialized stomachs
-	}
-
-	for (int i = 0; i < genes.size(); i++) {
-		if (this->genes[i].type == Trait::STOMACH + Stomach::PLANT) this->genes[i].value = temp_stomach[Stomach::PLANT]; // set all relevant genes to these forced values
-		if (this->genes[i].type == Trait::STOMACH + Stomach::MEAT) this->genes[i].value = temp_stomach[Stomach::MEAT];
-		if (this->genes[i].type == Trait::STOMACH + Stomach::FRUIT) this->genes[i].value = temp_stomach[Stomach::FRUIT];
 	}
 	//expressGenes is handled by call sites
 }

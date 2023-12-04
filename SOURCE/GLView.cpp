@@ -348,78 +348,100 @@ int GLView::convertMousePosToWorld(bool x, int pos)
 
 void GLView::handlePopup(int x, int y)
 {
-	int layers= getLayerDisplayCount();
-	if(layers>0 && layers < DisplayLayer::DISPLAYS) { //only show popup if less than 
-		//convert mouse x,y to world x,y
-		int worldcx= (int)((((float)x-wWidth*0.5)/scalemult-xtranslate));
-		int worldcy= (int)((((float)y-wHeight*0.5)/scalemult-ytranslate));
+	// check the tile UI for a hover event on something and display the key(s)
+	if (!checkTileListHovered(maintiles, x, y)) {
+		int layers = getLayerDisplayCount();
+		if(layers > 0 && layers < DisplayLayer::DISPLAYS) { //only show popup if less than 
+			//convert mouse x,y to world x,y
+			float worldx = (((float)x-wWidth*0.5)/scalemult-xtranslate);
+			float worldy = (((float)y-wHeight*0.5)/scalemult-ytranslate);
 
-		if (worldcx>=0 && worldcx<conf::WIDTH && worldcy>=0 && worldcy<conf::HEIGHT) { //if somewhere in world...
-			char line[128];
-			int layer= 0, currentline= 0;
-			worldcx/= conf::CZ;
-			worldcy/= conf::CZ; //convert to cell coords
+			if (worldx >= 0.0f && worldx < (float)conf::WIDTH && worldy >= 0.0f && worldy < (float)conf::HEIGHT) { //if somewhere in world...
+				char line[128];
+				int layer = 0, currentline= 0;
+				int cellx = (int)(worldx/conf::CZ);
+				int celly = (int)(worldy/conf::CZ); //convert to cell coords
 
-			popupReset(x+12, y); //clear and set popup position near mouse
+				popupReset(x+12, y); //clear and set popup position near mouse
 
-			sprintf(line, "Cell x: %d, y: %d", worldcx, worldcy);
-			popupAddLine(line);
-			if(world->isDebug()) printf("worldcx: %d, worldcy %d\n", worldcx, worldcy);
-			
-			if(live_layersvis[DisplayLayer::ELEVATION]) {
-				float landtype= ceilf(world->cells[layer][worldcx][worldcy]*10)*0.1;
-
-				if(landtype==Elevation::DEEPWATER_LOW) strcpy(line, "Ocean");
-				else if(landtype==Elevation::SHALLOWWATER) strcpy(line, "Shallows");
-				else if(landtype==Elevation::BEACH_MID) strcpy(line, "Beach");
-				else if(landtype==Elevation::PLAINS) strcpy(line, "Plains");
-				else if(landtype==Elevation::HILL) strcpy(line, "Hills");
-				else if(landtype==Elevation::STEPPE) strcpy(line, "Steppe");
-				else if(landtype==Elevation::HIGHLAND) strcpy(line, "Highland");
-				else if(landtype==Elevation::MOUNTAIN_HIGH) strcpy(line, "Mountain");
+				sprintf(line, "Cell x: %d, y: %d", cellx, celly);
 				popupAddLine(line);
 
-				sprintf(line, "Height: %.2f", world->cells[Layer::ELEVATION][worldcx][worldcy]);
-				popupAddLine(line);
-			}
-			if(live_layersvis[DisplayLayer::PLANTS]) {
-				sprintf(line, "Plant: %.4f", world->cells[Layer::PLANTS][worldcx][worldcy]);
-				popupAddLine(line);
-			}
-			if(live_layersvis[DisplayLayer::MEATS]) {
-				sprintf(line, "Meat: %.4f", world->cells[Layer::MEATS][worldcx][worldcy]);
-				popupAddLine(line);
-			}
-			if(live_layersvis[DisplayLayer::FRUITS]){
-				sprintf(line, "Fruit: %.4f", world->cells[Layer::FRUITS][worldcx][worldcy]);
-				popupAddLine(line);
-			}
-			if(live_layersvis[DisplayLayer::HAZARDS]){
-				sprintf(line, "Waste: %.4f", world->cells[Layer::HAZARDS][worldcx][worldcy]);
-				popupAddLine(line);
-				if(world->cells[Layer::HAZARDS][worldcx][worldcy]>conf::HAZARD_EVENT_POINT) {
-					strcpy(line, "LIGHTNING STRIKE!");
+				if(world->isDebug()) {
+					sprintf(line, "worldx: %f, worldy %f\n", worldx, worldy);
 					popupAddLine(line);
 				}
-			} 
-			if(live_layersvis[DisplayLayer::TEMP]){
-				float temp= world->calcTempAtCoord(worldcy);
-				sprintf(line, "Temp: %.1f", temp*100);
-				popupAddLine(line);
-				if(temp>0.8) popupAddLine("Hadean");
-				else if(temp>0.6) popupAddLine("Tropical");
-				else if(temp<0.2) popupAddLine("Arctic");
-				else if(temp<0.4) popupAddLine("Cool");
-				else popupAddLine("Temperate");
-			} 
-			if(live_layersvis[DisplayLayer::LIGHT]){
-				sprintf(line, "Light: %.3f", world->cells[Layer::LIGHT][worldcx][worldcy]);
-				popupAddLine(line);
+				
+				if(live_layersvis[DisplayLayer::ELEVATION]) {
+					float landtype = ceilf(world->cells[layer][cellx][celly]*10)*0.1;
+
+					if(landtype == Elevation::DEEPWATER_LOW) strcpy(line, "Ocean");
+					else if(landtype == Elevation::SHALLOWWATER) strcpy(line, "Shallows");
+					else if(landtype == Elevation::BEACH_MID) strcpy(line, "Beach");
+					else if(landtype == Elevation::PLAINS) strcpy(line, "Plains");
+					else if(landtype == Elevation::HILL) strcpy(line, "Hills");
+					else if(landtype == Elevation::STEPPE) strcpy(line, "Steppe");
+					else if(landtype == Elevation::HIGHLAND) strcpy(line, "Highland");
+					else if(landtype == Elevation::MOUNTAIN_HIGH) strcpy(line, "Mountain");
+					popupAddLine(line);
+
+					sprintf(line, "Height: %.2f", world->cells[Layer::ELEVATION][cellx][celly]);
+					popupAddLine(line);
+				}
+				if(live_layersvis[DisplayLayer::PLANTS]) {
+					sprintf(line, "Plant: %.4f", world->cells[Layer::PLANTS][cellx][celly]);
+					popupAddLine(line);
+				}
+				if(live_layersvis[DisplayLayer::MEATS]) {
+					sprintf(line, "Meat: %.4f", world->cells[Layer::MEATS][cellx][celly]);
+					popupAddLine(line);
+				}
+				if(live_layersvis[DisplayLayer::FRUITS]){
+					sprintf(line, "Fruit: %.4f", world->cells[Layer::FRUITS][cellx][celly]);
+					popupAddLine(line);
+				}
+				if(live_layersvis[DisplayLayer::HAZARDS]){
+					sprintf(line, "Waste: %.4f", world->cells[Layer::HAZARDS][cellx][celly]);
+					popupAddLine(line);
+					if(world->cells[Layer::HAZARDS][cellx][celly] > conf::HAZARD_EVENT_POINT) {
+						strcpy(line, "LIGHTNING STRIKE!");
+						popupAddLine(line);
+					}
+				} 
+				if(live_layersvis[DisplayLayer::TEMP]){
+					float temp= world->calcTempAtCoord(celly);
+					sprintf(line, "Temp: %.1f", temp*100);
+					popupAddLine(line);
+					if(temp>0.8) popupAddLine("Hadean");
+					else if(temp>0.6) popupAddLine("Tropical");
+					else if(temp<0.2) popupAddLine("Arctic");
+					else if(temp<0.4) popupAddLine("Cool");
+					else popupAddLine("Temperate");
+				} 
+				if(live_layersvis[DisplayLayer::LIGHT]){
+					sprintf(line, "Light: %.3f", world->cells[Layer::LIGHT][cellx][celly]);
+					popupAddLine(line);
+				}
 			}
+			else popupReset(); //reset if mouse outside world
 		}
-		else popupReset(); //reset if mouse outside world
+		else popupReset(); //reset if viewing none or map
 	}
-	else popupReset(); //reset if viewing none or map
+}
+
+void GLView::popupReset(float x, float y)
+{
+	popuptext.clear();
+	popupxy[0]= x;
+	popupxy[1]= y;
+}
+
+void GLView::popupAddLine(std::string line)
+{
+	if(line.length() > 0) {
+		line+= "\n";
+		popuptext.push_back(line);
+	}
 }
 
 void GLView::processNormalKeys(unsigned char key, int x, int y)
@@ -1440,19 +1462,6 @@ void GLView::trySaveWorld(bool force, bool autosave)
 	}
 }
 
-void GLView::popupReset(float x, float y)
-{
-	popuptext.clear();
-	popupxy[0]= x;
-	popupxy[1]= y;
-}
-
-void GLView::popupAddLine(std::string line)
-{
-	line+= "\n";
-	popuptext.push_back(line);
-}
-
 
 void GLView::createTile(UIElement &parent, int x, int y, int w, int h, std::string key, std::string title)
 //Control.cpp
@@ -1504,25 +1513,24 @@ void GLView::checkTileListClicked(std::vector<UIElement> tiles, int mx, int my, 
 			uiclicked= true; //this must be exposed to mouse state==0 so that it catches drags off of UI elements
 
 			if(tiles[ti].clickable && state == 1){ //if clickable, process actions
-				if(tiles[ti].key == "Follow") { 
+				if(tiles[ti].key == UIKeys::FOLLOW) { 
 					live_follow = 1-live_follow;
 					ui_lad_visual_mode = LADVisualMode::GHOST;
 				}
-				else if(tiles[ti].key == "Damages") {
+				else if(tiles[ti].key == UIKeys::DAMAGE) {
 					if (ui_lad_visual_mode != LADVisualMode::DAMAGES) ui_lad_visual_mode = LADVisualMode::DAMAGES;
 					else ui_lad_visual_mode = LADVisualMode::GHOST;
 				}
-				else if(tiles[ti].key=="Intake") {
+				else if(tiles[ti].key == UIKeys::INTAKE) {
 					if (ui_lad_visual_mode != LADVisualMode::INTAKES) ui_lad_visual_mode = LADVisualMode::INTAKES;
 					else ui_lad_visual_mode = LADVisualMode::GHOST;
 				}
-				else if(tiles[ti].key=="Traits") {
-					if (ui_lad_data_mode != LADDataMode::TRAITS) ui_lad_data_mode = LADDataMode::TRAITS;
-					else ui_lad_data_mode = LADDataMode::COMMON;
+				else if(tiles[ti].key == UIKeys::LAD_DATAMODE) {
+					ui_lad_data_mode++;
+					if (ui_lad_data_mode >= LADDataMode::MODES) ui_lad_data_mode = 1;
 				}
-				else if(tiles[ti].key=="Stats") {
-					if (ui_lad_data_mode != LADDataMode::STATS) ui_lad_data_mode = LADDataMode::STATS;
-					else ui_lad_data_mode = LADDataMode::COMMON;
+				else if(tiles[ti].key == UIKeys::LAD_PREVIOUS) {
+					world->selectPreviousSelected();
 				}
 			}
 
@@ -1530,6 +1538,28 @@ void GLView::checkTileListClicked(std::vector<UIElement> tiles, int mx, int my, 
 			checkTileListClicked(tiles[ti].children, mx, my, state);
 		}
 	}
+}
+
+
+bool GLView::checkTileListHovered(std::vector<UIElement> tiles, int mx, int my)
+//Control.cpp
+{
+	for(int ti= tiles.size()-1; ti>=0; ti--){ //iterate backwards to prioritize last-added buttons
+		if(!tiles[ti].shown) continue;
+		if(mx>tiles[ti].x && mx<tiles[ti].x+tiles[ti].w &&
+			my>tiles[ti].y && my<tiles[ti].y+tiles[ti].h){
+			// That's a hover!
+			popupReset(mx+12, my); //clear and set popup position near mouse
+
+			//sprintf(line, "Cell x: %d, y: %d", cellx, celly);
+			popupAddLine(tiles[ti].key.c_str());
+
+			//finally, check our tile's sub-tiles list, and all their sub-tiles, etc.
+			checkTileListHovered(tiles[ti].children, mx, my);
+			return true;
+		}
+	}
+	return false;
 }
 
 
@@ -1545,7 +1575,8 @@ void GLView::processTiles()
 
 			for(int tichild= 0; tichild<maintiles[ti].children.size(); tichild++){
 				std::string key= maintiles[ti].children[tichild].key;
-				if(live_cursormode == MouseMode::PLACE_AGENT && (key=="Follow" || key=="Damages" || key=="Intake"))
+				if(live_cursormode == MouseMode::PLACE_AGENT
+					&& (key == UIKeys::FOLLOW || key == UIKeys::DAMAGE || key == UIKeys::INTAKE))
 					maintiles[ti].children[tichild].hide(); //hide the profiler buttons if we have an agent loaded
 				else maintiles[ti].children[tichild].show();
 			}
@@ -1615,9 +1646,7 @@ void GLView::handleIdle()
 	//set proper window (we don't want to draw on nothing, now do we?!)
 	if (glutGetWindow() != win1) glutSetWindow(win1); 
 
-	#if defined(_DEBUG)
-	if(world->isDebug()) printf("S"); //Start, or Sync, step
-	#endif
+	world->printDebug("S"); //Start, or Sync, step
 
 	GLUI_Master.sync_live_all();
 
@@ -1643,9 +1672,7 @@ void GLView::handleIdle()
 	if (!live_lifepath) world->lifepath.clear();
 	world->setDebug((bool) live_debug);
 
-	#if defined(_DEBUG)
-	if(world->isDebug()) printf("/");
-	#endif
+	world->printDebug("/");
 
 	if(world->getEpoch()==0){
 		if(world->modcounter==0){
@@ -1661,11 +1688,11 @@ void GLView::handleIdle()
 			for(int i=0; i<MainTiles::TILES; i++){
 				if(i==MainTiles::LAD) {
 					createTile(wWidth-UID::LADWIDTH-UID::BUFFER, UID::BUFFER, UID::LADWIDTH, ladheight, "");
-					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Follow", "F", true, false);
-					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Damages", "D", false, true);
-					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Intake", "I", false, true);
-					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Traits", "T", false, true);
-					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, "Stats", "S", false, true);
+					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, UIKeys::FOLLOW, "F", true, false);
+					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, UIKeys::DAMAGE, "D", false, true);
+					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, UIKeys::INTAKE, "I", false, true);
+					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, UIKeys::LAD_DATAMODE, "T", false, true);
+					createTile(maintiles[MainTiles::LAD], UID::TINYTILEWIDTH, UID::TINYTILEWIDTH, UIKeys::LAD_PREVIOUS, "P", false, true);
 				} else if(i==MainTiles::TOOLBOX) {
 					createTile(UID::BUFFER, 190, 50, 300, "", "Tools");
 					createTile(maintiles[MainTiles::TOOLBOX], UID::BUFFER+UID::TILEMARGIN, 215, 30, 30, "UnpinUI", "UI.");
@@ -1707,20 +1734,21 @@ void GLView::handleIdle()
 	modcounter++;
 	if (!live_paused) world->update();
 
-	//pull back some variables which can change in-game that also have GUI selections
+	// pull back some variables which can change in-game that also have GUI selections
+	world->printDebug("Y");
 	syncLiveWithWorld();	
 
-	//autosave world periodically, based on world time
-	if (live_autosave==1 && !world->isDemo() && world->modcounter%(world->FRAMES_PER_DAY*conf::AUTOSAVE_FREQUENCY_DAYS)==0){
-		trySaveWorld(true,true);
+	//CONTROL.CPP
+	// Do some recordkeeping and let's intelligently prevent users from simulating nothing
+	if(live_worldclosed == 1 && world->getAgents() <= 0) {
+		live_worldclosed = 0;
+		live_autosave = 0;
+		world->addEvent("Disabled Closed world, nobody was home!", EventColor::MINT);
 	}
 
-	//CONTROL.CPP
-	//Do some recordkeeping and let's intelligently prevent users from simulating nothing
-	if(live_worldclosed==1 && world->getAgents()<=0) {
-		live_worldclosed= 0;
-		live_autosave= 0; //I'm gonna guess you don't want to save the world anymore
-		world->addEvent("Disabled Closed world, nobody was home!", EventColor::MINT);
+	//autosave world periodically, based on world time
+	if (live_autosave == 1 && !world->isDemo() && world->modcounter % (world->FRAMES_PER_DAY*conf::AUTOSAVE_FREQUENCY_DAYS) == 0){
+		trySaveWorld(true,true);
 	}
 
 	//show FPS and other stuff
@@ -1742,6 +1770,8 @@ void GLView::handleIdle()
 		frames = 0;
 		lastUpdate = currentTime;
 	}
+
+	world->printDebug("/");
 
 	if (!live_fastmode) {
 		if(live_playsounds) world->dosounds= true;
@@ -1765,22 +1795,21 @@ void GLView::handleIdle()
 		//but we don't want to do this for all selection types because it slows fast mode down
 	}
 
+	isrendering_ = false; // use this to test if a ui is visible while running. It's for debugging
+
 	glDisable(GL_POLYGON_SMOOTH);
+
 	#if defined(_DEBUG)
 	if(world->isDebug()){
-		glEnable(GL_POLYGON_SMOOTH); //this will render thin lines on all polygons. It's a bug, but it's a feature!
-		printf("\n"); //must occur at end of tick!
+		glEnable(GL_POLYGON_SMOOTH); // this will render thin lines on all polygons. It's a bug, but it's a feature!
+		if (conf::VERBOSE_DEBUG) printf("tick/\n"); // must occur at end of tick (for verbose debug)!
 	}
 	#endif
-
-	isrendering_ = false; //use this to test if a ui is visible while running. It's for debugging
 }
 
 void GLView::renderScene()
 {
-	#if defined(_DEBUG)
-	if (world->isDebug()) printf("D");
-	#endif
+	world->printDebug("D");
 
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glPushMatrix();
@@ -1867,9 +1896,7 @@ void GLView::renderScene()
 
 	if(!live_paused) countdownEvents();
 
-	#if defined(_DEBUG)
-	if(world->isDebug()) printf("/");
-	#endif
+	world->printDebug("/");
 }
 
 
@@ -2632,26 +2659,30 @@ void GLView::drawPreAgent(const Agent& agent, float x, float y, bool ghost)
 								tx = boxsize_half + boxsize*(tid%conf::BOXES_PER_ROW);
 							}
 
+							float red = type == ConnType::DELTA ? 1.0 : cap(-w/4+0.1);
+							float gre = type == ConnType::DELTA ? 1.0 : cap(w/4 + cap(-w/4)*0.75+0.1);
+							float blu = type == ConnType::INVERTED ? cap(abs(w)/4+0.1) : 0.1;
+
 							if (tid == sid) {
 								glLineWidth(2); //must happen before glBegin
 								glBegin(GL_LINES);
 
 								//self-referencing gets shown as a circle on the spot
-								glColor4f(cap(-w/4), cap(w/4), 0, 0.3*absw*acc);
+								glColor4f(red, gre, blu, 0.3*absw*acc);
 								drawOutlineRes(tx, ty, 3, 1);
 							} else {
 								glBegin(GL_LINES);
-								float blu = type == ConnType::INVERTED ? cap(abs(w)/4+0.1) : 0.1;
+								
 								if (sid < 0) {
 									//if Input-connected, set source coords to the source input
 									sy = ioboxsize_half + x_ioboxsize*(int)((float)(-sid-1)/(float)conf::INPUTS_OUTPUTS_PER_ROW);
 									sx = ioboxsize_half + x_ioboxsize*((-sid-1)%conf::INPUTS_OUTPUTS_PER_ROW);
-									glColor4f(cap(-w/4+0.1), cap(w/4 + cap(-w/4)*0.75+0.1), blu, 0.3*absw/5*acc);
+									glColor4f(red, gre, blu, 0.2*absw/5*acc);
 								} else {
 									//otherwise if normal internal brain conn, set to brain box coords
 									sy = y_input_offset + boxsize_half + boxsize*(int)((float)(sid)/(float)conf::BOXES_PER_ROW);
 									sx = boxsize_half + boxsize*(sid%conf::BOXES_PER_ROW);
-									glColor4f(cap(-w/4+0.1), cap(w/4 + cap(-w/4)*0.75+0.1), blu, 0.3*acc);
+									glColor4f(red, gre, blu, 0.75*acc + 0.1);
 								}
 
 								//finally, draw the line
@@ -3972,16 +4003,16 @@ void GLView::drawStatic()
 	renderAllTiles();
 
 	//draw the popup if available
-	if (popupxy[0] >= 0 && popupxy[1] >= 0) {
+	if (popupxy[0] >= 0 && popupxy[1] >= 0 && popuptext.size() > 0) {
 		//first, split up our popup text and count the number of splits
 		int linecount = popuptext.size();
 		int maxlen = 1;
 		
 		for(int l=0; l < linecount; l++) {
-			if(popuptext[l].size()>maxlen) maxlen = popuptext[l].size();
+			if(popuptext[l].size() > maxlen) maxlen = popuptext[l].size();
 		}
 
-		float popuplen = (maxlen+(float)(maxlen*maxlen)/100+1)*5-8;
+		float popuplen = maxlen*7 + 4 - maxlen*maxlen/50;
 		float popupheight = (float)linecount*13+6;
 
 		glBegin(GL_QUADS);

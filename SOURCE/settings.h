@@ -90,6 +90,15 @@ namespace UID {
 	const int GRAPHBUFFER = 15;
 };
 
+namespace UIKeys {
+	const char FOLLOW[] = "Follow";
+	const char DAMAGE[] = "Damage Sources";
+	const char INTAKE[] = "Intake Sources";
+	const char LAD_DATAMODE[] = "LAD Data Mode (All, Stats, Traits)";
+	const char LAD_PREVIOUS[] = "Select Previous Agent";
+
+}
+
 //defines for the graph's vertical guide lines, indicating days and epochs (or nothing). Order changes nothing
 namespace GuideLine {
 const enum {
@@ -787,6 +796,7 @@ namespace conf {
 	const int CELL_TICK_RATE= 4; //Tick rate of all cells in the world. IMPACTS PERFORMANCE!!! 1= every cell calculated every tick, 
 	 // 2= every other tick for every other cell, 4= every 4th cell is calculated every 4 ticks, etc. This value also multiplies all cell 
 	 // growth/decay rates so no differences should be observed. Setting to 5+ will cause light to look weird, and has diminishing performance returns
+	const bool VERBOSE_DEBUG = false; //control for if the output window should be spammed in debug mode in ddebug build. It is always not spammed when on release build
 
 	//WORLD ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ WORLD
 	const int CZ= 50; //cell size in pixels, for food squares. Should divide well into Width, Height
@@ -853,30 +863,29 @@ namespace conf {
 	//BOTS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ BOTS
 
 	//brain settings
-	const int BRAINBOXES= 70 + Output::OUTPUT_SIZE; //(.cfg)
-	const int BRAINCONNS= 300; //(.cfg)
-	const float BRAIN_CONN_WEIGHT_STD= 5; //std of the randn centered on 0 that new connection weights generate with. 
-	const float BRAIN_CONN_WEIGHT_MUTATION_DAMPEN= 0.1; //multiplier applied to new connection weights that are randomized and new conn mutations.
-	const float BRAIN_CONN_BIAS_STD= 2; //std of the randn centered on 0 that new connection biases generate with.
-	const float BRAIN_CONN_RELU_STD= 0.25; //std of the randn centered on 0 that new connection relu's generate with.
-	const float BRAIN_BOX_BIAS_STD= 0.5;  //std of the randn centered on 0 that new box biases generate with.
-	const float BRAIN_BOX_GW_RANGE= 2; // +/- range of values new box global weights generate within.
-	const float BRAIN_BOX_KP_MAX = 1.2; //max value between [0,this) that new box kp (dampening) values generate within. Remember that the difference to a new output is multiplied by this to get the target value
-	const float LEARN_RATE= 0.001; // rate of Stimulant effecting weights. TODO: (.cfg) CHANGE TO LEARN FROM USER INPUT?
-	const float BRAIN_DIRECTINPUTS= 0.3; //probability of random brain conns on average which will connect directly to inputs
-	const float BRAIN_NEGATIVE_GW_BOXES= 0.2; //probability and approx ratio of random brain's boxes that will have a negative global weight
-	const float BRAIN_INVERTCONNS= 0.5; //probablility of random brain conns which are inverted (the input value is (1-x) before weight)
-	const float BRAIN_CHANGECONNS= 0.15; //probablility of random brain conns which are change sensitive
-	const float BRAIN_MIRRORCONNS= 0.5; //probablility of random brain conns which will be made as mirror-compare connections with a random other connection, range(0,i)
-//	const float BRAIN_TRACESTRENGTH= 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
+	const int BRAINBOXES = 100 + Output::OUTPUT_SIZE; //(.cfg)
+	const int BRAINCONNS = 300; //(.cfg)
+	const float BRAIN_CONN_WEIGHT_STD = 5; //std of the randn centered on 0 that new connection weights generate with. 
+	const float BRAIN_CONN_WEIGHT_MUTATION_DAMPEN = 0.1; //multiplier applied to new connection weights that are randomized and new conn mutations.
+	const float BRAIN_CONN_BIAS_STD = 2; //std of the randn centered on 0 that new connection biases generate with.
+	const float BRAIN_BOX_BIAS_STD = 0.5;  //std of the randn centered on 0 that new box biases generate with.
+	const float BRAIN_BOX_GW_RANGE = 2; // +/- range of values new box global weights generate within.
+	const float BRAIN_BOX_KP_MAX = 1.5; //max value between [0,this) that new box kp (dampening) values generate within. Remember that the difference to a new output is multiplied by this to get the target value
+	const float LEARN_RATE = 0.001; // rate of Stimulant effecting weights. TODO: (.cfg) CHANGE TO LEARN FROM USER INPUT?
+	const float BRAIN_DIRECTINPUTS = 0.3; //probability of random brain conns on average which will connect directly to inputs
+	const float BRAIN_NEGATIVE_GW_BOXES = 0.2; //probability and approx ratio of random brain's boxes that will have a negative global weight
+	const float BRAIN_INVERTCONNS = 0.25; //probablility of random brain conns which are inverted (the input value is (1-x) before weight)
+	const float BRAIN_CHANGECONNS = 0.15; //probablility of random brain conns which are change sensitive
+	const float BRAIN_MIRRORCONNS = 0.25; //probablility of random brain conns which will be made as mirror-compare connections with a random other connection, range(0,i)
+//	const float BRAIN_TRACESTRENGTH = 0.1; //when performing a traceback, what minimum absolute weight of connections will count for tracing
 
 	//gene/trait settings
-	const float MEANRADIUS= 10.0; //(.cfg)
+	const float MEANRADIUS = 10.0; //(.cfg)
 	const float TINY_RADIUS = 5.0; //radius below which an agent is considered tiny.
-	const float GENEROSITY_RATE= 0.1; //(.cfg)
-	const float MAXSELFISH= 0.01; //Give value below which an agent is considered selfish
-	const float SPIKESPEED= 0.003; //(.cfg)
-	const float JAW_INTAKE_MAX_MULT = 3; //(.cfg)
+	const float GENEROSITY_RATE = 0.1; //(.cfg)
+	const float MAXSELFISH = 0.01; //Give value below which an agent is considered selfish
+	const float SPIKE_RAISE_SPEED = 0.003; //(.cfg)
+	const float JAW_INTAKE_MAX_MULT = 4.0; //(.cfg)
 	const float JAW_RESET_SPEED = 0.003; //the speed factor at which the jaw returns to 0 (open & ready)
 	const float VELOCITYSPIKEMIN= 0.2; //minimum velocity difference between two agents in the positive direction to be spiked by the other
 	const float BITE_EATS_RATIO = 1.5; //minimum size ratio of a bitting agent where it will eat the target whole and gain instant reward. Default is 1.5* the size of the target
@@ -917,29 +926,30 @@ namespace conf {
 	const float MIN_METABOLISM_HEALTH_RATIO = 0.5; //(.cfg)
 
 	//visual settings
-	const int BLINKTIME= 8; //it's really a little thing... how many ticks the agent eyes blink for. Purely aesthetic
-	const int BLINKDELAY= 105; //blink delay time. In ticks
-	const int JAWRENDERTIME= 20; //time allowed for jaw to be rendered after a bite starts
+	const int BLINKTIME = 8; //it's really a little thing... how many ticks the agent eyes blink for. Purely aesthetic
+	const int BLINKDELAY = 105; //blink delay time. In ticks
+	const int JAWRENDERTIME = 20; //time allowed for jaw to be rendered after a bite starts
 	const int INPUTS_OUTPUTS_PER_ROW = 20; //visually how many inputs and outputs are we showing before starting a new row?
 	const int BOXES_PER_ROW = 37; //same as above, but for boxes
 
 	//reproduction
-	const int TENDERAGE= 10; //(.cfg)
-	const float MINMOMHEALTH=0.5; //(.cfg)
-	const float REP_PER_BABY= 3; //(.cfg)
-	const float REPCOUNTER_MIN= 8; //minimum value the Repcounter may be set to
-	const float OVERHEAL_REPFILL= 0; //(.cfg)
+	const int TENDERAGE = 10; //(.cfg)
+	const float MINMOMHEALTH = 0.5; //(.cfg)
+	const float REP_PER_BABY = 3.0; //(.cfg)
+	const float REPCOUNTER_MIN = 8.0; //minimum value the Repcounter may be set to
+	const float OVERHEAL_REPFILL = 0.0; //(.cfg)
 
 	//distances
-	const float MAX_SENSORY_DISTANCE= 400; //(.cfg)
-	const float MAX_SPIKE_LENGTH=30; //(.cfg)
-	const float BITE_DISTANCE = 12; //(.cfg)
-	const float BUMP_DAMAGE_OVERLAP=8; //(.cfg)
-	const float FOOD_SHARING_DISTANCE= 60; //(.cfg)
-	const float SEXTING_DISTANCE= 60; //(.cfg)
-	const float GRABBING_DISTANCE= 40; //(.cfg)
-	const float SMELL_DIST_MULT= 0.5; //additional multiplier for cell and agent smell distance.
-	const float BLOOD_SENSE_DISTANCE= 30; //(.cfg)
+	const float MAX_SENSORY_DISTANCE= 400.0; //(.cfg)
+	const float MAX_SPIKE_LENGTH = 30.0; //(.cfg)
+	const float BITE_DISTANCE = 12.0; //(.cfg)
+	const float BUMP_DAMAGE_OVERLAP = 8.0; //(.cfg)
+	const float FOOD_SHARING_DISTANCE = 60.0; //(.cfg)
+	const float SEXTING_DISTANCE = 60.0; //(.cfg)
+	const float GRABBING_DISTANCE = 40.0; //(.cfg)
+	const float SMELL_DIST_MULT = 0.5; //additional multiplier for cell and agent smell distance.
+	const float CELL_SIGHT_DIST_MULT = 0.3; //addidtional multiplier for cell sight distance.
+	const float BLOOD_SENSE_DISTANCE = 30.0; //(.cfg)
 
 	//angles
 	const float EYE_SENSE_MAX_FOV = M_PI/2; //(.cfg)
@@ -993,7 +1003,7 @@ namespace conf {
 
 	//LAYERS ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ LAYERS
 	const float STOMACH_EFFICIENCY= 0.2; //(.cfg)
-	const float CARNIVORE_TO_MEAT_EFF= 0.125; //0.05; //highest meat mult possible from full carnivores. The carivore stomach is sqrt-ed for even harsher punishment
+	const float CARNIVORE_TO_MEAT_EFF= 0.125; //highest meat mult possible from full carnivores. The carivore stomach is sqrt-ed for even harsher punishment
 
 	const char PLANT_TEXT[]= "Plant Food";
 	const float PLANT_INTAKE= 0.01; //(.cfg)
@@ -1015,9 +1025,9 @@ namespace conf {
 	//Fruit is a quick and easy alternative to plants. Also partially randomly populated, harkening back to ScriptBots origins
 
 	const char MEAT_TEXT[]= "Meat Food";
-	const float MEAT_INTAKE= 0.04; //(.cfg)
+	const float MEAT_INTAKE= 0.05; //(.cfg)
 	const float MEAT_DECAY= 0.00001; //(.cfg)
-	const float MEAT_WASTE= 0.0014; //(.cfg)
+	const float MEAT_WASTE= 0.0017; //(.cfg)
 	const float MEAT_DEPOSIT_VALUE= 1.0; //(.cfg)
 	const float MEAT_NON_FRESHKILL_MULT = 0.5; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)

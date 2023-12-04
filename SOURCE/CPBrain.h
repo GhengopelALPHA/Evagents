@@ -34,7 +34,6 @@ public:
 
     float w; //weight of each connecting box
 	float bias; //bias of the connection, aka the activation threshold
-	float relu; //rectified linear unit. we take max(this, w*val+bias) for output
     int sid; //source. +: box id in boxes[], -: input id in inputs list
 	int tid; //target box id in boxes[]
     int type; //see ConnType for details

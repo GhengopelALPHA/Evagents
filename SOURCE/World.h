@@ -52,11 +52,13 @@ public:
 	//debug stuff
 	bool isDebug() const;
 	void setDebug(bool state);
+	void printDebug(char message[]);
 	std::vector<Vector3f> linesA;
 	std::vector<Vector3f> linesB;
 
 	//following and selected agent stuff
 	int getSelectedID() const;
+	bool selectPreviousSelected(); // swap the current and previous selected agent ids. Returns true if successful, false if the ids are identical
 	bool isAgentSelected(int id);
 
 	bool player_control;
@@ -265,7 +267,7 @@ public:
 	float BASEEXHAUSTION;
 	float EXHAUSTION_MULT_PER_OUTPUT;
 	float EXHAUSTION_MULT_PER_CONN;
-	float SPIKESPEED;
+	float SPIKE_RAISE_SPEED;
 	float JAW_INTAKE_MAX_MULT;
 	bool SPAWN_MIRROR_EYES;
 	bool PRESERVE_MIRROR_EYES;
@@ -369,6 +371,7 @@ private:
 	bool DEBUG; //if debugging, collect additional data, print more feedback, and draw extra info
 	bool AUTOSELECT; //if autoselecting, the agent which we are newly following gets selected
 	int SELECTION; //id of selected agent
+	int PREV_SELECTION; //id of the previously selected agent
 
 	//Stats and acheivements
 	int STATherbivores; //count of the different stomach types

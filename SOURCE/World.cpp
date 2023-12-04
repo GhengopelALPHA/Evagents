@@ -18,6 +18,7 @@ World::World() :
 		DEBUG(false),
 		DEMO(true),
 		SELECTION(-1),
+		PREV_SELECTION(-1),
 		DROUGHTMULT(1.0),
 		MUTEVENTMULT(1),
 		CLIMATEBIAS(0.5),
@@ -58,12 +59,16 @@ void World::setAudioEngine(ISoundEngine* a)
 void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitch, float volume)
 //Control.cpp
 {
+	#pragma omp critical
 	//try to play audio at location x,y if specified (if not, just play 2D audio), and with a specified pitch change multiple
 	if(dosounds && volume > 0.0){ //dosounds is set by GLView and disables when rendering is disabled
-		#if defined(_DEBUG)
-			if(DEBUG) printf("Trying to play sound '%s' ... ", soundFileName);
-		#endif
-		#pragma omp critical
+		
+		if(isDebug()) {
+			char line[128];
+			sprintf(line, "Trying to play sound '%s' ... ", soundFileName);
+			printDebug(line);
+		}
+
 		if(soundFileName != NULL){
 			ISound* play = 0;
 			if(x==0 && y==0) play= audio->play2D(soundFileName, false, false, true);
@@ -72,14 +77,10 @@ void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitc
 			if(play){
 				play->setPlaybackSpeed(pitch);
 				play->setVolume(volume);
-				#if defined(_DEBUG)
-					if(DEBUG) printf("success!\n");
-				#endif
+				printDebug("success!\n");
 			}
 		} else {
-			#if defined(_DEBUG)
-				if(DEBUG) printf("failure!\n");
-			#endif
+			printDebug("failure!\n");
 		}
 	}
 }
@@ -530,96 +531,70 @@ void World::setSTATLandRatio()
 void World::update()
 {
 	//Process periodic world events
-	#if defined(_DEBUG)
-	if(DEBUG) printf("W");
-	#endif
+	printDebug("W");
 
 	processWorldTick();
 
 	//play music! move to CONTROL.CPP
 	tryPlayMusic();
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/S");
-	#endif
+	printDebug("/S");
 
 	//add new agents, if environment isn't closed
 	processRandomSpawn();
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/C");
-	#endif
+	printDebug("/C");
 
 	//Process cell changes
 	processCells();
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/I");
-	#endif
+	printDebug("/I");
 
 	//give input to every agent. Sets in[] array
 	setInputs();
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/B");
-	#endif
+	printDebug("/B");
 
 	//brains tick. computes in[] -> out[]
 	brainsTick();
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/N");
-	#endif
+	printDebug("/N");
 
 	//reset any counter variables per agent and do other stuff before processOutputs and healthTick
 	processCounters();
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/O");
-	#endif
+	printDebug("/O");
 
 	//read output and process consequences of bots on environment. requires out[]
 	processOutputs();
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/H");
-	#endif
+	printDebug("/H");
 
 	//process health:
 	healthTick();
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/R");
-	#endif
+	printDebug("/R");
 	
 	//handle reproduction
 	processReproduction();
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/CA");
-	#endif
+	printDebug("/CA");
 
 	//process agent-cell interactions
 	processCellInteractions();
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/AA");
-	#endif
+	printDebug("/AA");
 
 	//process agent-agent interactions
 	processAgentInteractions();
 	//DO NOT add causes of death after this!!! Health should be exactly 0 when leaving this function
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/X");
-	#endif
+	printDebug("/X");
 
 	//process dead agents
 	processDeath();
 
-	#if defined(_DEBUG)
-	if(DEBUG) printf("/");
-	#endif
+	printDebug("/"); // see GLView for a few extra debug flags
 
 	//move to Control.cpp ... why is this even stored in world?...
 	vector<std::pair <std::string ,std::pair <int,int> > >::iterator item= events.begin();
@@ -630,11 +605,6 @@ void World::update()
 			++item;
 		}
 	}
-
-	#if defined(_DEBUG)
-	if(DEBUG) printf("tick/"); //must occur at end of tick!
-	#endif
-
 }
 
 void World::processWorldTick()
@@ -1301,6 +1271,8 @@ void World::setInputs()
 		int miny= max((scy - celldist), 0);
 		int maxy= min((scy+1 + celldist), CH);
 
+		if(isDebug() && isAgentSelected(a->id)) printf("\n");
+
 		//---AGENT-CELL SENSES---//
 		for(int tcx= minx; tcx<maxx; tcx++){
 			for(int tcy= miny; tcy<maxy; tcy++){
@@ -1317,8 +1289,11 @@ void World::setInputs()
 				if(AGENTS_SEE_CELLS && light != 0) {
 					Vector3f cellpos = Vector3f((float)(tcx*conf::CZ + conf::CZ/2), (float)(tcy*conf::CZ + conf::CZ/2), 0);
 					Vector3f diffpos = cellpos - a->pos;
-					//find midpoint of the cell, relative to agent z-axis
-					float d = max((diffpos).length2d(), a->traits[Trait::RADIUS]); // can't see cells as being inside of us; they're around us
+
+					//find midpoint of the cell, then closest edge (CZ/2), relative to agent z-axis
+					float d = max(diffpos.length2d() - conf::CZ/2, a->traits[Trait::RADIUS]); // can't see cells as being inside of us; they're around us
+
+					if(d > MAX_SENSORY_DISTANCE*conf::CELL_SIGHT_DIST_MULT) continue; // can't see cells that are too far away
 
 					float ang = v.angle_between2d(diffpos);
 
@@ -1346,9 +1321,12 @@ void World::setInputs()
 						float fov = e->fov + conf::CZ/2/d; //*radius* of a cell. See AGENT-AGENT eyesight code for explination
 
 						if (eye_target_angle < fov) {
-							float invDIST = INV_MAX_SENSORY_DISTANCE/conf::SMELL_DIST_MULT;
-							//we see the cell with this eye. Accumulate stats
-							float sight_mult= AMBIENT_LIGHT_PERCENT*cap(light_cell_mult*((fov - eye_target_angle*0.75)/fov)*(1-d*d*4*invDIST*invDIST));
+							// we see the cell with this eye! Accumulate stats
+							if(isDebug() && isAgentSelected(a->id) && q==0) printf("eye0 sees cellpos: %d, %d. fov: %f, angle: %f  - ", tcx, tcy, fov, eye_target_angle);
+
+							float invDIST = INV_MAX_SENSORY_DISTANCE/conf::CELL_SIGHT_DIST_MULT;
+							float sight_mult= AMBIENT_LIGHT_PERCENT*cap(light_cell_mult*((fov - eye_target_angle*0.75)/fov)*(1-d*invDIST));
+							// Cell sense distance mult is simple inverted so that we don't go down too low just because the nearest cell seen is far away
 
 							for (int l=0; l < Layer::LAYERS; l++) {
 								float seen_r = 0, seen_g = 0, seen_b = 0;
@@ -1372,10 +1350,11 @@ void World::setInputs()
 									seen_b = sight_mult*(cells[Layer::ELEVATION][tcx][tcy]<Elevation::BEACH_MID ? 1.0 : 0.0); 
 								}
 
-								if(r[q]<seen_r) r[q]= seen_r;
-								if(g[q]<seen_g) g[q]= seen_g;
-								if(b[q]<seen_b) b[q]= seen_b;
+								if(r[q] < seen_r) r[q] = seen_r;
+								if(g[q] < seen_g) g[q] = seen_g;
+								if(b[q] < seen_b) b[q] = seen_b;
 							}
+							if(isDebug() && isAgentSelected(a->id) && q==0) printf("sight_mult: %f\n", sight_mult);
 
 							if(isAgentSelected(a->id) && isDebug()){
 								linesA.push_back(a->pos);
@@ -1715,12 +1694,13 @@ void World::processOutputs(bool prefire)
 		a->sexproject = a->traits[Trait::SEX_PROJECT_BIAS] + a->out[Output::PROJECT]; //exhaustion does not effect the physical type of sexual rep; should it somehow?
 
 		//spike length should slowly tend towards spike output
-		float g= a->out[Output::SPIKE];
-		if (a->spikeLength<g && !a->isTiny()) { //its easy to retract spike, just hard to put it up. Also, Tiny agents can't wield spikes (can still bite)
-			a->spikeLength+=SPIKESPEED*exh; //exhaustion does not effect spike length, but rather spike extension speed
-			if(HEALTHLOSS_SPIKE_EXT!=0) a->addDamage(conf::DEATH_SPIKERAISE, HEALTHLOSS_SPIKE_EXT);
+		float targetLength = a->out[Output::SPIKE];
+		if (a->spikeLength < targetLength && !a->isTiny()) { //its easy to retract spike, just hard to put it up. Also, Tiny agents can't wield spikes (can still bite)
+			a->spikeLength += SPIKE_RAISE_SPEED*exh; //exhaustion does not effect spike length, but rather spike extension speed
+			if(HEALTHLOSS_SPIKE_EXT != 0) a->addDamage(conf::DEATH_SPIKERAISE, HEALTHLOSS_SPIKE_EXT);
 		
-		} else if (a->spikeLength>g) a->spikeLength= g;
+		}
+		if (a->spikeLength > targetLength) a->spikeLength = targetLength;
 
 		//grab gets set
 		a->grabbing= a->out[Output::GRAB]*exh;
@@ -1917,7 +1897,7 @@ void World::applyIntakes(Agent* a, float &plant, float &fruit, float &meat)
 	float invfruit = 1-a->traits[Trait::STOMACH + Stomach::FRUIT]*invmult;
 	
 	// take multiplier, for when agent is "chewing", or using bite, takes a little more resources (up to *JAW_INTAKE_MAX_MULT)
-	float takemult = JAW_INTAKE_MAX_MULT != 0 ? 1.0 + (JAW_INTAKE_MAX_MULT - 1.0)*cap(a->jawPosition) : 1.0;
+	float takemult = JAW_INTAKE_MAX_MULT != 0 ? 1.0 + (JAW_INTAKE_MAX_MULT - 1.0)*cap(a->jawMaxRecent) : 1.0;
 
 	//---START FOOD---//
 	//plant food
@@ -2214,7 +2194,10 @@ void World::processAgentInteractions()
 								float dummy = 0.0;
 								float prehealth = a->health;
 								applyIntakes(a, dummy, dummy, meat); //and force-feed it to the agent!
-								/*if(DEBUG)*/ printf("\nan agent SWALLOWED another agent, and received %f meat, translating to %f health\n", meat, a->health - prehealth);
+								if (DEBUG) {
+									float meatstomach = a->traits[Trait::STOMACH + Stomach::MEAT];
+									printf("\nan agent SWALLOWED another! meat stomach val: %f, received %f meat, giving %f health\n", meatstomach, meat, a->health - prehealth);
+								}
 
 								//lime splash means agent ate the other agent. Yum!
 								a->initSplash(conf::RENDER_MAXSPLASHSIZE,0.5,1,0.3);
@@ -2489,7 +2472,8 @@ void World::setSelection(int type)
 	//to find the desired selection, we must process all agents. Lets do this sparingly unless no-one is selected
 	if (SELECTION==-1 || modcounter%15==0){
 		if (type==Select::NONE) {
-			//easy enough: if none desired, set selection ID to negative 
+			//easy enough: if none desired, set selection ID to negative
+			PREV_SELECTION = SELECTION;
 			SELECTION= -1;
 		} else if (type==Select::OLDEST) {
 			//oldest: simply compare all agents age's and when we find the highest one, save its index
@@ -2680,6 +2664,7 @@ void World::setSelection(int type)
 				else tryPlayAudio(conf::SFX_UI_MANUALSELECT);
 			}
 		} else if (type != Select::MANUAL) {
+			PREV_SELECTION = SELECTION;
 			SELECTION = -1;
 		}
 	}
@@ -2722,8 +2707,9 @@ bool World::setSelectionRelative(int posneg)
 void World::setSelectedAgent(int idx)
 //Control.cpp
 {
+	PREV_SELECTION = SELECTION;
 	if (isAgentSelected(agents[idx].id)) SELECTION= -1; //toggle selection if already selected
-	else SELECTION= agents[idx].id; //otherwise, select as normal
+	else SELECTION = agents[idx].id; //otherwise, select as normal
 	lifepath.clear();
 
 	if(!agents[idx].isDead()) agents[idx].initSplash(10,1.0,1.0,1.0);
@@ -2837,6 +2823,18 @@ int World::getSelectedID() const
 {
 	//retrieve world->SELECTION
 	return SELECTION;
+}
+
+bool World::selectPreviousSelected()
+//Control.cpp
+{
+	if(PREV_SELECTION != SELECTION){
+		int temp = SELECTION;
+		SELECTION = PREV_SELECTION;
+		PREV_SELECTION = temp;
+		return true;
+	}
+	return false;
 }
 
 bool World::isAgentSelected(int id)
@@ -2998,9 +2996,6 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pr
 			BRAINBOXES,
 			BRAINCONNS,
 			SPAWN_MIRROR_EYES,
-			OVERRIDE_KINRANGE,
-			MEANRADIUS,
-			REP_PER_BABY,
 			EYE_SENSE_MAX_FOV,
 			DEFAULT_BRAIN_MUTCHANCE,
 			DEFAULT_BRAIN_MUTSIZE,
@@ -3008,6 +3003,17 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pr
 			DEFAULT_GENE_MUTSIZE
 			);
 		//Agent::Agent
+
+		a.populateGenes(
+			MEANRADIUS,
+			REP_PER_BABY,
+			DEFAULT_BRAIN_MUTCHANCE,
+			DEFAULT_BRAIN_MUTSIZE,
+			DEFAULT_GENE_MUTCHANCE,
+			DEFAULT_GENE_MUTSIZE,
+			OVERRIDE_KINRANGE
+		);
+
 		scx= (int) a.pos.x/conf::CZ;
 		scy= (int) a.pos.y/conf::CZ;
 
@@ -3060,24 +3066,24 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pr
 
 void World::reproduce(int mother, int father)
 {
-	float healthloss= 0; //health lost by mother for assexual reproduction
+	float healthloss = 0; //health lost by mother for assexual reproduction
 	bool hybridoffspring = false; //if parents are not the same agent (sexual reproduction), then mark the child
 	int numbabies = agents[mother].traits[Trait::NUM_BABIES];
 
-	if (mother==father){ //if assexual rep, father is just the mother again
-		healthloss= agents[mother].traits[Trait::RADIUS]/MEANRADIUS*HEALTHLOSS_ASEX;
+	if (mother == father){ //if assexual rep, father is just the mother again
+		healthloss = agents[mother].traits[Trait::RADIUS]/MEANRADIUS*HEALTHLOSS_ASEX;
 
 		agents[mother].initSplash(conf::RENDER_MAXSPLASHSIZE,0,0.8,0); //green splash means agent asexually reproduced
 
 	} else { //otherwise, it's sexual
-		hybridoffspring= true;
+		hybridoffspring = true;
 		agents[mother].initSplash(conf::RENDER_MAXSPLASHSIZE,0,0,0.8);
 		agents[father].initSplash(conf::RENDER_MAXSPLASHSIZE,0,0,0.8); //blue splashes mean agents sexually reproduced.
 	}
 
-	float newhealth= agents[mother].health/(numbabies + 1) + cap(-agents[mother].repcounter/agents[mother].maxrepcounter);
+	float newhealth = agents[mother].health/(numbabies + 1) + cap(-agents[mother].repcounter/agents[mother].maxrepcounter);
 
-	agents[mother].health= newhealth;
+	agents[mother].health = newhealth;
 	agents[mother].addDamage(conf::DEATH_ASEXUAL, healthloss);
 
 	//Reset the MOTHER's repcounter ONLY (added bonus of sexual rep and allows possible dichotomy of sexes)
@@ -3085,11 +3091,19 @@ void World::reproduce(int mother, int father)
 
 	if (HEALTHLOSS_ASEX < HEALTH_CAP || hybridoffspring) { //assexuals don't reproduce if HEALTHLOSS >= 2
 		//do not omp
-		for (int i=0;i<numbabies;i++) {
-			Agent daughter= agents[mother].reproduce(agents[father], PRESERVE_MIRROR_EYES, OVERRIDE_KINRANGE, MEANRADIUS, REP_PER_BABY, i, EYE_SENSE_MAX_FOV);
+		for (int i = 0; i < numbabies; i++) {
+			Agent daughter = agents[mother].reproduce(
+				agents[father],
+				PRESERVE_MIRROR_EYES,
+				OVERRIDE_KINRANGE,
+				MEANRADIUS,
+				REP_PER_BABY,
+				i,
+				EYE_SENSE_MAX_FOV
+			);
 
-			daughter.health= newhealth;
-			daughter.hybrid= hybridoffspring;
+			daughter.health = newhealth;
+			daughter.hybrid = hybridoffspring;
 
 			if (hybridoffspring) agents[father].children++;
 			agents[mother].children++;
@@ -3269,14 +3283,21 @@ void World::setAutoselect(bool state)
 	AUTOSELECT= state;
 }
 
+bool World::isDebug() const
+{
+	return DEBUG;
+}
+
 void World::setDebug(bool state)
 {
 	DEBUG = state;
 }
 
-bool World::isDebug() const
+void World::printDebug(char message[])
 {
-	return DEBUG;
+	#if defined(_DEBUG)
+	if(DEBUG && conf::VERBOSE_DEBUG) printf(message);
+	#endif
 }
 
 int World::getHerbivores() const
@@ -3544,7 +3565,7 @@ void World::init()
 	EXHAUSTION_MULT_PER_OUTPUT= conf::EXHAUSTION_MULT_PER_OUTPUT;
 	ENCUMBERED_MOVE_MULT= conf::ENCUMBERED_MOVE_MULT;
 	MEANRADIUS= conf::MEANRADIUS;
-    SPIKESPEED= conf::SPIKESPEED;
+    SPIKE_RAISE_SPEED = conf::SPIKE_RAISE_SPEED;
 	JAW_INTAKE_MAX_MULT = conf::JAW_INTAKE_MAX_MULT;
 	SPAWN_MIRROR_EYES= conf::SPAWN_MIRROR_EYES;
 	PRESERVE_MIRROR_EYES= conf::PRESERVE_MIRROR_EYES;
@@ -4034,14 +4055,14 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=MEANRADIUS) printf("MEANRADIUS, ");
 				MEANRADIUS= f;
-			}else if(strcmp(var, "SPIKESPEED=")==0){
+			}else if(strcmp(var, "SPIKE_RAISE_SPEED=")==0 || strcmp(var, "SPIKESPEED=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=SPIKESPEED) printf("SPIKESPEED, ");
-				SPIKESPEED= f;
+				if(f!=SPIKE_RAISE_SPEED) printf("SPIKE_RAISE_SPEED, ");
+				SPIKE_RAISE_SPEED= f;
 			}else if(strcmp(var, "JAW_INTAKE_MAX_MULT=")==0){
 				sscanf(dataval, "%f", &f);
 				if(f!=JAW_INTAKE_MAX_MULT) printf("JAW_INTAKE_MAX_MULT, ");
-				SPIKESPEED= f;
+				JAW_INTAKE_MAX_MULT= f;
 			}else if(strcmp(var, "SPAWN_MIRROR_EYES=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=(int)SPAWN_MIRROR_EYES) printf("SPAWN_MIRROR_EYES, ");
@@ -4464,7 +4485,7 @@ void World::writeConfig()
 	fprintf(cf, "MEANRADIUS= %f \t\t//\"average\" agent radius, range [0.2*this,2.2*this) (only applies to random agents, no limits on mutations). This effects SOOOO much stuff, and I would not recommend setting negative unless you like crashing programs.\n", conf::MEANRADIUS);
 	fprintf(cf, "MAX_WASTE_FREQ= %i \t\t//max waste frequency allowed for agents. Agents can select [1,this]. 1= no agent control allowed, 0= program crash\n", conf::MAX_WASTE_FREQ);
 	fprintf(cf, "GENEROSITY_RATE= %f \t//how much health is transferred between two agents trading food per tick? =0 disables all generosity\n", conf::GENEROSITY_RATE);
-	fprintf(cf, "SPIKESPEED= %f \t\t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKESPEED);
+	fprintf(cf, "SPIKE_RAISE_SPEED= %f \t//how quickly can the spike be extended? Does not apply to retraction, which is instant\n", conf::SPIKE_RAISE_SPEED);
 	fprintf(cf, "JAW_INTAKE_MAX_MULT= %f \t//max value that jaw chew will multiply intake by (both removal of resources and intake). =0 will disable the chewing feature. Does not apply to hazard.\n", conf::JAW_INTAKE_MAX_MULT);
 	fprintf(cf, "SPAWN_MIRROR_EYES= %i \t\t//true-false flag for if random spawn agents have mirrored eyes. 0= asymmetry, 1= symmetry\n", (int)conf::SPAWN_MIRROR_EYES);
 	fprintf(cf, "PRESERVE_MIRROR_EYES= %i \t//true-false flag for if mutations can break mirrored eye symmetry. 0= mutations do not preserve symmetry, 1= agents always have mirrored eyes\n", (int)conf::PRESERVE_MIRROR_EYES);

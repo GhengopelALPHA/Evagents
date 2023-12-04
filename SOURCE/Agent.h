@@ -54,15 +54,13 @@ public:
 	Agent(
 		int NUMBOXES, 
 		int NUMINITCONNS, 
-		bool SPAWN_MIRROR_EYES, 
-		int OVERRIDE_KINRANGE,
-		float MEANRADIUS, 
-		float REP_PER_BABY, 
+		bool SPAWN_MIRROR_EYES,
 		float EYE_SENSE_MAX_FOV,
 		float BRAIN_MUTATION_CHANCE, 
 		float BRAIN_MUTATION_SIZE,
 		float GENE_MUTATION_CHANCE,
-		float GENE_MUTATION_SIZE);
+		float GENE_MUTATION_SIZE
+	);
 	Agent();
 		
 	// --- Design Note: --- //
@@ -143,7 +141,7 @@ public:
 	float give;	//is this agent attempting to give food to other agent?
 	float spikeLength; //"my, what a long spike you have!"
 	float jawPosition; //what "position" the jaw is in. 0 for open, positive for activated (apply damage), negative for opening (going back to 0)
-	float jawMaxRecent; //what jaw value was recently applied? Used for display only
+	float jawMaxRecent; //what jaw value was recently applied? Used for display and for chewing feature
 	float jawOldOutput; //the previous output of the jaw
 	int grabID; //id of agent this agent is "glued" to. =-1 if none selected
 	float grabbing; //is this agent attempting to grab another? If already grabbed, how far are we willing to let them go?
@@ -154,14 +152,17 @@ public:
 	//Functions
 	void populateGenes(
 		float MEANRADIUS,
+		float REP_PER_BABY,
 		float BRAIN_MUTATION_CHANCE,
 		float BRAIN_MUTATION_SIZE,
 		float GENE_MUTATION_CHANCE,
 		float GENE_MUTATION_SIZE,
 		int OVERRIDE_KINRANGE
 	); //give the agent some initial random genes. Run this at init only
+	void populateStomach();
 	void countGenes(); // counts up the number of each gene type and adds the value they have to traits (use before mutation and expression)
 	void expressGenes(); //process genes list and set/update agent traits & abilities. Run this to get the trait list updated
+	 //forces all traits to be specific default values used in situations where no genes encode for it
 	void mutateGenesBirth(float basechance, float basesize, int OVERRIDE_KINRANGE); //mutate all genes with a given base chance and size at births
 	void mutateGenesLive(float basechance, float basesize, int OVERRIDE_KINRANGE); //mutate some genes with a given base chance and size for live agents
 
@@ -198,7 +199,6 @@ public:
 	void setHerbivore();
 	void setCarnivore();
 	void setFrugivore();
-	void setRandomStomach();
 	void setPos(float x, float y);
 	void setPos(float x, float y, float z);
 	void setPosRandom(float maxx, float maxy);

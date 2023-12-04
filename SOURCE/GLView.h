@@ -152,6 +152,7 @@ private:
 	void createTile(int x, int y, int w, int h, std::string key, std::string title= "");
 	void createTile(UIElement &parent, int w, int h, std::string key, std::string title= "", bool d= true, bool r= false);
 	void checkTileListClicked(std::vector<UIElement> tiles, int mx, int my, int state);
+	bool checkTileListHovered(std::vector<UIElement> tiles, int mx, int my);
 
 	void processTiles(); //process all tiles. Make them move, hide/unhide, etc
 

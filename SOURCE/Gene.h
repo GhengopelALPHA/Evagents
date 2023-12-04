@@ -2,6 +2,9 @@
 #define GENE_H
 
 #include <string>
+#include "settings.h"
+
+//extern const float DEFAULT_TRAITS[Trait::TRAIT_TYPES];
 
 class Gene
 {
