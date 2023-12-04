@@ -871,6 +871,7 @@ namespace conf {
 	const float BRAIN_BOX_BIAS_STD = 0.5;  //std of the randn centered on 0 that new box biases generate with.
 	const float BRAIN_BOX_GW_RANGE = 2; // +/- range of values new box global weights generate within.
 	const float BRAIN_BOX_KP_MAX = 1.5; //max value between [0,this) that new box kp (dampening) values generate within. Remember that the difference to a new output is multiplied by this to get the target value
+	const float WEIGHT_WITHER_CHANCE_MULT = 2.0; //multiplier times the weight itself to the chance that it decays to 0. A weight of 1/this or more will have no chance of decay
 	const float LEARN_RATE = 0.001; // rate of Stimulant effecting weights. TODO: (.cfg) CHANGE TO LEARN FROM USER INPUT?
 	const float BRAIN_DIRECTINPUTS = 0.3; //probability of random brain conns on average which will connect directly to inputs
 	const float BRAIN_NEGATIVE_GW_BOXES = 0.2; //probability and approx ratio of random brain's boxes that will have a negative global weight
@@ -896,7 +897,7 @@ namespace conf {
 	//mutations
 	const int OVERRIDE_KINRANGE= -1; //(.cfg)
 	const int VISUALIZE_RELATED_RANGE= 30; // what's the range in addition to agent's kinrange that we go ahead and say maybe they were related
-	const int BRAINSEEDHALFTOLERANCE= 3; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances. Only effects sexual reproduction
+	const int BRAINSEEDHALFTOLERANCE= 20; //the difference in brain seeds before halving. A difference = this between brain seeds corresponds to 25%/75% chances. Only effects sexual reproduction
 	const float META_MUTCHANCE= 0.08; //what is the chance and stddev of mutations to the mutation chances and sizes? lol
 	const float META_MUTSIZE= 0.002;
 	const float LIVE_MUTATE_CHANCE= 0.0001; //(.cfg)

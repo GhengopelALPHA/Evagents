@@ -12,6 +12,7 @@ class CPBox {
 public:
 	CPBox();
 	CPBox(int numboxes);
+	bool operator==(const CPBox& other) const;
 
 	float bias; //base number
     float gw; //global weight
@@ -31,6 +32,7 @@ class CPConn {
 public:
 	CPConn();
     CPConn(int boxes);
+	bool operator==(const CPConn& other) const;
 
     float w; //weight of each connecting box
 	float bias; //bias of the connection, aka the activation threshold

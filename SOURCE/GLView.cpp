@@ -215,11 +215,23 @@ void GLView::processLayerPreset()
 //Control.cpp
 {
 	//update layer bools based on current ui_layerpreset
-	for(int i=0; i<DisplayLayer::DISPLAYS; i++) {
-		live_layersvis[i]= i+1==ui_layerpreset ? 1 : 0;
-		if(ui_layerpreset==0) live_layersvis[i]= 1;
-		if(ui_layerpreset>DisplayLayer::DISPLAYS) live_layersvis[i]= i>=ui_layerpreset-DisplayLayer::DISPLAYS ? 1 : 0;
-		if(ui_layerpreset>DisplayLayer::DISPLAYS*2) live_layersvis[i]= i<ui_layerpreset-DisplayLayer::DISPLAYS*2 ? 1 : 0;
+	if (world->isDebug()) printf("ui_layerpreset is now %d\n", ui_layerpreset);
+
+	for (int i=0; i<DisplayLayer::DISPLAYS; i++) {
+		live_layersvis[i] = i == ui_layerpreset - 1 ? 1 : 0; 
+		// for ui_layerpreset == [1, DISPLAYS] turn on the layervis for our layer index ([0, DISPLAYS-1])
+
+		if (ui_layerpreset == 0) live_layersvis[i] = 1;
+		// for ui_layerpreset == 0, turn all layervis on (default)
+
+		if (ui_layerpreset > DisplayLayer::DISPLAYS) live_layersvis[i] = i > ui_layerpreset - DisplayLayer::DISPLAYS - 1 ? 1 : 0; 
+		// for ui_layerpreset in [DISPLAYS+1, DISPLAYS*2-1], turn on the layervis only if the index is > ui_layerpreset - 1
+
+		if (ui_layerpreset > DisplayLayer::DISPLAYS*2 - 1) live_layersvis[i] = i <= ui_layerpreset - DisplayLayer::DISPLAYS*2 + 1 ? 1 : 0;
+		// for ui_layerpreset in [DISPLAYS*2, DISPLAYS*3-3], turn on the layervis only if the index is <= ui_layerpreset + 1
+
+		if (ui_layerpreset == DisplayLayer::DISPLAYS*2 - 1) live_layersvis[i] = 0;
+		// finally, turn all layers off at exactly DISPLAYS*2 - 1
 	}
 }
 
@@ -615,15 +627,12 @@ void GLView::menu(int key)
 	} else if (key=='n') { //dismiss visible world events
 		world->dismissNextEvents(conf::EVENTS_DISP);
 	} else if (key=='l' || key=='k' || key=='o') { //layer profile switch; l= "next", k= "previous", o= "reality!"
-		//This is a fancy bit of code. This value is init=0, which means all layers selected
-		//1 to DisplayLayers:DISPLAYS -> each layer turns on one at a time, acts like previous behavior
-		//DisplayLayers:DISPLAYS+1 to DisplayLayers:DISPLAYS*2 -> each layer starting with the lowest in order gets turned off, until #=DISPLAYS, where all are turned off
-		//DisplayLayers:DISPLAYS*2+1 to DisplayLayers:DISPLAYS*3-1 -> each layer turns back on in normal order, until it overflows and resets to 0, all turned on
 		if (key=='l') ui_layerpreset++;
-		else if (key=='o') ui_layerpreset= 0;
+		else if (key=='o') ui_layerpreset = 0;
 		else ui_layerpreset--;
-		if (ui_layerpreset>DisplayLayer::DISPLAYS*3-1) ui_layerpreset= 0;
-		if (ui_layerpreset<0) ui_layerpreset= DisplayLayer::DISPLAYS*3-1;
+
+		if (ui_layerpreset >= DisplayLayer::DISPLAYS*3-2) ui_layerpreset = 0;
+		if (ui_layerpreset < 0) ui_layerpreset = DisplayLayer::DISPLAYS*3-3;
 		
 		//now for the magic...
 		processLayerPreset(); //call method to update layer bools based on ui_layerpreset
@@ -1045,7 +1054,7 @@ void GLView::handleButtons(int action)
 {
 	if (action == GUIButtons::TOGGLE_LAYERS) {
 		if(ui_layerpreset != 0) ui_layerpreset = 0;
-		else ui_layerpreset = DisplayLayer::DISPLAYS*2;
+		else ui_layerpreset = DisplayLayer::DISPLAYS*2-1;
 
 		processLayerPreset(); //call to method to update layer bools based on ui_layerpreset
 

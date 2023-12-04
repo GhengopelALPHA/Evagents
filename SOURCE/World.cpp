@@ -1150,7 +1150,7 @@ void World::processCells(bool prefire)
 
 				//light ops
 				//if we are moonlit and moonlight happens to be 1.0, then the light layer is useless. Set all values to 1 for rendering
-				cells[Layer::LIGHT][cx][cy] = (MOONLIT && MOONLIGHTMULT==1.0) ? 1.0 :
+				cells[Layer::LIGHT][cx][cy] = (MOONLIT && MOONLIGHTMULT >= 1.0) ? 1.0 :
 					cap(0.6 + sin((cx*2*M_PI)*invCW - daytime));
 				//cap(0.6+sin((cx*2*M_PI)/CW-(modcounter+current_epoch*FRAMES_PER_EPOCH)*2*M_PI/FRAMES_PER_DAY));
 			}

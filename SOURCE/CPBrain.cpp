@@ -19,6 +19,11 @@ CPBox::CPBox(int numboxes)
 CPBox::CPBox(){
 }
 
+bool CPBox::operator==(const CPBox& other) const 
+{
+	return bias == other.bias && gw == other.gw && kp == other.kp && seed == other.seed && dead == other.dead;
+}
+
 CPConn::CPConn(int numboxes)
 {
 	w = randn(0, conf::BRAIN_CONN_WEIGHT_STD);
@@ -38,6 +43,11 @@ CPConn::CPConn(int numboxes)
 }
 
 CPConn::CPConn(){
+}
+
+bool CPConn::operator==(const CPConn& other) const 
+{
+	return w == other.w && bias == other.bias && tid == other.tid && sid == other.sid && type == other.type && seed == other.seed && dead == other.dead;
 }
 
 CPBrain::CPBrain(){
@@ -67,10 +77,10 @@ CPBrain::CPBrain(int numboxes, int numconns)
 
 CPBrain& CPBrain::operator=(const CPBrain& other)
 {
-	if( this != &other ) {
-		boxes= other.boxes;
-		conns= other.conns;
-		lives= other.lives;
+	if( boxes != other.boxes || conns != other.conns || lives != other.lives ) {
+		boxes = other.boxes;
+		conns = other.conns;
+		lives = other.lives;
 	}
 	return *this;
 }
@@ -259,7 +269,6 @@ void CPBrain::initMutate(float MR, float MR2)
 			conns[i].type = randi(0, ConnType::CONN_TYPES); //remember randi is [a,b)
 			if (oldtype != conns[i].type) {
 				conns[i].seed = 0;
-				boxes[boxRef(conns[i].tid)].seed = 0;
 			}
 		}
 
@@ -270,7 +279,6 @@ void CPBrain::initMutate(float MR, float MR2)
 			if (oldid != newid) {
 				conns[i].sid = newid;
 				conns[i].seed = 0;
-				boxes[boxRef(conns[i].tid)].seed = 0;
 			}
 		}
 
@@ -281,8 +289,6 @@ void CPBrain::initMutate(float MR, float MR2)
 			if (oldid != newid) {
 				conns[i].tid = newid;
 				conns[i].seed = 0;
-				boxes[boxRef(newid)].seed = 0;
-				boxes[boxRef(oldid)].seed = 0;
 			}
 		}
 
@@ -294,6 +300,7 @@ void CPBrain::initMutate(float MR, float MR2)
 			} else if (conns[i].type == ConnType::INVERTED) {
 				conns[i].type = ConnType::NORMAL;
 			}
+			conns[i].seed = 0;
 		}
 
 		if (randf(0,1) < MR/25) {
@@ -311,16 +318,15 @@ void CPBrain::initMutate(float MR, float MR2)
 			if (oldid != newid) {
 				conns[i].tid = newid;
 				conns[i].seed = 0;
-				boxes[boxRef(oldid)].seed = 0;
-				boxes[boxRef(newid)].seed = 0;
 			}
 		}
 
 		if (randf(0,1) < MR/15) {
-			//split conn: new conn created from old conn, both get weight / 2
+			//split conn: new conn created from old conn, both get weight / 2, so no changes should happen to output calculation
 			conns[i].w /= 2;
 			CPConn copy = conns[i];
 			conns.push_back(copy);
+			//don't reset seed for this
 		}
 
 		if (randf(0,1) < MR/15) {
@@ -328,7 +334,6 @@ void CPBrain::initMutate(float MR, float MR2)
 			CPConn dummy = CPConn(conf::BRAINBOXES);
 			conns[i].w = dummy.w*conf::BRAIN_CONN_WEIGHT_MUTATION_DAMPEN; //reduced weight on existing brain conns
 			conns[i].seed = 0;
-			boxes[boxRef(conns[i].tid)].seed = 0;
 		}
 
 		if (randf(0,1) < MR/12) {
@@ -336,7 +341,6 @@ void CPBrain::initMutate(float MR, float MR2)
 			CPConn dummy = CPConn(conf::BRAINBOXES);
 			conns[i].bias = dummy.bias;
 			conns[i].seed = 0;
-			boxes[boxRef(conns[i].tid)].seed = 0;
 		}
 
 		//Common:
@@ -349,28 +353,28 @@ void CPBrain::initMutate(float MR, float MR2)
 			if (oldid != newid) {
 				conns[i].sid = newid;
 				conns[i].seed = 0;
-				boxes[boxRef(conns[i].tid)].seed = 0;
 			}
 		}
 
 		if (randf(0,1) < MR/5) {
 			//weight wither
-			if(randf(0,1) > fabs(conns[i].w)*2) {
-				//the closer to 0 it already is, the higher the chance it gets set to 0. *2 rescales it to range (-0.5,0.5), outside this the mutation is impossible
+			if(randf(0,1) > fabs(conns[i].w)*conf::WEIGHT_WITHER_CHANCE_MULT) {
+				//the closer to 0 it already is, the higher the chance it gets set to 0.
 				conns[i].w = 0;
 				conns[i].seed = 0;
-				boxes[boxRef(conns[i].tid)].seed = 0;
 			}
 		}
 
 		if (randf(0,1) < MR/2) {
 			//bias jiggle
 			conns[i].bias += randn(0, MR2);
+			//don't reset seed for this
 		}
 
 		if (randf(0,1) < MR) {
 			//weight jiggle
 			conns[i].w += randn(0, MR2);
+			//don't reset seed for this
 		}
 	}
 
@@ -468,10 +472,10 @@ void CPBrain::liveMutate(float MR, float MR2, vector<float>& out)
 
 	if (randf(0,1) < MR/5) {
 		//weight wither
-		if(randf(0,1) > fabs(conns[randconn].w)) {//the closer to 0 it already is, the higher the chance it gets set to 0
+		if(randf(0,1) > fabs(conns[randconn].w)*2*conf::WEIGHT_WITHER_CHANCE_MULT) {
+			//the closer to 0 it already is, the higher the chance it gets set to 0. *2 makes it rarer for live mutations
 			conns[randconn].w = 0;
 			conns[randconn].seed = 0;
-			boxes[boxRef(conns[randconn].tid)].seed = 0;
 		}
 	}
 
@@ -512,41 +516,45 @@ void CPBrain::liveMutate(float MR, float MR2, vector<float>& out)
 CPBrain CPBrain::crossover(const CPBrain& other)
 {
 	CPBrain newbrain = *this;
-	if (this->conns.size() < other.conns.size()) {
-		newbrain = other;
-	}
 
-	for (int i = 0; i < (int)newbrain.conns.size(); i++){
-		if (i >= other.conns.size() || i >= this->conns.size()) continue; //allow the rest of the conns to be whichever they were inherited from
-
-		int s1 = this->conns[i].seed;
-		int s2 = other.conns[i].seed;
-		//function which offers probability of which parent to use, based on relative seed counters
-		float threshold = ((s1 - s2) / (conf::BRAINSEEDHALFTOLERANCE + abs(s1 - s2)) + 1) / 2;
-
-		if (randf(0,1) < threshold){
-			newbrain.conns[i] = this->conns[i];
-		} else {
-			newbrain.conns[i] = other.conns[i];
+	if (boxes != other.boxes || conns != other.conns || lives != other.lives) {
+		if (this->conns.size() < other.conns.size()) {
+			newbrain = other;
 		}
-		newbrain.conns[i].seed++;
-	}
 
-	for (int i = 0; i < (int)newbrain.boxes.size(); i++){
-		if (i >= other.boxes.size() || i >= this->boxes.size()) continue; //allowing for variable box counts (NOT IMPLEMENTED)
+		for (int i = 0; i < (int)newbrain.conns.size(); i++){
+			if (i >= other.conns.size() || i >= this->conns.size()) continue; //allow the rest of the conns to be whichever they were inherited from
 
-		int s1 = this->boxes[i].seed;
-		int s2 = other.boxes[i].seed;
-		//function which offers probability of which parent to use, based on relative seed counters
-		float threshold = ((s1 - s2) / (conf::BRAINSEEDHALFTOLERANCE + abs(s1 - s2)) + 1) / 2;
+			int s1 = this->conns[i].seed;
+			int s2 = other.conns[i].seed;
+			//function which offers probability of which parent to use, based on relative seed counters
+			float threshold = ((s1 - s2) / (conf::BRAINSEEDHALFTOLERANCE + abs(s1 - s2)) + 1) / 2;
 
-		if(randf(0,1) < threshold){
-			newbrain.boxes[i] = this->boxes[i];
-		} else {
-			newbrain.boxes[i] = other.boxes[i];
+			if (randf(0,1) < threshold){
+				newbrain.conns[i] = this->conns[i];
+			} else {
+				newbrain.conns[i] = other.conns[i];
+			}
+			newbrain.conns[i].seed++;
 		}
-		newbrain.boxes[i].seed++;
+
+		for (int i = 0; i < (int)newbrain.boxes.size(); i++){
+			if (i >= other.boxes.size() || i >= this->boxes.size()) continue; //allowing for variable box counts (NOT IMPLEMENTED)
+
+			int s1 = this->boxes[i].seed;
+			int s2 = other.boxes[i].seed;
+			//function which offers probability of which parent to use, based on relative seed counters
+			float threshold = ((s1 - s2) / (conf::BRAINSEEDHALFTOLERANCE + abs(s1 - s2)) + 1) / 2;
+
+			if(randf(0,1) < threshold){
+				newbrain.boxes[i] = this->boxes[i];
+			} else {
+				newbrain.boxes[i] = other.boxes[i];
+			}
+			newbrain.boxes[i].seed++;
+		}
 	}
+
 	newbrain.resetBrain();
 	return newbrain;
 }
