@@ -1,5 +1,4 @@
-#ifndef GENE_H
-#define GENE_H
+#pragma once
 
 #include <string>
 #include "settings.h"
@@ -10,10 +9,10 @@ class Gene
 {
 public:
 	Gene();
-	Gene(int type);
+	explicit Gene(int type);
 	Gene(int type, float value);
 
-	virtual Gene& operator=(const Gene& other);
+	Gene& operator=(const Gene& other);
 
 	int type; //the Type of the Gene. See "Genes" namespace in settings.h
 	float value; //the Value of the Gene. How it is used to calculate traits partially depends on the Type
@@ -23,7 +22,7 @@ public:
 
 	//void apply(float &trait, int age); //applies the Gene to the given trait with the given age
 	//void initValue(); //set the initial value for a gene given its type. UNUSED, challenges discovered in implementation
-	void apply(float &trait); //applies the Gene to the given trait. IMPORTANT: make sure to divide the trait value by number of instances of Gene!
+	void apply(float& trait); //applies the Gene to the given trait. IMPORTANT: make sure to divide the trait value by number of instances of Gene!
 	void birthMutate(float basechance, float basesize);
 	void liveMutate(float basechance, float basesize);
 	void mutate(float chance, float size); //use the given chance to mutate the Gene with a given size standard deviation
@@ -32,5 +31,3 @@ public:
 	std::string getTextType(); // used to help Agent.printSelf
 
 };
-
-#endif // GENE_H

@@ -12,14 +12,14 @@
 //defines for GUI button handles. Order changes nothing
 namespace GUIButtons {
 const enum {
-	TOGGLE_LAYERS= 0,
+	TOGGLE_LAYERS,
 	TOGGLE_PLACEAGENTS
 };};
 
 //defines for GL mouse buttons. We don't have any control over this really, it's an OpenGL thing, and it only supports 3 mouse buttons
 namespace GLMouse {
 const enum {
-	LEFT= 0,
+	LEFT,
 	MIDDLE,
 	RIGHT,
 	BUTTONS
@@ -28,7 +28,7 @@ const enum {
 //defines for reading/writing GUI handles. Order changes nothing
 namespace RWOpen {
 const enum {
-	STARTLOAD= 0,
+	STARTLOAD,
 	NEWWORLD,
 	IGNOREOVERLOAD,
 	UNSAVEDALERT,
@@ -46,7 +46,7 @@ const enum {
 //defines for reading/writing GUI handles. Order changes nothing
 namespace RWClose {
 const enum {
-	BASICLOAD= 0,
+	BASICLOAD,
 	BASICSAVE,
 	NEWWORLD,
 	CANCELLOAD,
@@ -66,7 +66,7 @@ const enum {
 //defines for tile (buttons) data. Order changes nothing except my sanity
 namespace MainTiles {
 const enum {
-	LAD= 0, //Selected Agent Display, our first tile! It has lots of sub-tiles that get created automatically
+	LAD, //Selected Agent Display, our first tile! It has lots of sub-tiles that get created automatically
 	TOOLBOX, //UNUSED, will hold many of the GLUI functions eventually
 	EVENTS, //UNUSED, will eventually migrate events to GLView and handle them as tiles
 
@@ -76,16 +76,16 @@ const enum {
 
 //defines for ui dimensions and useful values throughout the program
 namespace UID {
-	const int CHARHEIGHT= 9;
-	const int CHARWIDTH= 6; //height and width (on screen) allowed for text characters
-	const int HUDSWIDTH= 88; //the column width we are assuming when it comes to text space in the Selected Agent Display.
-	const int TILEMARGIN= 9; //what is the min margin between a sub-tile and the next tile above (or window if main tile)
-	const int TILEBEVEL= 5; //bevel size on tiles. 5 was scaled for the LAD; consider code for smaller tiles to have smaller bevels
-	const int TINYTILEWIDTH= 20; //the size of tiny tiles
+	const int CHARHEIGHT = 9;
+	const int CHARWIDTH = 6; //height and width (on screen) allowed for text characters
+	const int HUDSWIDTH = 88; //the column width we are assuming when it comes to text space in the Selected Agent Display.
+	const int TILEMARGIN = 9; //what is the min margin between a sub-tile and the next tile above (or window if main tile)
+	const int TILEBEVEL = 5; //bevel size on tiles. 5 was scaled for the LAD; consider code for smaller tiles to have smaller bevels
+	const int TINYTILEWIDTH = 20; //the size of tiny tiles
 	const int LADHEIGHTLINES = 11; //how many lines of text the LAD is configured to be sized for
-	const int LADWIDTH= 440; //Loaded / seLected Agent Display width. SHOULD be tied to HUDSWIDTH above, but there's a lot more stuff going on in there
-	const int BUFFER= 6; //extra buffer space, mostly for text
-	const int EVENTSWIDTH= 210; //Event toast width (length?)... x-dimension-size
+	const int LADWIDTH = 440; //Loaded / seLected Agent Display width. SHOULD be tied to HUDSWIDTH above, but there's a lot more stuff going on in there
+	const int BUFFER = 6; //extra buffer space, mostly for text
+	const int EVENTSWIDTH = 210; //Event toast width (length?)... x-dimension-size
 	const int GRAPHWIDTH = 10020; //x-d width of the on-world graph
 	const int GRAPHBUFFER = 15;
 };
@@ -102,7 +102,7 @@ namespace UIKeys {
 //defines for the graph's vertical guide lines, indicating days and epochs (or nothing). Order changes nothing
 namespace GuideLine {
 const enum {
-	NONE = 0,
+	NONE,
 	DAY,
 	EPOCH
 };};
@@ -110,7 +110,7 @@ const enum {
 namespace EventColor {
 const enum {
 	//				Default:										- Demo Only:
-	WHITE= 0,	//	simulation notification							- agent event
+	WHITE,	//	simulation notification							- agent event
 	RED,		//	global population decrease						- agent killed
 	GREEN,		//	global population increase						- agent generosity
 	BLUE,		//	neutral population change						- agent sexual reproduction
@@ -132,7 +132,7 @@ const enum {
 //defines for mouse modes. Order changes nothing.
 namespace MouseMode{
 const enum {
-	NONE= 0,
+	NONE,
 	SELECT, //select agent only
 	PLACE_AGENT, //place agents only
 	PLACE_VALUE, //place cell value to cell layer
@@ -144,7 +144,7 @@ const enum {
 //defines for LAD (Loaded Agent Display) visual modes. Order changes nothing.
 namespace LADVisualMode{
 const enum {
-	NONE= 0,
+	NONE,
 	GHOST, //draw a ghost agent, copying all motion and events
 	DAMAGES, //draw the damage amounts pie chart
 	INTAKES, //draw the cell intake amounts pie chart
@@ -156,7 +156,7 @@ const enum {
 //defines for LAD (Loaded Agent Display) data modes. Order changes nothing.
 namespace LADDataMode{
 const enum {
-	NONE= 0,
+	NONE,
 	COMMON, //show traits and stats that are commonly looked at
 	TRAITS, //only show traits (fixed values), and more of them
 	STATS, //only show stats (changing values), and more of them
@@ -171,7 +171,7 @@ const enum {
 //5th with the 2nd, etc
 namespace LADData{
 	const enum {
-		HEALTH= 0,		//stat
+		HEALTH,		//stat
 		DHEALTH,		//stat
 		REPCOUNTER,		//stat
 		EXHAUSTION,		//stat
@@ -366,7 +366,7 @@ namespace LADData{
 //defines for read-write modes. Changing order does nothing
 namespace ReadWriteMode{
 const enum {
-	OFF = 0,
+	OFF,
 	READY,
 	WORLD,
 	CELL,
@@ -385,7 +385,7 @@ const enum {
 namespace Layer{
 const enum {
 	//NOTE these are physical layers of data, as opposed to DisplayMode::, which handles drawing
-	ELEVATION= 0,
+	ELEVATION,
 	PLANTS,
 	FRUITS,
 	MEATS,
@@ -398,14 +398,14 @@ const enum {
 
 //defines for terrain elevation levels
 namespace Elevation{
-	const float DEEPWATER_LOW= 0;
-	const float SHALLOWWATER= 0.2;
-	const float BEACH_MID= 0.5;
-	const float PLAINS= 0.6;
-	const float HILL= 0.7;
-	const float STEPPE= 0.8;
-	const float HIGHLAND= 0.9;
-	const float MOUNTAIN_HIGH= 1.0; //Don't add beyond this entry!
+	const float DEEPWATER_LOW = 0;
+	const float SHALLOWWATER = 0.2;
+	const float BEACH_MID = 0.5;
+	const float PLAINS = 0.6;
+	const float HILL = 0.7;
+	const float STEPPE = 0.8;
+	const float HIGHLAND = 0.9;
+	const float MOUNTAIN_HIGH = 1.0; //Don't add beyond this entry!
 };
 
 
@@ -427,7 +427,7 @@ const enum {
 //defines for agent visualization. Changing order here changes cycle order and menu-listing order
 namespace Visual{
 const enum {
-	NONE= 0,
+	NONE,
 	RGB,
 	STOMACH,
 	LUNGS,
@@ -451,7 +451,7 @@ const enum {
 //defines for selected agent visualization. Changing order here changes menu-listing order
 namespace Profile{
 const enum {
-	NONE= 0,
+	NONE,
 	INOUT,
 	BOXES,
 	BRAIN,
@@ -466,7 +466,7 @@ const enum {
 //defines for types of agent counts, both for reporting and the static display. Changing order here changes listing order
 namespace LiveCount{
 const enum {
-	HERBIVORE = 0,
+	HERBIVORE,
 	FRUGIVORE,
 	CARNIVORE,
 	AQUATIC,
@@ -483,7 +483,7 @@ const enum {
 //defines for the static display in the top-left corner. Changing order here changes listing order
 namespace StaticDisplay{
 const enum {
-	PAUSED= 0,
+	PAUSED,
 	DEMO,
 	CLOSED,
 	DAYCYCLES,
@@ -501,7 +501,7 @@ const enum {
 //defines for the extra static display lines in the top-left corner. Changing order here changes listing order but ONLY within the group
 namespace StaticDisplayExtra{
 const enum {
-	OCEANPERCENT= 0,
+	OCEANPERCENT,
 	AVG_LAYERS, //I strongly recommend keeping AVG_LAYERS and xAVG_LAYERS together in this order
 	xAVG_LAYERS= AVG_LAYERS + Layer::LAYERS - 3, //-3 because we don't handle LIGHT or ELEVATION (-1-2)
 	LIVECOUNTS,
@@ -533,7 +533,7 @@ const enum {
 //defines for global agent stats display in the data region. Changing order here changes arrangement order. UNUSED
 namespace DataDisplay{
 const enum {
-	blank1= 0,
+	blank1,
 	ALIVE,
 	HERBIVORE,
 	FRUGIVORE,
@@ -562,7 +562,7 @@ const enum {
 //defines for selection code. Changing order here changes menu-listing order
 namespace Select {
 const enum {
-	NONE= 0,
+	NONE,
 	MANUAL,
 	RELATIVE,
 	OLDEST,
@@ -634,7 +634,7 @@ const enum {
 //defines for brain output code. Changing order here changes brain-to-output order (reversed) and visualization order
 namespace Output {
 const enum {
-	LEFT_WHEEL_F= 0,
+	LEFT_WHEEL_F,
 	RIGHT_WHEEL_F,
 	LEFT_WHEEL_B,
 	RIGHT_WHEEL_B,
@@ -662,7 +662,7 @@ const enum {
 
 namespace Stomach {
 const enum {
-	PLANT= 0,
+	PLANT,
 	MEAT,
 	FRUIT,
 
@@ -673,7 +673,7 @@ const enum {
 //defines for connection types, used exclusively in CPBrain. Order changes nothing
 namespace ConnType {
 const enum {
-	NORMAL = 0,
+	NORMAL,
 	INVERTED,
 	DELTA,
 
@@ -710,10 +710,10 @@ const enum {
 	EYE_SEE_AGENTS,				//multiplier for agent's vision of each other. 1 is normal vision, 0 is blind, 2+ increases sensitivity
 	EYE_SEE_CELLS,				//multiplier for agent's vision of cells. 1 is normal vision, 0 is blind, 2+ increases sensitivity
 //	STRUCT_EYE, //UNUSED
-	EAR_HEAR_AGENTS,				//multiplier for agent's hearing of other agent's vocalizations and wheel movements
+	EAR_HEAR_AGENTS,			//multiplier for agent's hearing of other agent's vocalizations and wheel movements
 //	STRUCT_EAR, //UNUSED
 	BLOOD_SENSE,				//multiplier for agent's blood sense
-	SMELL_SENSE,						//multiplier for agent's smell sense. Effects all types of smell (agent, water, meat, fruit, hazard) simultaneously
+	SMELL_SENSE,				//multiplier for agent's smell sense. Effects all types of smell (agent, water, meat, fruit, hazard) simultaneously
 
 	
 	//don't add beyond this entry!
