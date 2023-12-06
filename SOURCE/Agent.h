@@ -1,5 +1,4 @@
-#ifndef AGENT_H
-#define AGENT_H
+#pragma once
 
 #include "CPBrain.h"
 #include "Gene.h"
@@ -11,40 +10,26 @@
 
 struct Eye
 {
-	Eye(float maxfov) { //default eye spawn values
-		dir = randf(0, 2*M_PI);
-		fov = std::min(maxfov, (float)abs(randn(0.0, conf::EYE_SENSE_FOV_STD_DEV)));
-		type = 0;
-	}
-	Eye(float dir, float fov, int type) : dir(dir), fov(fov), type(type) {}
+    Eye(float maxfov) : dir(randf(0, 2 * M_PI)), fov(std::min(maxfov, static_cast<float>(std::abs(randn(0.0, conf::EYE_SENSE_FOV_STD_DEV))))), type(0) {}
+    Eye(float dir, float fov, int type) : dir(dir), fov(fov), type(type) {}
 
-	float dir;
-	float fov;
-	int type;
+    float dir;
+    float fov;
+    int type;
 };
 
 struct Ear
 {
-	Ear() { //default ear spawn values
-		dir = randf(0, 2*M_PI);
-		low = randf(0,1);
-		high = randf(0,1);
-		this->order();
-	}
-	Ear(float dir, float low, float high) : dir(dir), low(low), high(high) { this->order(); }
+    Ear() : dir(randf(0, 2 * M_PI)), low(randf(0, 1)), high(randf(0, 1)) { order(); }
+    Ear(float dir, float low, float high) : dir(dir), low(low), high(high) { order(); }
 
-	void order() {
-		if (low > high) {
-			float temp = low;
-			low = high;
-			high = temp;
-		}
-	}
+    void order() {
+        if (low > high) std::swap(low, high);
+    }
 
-	float dir;
-	float low;
-	float high;
-
+    float dir;
+    float low;
+    float high;
 };
 
 class Agent
@@ -227,5 +212,3 @@ public:
 	bool isSelfish(float MAXSELFISH) const;
 	bool isAirborne() const;
 };
-
-#endif // AGENT_H
