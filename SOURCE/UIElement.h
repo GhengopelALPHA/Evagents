@@ -16,13 +16,12 @@ public:
 
     int x, y; // Top-left point x, y
     int w, h; // Width, height
-
-    std::string title;
-    std::string key; // "unique" function identifier (can be shared, but... why?)
+    std::string title;  // Text that appears on the UI element
+    std::string key;    // "unique" function identifier
 
     std::vector<UIElement> children;
 
     // Status flags
     bool shown;     // Is the UI element shown or hidden?
-    bool clickable; // Is the UI clickable? (still blocks clicks on elements above it / the world space)
+    bool clickable; // Is the UI clickable? (blocks clicks on parent elements)
 };

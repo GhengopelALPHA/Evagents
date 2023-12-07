@@ -21,7 +21,13 @@ public:
 
     void saveWorld(World* world, float xpos, float ypos, float scalemult, int autosaves, const char* filename); // Save the world to a text file
     void loadWorld(World* world, float& xtranslate, float& ytranslate, float& scalemult, int& autosaves, const char* filename); // Load the world from a text file
-
+    
     const char* ourfile;
     const char* lastfile;
+
+private:
+    int mode; //what mode of loading we are currently in. Used accross multiple functions, do try and keep track of it
+
+    void itsTheEndOfTheWorld(World* world); // checks if we're at the end of the world loading, shared in both loadAgents and loadWorld
+
 };

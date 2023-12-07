@@ -44,14 +44,14 @@ void ReadWrite::loadSettings(const char *filename)
 	//if no filename given, use default
 	if(filename=="" || filename==0){
 		filename= "settings.txt";
-		printf("No filename given. Loading default settings.txt instead.\n");
+		std::cout << "No filename given. Loading default settings.txt instead." << std::endl;
 	}
 
 	//open the file
 	FILE* sf = fopen(filename, "r");
 
 	if(sf){
-		printf("file exists! loading");
+		std::cout << "file exists! loading";
 		while(!feof(sf)){
 			fgets(line, sizeof(line), sf);
 			pos= strtok(line,"\n");
@@ -181,7 +181,7 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 	char line[64], *pos;
 	char var[32];
 	char dataval[16];
-	int mode= ReadWriteMode::READY;
+	mode = ReadWriteMode::READY;
 
 	Agent xa(
 		world->BRAINBOXES,
@@ -213,6 +213,8 @@ void ReadWrite::loadAgents(World *world, FILE *file, float fileversion, bool loa
 				xa.brain.conns.clear();
 				xa.genes.clear();
 				//REMEMBER to clear any vectors we save/load
+			} else if(strcmp(var, "</world>")==0){
+				itsTheEndOfTheWorld(world);
 			}
 		} else if (mode==ReadWriteMode::AGENT){
 			if(strcmp(var, "</a>")==0){
@@ -488,7 +490,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult,
 	//Some Notes: When this method is called, it's assumed that filename is not blank or null
 	std::string addressSAV;
 	std::string addressREP;
-	printf("Filename '%s' given. Saving...\n", filename);
+	std::cout << "Filename '" << filename << "' given. Saving..." << std::endl;
 
 	//set up our save file and report file addresses
 	addressSAV= "saves\\";
@@ -575,7 +577,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult,
 		int maxday= -1;
 
 		if(ft){
-			printf("Old report.txt found, ");
+			std::cout << "Old report.txt found, ";
 			while(!feof(ft)){
 				fgets(line, sizeof(line), ft);
 				pos= strtok(line,"\n");
@@ -589,7 +591,7 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult,
 			}
 			fclose(ft);
 
-			if(world->isDebug()) printf("its last epoch was %i and day was %i.\n", maxepoch, maxday);
+			if(world->isDebug()) std::cout << "its last epoch was " << maxepoch << " and day was " << maxday << "." << std::endl;
 			
 			//now compare the max epoch from original with the first entry of the new
 			if(fr){
@@ -598,28 +600,28 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult,
 				sscanf(line, "%s%i%s%i%*s", &epochtext, &epoch, &daytext, &day);
 				if (strcmp(epochtext, "Epoch:")==0) {
 					//if it is, we append, because this is (very likely) a continuation of that save
-					if(world->isDebug()) printf("Our report.txt starts at epoch %i and day %i, ", epoch, day);
+					if(world->isDebug()) std::cout << "Our report.txt starts at epoch " << epoch << " and day " << day << ", ";
 					if ((epoch==maxepoch || epoch==maxepoch+1) && (day==maxday || day==maxday+1 || (maxday==1 && day>1))){
 						append= true;
-						printf("epoch and day numbers match. Apending to it.\n");
-					} else printf("Replacing it.\n");
+						std::cout << "epoch and day numbers match. Apending to it." << std::endl;
+					} else std::cout << "Replacing it." << std::endl;
 				}
 				rewind(fr);
 			}
 			//otherwise, we overwrite!
 		} else {
-			printf("No old report.txt found. Continuing normally.\n");
+			std::cout << "No old report.txt found. Continuing normally." << std::endl;
 		}
 		
 		ft = append ? fopen(addressREP.c_str(), "a") : fopen(addressREP.c_str(), "w");
 		if(fr){
-			if(world->isDebug()) printf("Copying report.txt to save file\n");
+			if(world->isDebug()) std::cout << "Copying report.txt to save file" << std::endl;
 			while(!feof(fr)){
 				fgets(line, sizeof(line), fr);
 				fprintf(ft, line);
 			}
 		} else {
-			printf("report.txt didn\'t exist. That\'s... odd... Stanley, what did you do?!\n");
+			std::cout << "report.txt didn\'t exist. That\'s... odd... Stanley, what did you do?!" << std::endl;
 		}
 		fclose(fr); fclose(ft);
 
@@ -628,9 +630,9 @@ void ReadWrite::saveWorld(World *world, float xpos, float ypos, float scalemult,
 			fopen("report.txt", "w");
 		}
 
-	} else printf("Demo mode was active; no report data was ready.\n");
+	} else std::cout << "Demo mode was active; no report data was ready." << std::endl;
 	
-	printf("World Saved!\n");
+	std::cout << "World Saved!" << std::endl;
 }
 
 void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, float &scalemult, int &autosaves, const char *filename)
@@ -642,7 +644,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 	char dataval[16];
 	int cxl= 0;
 	int cyl= 0;
-	int mode= ReadWriteMode::READY;//loading mode: -1= off, 0= world, 1= cell, 2= agent, 3= box, 4= connection, 5= eyes, 6= ears
+	mode = ReadWriteMode::READY;//loading mode: -1= off, 0= world, 1= cell, 2= agent, 3= box, 4= connection, 5= eyes, 6= ears
 
 	bool t1= false;
 	bool t2= false; //triggers for keeping track of where exactly we are
@@ -658,7 +660,7 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 	FILE *fl;
 	fl= fopen(address.c_str(), "r");
 	if(fl){
-		printf("file '%s' exists! loading...\n", address.c_str());
+		std::cout << "file '" << address << "' exists! loading..." << std::endl;
 		//real quick: don't keep user control active from last world
 		world->player_control = false;
 		//also disable demo mode
@@ -674,35 +676,24 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 					//if we find a <world> tag, enable world loading and reset. simple
 					mode= ReadWriteMode::WORLD;
 					world->reset();
-					printf("...discovered world...\n"); //report status
+					std::cout << "...discovered world..." << std::endl; //report status
 				} else if(strcmp(var, "<a>")==0){ //UNUSED
 					//if we instead immediately find an <a> tag, switch to agent loading mode - this save was only made with agents and we're meant to only load them
 					mode= ReadWriteMode::AGENT;
 					world->sanitize();
-					printf("...discovered agent database...\n"); //report status
+					std::cout << "...discovered agent database..." << std::endl; //report status
 				}
 			}else if(mode==ReadWriteMode::WORLD){
-				if(strcmp(var, "</world>")==0){ //check for end of world flag, indicating we're done
-					mode= ReadWriteMode::OFF;
+				if(strcmp(var, "</world>") == 0){ //check for end of world flag, indicating we're done
+                    itsTheEndOfTheWorld(world);
 
-					printf("...WORLD LOADED!\n");
-					world->addEvent("World Loaded!", EventColor::MINT);
-
-					world->setStatsAfterLoad();
-
-					world->processCells(true);
-					world->setInputs();
-					world->brainsTick();
-					world->processOutputs(true);
-					world->processOutputs(true);
-					world->processOutputs(true);
-					world->processOutputs(true);
-					world->processOutputs(true);
 				}else if(strcmp(var, "V=")==0){
 					//version number
 					sscanf(dataval, "%f", &f);
 					if(f!=conf::VERSION) {
-						printf("ALERT: Version Number different! Expected V= %.2f, found V= %.2f\n", conf::VERSION, f);
+						std::cout << "ALERT: Version Number different! Expected V= " << std::fixed << /*std::setprecision(2) <<*/ conf::VERSION
+                            << ", found V= " << std::fixed << /*std::setprecision(2) <<*/ f << std::endl;
+
 						if(f < 0.08) {
 							break;
 						} //we are not converting old saves in version 0.08
@@ -714,34 +705,34 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 				}else if(strcmp(var, "INPUTS=")==0){
 					sscanf(dataval, "%i", &i);
 					if(i!=Input::INPUT_SIZE) {
-						printf("ALERT: Brain Input size different! Issues WILL occur! Press enter to try and continue. . .\n");
+						std::cout << "ALERT: Brain Input size different! Issues WILL occur! Press enter to try and continue. . ." << std::endl;
 						cin.get();
 					}
 				}else if(strcmp(var, "OUTPUTS=")==0){
 					sscanf(dataval, "%i", &i);
 					if(i!=Output::OUTPUT_SIZE) {
-						printf("ALERT: Brain Output size different! Issues WILL occur! Press enter to try and continue. . .\n");
+						std::cout << "ALERT: Brain Output size different! Issues WILL occur! Press enter to try and continue. . ." << std::endl;
 						cin.get();
 					}
 				}else if(strcmp(var, "WIDTH=")==0){
 					//this WILL be loaded soon
 					sscanf(dataval, "%i", &i);
 					if(i!=conf::WIDTH) {
-						printf("ALERT: World Width different! Issues WILL occur! Press enter to try and continue. . .\n");
+						std::cout << "ALERT: World Width different! Issues WILL occur! Press enter to try and continue. . ." << std::endl;
 						cin.get();
 					}
 				}else if(strcmp(var, "HEIGHT=")==0){
 					//this WILL be loaded soon
 					sscanf(dataval, "%i", &i);
 					if(i!=conf::HEIGHT) {
-						printf("ALERT: World Height different! Issues WILL occur! Press enter to try and continue. . .\n");
+						std::cout << "ALERT: World Height different! Issues WILL occur! Press enter to try and continue. . ." << std::endl;
 						cin.get();
 					}
 				}else if(strcmp(var, "CELLSIZE=")==0){
 					//this may be loaded soon
 					sscanf(dataval, "%i", &i);
 					if(i!=conf::CZ) {
-						printf("ALERT: Cell Size different! Issues WILL occur! Press enter to try and continue. . .\n");
+						std::cout << "ALERT: Cell Size different! Issues WILL occur! Press enter to try and continue. . ." << std::endl;
 						cin.get();
 					}
 				}else if(strcmp(var, "AGENTS_SEE_CELLS=")==0){
@@ -833,12 +824,12 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 				}else if(strcmp(var, "<c>")==0){
 					//cells tag activates cell reading mode
 					mode= ReadWriteMode::CELL;
-					if (!t1) printf("...loading cells...\n"); //report status
+					if (!t1) std::cout << "...loading cells..." << std::endl; //report status
 					t1= true;
 				}else if(strcmp(var, "<a>")==0){
 					//agent tag activates agent reading mode
 					//version 0.05: this is no longer a mode, but rather a whole another method. Should function identically
-					if (!t2) printf("...loading agents...\n"); //report status
+					if (!t2) std::cout << "...loading agents..." << std::endl; //report status
 					t2= true;
 					loadAgents(world, fl, fileversion); //when we leave here, should be EOF		
 				}
@@ -873,6 +864,15 @@ void ReadWrite::loadWorld(World *world, float &xtranslate, float &ytranslate, fl
 		fclose(fl);
 
 	} else { //DOH! the file doesn't exist!
-		printf("ERROR: Save file specified, '%s' doesn't exist!\n", address);
+		std::cout << "ERROR: Save file specified, '" << address << "' doesn't exist!" << std::endl;
 	}
+}
+
+void ReadWrite::itsTheEndOfTheWorld(World* world) {
+    mode = ReadWriteMode::OFF;
+
+	std::cout << "...WORLD LOADED!" << std::endl;
+	world->addEvent("World Loaded!", EventColor::MINT);
+
+	world->executeAfterLoad();
 }

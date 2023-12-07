@@ -1,12 +1,11 @@
-#ifndef WORLD_H
-#define WORLD_H
+#pragma once
 
-#include "Agent.h"
 #include "settings.h"
+#include "Agent.h"
 #include <vector>
 #include <sstream>
-
 #include <irrKlang.h>
+
 using namespace irrklang;
 
 class World
@@ -15,92 +14,90 @@ public:
     World();
 	World(int width, int height);
     ~World();
-
-	ISoundEngine* audio; //audio engine, provided by irrKlang. See http://www.ambiera.com/irrklang for details
-	bool dosounds; //are we currently allowed to start new sounds?
-	bool domusic; //are we allowed to start new music?
-	void setAudioEngine(ISoundEngine* a);
-	void tryPlayAudio(const char* soundFileName, float x= 0, float y= 0, float pitch= 1.0, float volume= 1.0);
-	int last5songs[5]; //tracker for last 5 songs based on index that we played, to prevent recent repeats
-	ISound* currentsong;
-	int timenewsong; //timer. Gets set when a song ends, and when it hits 0, a new song starts
     
-	void init();
-
-	/// file functions
-	void readConfig();
-	void writeConfig();
-	std::vector<std::string> listFilesInDirectory(const std::string& path);
-	std::vector<std::string> music_list;
-
-	//setup functions
+    // setup functions
 	void setSeed(unsigned int seed);
     void reset();
 	void sanitize();
 	void spawn();
-	void update();
-	void cellsRoundTerrain();
-	void setSTATLandRatio();
+
+
+    // Audio Functions (CONTROL.CPP)
+    ISoundEngine* audio; //audio engine, provided by irrKlang. See http://www.ambiera.com/irrklang for details
+    bool dosounds;      // are we currently allowed to start new sounds?
+	bool domusic;       // are we allowed to start new music?
+	int timenewsong;    // timer. Gets set when a song ends, and when it hits 0, a new song starts
+    //don't need to be public:
+    ISound* currentsong;
+	int last5songs[5];  // tracker for last 5 songs based on index that we played, to prevent recent repeats
+	
+	void setAudioEngine(ISoundEngine* a);
+	void tryPlayAudio(const char* soundFileName, float x= 0, float y= 0, float pitch= 1.0, float volume= 1.0);
+
+
+    // file functions (CONTROL.CPP? SETTINGS.CPP?)
+    std::vector<std::string> music_list; // UNUSED
+    std::vector<std::string> listFilesInDirectory(const std::string& path); // NEED TO UPDATE TO C++17
+	void readConfig();
+	void writeConfig();
     
-	//world status
-    bool isClosed() const;
+
+	// world status: Params, Get, Set, and Check
+    int modcounter;
+    int current_epoch;
+    int idcounter;
+
+    int getEpoch() const;
+	int getDay() const;
+	float getLowTemp();
+	float getHighTemp();
+    float calcTempAtCoord(float y); //calculate the temperature at any y-coord
+	float calcTempAtCoord(int worldcy); //calculate temp at coord, using cell coord
+
     void setClosed(bool close);
+    void setDemo(bool state);
+
+    bool isClosed() const;
 	bool isDrought() const;
 	bool isOvergrowth() const;
 	bool isIceAge() const;
 	bool isHadean() const;
 	bool isExtreme() const;
 	bool isDemo() const;
-	void setDemo(bool state);
 
-	//debug stuff
-	bool isDebug() const;
-	void setDebug(bool state);
-	void printDebug(char message[]);
-	std::vector<Vector3f> linesA;
-	std::vector<Vector3f> linesB;
 
-	//following and selected agent stuff
-	int getSelectedID() const;
-	bool selectPreviousSelected(); // swap the current and previous selected agent ids. Returns true if successful, false if the ids are identical
-	bool isAgentSelected(int id);
-
-	bool player_control;
-	float player_left;
-	float player_right;
-	void setControl(bool state);
-
-	void setSelection(int type);
-	bool setSelectionRelative(int posneg);
-	void setSelectedAgent(int idx = -1);
-	int getSelectedAgentIndex();
-	Agent* getSelectedAgent();
-	int getClosestRelative(int idx = -1);
-	void selectedHeal();
-	void selectedKill();
-	void selectedBabys();
-	void selectedMutate();
-	void selectedStomachMut();
-	void selectedPrint();
-	void selectedTrace(int mode);
-	void selectedInput(bool state);
-	void getFollowLocation(float &xi, float &yi);
-	std::vector<Vector3f> lifepath; //list of positions by the selected agent over time. resets when we select someone, or decay
-	bool recordlifepath;
-
-	bool isAutoselecting() const;
-	void setAutoselect(bool state);
-
-	int getEpoch() const;
-	int getDay() const;
-	float getLowTemp();
-	float getHighTemp();
-    
-    //mouse interaction
+    // World Interaction functions:
+    void update();  // Main update loop called by GLView (should be Control.cpp?)
 	bool processMouse(int button, int state, int x, int y, float scale);
-    
-	//graph stuff
-	std::vector<int> graphGuides;
+
+
+    // The Cell Layers!
+	int CW; // current Cell layer width and height. Right now, CW = conf::WIDTH/conf::CZ and CH = conf::HEIGHT/conf::CZ
+	int CH;
+	float cells[Layer::LAYERS][conf::WIDTH/conf::CZ][conf::HEIGHT/conf::CZ]; // [LAYER][CELL_X][CELL_Y]
+	std::vector<std::vector<float>> Tcells[Layer::LAYERS]; // UNUSED test cell layer: array of 2-d vectors. Array portion is immutable layer data. 2-d size is adjustable
+
+
+    // The Agents!
+    void addAgent(Agent &agent);
+    void addAgents(int num, int set_stomach=-1, bool set_lungs=true, bool set_temp_pref=true, float nx=-1, float ny=-1);
+	bool addLoadedAgent(float x, float y);
+
+	std::vector<Agent> agents;
+	Agent loadedagent; // CONTROL.CPP?
+
+
+    // Event list
+    std::vector<std::pair<std::string,std::pair<int,int>>> events; //short-term record of events happening in the sim. includes text, type, and counter
+    std::vector<std::string> tips; // static list of tips to display every once in a while (more frequently at epoch=0)
+	
+    void addEvent(std::string text, int type= 0); // adds event to the event list. max of ~40 characters
+	void addAgentTipEvent(std::string text, int type, int agentId); // post an event only if we: A: are in demo mode, and B: have the current agent selected that matches the index passed
+	void dismissNextEvents(int count= 1); // dismisses next [count] events (starts their disappearing act, doesn't delete them!)
+
+
+    // Reporting records: Params, Get, Set
+    std::vector<int> graphGuides;
 	std::vector<int> numTotal;
 	std::vector<int> numDead;
 	std::vector<int> numHerbivore;
@@ -112,58 +109,8 @@ public:
 	std::vector<int> numHybrid;
 	std::vector<int> numSpiky;
 	std::vector<int> numBitey;
+    std::vector<std::string> deaths; //record of all the causes of death this epoch
 
-	//counters
-	int modcounter;
-    int current_epoch;
-    int idcounter;
-
-	//the agents!
-	std::vector<Agent> agents;
-	Agent loadedagent;
-
-	void processWorldTick(); //handle all tick/day/report/epoch opperations
-	void processNewEpoch();
-	void processClimate();
-	void processMutationEvent();
-	void processReporting();
-	void triggerStatEvents(bool showevents= true);
-	void processCells(bool prefire= false);
-	void tryPlayMusic(); //CONTROL.CPP!!!
-	void setInputs();
-	void brainsTick();  //takes in[] to out[] for every agent
-	void processCounters(); //handle most agent counter variables and do other stuff before processOutputs and healthTick
-    void processOutputs(bool prefire= false); //prefire used to run post-load sim restoration before restart
-	void healthTick(); //process agent health
-	void processReproduction(); //handle all agent's reproduction needs
-	void processCellInteractions(); //does interactions of agents with cells
-	void applyIntakes(Agent* a, float &plant, float &fruit, float &meat); // applies intake for all given values, and alters the values back out
-	float getMetabolismRatio(float metabolism);
-	void processAgentInteractions(); //does interactions of agents with agents
-	void resetAgentGrab(Agent* a, bool play_sfx); //reset a given agent's grab (usually if losing target for some reason and need to play sfx)
-	void processDeath(); //manage the distribution of meat, alerts, and death system functions
-	float getDroppedMeat(Agent* a);
-	void processRandomSpawn(); //handle spawning of random agents; gotta keep the world filled!
-
-	void addAgent(Agent &agent);
-	bool addLoadedAgent(float x, float y);
-	void addAgents(int num, int set_stomach=-1, bool set_lungs=true, bool set_temp_pref=true, float nx=-1, float ny=-1);
-
-	float calcTempAtCoord(float y); //calculate the temperature at any y-coord
-	float calcTempAtCoord(int worldcy); //calculate temp at coord, using cell coord
-
-	std::vector<std::string> deaths; //record of all the causes of death this epoch
-
-	std::vector<float> selectedSounds; //a list of all the sounds heard by the agent. the int-value /100 is the volume, the float-value is the tone. Visual only
-
-	std::vector<std::pair <std::string ,std::pair <int,int> > > events; //short-term record of events happening in the sim. includes text, type, and counter
-	void addEvent(std::string text, int type= 0); //adds event to the event list. max of ~40 characters
-	void addTipEvent(std::string text, int type, int agentId); //post an event only if we: A: are in demo mode, and B: have the current agent selected that matches the index passed
-	void dismissNextEvents(int count= 1); //dismisses next [count] events (starts their disappearing act, doesn't delete them!)
-
-	void setStatsAfterLoad();
-
-	//helper functions to give us counts of agents and cells
     int getHerbivores() const;
 	int getCarnivores() const;
 	int getFrugivores() const;
@@ -187,21 +134,62 @@ public:
 	float getMeatAvg() const;
 	float getHazardAvg() const;
 
-	//cells; replaces food layer, can be expanded (4 layers currently)
-	//[LAYER] represents current layer, see settings.h for ordering
-	int CW;
-	int CH;
-	float cells[Layer::LAYERS][conf::WIDTH/conf::CZ][conf::HEIGHT/conf::CZ]; //[LAYER][CELL_X][CELL_Y]
-	std::vector<std::vector<float> > Tcells[Layer::LAYERS]; //test cell layer: array of 2-d vectors. Array portion is immutable layer data. 2-d size is adjustable
+    void executeAfterLoad();
+
+
+	// debug features
+	bool isDebug() const;
+	void setDebug(bool state);
+	void printDebug(char message[]); // this prints 'message' only when in DEBUG build AND in Debug mode (essentially verbose output)
+	std::vector<Vector3f> linesA;
+	std::vector<Vector3f> linesB;   // vision debug lines (drawn to entities/locations the selected agent sees)
+
+
+	// Selected agent functions: Get, Set, and Check
+    int getSelectedAgentIndex();
+	Agent* getSelectedAgent();
+    int getClosestRelative(int idx = -1);
+    void getFollowLocation(float& xi, float& yi);
+
+	void setSelection(int type);
+	bool setSelectionRelative(int posneg);
+	void setSelectedAgent(int idx = -1);
+	bool selectPreviousSelected(); // swap the current and previous selected agent ids. Returns true if successful, false if the ids are identical
+
+	bool isAgentSelected(int id);
+
+
+    // selected agent functions: modify agent
+    std::vector<float> selectedSounds; //a list of all the sounds heard by the agent. the int-value /100 is the volume, the float-value is the tone. Visual only
+    std::vector<Vector3f> lifepath; //list of positions by the selected agent over time. resets when we selection changes
+	bool recordlifepath;
+	bool player_control;
+	float player_left;
+	float player_right;
+
+    void selectedHeal();
+	void selectedKill();
+	void selectedBabys();
+	void selectedMutate();
+	void selectedStomachMut();
+	void selectedPrint();
+	void selectedTrace(int mode);
+	void selectedInput(bool state);
+    void setControl(bool state);
+
+
+    // Main Loop helper functions, public access
+    float getMetabolismRatio(float metabolism);
+
 
 	//public stats
-	int STAThighestgen; //highest and lowest generation (excluding gen 0 unless that's all there is)
+	int STAThighestgen;     //highest and lowest generation (excluding gen 0 unless that's all there is)
 	int STATlowestgen;
-	float STATinvgenrange; //range of generation values, with high-gen forcast, inverted (1/this)
-	int STAThighestage; //highest age
+	float STATinvgenrange;  //range of generation values, with high-gen forcast, inverted (1/this)
+	int STAThighestage;     //highest age
 	int MINPOP;
 	int MAXPOP;
-	bool MAXAFTERMIN; //if max is set after min (pop rise), this returns true, otherwise false (pop fall)
+	bool MAXAFTERMIN;       //if max is set after min (pop rise), this returns true, otherwise false (pop fall)
 
 	//reloadable "constants"
 	int MIN_PLANT;
@@ -357,67 +345,100 @@ public:
 	float HAZARD_DEPOSIT;
 	float HAZARD_DAMAGE;
 	float HAZARD_POWER;
-
-	std::vector<std::string> tips;//list of tips to display every once in a while (more frequently at epoch=0)
     
 private:
-    void writeReport();
-	    
-	void reproduce(int ai, int bi);
+    void init();
 
-	void cellsRandomFill(int layer, float amount, int number);
+    // Init helper functions
+    //void cellsRandomFill(int layer, float amount, int number);
 	void cellsLandMasses();
-	void findStats(); //finds the world's current stats (population counts, best gens, etc)
+    void cellsRoundTerrain();
 
-	unsigned int SEED; //THE random seed for the entire sim.
-    bool CLOSED; //if environment is closed, then no random bots or food are added per time interval
-	bool DEMO; //if demo mode active, we don't save report until it gets turned off, which happens automatically at Epoch 1. Also settings.cfg-controllable
-	bool DEBUG; //if debugging, collect additional data, print more feedback, and draw extra info
-	bool AUTOSELECT; //if autoselecting, the agent which we are newly following gets selected
-	int SELECTION; //id of selected agent
-	int PREV_SELECTION; //id of the previously selected agent
+    
+    // Main Loop Functions
+	void processWorldTick(); //handle all tick/day/report/epoch opperations
+	void processNewEpoch();
+	void processClimate();
+	void processMutationEvent();
+	void processReporting();
+    void processCells(bool prefire= false);
+    void setInputs();
+    void brainsTick();  //takes in[] to out[] for every agent
+	void processCounters(); //handle most agent counter variables and do other stuff before processOutputs and healthTick
+    void processOutputs(bool prefire= false); //prefire used to run post-load sim restoration before restart
+	void healthTick(); //process agent health
+	void processReproduction(); //handle all agent's reproduction needs
+	void processCellInteractions(); //does interactions of agents with cells
+    void processAgentInteractions(); //does interactions of agents with agents
+    void processDeath(); //manage the distribution of meat, alerts, and death system functions
+    void processRandomSpawn(); //handle spawning of random agents; gotta keep the world filled!
 
-	//Stats and acheivements
-	int STATherbivores; //count of the different stomach types
-	int STATfrugivores;
-	int STATcarnivores;
-	int STATterrans; //count of land- and sea-dwelling agents
-	int STATamphibians;
-	int STATaquatic;
-	int STATalive; //count of alive, not total
-	int STATdead; //count of dead agents
-	int STATlivemutations; //count of live mutations occured
-	int STATspiky; //count of spiky agents
-	int STATbitey; //count of biting agents
-	int STAThybrids; //count of hybrid (sexually produced) babies
-	int STATbestherbi; //best generation of the different stomach types and land types
-	int STATbestfrugi;
-	int STATbestcarni;
-	int STATbestterran;
-	int STATbestamphibious;
-	int STATbestaquatic;
-	int STATbesthybrid; //best gen hybrid
-	int STATplants; //count of plant cells over 50%
-	int STATfruits; //count of fruit cells over 50%
-	int STATmeats; //count of meat cells over 50%
-	int STAThazards; //count of hazard cells over 50%
-	float STATlandratio; //saved ratio of land/water
-	float STATallplant; //exact number sum of all plant matter
-	float STATallfruit; //exact number sum of all fruit matter
-	float STATallmeat; //exact number sum of all plant matter
-	float STATallhazard; //exact number sum of all plant matter
 
-	bool STATuserseengenerosity; //true if the user was shown an event when an agent sent health via generosity
-	bool STATuserseenjumping; //true if the user has seen jumping
-	bool STATuserseengrab; //true if the user has seen grabbing
-	bool STATuseracted; //true if the user took control of an agent
-	bool STATfirstspecies; //true if we have had at least one agent with a generation =5 during a report
-	bool STATfirstpopulation; //true if we had a population count of > AGENTS_MAX_SPAWN
-	bool STATfirstglobal; //true if we had max gens >= 5 for terran and aquatic
-	bool STATstrongspecies; //true if we had a max gen count of > 500
-	bool STATstrongspecies2; //true if we had a max gen count of > 1000
-	bool STATwildspecies; //true if we had a speciesID > the default range value
-	bool STATallachieved; //true if all the above are true
+    // Main Loop helper functions
+    void triggerStatEvents(bool showevents= true);
+    void tryPlayMusic(); // CONTROL.CPP!!!
+	void applyIntakes(Agent* a, float &plant, float &fruit, float &meat); // applies intake for all given values, and alters the values back out
+	void resetAgentGrab(Agent* a, bool play_sfx); // reset a given agent's grab (usually if losing target for some reason and need to play sfx)
+	float getDroppedMeat(Agent* a);
+    void reproduce(int ai, int bi);
+
+
+    // Reporting helper functions
+    void findStats();   // finds the world's current stats (population counts, best gens, etc)
+    void setSTATLandRatio();
+    void writeReport();
+
+
+    // Internal Variables
+	unsigned int SEED;  // THE random seed for the entire sim.
+    bool CLOSED;        // if environment is closed, then no random bots or food are added per time interval
+	bool DEMO;          // if demo mode active, we don't save report until it gets turned off, which happens automatically at Epoch 1. Also settings.cfg-controllable
+	bool DEBUG;         // if debugging, collect additional data, print more feedback, and draw extra info
+	int SELECTION;      // id of selected agent
+	int PREV_SELECTION; // id of the previously selected agent
+
+
+	// Stats and acheivements
+	int STATherbivores;           // count of the different stomach types
+    int STATfrugivores;
+    int STATcarnivores;
+    int STATterrans;              // count of land- and sea-dwelling agents
+    int STATamphibians;
+    int STATaquatic;
+    int STATalive;                // count of alive, not total
+    int STATdead;                 // count of dead agents
+    int STATlivemutations;        // count of live mutations occurred
+    int STATspiky;                // count of spiky agents
+    int STATbitey;                // count of biting agents
+    int STAThybrids;              // count of hybrid (sexually produced) babies
+    int STATbestherbi;            // best generation of the different stomach types and land types
+    int STATbestfrugi;
+    int STATbestcarni;
+    int STATbestterran;
+    int STATbestamphibious;
+    int STATbestaquatic;
+    int STATbesthybrid;           // best gen hybrid
+    int STATplants;               // count of plant cells over 50%
+    int STATfruits;               // count of fruit cells over 50%
+    int STATmeats;                // count of meat cells over 50%
+    int STAThazards;              // count of hazard cells over 50%
+    float STATlandratio;          // saved ratio of land/water
+    float STATallplant;           // exact number sum of all plant matter
+    float STATallfruit;           // exact number sum of all fruit matter
+    float STATallmeat;            // exact number sum of all plant matter
+    float STATallhazard;          // exact number sum of all plant matter
+
+    bool STATuserseengenerosity;  // true if the user was shown an event when an agent sent health via generosity
+    bool STATuserseenjumping;     // true if the user has seen jumping
+    bool STATuserseengrab;        // true if the user has seen grabbing
+    bool STATuseracted;           // true if the user took control of an agent
+    bool STATfirstspecies;        // true if we have had at least one agent with a generation = 5 during a report
+    bool STATfirstpopulation;     // true if we had a population count of > AGENTS_MAX_SPAWN
+    bool STATfirstglobal;         // true if we had max gens >= 5 for terran and aquatic
+    bool STATstrongspecies;       // true if we had a max gen count of > 500
+    bool STATstrongspecies2;      // true if we had a max gen count of > 1000
+    bool STATwildspecies;         // true if we had a speciesID > the default range value
+    bool STATallachieved;         // true if all the above are true
+
 };
 
-#endif // WORLD_H

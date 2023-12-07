@@ -41,9 +41,10 @@ World::World() :
 	//spawn happens whenever we wish to seed a world with random food, terrain, and bots (now, or after starting a new world)
 	spawn();
 
-	printf("WORLD MADE!\n");
+	std::cout << "WORLD MADE!" << std::endl;
 	addEvent("Simulation Started!", EventColor::MINT);
 }
+
 
 World::~World()
 {
@@ -51,69 +52,291 @@ World::~World()
 }
 
 
-void World::setAudioEngine(ISoundEngine* a)
-//Control.cpp
+void World::init()
 {
-	audio= a;
-	//audio call example: if(dosounds) audio->play2D("sounds/agents/chirp1.ogg");
+	std::cout << "...starting up..." << std::endl;
+
+    music_list = listFilesInDirectory(conf::MUSIC_FOLDER);
+    last5songs[0] = -1;
+
+    // ALL .cfg constants must be initially declared in world.h and defined here.
+    NO_TIPS = false;
+    CONTINENTS = conf::CONTINENTS;
+    CONTINENT_ROUGHNESS = conf::CONTINENT_ROUGHNESS;
+    OCEANPERCENT = conf::OCEANPERCENT;
+    SPAWN_LAKES = conf::SPAWN_LAKES;
+    ISLANDNESS = conf::ISLANDNESS;
+    FEATURES_TO_SPAWN = conf::FEATURES_TO_SPAWN;
+    DISABLE_LAND_SPAWN = conf::DISABLE_LAND_SPAWN;
+    AMBIENT_LIGHT_PERCENT = conf::AMBIENT_LIGHT_PERCENT;
+    AGENTS_SEE_CELLS = conf::AGENTS_SEE_CELLS;
+    AGENTS_DONT_OVERDONATE = conf::AGENTS_DONT_OVERDONATE;
+    MOONLIT = conf::MOONLIT;
+    MOONLIGHTMULT = conf::MOONLIGHTMULT;
+    DROUGHTS = conf::DROUGHTS;
+    DROUGHT_MIN = conf::DROUGHT_MIN;
+    DROUGHT_MAX = conf::DROUGHT_MAX;
+    MUTEVENTS = conf::MUTEVENTS;
+    MUTEVENT_MAX = conf::MUTEVENT_MAX;
+    CLIMATE = conf::CLIMATE;
+    CLIMATE_INTENSITY = conf::CLIMATE_INTENSITY;
+    CLIMATEMULT_AVERAGE = conf::CLIMATEMULT_AVERAGE;
+    CLIMATE_AFFECT_FLORA = conf::CLIMATE_AFFECT_FLORA;
+
+    MIN_PLANT= conf::MIN_PLANT;
+    INITPLANTDENSITY= conf::INITPLANTDENSITY;
+    INITFRUITDENSITY= conf::INITFRUITDENSITY;
+	INITMEATDENSITY= conf::INITMEATDENSITY;
+    INITHAZARDDENSITY= conf::INITHAZARDDENSITY;
+    AGENTS_MIN_NOTCLOSED= conf::AGENTS_MIN_NOTCLOSED;
+    AGENTS_MAX_SPAWN= conf::AGENTS_MAX_SPAWN;
+	AGENTSPAWN_FREQ= conf::AGENTSPAWN_FREQ;
+    AGENTS_MAX_NOOXYGEN= conf::AGENTS_MAX_NOOXYGEN;
+
+	REPORTS_PER_EPOCH= conf::REPORTS_PER_EPOCH;
+    FRAMES_PER_EPOCH= conf::FRAMES_PER_EPOCH;
+    FRAMES_PER_DAY= conf::FRAMES_PER_DAY;
+
+	GRAVITY_ACCELERATION= conf::GRAVITY_ACCELERATION;
+    BUMP_PRESSURE= conf::BUMP_PRESSURE;
+	GRAB_PRESSURE= conf::GRAB_PRESSURE;
+	BRAINBOXES= conf::BRAINBOXES;
+	BRAINCONNS= conf::BRAINCONNS;
+    WHEEL_SPEED= conf::WHEEL_SPEED;
+	JUMP_MOVE_BONUS_MULT= conf::JUMP_MOVE_BONUS_MULT;
+    BOOST_MOVE_MULT= conf::BOOST_MOVE_MULT;
+	BOOST_EXAUSTION_MULT= conf::BOOST_EXAUSTION_MULT;
+	CORPSE_FRAMES= conf::CORPSE_FRAMES;
+	CORPSE_MEAT_MIN= conf::CORPSE_MEAT_MIN;
+	SOUND_PITCH_RANGE= conf::SOUND_PITCH_RANGE;
+	INV_SOUND_PITCH_RANGE = 1/SOUND_PITCH_RANGE;
+
+    GENEROSITY_RATE= conf::GENEROSITY_RATE;
+	BASEEXHAUSTION= conf::BASEEXHAUSTION;
+	EXHAUSTION_MULT_PER_CONN= conf::EXHAUSTION_MULT_PER_CONN;
+	EXHAUSTION_MULT_PER_OUTPUT= conf::EXHAUSTION_MULT_PER_OUTPUT;
+	ENCUMBERED_MOVE_MULT= conf::ENCUMBERED_MOVE_MULT;
+	MEANRADIUS= conf::MEANRADIUS;
+    SPIKE_RAISE_SPEED = conf::SPIKE_RAISE_SPEED;
+	JAW_INTAKE_MAX_MULT = conf::JAW_INTAKE_MAX_MULT;
+	SPAWN_MIRROR_EYES= conf::SPAWN_MIRROR_EYES;
+	PRESERVE_MIRROR_EYES= conf::PRESERVE_MIRROR_EYES;
+	HEALTH_CAP = conf::HEALTH_CAP;
+    FRESHKILLTIME= conf::FRESHKILLTIME;
+	TENDERAGE= conf::TENDERAGE;
+	INV_TENDERAGE= 1/(float)conf::TENDERAGE;
+    MINMOMHEALTH= conf::MINMOMHEALTH;
+	MIN_METABOLISM_HEALTH_RATIO= conf::MIN_METABOLISM_HEALTH_RATIO;
+	FUN= 0;
+	SUN_RED= 1.0;
+	SUN_GRE= 1.0;
+	SUN_BLU= 0.8;
+    REP_PER_BABY= conf::REP_PER_BABY;
+	OVERHEAL_REPFILL= conf::OVERHEAL_REPFILL;
+//    LEARNRATE= conf::LEARNRATE;
+    OVERRIDE_KINRANGE= conf::OVERRIDE_KINRANGE;
+	DEFAULT_BRAIN_MUTCHANCE= conf::DEFAULT_BRAIN_MUTCHANCE;
+	DEFAULT_BRAIN_MUTSIZE= conf::DEFAULT_BRAIN_MUTSIZE;
+	DEFAULT_GENE_MUTCHANCE= conf::DEFAULT_GENE_MUTCHANCE;
+	DEFAULT_GENE_MUTSIZE= conf::DEFAULT_GENE_MUTSIZE;
+	LIVE_MUTATE_CHANCE= conf::LIVE_MUTATE_CHANCE;
+    MAXAGE= conf::MAXAGE;
+	MAX_WASTE_FREQ = conf::MAX_WASTE_FREQ;
+
+    MAX_SENSORY_DISTANCE= conf::MAX_SENSORY_DISTANCE;
+	INV_MAX_SENSORY_DISTANCE= 1/MAX_SENSORY_DISTANCE;
+    MAX_SPIKE_LENGTH = conf::MAX_SPIKE_LENGTH;
+	BITE_DISTANCE = conf::BITE_DISTANCE;
+    BUMP_DAMAGE_OVERLAP= conf::BUMP_DAMAGE_OVERLAP;
+    FOOD_SHARING_DISTANCE= conf::FOOD_SHARING_DISTANCE;
+    SEXTING_DISTANCE= conf::SEXTING_DISTANCE;
+    GRABBING_DISTANCE= conf::GRABBING_DISTANCE;
+	BLOOD_SENSE_DISTANCE= conf::BLOOD_SENSE_DISTANCE;
+
+	EYE_SENSE_MAX_FOV= conf::EYE_SENSE_MAX_FOV;
+	BLOOD_SENSE_MAX_FOV= conf::BLOOD_SENSE_MAX_FOV;
+	GRAB_MAX_FOV= conf::GRAB_MAX_FOV;
+
+    HEALTHLOSS_WHEELS= conf::HEALTHLOSS_WHEELS;
+    HEALTHLOSS_BOOSTMULT= conf::HEALTHLOSS_BOOSTMULT;
+    HEALTHLOSS_BADTEMP= conf::HEALTHLOSS_BADTEMP;
+    HEALTHLOSS_AGING= conf::HEALTHLOSS_AGING;
+	HEALTHLOSS_EXHAUSTION= conf::HEALTHLOSS_EXHAUSTION;
+    HEALTHLOSS_BRAINUSE= conf::HEALTHLOSS_BRAINUSE;
+    HEALTHLOSS_SPIKE_EXT= conf::HEALTHLOSS_SPIKE_EXT;
+    HEALTHLOSS_BADTERRAIN= conf::HEALTHLOSS_BADTERRAIN;
+    HEALTHLOSS_NOOXYGEN= conf::HEALTHLOSS_NOOXYGEN;
+    HEALTHLOSS_ASEX= conf::HEALTHLOSS_ASEX;
+
+	DAMAGE_FULLSPIKE= conf::DAMAGE_FULLSPIKE;
+	DAMAGE_COLLIDE= conf::DAMAGE_COLLIDE;
+    DAMAGE_JAWSNAP= conf::DAMAGE_JAWSNAP;
+
+	STOMACH_EFFICIENCY= conf::STOMACH_EFFICIENCY;
+
+    PLANT_INTAKE= conf::PLANT_INTAKE;
+    PLANT_DECAY= conf::PLANT_DECAY;
+    PLANT_GROWTH= conf::PLANT_GROWTH;
+    PLANT_WASTE= conf::PLANT_WASTE;
+    PLANT_ADD_FREQ= conf::PLANT_ADD_FREQ;
+    PLANT_SPREAD= conf::PLANT_SPREAD;
+    PLANT_RANGE= conf::PLANT_RANGE;
+	PLANT_TENACITY= conf::PLANT_TENACITY;
+
+    FRUIT_INTAKE= conf::FRUIT_INTAKE;
+    FRUIT_DECAY= conf::FRUIT_DECAY;
+    FRUIT_WASTE= conf::FRUIT_WASTE;
+    FRUIT_ADD_FREQ= conf::FRUIT_ADD_FREQ;
+    FRUIT_PLANT_REQUIRE= conf::FRUIT_PLANT_REQUIRE;
+
+    MEAT_INTAKE= conf::MEAT_INTAKE;
+    MEAT_DECAY= conf::MEAT_DECAY;
+    MEAT_WASTE= conf::MEAT_WASTE;
+    MEAT_DEPOSIT_VALUE= conf::MEAT_DEPOSIT_VALUE;
+	MEAT_NON_FRESHKILL_MULT = conf::MEAT_NON_FRESHKILL_MULT;
+
+    HAZARD_EVENT_FREQ= conf::HAZARD_EVENT_FREQ;
+	HAZARD_EVENT_MULT= conf::HAZARD_EVENT_MULT;
+    HAZARD_DECAY= conf::HAZARD_DECAY;
+    HAZARD_DEPOSIT= conf::HAZARD_DEPOSIT;
+    HAZARD_DAMAGE= conf::HAZARD_DAMAGE;
+	HAZARD_POWER= conf::HAZARD_POWER;
+
+	// tip popups. typically the first one is guarenteed to display the moment the sim starts, then each one after has a decreasing
+	// chance of being seen second, third, etc. The first 16 or so are very likely to be seen at least once durring epoch 0
+	#if defined(_DEBUG)
+    std::cout << "DEBUG ENVIRONMENT DETECTED, SKIPPING TIPS, SETTING MOONLIT=false" << std::endl;
+    MOONLIT = false;
+    NO_TIPS = true;
+    #endif
+
+	tips.push_back("Left-click an agent to select it");
+	tips.push_back("Press 'f' to follow selected agent");
+	tips.push_back("Zoom with middle mouse click&drag");
+	tips.push_back("Pan around with left click&drag");
+	tips.push_back("Press 'q' to recenter map & graphs");
+	tips.push_back("Press 'spacebar' to pause");
+	tips.push_back("Dead agents make 8bit death sound");
+	tips.push_back("Early agents die from exhaustion a lot");
+	tips.push_back("Press '1' to select oldest agent");
+	tips.push_back("Oldest agent has good chances");
+	tips.push_back("Demo prevents report.txt changes");
+	tips.push_back("Autosaves happen 10 sim days");
+	tips.push_back("Cycle layer views with 'k' & 'l'");
+	tips.push_back("View all layers again with 'o'");
+	tips.push_back("Green bar next to agents is Health");
+	tips.push_back("Yellow bar next to agents is Energy");
+	tips.push_back("Blue bar is Reproduction Counter");
+	tips.push_back("Agent 'whiskers' are eye orientations");
+	tips.push_back("Press number keys for auto-selections");
+	tips.push_back("These tips may now repeat");
+	// 20 tips. After this, they may start repeating. I suggest not adding or taking away from above without replacement
+	tips.push_back("Night and day are simulated");
+	tips.push_back("Also zoom with '>' & '<'");
+	tips.push_back("Press 'h' for detailed interface help");
+	tips.push_back("Press 'm' to toggle Fast Mode");
+	tips.push_back("Agents display splashes for events");
+	tips.push_back("Yellow spash = agent bit another");
+	tips.push_back("Orange spash= agent stabbed other");
+	tips.push_back("Red spash = agent killed another");
+	tips.push_back("Green spash= asexually reproduced");
+	tips.push_back("Blue spash = sexually reproduced");
+	tips.push_back("Purple spash = mutation occured");
+	tips.push_back("Grey spash = agent was just born");
+	tips.push_back("Press 'm' to simulate at max speed");
+	tips.push_back("Select 'New World' to end Demo");
+	tips.push_back("Use settings.cfg to change sim rules");
+	tips.push_back("Hide dead with a UI option or 'j'");
+	tips.push_back("Agents can hear each other moving");
+	tips.push_back("Agents can hear agents with volume");
+	tips.push_back("Agents can see each other's RGB");
+	tips.push_back("Agents can smell (count nearby)");
+	tips.push_back("Agents can sense blood (1-health)");
+	tips.push_back("Agents can boost and double speed");
+	tips.push_back("Agents have clock inputs");
+	tips.push_back("Agents have a rAnDoM input");
+	tips.push_back("Agents have a self-health input");
+	tips.push_back("Press 'e' to activate a unique input");
+	tips.push_back("Agents seeking grab have cyan limbs");
+	tips.push_back("Agents grabbing shows a cyan pulse");
+	tips.push_back("Grabbed agents get pushed around");
+	tips.push_back("Grab has an angle agents can control");
+	tips.push_back("Jumping agents appear closer");
+	tips.push_back("Jumping agents can't rotate mid-jump");
+	tips.push_back("Jumping agents can't be attacked");
+	tips.push_back("Jumping agents can still be seen");
+	// start with general world tips. These can be duplicated because it's more random chance once we get more than halfway
+	tips.push_back("Overgrowth = more plants, fruit");
+	tips.push_back("Overgrowth = more plants, fruit");
+	tips.push_back("Droughts = less plant growth");
+	tips.push_back("Droughts = less plant growth");
+	tips.push_back("Moonlight lets agents see at night");
+	tips.push_back("Moonlight lets agents see at night");
+	tips.push_back("Moonlight lets agents see at night");
+	tips.push_back("Hadean Epochs are HOT!");
+	tips.push_back("Hadean Epochs are HOT!");
+	tips.push_back("Ice Age Epochs are COOL!");
+	tips.push_back("Ice Age Epochs are COOL!");
+	tips.push_back("Lots of dead on Epoch 0? It's normal");
+	tips.push_back("Early agents die a lot");
+	tips.push_back("Lots of dead on Epoch 0 is normal");
+	tips.push_back("Mutation x# Epochs= more mutations");
+	tips.push_back("Mutation x2 = double mutations");
+	tips.push_back("Mutation x3 = tripple mutations");
+	tips.push_back("'report.txt' logs useful data");
+	tips.push_back("Dizzy? Spawned agents like to spin");
+	tips.push_back("Dizzy? Spawned agents like to spin");
+	tips.push_back("Dizzy? Spawned agents like to spin");
+	tips.push_back("Dizzy? Spawned agents like to spin");
+	tips.push_back("Dizzy? Spawned agents like to spin");
+	tips.push_back("Tiny agents have radius < 5");
+	tips.push_back("Tiny agents have radius < 5");
+	tips.push_back("Tiny agents have radius < 5");
+	tips.push_back("Tiny agents have fewer eyes, ears");
+	tips.push_back("Tiny agents have only one clock");
+	tips.push_back("Tiny agents can't wield spikes");
+	tips.push_back("Tiny agents can't have spikes");
+	tips.push_back("Tiny agents can only bite attack");
+	tips.push_back("The settings.cfg is FUN, isnt it?!");
+	tips.push_back("Settings.cfg file can change constants");
+	tips.push_back("Use settings.cfg to change constants");
+	tips.push_back("Use settings.cfg to change constants");
+	tips.push_back("Use settings.cfg to change constants");
+	tips.push_back("Use settings.cfg to change constants");
+	tips.push_back("You can disable sounds in the UI");
+	tips.push_back("You can disable sounds in the UI");
+	tips.push_back("You can disable sounds in the UI");
+	tips.push_back("You can disable music in the UI");
+	tips.push_back("You can disable music in the UI");
+	tips.push_back("You can disable music in the UI");
+	tips.push_back("See more options with right-click");
+	tips.push_back("See more options with right-click");
+	tips.push_back("See more options with right-click");
+	tips.push_back("Contribute on Github!");
+	tips.push_back("Press 'h' for interface help");
+	tips.push_back("Tips will be disabled; see settings.cfg");
+
+	for (int i = 0; i < 5; i++)
+        last5songs[i]= -1;
+	
+//	#pragma omp critical
+//	tryPlayAudio(conf::SFX_PLOP1); //finished setting up! make a sound
 }
-
-
-void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitch, float volume)
-//Control.cpp
-{
-	#pragma omp critical
-	//try to play audio at location x,y if specified (if not, just play 2D audio), and with a specified pitch change multiple
-	if(dosounds && volume > 0.0){ //dosounds is set by GLView and disables when rendering is disabled
-		
-		if(isDebug()) {
-			char line[128];
-			sprintf(line, "Trying to play sound '%s' ... ", soundFileName);
-			printDebug(line);
-		}
-
-		if(soundFileName != NULL){
-			ISound* play = 0;
-			if(x==0 && y==0) play= audio->play2D(soundFileName, false, false, true);
-			else play= audio->play3D(soundFileName, vec3df(-x, -y, 0), false, false, true);
-			//-x,-y because irrklang thinks we're in opposite world if I negate the translates... it's silly
-			if(play){
-				play->setPlaybackSpeed(pitch);
-				play->setVolume(volume);
-				printDebug("success!\n");
-			}
-		} else {
-			printDebug("failure!\n");
-		}
-	}
-}
-
-
-//void World::tryCullAudio(Controller* control)
-////Control.cpp
-//{
-//	audio->
-//	for(int a=0; a<audio->; a++) {
-//		ISoundSource* check= audio->getSoundSource(a);
-///		if(check){
-//			vec3df pos= check->getPosition();
-///			if(control->cullAtCoords((int)pos.X, (int)pos.Y)) check->drop();
-//		}
-//	}
-//}
 
 
 void World::setSeed(unsigned int seed)
 //Control.cpp
 {
-	if(SEED!=seed) srand(seed);
-	SEED= seed;
+    if (SEED != seed) {
+        srand(seed);
+	    SEED = seed;
+    }
 }
 
 
 void World::reset()
 {
-	printf("...reticulating splines...\n");
+	std::cout << "...reticulating splines..." << std::endl;
 	if(currentsong && !currentsong->getIsPaused()) currentsong->setIsPaused(true);
 //	if(randf(0,1)>0.5) timenewsong= randi(100,8000);
 
@@ -184,7 +407,7 @@ void World::reset()
 
 void World::sanitize()
 {
-	printf("...sanitizing agents...\n");
+	std::cout << "...sanitizing agents..." << std::endl;
 	agents.clear();
 	deaths.clear();
 }
@@ -192,7 +415,7 @@ void World::sanitize()
 void World::spawn()
 {
 	findStats();//needs to be outside loop to start the loop
-	printf("...growing food...\n");
+	std::cout << "...growing food..." << std::endl;
 	//handle init resource layers
 	float targetplant= (float)INITPLANT/CW/CH;
 	float targetfruit= (float)INITFRUIT/CW/CH;
@@ -253,10 +476,10 @@ void World::spawn()
 
 	//init climate settings
 	if(CLIMATE) {
-		printf("...(un)freezing glaciers...\n");
+		std::cout << "...(un)freezing glaciers..." << std::endl;
 		CLIMATEBIAS= randf(0.3,0.7);
 		CLIMATEMULT= randf(0.4,0.8);
-		if(DEBUG) printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
+		if(DEBUG) std::cout << "Set Climate Bias to " << CLIMATEBIAS << ", and Climate Multiplier to " << CLIMATEMULT << std::endl;
 		if(CLIMATEMULT<0.75) {
 			if(CLIMATEMULT<0.25) addEvent("Uniform Temperature generated", EventColor::ORANGE);
 			if(CLIMATEBIAS<0.35) addEvent("Cool world generated", EventColor::CYAN);
@@ -265,10 +488,62 @@ void World::spawn()
 	}
 
 	//add init agents
-	printf("...programming agents...\n");
+	std::cout << "...programming agents..." << std::endl;
 	addAgents(AGENTS_MIN_NOTCLOSED, -2); //-2 creates both herbivores and frugivores alternately
 	findStats(); //without this, selecting "New World" in the GUI would infiniloop program somewhere... I'm too tired to figure out where
 }
+
+
+void World::setAudioEngine(ISoundEngine* a)
+//Control.cpp
+{
+	audio= a;
+	//audio call example: if(dosounds) audio->play2D("sounds/agents/chirp1.ogg");
+}
+
+
+void World::tryPlayAudio(const char* soundFileName, float x, float y, float pitch, float volume)
+//Control.cpp
+{
+	#pragma omp critical
+	//try to play audio at location x,y if specified (if not, just play 2D audio), and with a specified pitch change multiple
+	if(dosounds && volume > 0.0){ //dosounds is set by GLView and disables when rendering is disabled
+		
+		if(isDebug()) {
+			char line[128];
+			sprintf(line, "Trying to play sound '%s' ... ", soundFileName);
+			printDebug(line);
+		}
+
+		if(soundFileName != NULL){
+			ISound* play = 0;
+			if(x==0 && y==0) play= audio->play2D(soundFileName, false, false, true);
+			else play= audio->play3D(soundFileName, vec3df(-x, -y, 0), false, false, true);
+			//-x,-y because irrklang thinks we're in opposite world if I negate the translates... it's silly
+			if(play){
+				play->setPlaybackSpeed(pitch);
+				play->setVolume(volume);
+				printDebug("success!\n");
+			}
+		} else {
+			printDebug("failure!\n");
+		}
+	}
+}
+
+
+//void World::tryCullAudio(Controller* control)
+////Control.cpp
+//{
+//	audio->
+//	for(int a=0; a<audio->; a++) {
+//		ISoundSource* check= audio->getSoundSource(a);
+///		if(check){
+//			vec3df pos= check->getPosition();
+///			if(control->cullAtCoords((int)pos.X, (int)pos.Y)) check->drop();
+//		}
+//	}
+//}
 
 
 void World::cellsLandMasses()
@@ -276,7 +551,7 @@ void World::cellsLandMasses()
 	//creates land masses for the layer given
 	int leftcount= CW*CH;
 
-	printf("...clearing land...\n");
+	std::cout << "...clearing land..." << std::endl;
 	for(int i=0;i<CW;i++) {
 		for(int j=0;j<CH;j++) {
 			cells[Layer::ELEVATION][i][j]= -1; //"null" all cells
@@ -325,7 +600,7 @@ void World::cellsLandMasses()
 		}
 	}
 
-	printf("...moving tectonic plates...\n");
+	std::cout << "...moving tectonic plates..." << std::endl;
 	int bumbler = 0;
 	while(leftcount!=0){
 		bumbler++;
@@ -465,7 +740,7 @@ void World::cellsLandMasses()
 	}
 
 
-	printf("...rolling hills...\n");
+	std::cout << "...rolling hills..." << std::endl;
 	for (int n=0;n<4;n++){
 		cellsRoundTerrain();
 	}
@@ -473,13 +748,14 @@ void World::cellsLandMasses()
 	setSTATLandRatio();
 
 	#if defined(_DEBUG)
-	printf("_DEBUG: Land %%: %.2f. The rest is water.\n",100*STATlandratio);
+	std::cout << "_DEBUG: Land %: " << std::fixed << /*std::setprecision(2) <<*/ 100 * STATlandratio
+          << ". The rest is water." << std::endl;
 	#endif
 
 	//briefly allow land spawn for Init ONLY! See update() for long-term
 	if (DISABLE_LAND_SPAWN && STATlandratio > 0.75){
 		DISABLE_LAND_SPAWN = false;
-		printf("ALERT: Enabled Land Init Spawns due to high land:water ratio.\n");
+		std::cout << "ALERT: Enabled Land Init Spawns due to high land:water ratio." << std::endl;
 	}
 }
 
@@ -695,7 +971,7 @@ void World::processClimate()
 				//else if(CLIMATEMULT<0.25) addEvent("Global Uniform Temp", EventColor::YELLOW);
 			}
 
-			if (isDebug()) printf("Set Climate Bias to %f, and Climate Multiplier to %f\n", CLIMATEBIAS, CLIMATEMULT);
+			if (isDebug()) std::cout << "Set Climate Bias to " << CLIMATEBIAS << ", and Climate Multiplier to " << CLIMATEMULT << std::endl;
 		}
 
 		if (DROUGHTS){
@@ -724,7 +1000,7 @@ void World::processClimate()
 				addEvent("Global Overgrowth Ended!", EventColor::PINK);
 
 			if (isDebug())
-				printf("Set Drought Multiplier to %f\n", DROUGHTMULT);
+				std::cout << "Set Drought Multiplier to " << DROUGHTMULT << std::endl;
 		} else {
 			DROUGHTMULT= 1.0;
 		}
@@ -748,7 +1024,7 @@ void World::processMutationEvent()
 		else if (MUTEVENTMULT>4) 
 			addEvent("Mutation chance > *4!!!", EventColor::LAVENDER);
 		if (isDebug()) 
-			printf("Set Mutation Multiplier to %i\n", MUTEVENTMULT);
+			std::cout << "Set Mutation Multiplier to " << MUTEVENTMULT << std::endl;
 	} else {
 		MUTEVENTMULT = 1;
 	}
@@ -1191,9 +1467,9 @@ void World::tryPlayMusic()
 			
 			std::string songfile = conf::SONGS[songindex];
 
-			printf("Now playing track: \"%s\"", songfile.c_str());
+			std::cout << "Now playing track: '" << songfile << "'";
 			#if defined(_DEBUG) 
-				printf(", index: %i", songindex);
+				std::cout << ", index: " << songindex;
 			#endif
 
 			std::string songlocation;
@@ -1215,10 +1491,10 @@ void World::tryPlayMusic()
 				}
 			} else {
 				#if defined(_DEBUG)
-				printf("...failed!");
+                std::cout << "...failed!" << std::endl;
 				#endif
 			}
-			printf("\n");
+			std::cout << std::endl;
 		}
 
 	} else if (currentsong) {
@@ -1233,7 +1509,7 @@ void World::tryPlayMusic()
 			currentsong= 0;
 			timenewsong= randi(15+ceil(modcounter*0.001),50+ceil(modcounter*0.001));
 			#if defined(_DEBUG)
-				printf("setting seconds to next song: %i\n", timenewsong);
+				std::cout << "setting seconds to next song: " << timenewsong << std::endl;
 			#endif
 		}
 	} else timenewsong= 10;
@@ -1278,7 +1554,7 @@ void World::setInputs()
 		int miny= max((scy - celldist), 0);
 		int maxy= min((scy+1 + celldist), CH);
 
-		//if(isDebug() && isAgentSelected(a->id)) printf("\n");
+		//if(isDebug() && isAgentSelected(a->id)) std::cout << std::endl;
 
 		//---AGENT-CELL SENSES---//
 		for(int tcx= minx; tcx<maxx; tcx++){
@@ -1361,7 +1637,7 @@ void World::setInputs()
 								if(g[q] < seen_g) g[q] = seen_g;
 								if(b[q] < seen_b) b[q] = seen_b;
 							}
-							//if(isDebug() && isAgentSelected(a->id) && q==0) printf("sight_mult: %f\n", sight_mult);
+							//if(isDebug() && isAgentSelected(a->id) && q==0) std::cout << "sight_mult: " << sight_mult << std::endl;
 
 							if(isAgentSelected(a->id) && isDebug()){
 								linesA.push_back(a->pos);
@@ -1587,9 +1863,9 @@ void World::processCounters()
 			for (int m = 0; m < MUTEVENTMULT; m++) {
 				if (randf(0,1) < LIVE_MUTATE_CHANCE) {
 					a->liveMutate(MUTEVENTMULT, OVERRIDE_KINRANGE);
-					addTipEvent("Selected Agent Was Mutated!", EventColor::PURPLE, a->id); //control.cpp - want this to be supressed when in fast mode
+					addAgentTipEvent("Selected Agent Was Mutated!", EventColor::PURPLE, a->id); //control.cpp - want this to be supressed when in fast mode
 					if (!isDemo()) STATlivemutations++;
-					if (DEBUG) printf("Live Mutation Event\n");
+					if (DEBUG) std::cout << "Live Mutation Event" << std::endl;
 				}
 			}
 
@@ -1670,7 +1946,7 @@ void World::processOutputs(bool prefire)
 			if (a->zvelocity > 0) {
 				a->pos.z = a->zvelocity; //give us some initial height
 				if(!STATuserseenjumping) {
-					addTipEvent("Selected Agent jumped!", EventColor::YELLOW, a->id);
+					addAgentTipEvent("Selected Agent jumped!", EventColor::YELLOW, a->id);
 					if (randf(0,1) < 0.05) STATuserseenjumping = true;
 				}
 			}
@@ -1823,7 +2099,7 @@ void World::processCellInteractions()
 		int scy= (int) clamp(a->pos.y + source.y, 0, conf::HEIGHT-1)/conf::CZ;
 
 /*		if(isDebug() && isAgentSelected(agents[i].id)) {
-			printf("scx: %i, scy: %i\n", scx, scy);
+			std::cout << "scx: " << scx << ", scy: " << scy << std::endl;
 		}*/
 
 		if(!a->isDead()){
@@ -1842,7 +2118,7 @@ void World::processCellInteractions()
 					float damage = HAZARD_DAMAGE*agemult*pow(hazard, HAZARD_POWER);
 					if(hazard > conf::HAZARD_EVENT_POINT) {
 						damage *= HAZARD_EVENT_MULT; //if a hazard event, apply multiplier
-						if(modcounter%10 == 0) addTipEvent("Agent struck by lightning!", EventColor::PURPLE, a->id);
+						if(modcounter%10 == 0) addAgentTipEvent("Agent struck by lightning!", EventColor::PURPLE, a->id);
 					}
 
 					a->addDamage(conf::DEATH_HAZARD, damage);
@@ -2045,8 +2321,8 @@ void World::processAgentInteractions()
 						if((modcounter + a2->id + (int)a2->pos.x)%60==0) tryPlayAudio(conf::SFX_PURR1, purrx, purry, randf(0.8,1.1));
 
 						if(!STATuserseengenerosity && healthrate != 0){
-							addTipEvent("Agent donated health!", EventColor::GREEN, a->id);
-							addTipEvent("Agent received health donation!", EventColor::GREEN, a2->id);
+							addAgentTipEvent("Agent donated health!", EventColor::GREEN, a->id);
+							addAgentTipEvent("Agent received health donation!", EventColor::GREEN, a2->id);
 							if (randf(0,1)<0.05) STATuserseengenerosity = true;
 						}
 					}
@@ -2069,17 +2345,28 @@ void World::processAgentInteractions()
 							float DMG1 = clamp(damagemult*ainvrad*aagemult, 0, HEALTH_CAP); //larger, younger bots take less damage, bounce less
 							float DMG2 = clamp(damagemult*a2invrad*a2agemult, 0, HEALTH_CAP);
 
-							if (isDebug()) printf("Collision! overlap: %.4f, aagemult: %.2f, a2agemult: %.2f, Damage on a: %f. Damage on a2: %f\n", ov, aagemult, a2agemult, DMG1, DMG2);
+                            if (isDebug()) {
+                                std::cout << "Collision! overlap: " << std::fixed << /*std::setprecision(4) <<*/ ov
+                                          << ", aagemult: " << std::fixed << /*std::setprecision(2) <<*/ aagemult
+                                          << ", a2agemult: " << std::fixed << /*std::setprecision(2) <<*/ a2agemult
+                                          << ", Damage on a: " << DMG1 << ". Damage on a2: " << DMG2 << std::endl;
+                            }
 							a->addDamage(conf::DEATH_COLLIDE, DMG1);
 							a2->addDamage(conf::DEATH_COLLIDE, DMG2);
 
 							//only trigger collision splash if another splash not being displayed
 							if (a->indicator <= 0) a->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0,0.5,1);
 							if (a2->indicator <= 0) a2->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5,0,0.5,1);
-							addTipEvent("Agent collided hard", EventColor::CYAN, a->id);
-							addTipEvent("Agent collided hard", EventColor::CYAN, a2->id);
-							if (isAgentSelected(a->id)) printf("The Selected Agent collided, and took %.3f damage!\n", DMG1);
-							if (isAgentSelected(a2->id)) printf("The Selected Agent collided, and took %.3f damage!\n", DMG2);
+							addAgentTipEvent("Agent collided hard", EventColor::CYAN, a->id);
+							addAgentTipEvent("Agent collided hard", EventColor::CYAN, a2->id);
+                            if (isAgentSelected(a->id)) {
+                                std::cout << "The Selected Agent collided, and took "
+                                    << std::fixed << /*std::setprecision(3) <<*/ DMG1 << " damage!" << std::endl;
+                            }
+							if (isAgentSelected(a2->id)) {
+                                std::cout << "The Selected Agent collided, and took "
+                                    << std::fixed << /*std::setprecision(3) <<*/ DMG2 << " damage!" << std::endl;
+                            }
 
 							a->freshkill = FRESHKILLTIME; //this agent was hit this turn, giving full meat value
 							a2->freshkill = FRESHKILLTIME;
@@ -2120,49 +2407,55 @@ void World::processAgentInteractions()
 				if(a->isSpiky(MAX_SPIKE_LENGTH) && a->isSpikedDist(MAX_SPIKE_LENGTH, d) && !a2->isAirborne()){
 					Vector3f v(1,0,0);
 					v.rotate(0, 0, a->angle);
-					float diff= v.angle_between2d(a2->pos - a->pos);
+					float diff = v.angle_between2d(a2->pos - a->pos);
 					if (fabs(diff) < conf::SPIKE_MAX_FOV){ //need to be in front
-						float spikerange= d*abs(sin(diff)); //get range to agent from spike, closest approach
+						float spikerange = d*abs(sin(diff)); //get range to agent from spike, closest approach
 						if (a2->traits[Trait::RADIUS] > spikerange) { //other agent is properly aligned and in range!!! getting close now...
 							//need to calculate the velocity differential of the agents
 							Vector3f velocitya(a->pos.x-a->dpos.x, a->pos.y-a->dpos.y, 0);
 							Vector3f velocitya2(a2->pos.x-a2->dpos.x, a2->pos.y-a2->dpos.y, 0);
 
-							velocitya-= velocitya2;
-							float diff2= velocitya.angle_between2d(a2->pos - a->pos);
-							float veldiff= velocitya.length2d()*cap(cos(diff2));
+							velocitya -= velocitya2;
+							float diff2 = velocitya.angle_between2d(a2->pos - a->pos);
+							float veldiff = velocitya.length2d()*cap(cos(diff2));
 
-							if(veldiff>conf::VELOCITYSPIKEMIN){
+							if(veldiff > conf::VELOCITYSPIKEMIN){
 								//these two are in collision and agent a has extended spike and is going decently fast relatively! That's a hit!
 							
 								float DMG = DAMAGE_FULLSPIKE*a->spikeLength*veldiff*(1-1.0/(1+expf(-(a2->traits[Trait::RADIUS]/2-MEANRADIUS))));
 								//tiny, small, & average agents take full damage, scaled by the difference in velocity. 
 								//large (2*MEANRADIUS) agents take half damage, and huge agents (2*MEANRADIUS+10) take no damage from spikes at all
 
-								if (isDebug()) printf("an agent received spike damage: %.4f\n", DMG);
+								if (isDebug()) std::cout << "an agent received spike damage: " << std::fixed << /*std::setprecision(4) <<*/ DMG << std::endl;
 								a2->addDamage(conf::DEATH_SPIKE, DMG); 
-								a2->freshkill= FRESHKILLTIME; //this agent was hit this turn, giving full meat value
+								a2->freshkill = FRESHKILLTIME; //this agent was hit this turn, giving full meat value
 
 								a->hits++;
 								a->spikeLength = 0; //retract spike down
 
-								addTipEvent("Agent was Stabbed!", EventColor::BLOOD, a2->id);
+								addAgentTipEvent("Agent was Stabbed!", EventColor::BLOOD, a2->id);
 								a->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5*DMG,1,0.5,0); //orange splash means bot has spiked the other bot. nice!
 								tryPlayAudio(conf::SFX_STAB1, a2->pos.x, a2->pos.y, randn(1.0,0.2));
 
 								if (a2->health == 0){ 
 									//red splash means bot has killed the other bot. Murderer!
 									a->initSplash(conf::RENDER_MAXSPLASHSIZE,1,0,0);
-									addTipEvent("Agent Killed Another!", EventColor::RED, a->id);
-									if (isAgentSelected(a->id)) printf("The Selected Agent spiked and killed another!\n");
-									if (isAgentSelected(a2->id)) printf("The Selected Agent was killed by spiking!\n");
+									addAgentTipEvent("Agent Killed Another!", EventColor::RED, a->id);
+									if (isAgentSelected(a->id)) std::cout << "The Selected Agent spiked and killed another!" << std::endl;
+									if (isAgentSelected(a2->id)) std::cout << "The Selected Agent was killed by spiking!" << std::endl;
 
 									a->killed++;
 									continue;
 								} else {
-									addTipEvent("Agent Stabbed Another!", EventColor::ORANGE, a->id);
-									if (isAgentSelected(a->id)) printf("The Selected Agent spiked another for %.3f damage!\n", DMG);
-									if (isAgentSelected(a2->id)) printf("The Selected Agent was spiked for %.3f damage!\n", DMG);
+									addAgentTipEvent("Agent Stabbed Another!", EventColor::ORANGE, a->id);
+                                    if (isAgentSelected(a->id)) {
+                                        std::cout << "The Selected Agent spiked another for "
+                                            << std::fixed << /*std::setprecision(3) <<*/ DMG << " damage!" << std::endl;
+                                    }
+						            if (isAgentSelected(a2->id)) {
+                                        std::cout << "The Selected Agent was spiked for "
+                                            << std::fixed << /*std::setprecision(3) <<*/ DMG << " damage!" << std::endl;
+                                    }
 								}
 
 								/*Vector2f v2(1,0);
@@ -2187,11 +2480,11 @@ void World::processAgentInteractions()
 					if (fabs(diff) < conf::JAW_MAX_FOV) { //advantage over spike: wide AOE
 						float DMG= DAMAGE_JAWSNAP*a->jawPosition*(a->traits[Trait::RADIUS]*a2invrad); //advantage over spike: large agents do more damage to smaller agents
 
-						if(isDebug()) printf("an agent received bite damage: %.4f\n", DMG);
+                        if(isDebug()) std::cout << "an agent received bite damage: " << std::fixed << /*std::setprecision(4) <<*/ DMG << std::endl;
 						a2->addDamage(conf::DEATH_BITE, DMG);
 						a2->freshkill = FRESHKILLTIME;
 
-						addTipEvent("Agent was Bitten!", EventColor::BLOOD, a2->id);
+						addAgentTipEvent("Agent was Bitten!", EventColor::BLOOD, a2->id);
 
 						a->hits++;
 						a->initSplash(conf::RENDER_MAXSPLASHSIZE*0.5*DMG,1,1,0); //yellow splash means bot has chomped the other bot. ouch!
@@ -2214,21 +2507,21 @@ void World::processAgentInteractions()
 								applyIntakes(a, dummy, dummy, meat); //and force-feed it to the agent!
 								if (isDebug()) {
 									float meatstomach = a->traits[Trait::STOMACH + Stomach::MEAT];
-									printf("an agent SWALLOWED another! meat stomach val: %f, received %f meat, giving %f health\n", meatstomach, meat, a->health - prehealth);
+									std::cout << "an agent SWALLOWED another! meat stomach val: " << meatstomach << ", received " << meat << " meat, giving " << a->health - prehealth << " health" << std::endl;
 								}
 
 								//lime splash means agent ate the other agent. Yum!
 								a->initSplash(conf::RENDER_MAXSPLASHSIZE,0.5,1,0.3);
-								addTipEvent("Agent Ate Another!", EventColor::LIME, a->id);
+								addAgentTipEvent("Agent Ate Another!", EventColor::LIME, a->id);
 							} else {
 								//red splash means agent has killed the other agent. Murderer!
 								a->initSplash(conf::RENDER_MAXSPLASHSIZE,1,0,0);
-								addTipEvent("Agent Killed Another!", EventColor::RED, a->id);
+								addAgentTipEvent("Agent Killed Another!", EventColor::RED, a->id);
 							}
 							continue;
 
 						} else {
-							addTipEvent("Agent Bit Another!", EventColor::YELLOW, a->id);
+							addAgentTipEvent("Agent Bit Another!", EventColor::YELLOW, a->id);
 						}
 
 						if(randf(0,1) > 0.5) tryPlayAudio(conf::SFX_CHOMP1, a->pos.x, a->pos.y, randn(1.0,0.2), chompvolume);
@@ -2253,8 +2546,8 @@ void World::processAgentInteractions()
 								tryPlayAudio(conf::SFX_GRAB1, a2->pos.x, a2->pos.y, randn(1.0,0.2), 1.0); //play sfx at the target's location
 
 								if (!STATuserseengrab) {
-									addTipEvent("Agent grabbed another", EventColor::CYAN, a->id);
-									addTipEvent("Agent was grabbed", EventColor::CYAN, a2->id);
+									addAgentTipEvent("Agent grabbed another", EventColor::CYAN, a->id);
+									addAgentTipEvent("Agent was grabbed", EventColor::CYAN, a2->id);
 									if (randf(0,1)<0.05) STATuserseengrab = true;
 								}
 							}
@@ -2367,28 +2660,28 @@ void World::processReproduction()
 
 						if(agents[father].repcounter <= 0){
 							//prepare to add num_babies to world, with two parents
-							if(isDebug()) printf("Attempting to have children...");
+							if(isDebug()) std::cout << "Attempting to have children...";
 
 							reproduce(mother, father);
 
-							addTipEvent("Agent Sexually Reproduced", EventColor::BLUE, agents[mother].id);
-							addTipEvent("Agent Sexually Reproduced", EventColor::BLUE, agents[father].id);
+							addAgentTipEvent("Agent Sexually Reproduced", EventColor::BLUE, agents[mother].id);
+							addAgentTipEvent("Agent Sexually Reproduced", EventColor::BLUE, agents[father].id);
 							tryPlayAudio(conf::SFX_SMOOCH1, agents[mother].pos.x, agents[mother].pos.y, randn(1.0,0.15));
 
-							if(isDebug()) printf(" Success!\n");
+							if(isDebug()) std::cout << " Success!" << std::endl;
 							break;
 						}
 					}
 				} else {
 					//this adds mother's numbabies to world, but with just one parent (budding)
-					if(isDebug()) printf("Attempting budding...");
+					if(isDebug()) std::cout << "Attempting budding...";
 
 					reproduce(mother, mother);
 
-					addTipEvent("Agent Assexually Budded", EventColor::NEON, agents[mother].id);
+					addAgentTipEvent("Agent Assexually Budded", EventColor::NEON, agents[mother].id);
 					tryPlayAudio(conf::SFX_PLOP1, agents[mother].pos.x, agents[mother].pos.y, randn(1.0,0.15));
 
-					if(isDebug()) printf(" Success!\n");
+					if(isDebug()) std::cout << " Success!" << std::endl;
 					break;
 				}
 			}
@@ -2408,13 +2701,13 @@ void World::processDeath()
 	for (int i=0; i<(int)agents.size(); i++) {
 		Agent* a = &agents[i];
 		if (a->health < 0) {
-			printf("An agent unexpectedly had negative health when it should have had exactly zero\n");
+			std::cout << "An agent unexpectedly had negative health when it should have had exactly zero" << std::endl;
 			a->health = 0;
 		} else if (a->health == 0 && a->carcasscount == 0) { 
 			//world is only now picking up the fact that the agent died from the agent itself
 			if (isAgentSelected(a->id)){
-				printf("The Selected Agent was %s!\n", a->death.c_str());
-				addTipEvent("The Selected Agent Died!", 0, a->id);
+				std::cout << "The Selected Agent was " << a->death << "!" << std::endl;
+				addAgentTipEvent("The Selected Agent Died!", 0, a->id);
 
 				//play audio clip of death. At position 0,0 (no position) if we had the agent selected, otherwise, use world coords
 				tryPlayAudio(conf::SFX_DEATH1, 0, 0, randn(1.0,0.05));
@@ -2466,14 +2759,14 @@ void World::processRandomSpawn()
 		int alive = agents.size() - getDead();
 		//make sure environment is always populated with at least AGENTS_MIN_NOTCLOSED bots
 		if (alive < AGENTS_MIN_NOTCLOSED) {
-			if (isDebug()) printf("Attempting agent conservation program...");
+			if (isDebug()) std::cout << "Attempting agent conservation program...";
 			addAgents(AGENTS_MIN_NOTCLOSED-alive, -1);
-			if (isDebug()) printf(" Success!\n");
+			if (isDebug()) std::cout << " Success!" << std::endl;
 		}
 		if (alive < AGENTS_MAX_SPAWN && modcounter % AGENTSPAWN_FREQ == 0 && randf(0,1) < 0.5) {
-			if (isDebug()) printf("Attempting random spawn...");
+			if (isDebug()) std::cout << "Attempting random spawn...";
 			addAgents(1, -1); //every now and then add random bot in if population too low
-			if (isDebug()) printf(" Success!\n");
+			if (isDebug()) std::cout << " Success!" << std::endl;
 		}
 	}
 }
@@ -2826,21 +3119,14 @@ int World::getClosestRelative(int idx)
 	if (bestrelative != "") {
 		bestrelative = "Autoselected living " + bestrelative;
 		addEvent(bestrelative, EventColor::BLACK);
-		printf("---> %s\n", bestrelative.c_str());
+		std::cout << "---> " << bestrelative << std::endl;
 	} else {
 		addEvent("No More Living Relatives!", EventColor::BLACK);
-		printf("---> No More Living Relatives!\n");
+		std::cout << "---> No More Living Relatives!" << std::endl;
 	}
 
 	//IMPORTANT: we may return -1 here; DO NOT USE FOR ARRAYS DIRECTLY
 	return nidx;
-}
-
-int World::getSelectedID() const 
-//Control.cpp
-{
-	//retrieve world->SELECTION
-	return SELECTION;
 }
 
 bool World::selectPreviousSelected()
@@ -2902,7 +3188,7 @@ void World::selectedMutate() {
 	int sidx= getSelectedAgentIndex();
 	if(sidx>=0){
 		agents[sidx].liveMutate();
-		addTipEvent("Selected Agent was Mutated!", EventColor::PURPLE, agents[sidx].id);
+		addAgentTipEvent("Selected Agent was Mutated!", EventColor::PURPLE, agents[sidx].id);
 	}
 }
 
@@ -2932,12 +3218,12 @@ void World::selectedTrace(int mode) {
 /*	if(sidx>=0){
 		if(mode==1){
 			//get all the wheel output inputs
-			printf("==========TRACEBACK START===========\n");
+			std::cout << "==========TRACEBACK START===========" << std::endl;
 			agents[sidx].traceBack(Output::LEFT_WHEEL_F);
 			agents[sidx].traceBack(Output::LEFT_WHEEL_B);
 			agents[sidx].traceBack(Output::RIGHT_WHEEL_F);
 			agents[sidx].traceBack(Output::RIGHT_WHEEL_B);
-			printf("====================================\n");
+			std::cout << "====================================" << std::endl;
 		}
 	} CPBrain NOT IMPLEMENTED*/
 }
@@ -3058,7 +3344,7 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pr
 				else break;
 
 				if(STATlandratio==1.0) {
-					printf("ALERT: spawn failed to find a suitable water cell. Enabling land spawn!");
+                    std::cout << "ALERT: spawn failed to find a suitable water cell. Enabling land spawn!" << std::endl;
 					DISABLE_LAND_SPAWN= false;
 					break;
 				}
@@ -3068,9 +3354,6 @@ void World::addAgents(int num, int set_stomach, bool set_lungs, bool set_temp_pr
 		//these flags's functions depend on location
 		if (set_lungs){ //if told to fix lungs for agent's position
 			a.setIdealLungs(cells[Layer::ELEVATION][scx][scy]);
-		}
-		else {
-			printf("uh oh");
 		}
 
 		if (set_temp_pref) {
@@ -3128,9 +3411,9 @@ void World::reproduce(int mother, int father)
 
 			addAgent(daughter);
 		}
-		if (isAgentSelected(agents[mother].id)) printf("The Selected Agent has Reproduced and had %i Babies!\n", numbabies);
+		if (isAgentSelected(agents[mother].id)) std::cout << "The Selected Agent has Reproduced and had " << numbabies << " Babies!" << std::endl;
 	} else {
-		if (isAgentSelected(agents[mother].id)) printf("The Selected Agent tried to reproduce, but was punished by high HEALTHLOSS_ASEX setting\n");
+		if (isAgentSelected(agents[mother].id)) std::cout << "The Selected Agent tried to reproduce, but was punished by high HEALTHLOSS_ASEX setting" << std::endl;
 	}
 }
 
@@ -3138,7 +3421,7 @@ void World::writeReport()
 //Control.cpp???
 {
 	if(DEMO) return;
-	printf("Writing Report, Epoch: %i, Day: %i\n", getEpoch(), getDay());
+	std::cout << "Writing Report, Epoch: " << getEpoch() << ", Day: " << getDay() << std::endl;
 	//save all kinds of nice data stuff
 	int randspawned;
 	int randgen = 0;
@@ -3291,16 +3574,6 @@ void World::setControl(bool state)
 	player_control = state;
 }
 
-bool World::isAutoselecting() const
-{
-	return AUTOSELECT;
-}
-
-void World::setAutoselect(bool state)
-{
-	AUTOSELECT= state;
-}
-
 bool World::isDebug() const
 {
 	return DEBUG;
@@ -3314,7 +3587,7 @@ void World::setDebug(bool state)
 void World::printDebug(char message[])
 {
 	#if defined(_DEBUG)
-	if(DEBUG && conf::VERBOSE_DEBUG) printf(message);
+    if(DEBUG && conf::VERBOSE_DEBUG) std::cout << message;
 	#endif
 }
 
@@ -3486,11 +3759,11 @@ void World::addEvent(std::string text, int type)
 	events.push_back(data);
 }
 
-void World::addTipEvent(std::string text, int type, int agentid)
+void World::addAgentTipEvent(std::string text, int type, int agentid)
 //Control.cpp
 {
 	//use EventColor:: namespace to access available colors for the "type" input
-	//post an event only if we: A: tips are enabled, and B: have the current agent selected
+	//post an event only if: A: tips are enabled, and B: we have the current agent selected
 	if (isAgentSelected(agentid) && !NO_TIPS) {
 		std::pair <std::string ,std::pair <int,int> > data;
 		data.first= text;
@@ -3513,283 +3786,19 @@ void World::dismissNextEvents(int count)
 	}
 }
 
-void World::setStatsAfterLoad()
+void World::executeAfterLoad()
 {
-	//reset some stats that often trigger
+	// perform several actions when the world is loaded from file, to try and smooth over fidelity losses (from not saving states 100%)
 	findStats();
 	triggerStatEvents(false);
-}
 
-void World::init()
-{
-	printf("...starting up...\n");
-
-	music_list = listFilesInDirectory(conf::MUSIC_FOLDER);
-	last5songs[0]= -1;
-
-	//ALL .cfg constants must be initially declared in world.h and defined here.
-	NO_TIPS= false;
-	CONTINENTS= conf::CONTINENTS;
-	CONTINENT_ROUGHNESS= conf::CONTINENT_ROUGHNESS;
-    OCEANPERCENT= conf::OCEANPERCENT;
-	SPAWN_LAKES= conf::SPAWN_LAKES;
-	ISLANDNESS= conf::ISLANDNESS;
-	FEATURES_TO_SPAWN= conf::FEATURES_TO_SPAWN;
-	DISABLE_LAND_SPAWN= conf::DISABLE_LAND_SPAWN;
-	AMBIENT_LIGHT_PERCENT = conf::AMBIENT_LIGHT_PERCENT;
-	AGENTS_SEE_CELLS = conf::AGENTS_SEE_CELLS;
-	AGENTS_DONT_OVERDONATE = conf::AGENTS_DONT_OVERDONATE;
-	MOONLIT= conf::MOONLIT;
-	MOONLIGHTMULT= conf::MOONLIGHTMULT;
-	DROUGHTS= conf::DROUGHTS;
-	DROUGHT_MIN= conf::DROUGHT_MIN;
-	DROUGHT_MAX= conf::DROUGHT_MAX;
-	MUTEVENTS= conf::MUTEVENTS;
-	MUTEVENT_MAX= conf::MUTEVENT_MAX;
-	CLIMATE= conf::CLIMATE;
-	CLIMATE_INTENSITY= conf::CLIMATE_INTENSITY;
-	CLIMATEMULT_AVERAGE= conf::CLIMATEMULT_AVERAGE;
-	CLIMATE_AFFECT_FLORA= conf::CLIMATE_AFFECT_FLORA;
-
-    MIN_PLANT= conf::MIN_PLANT;
-    INITPLANTDENSITY= conf::INITPLANTDENSITY;
-    INITFRUITDENSITY= conf::INITFRUITDENSITY;
-	INITMEATDENSITY= conf::INITMEATDENSITY;
-    INITHAZARDDENSITY= conf::INITHAZARDDENSITY;
-    AGENTS_MIN_NOTCLOSED= conf::AGENTS_MIN_NOTCLOSED;
-    AGENTS_MAX_SPAWN= conf::AGENTS_MAX_SPAWN;
-	AGENTSPAWN_FREQ= conf::AGENTSPAWN_FREQ;
-    AGENTS_MAX_NOOXYGEN= conf::AGENTS_MAX_NOOXYGEN;
-
-	REPORTS_PER_EPOCH= conf::REPORTS_PER_EPOCH;
-    FRAMES_PER_EPOCH= conf::FRAMES_PER_EPOCH;
-    FRAMES_PER_DAY= conf::FRAMES_PER_DAY;
-
-	GRAVITY_ACCELERATION= conf::GRAVITY_ACCELERATION;
-    BUMP_PRESSURE= conf::BUMP_PRESSURE;
-	GRAB_PRESSURE= conf::GRAB_PRESSURE;
-	BRAINBOXES= conf::BRAINBOXES;
-	BRAINCONNS= conf::BRAINCONNS;
-    WHEEL_SPEED= conf::WHEEL_SPEED;
-	JUMP_MOVE_BONUS_MULT= conf::JUMP_MOVE_BONUS_MULT;
-    BOOST_MOVE_MULT= conf::BOOST_MOVE_MULT;
-	BOOST_EXAUSTION_MULT= conf::BOOST_EXAUSTION_MULT;
-	CORPSE_FRAMES= conf::CORPSE_FRAMES;
-	CORPSE_MEAT_MIN= conf::CORPSE_MEAT_MIN;
-	SOUND_PITCH_RANGE= conf::SOUND_PITCH_RANGE;
-	INV_SOUND_PITCH_RANGE = 1/SOUND_PITCH_RANGE;
-
-    GENEROSITY_RATE= conf::GENEROSITY_RATE;
-	BASEEXHAUSTION= conf::BASEEXHAUSTION;
-	EXHAUSTION_MULT_PER_CONN= conf::EXHAUSTION_MULT_PER_CONN;
-	EXHAUSTION_MULT_PER_OUTPUT= conf::EXHAUSTION_MULT_PER_OUTPUT;
-	ENCUMBERED_MOVE_MULT= conf::ENCUMBERED_MOVE_MULT;
-	MEANRADIUS= conf::MEANRADIUS;
-    SPIKE_RAISE_SPEED = conf::SPIKE_RAISE_SPEED;
-	JAW_INTAKE_MAX_MULT = conf::JAW_INTAKE_MAX_MULT;
-	SPAWN_MIRROR_EYES= conf::SPAWN_MIRROR_EYES;
-	PRESERVE_MIRROR_EYES= conf::PRESERVE_MIRROR_EYES;
-	HEALTH_CAP = conf::HEALTH_CAP;
-    FRESHKILLTIME= conf::FRESHKILLTIME;
-	TENDERAGE= conf::TENDERAGE;
-	INV_TENDERAGE= 1/(float)conf::TENDERAGE;
-    MINMOMHEALTH= conf::MINMOMHEALTH;
-	MIN_METABOLISM_HEALTH_RATIO= conf::MIN_METABOLISM_HEALTH_RATIO;
-	FUN= 0;
-	SUN_RED= 1.0;
-	SUN_GRE= 1.0;
-	SUN_BLU= 0.8;
-    REP_PER_BABY= conf::REP_PER_BABY;
-	OVERHEAL_REPFILL= conf::OVERHEAL_REPFILL;
-//    LEARNRATE= conf::LEARNRATE;
-    OVERRIDE_KINRANGE= conf::OVERRIDE_KINRANGE;
-	DEFAULT_BRAIN_MUTCHANCE= conf::DEFAULT_BRAIN_MUTCHANCE;
-	DEFAULT_BRAIN_MUTSIZE= conf::DEFAULT_BRAIN_MUTSIZE;
-	DEFAULT_GENE_MUTCHANCE= conf::DEFAULT_GENE_MUTCHANCE;
-	DEFAULT_GENE_MUTSIZE= conf::DEFAULT_GENE_MUTSIZE;
-	LIVE_MUTATE_CHANCE= conf::LIVE_MUTATE_CHANCE;
-    MAXAGE= conf::MAXAGE;
-	MAX_WASTE_FREQ = conf::MAX_WASTE_FREQ;
-
-    MAX_SENSORY_DISTANCE= conf::MAX_SENSORY_DISTANCE;
-	INV_MAX_SENSORY_DISTANCE= 1/MAX_SENSORY_DISTANCE;
-    MAX_SPIKE_LENGTH = conf::MAX_SPIKE_LENGTH;
-	BITE_DISTANCE = conf::BITE_DISTANCE;
-    BUMP_DAMAGE_OVERLAP= conf::BUMP_DAMAGE_OVERLAP;
-    FOOD_SHARING_DISTANCE= conf::FOOD_SHARING_DISTANCE;
-    SEXTING_DISTANCE= conf::SEXTING_DISTANCE;
-    GRABBING_DISTANCE= conf::GRABBING_DISTANCE;
-	BLOOD_SENSE_DISTANCE= conf::BLOOD_SENSE_DISTANCE;
-
-	EYE_SENSE_MAX_FOV= conf::EYE_SENSE_MAX_FOV;
-	BLOOD_SENSE_MAX_FOV= conf::BLOOD_SENSE_MAX_FOV;
-	GRAB_MAX_FOV= conf::GRAB_MAX_FOV;
-
-    HEALTHLOSS_WHEELS= conf::HEALTHLOSS_WHEELS;
-    HEALTHLOSS_BOOSTMULT= conf::HEALTHLOSS_BOOSTMULT;
-    HEALTHLOSS_BADTEMP= conf::HEALTHLOSS_BADTEMP;
-    HEALTHLOSS_AGING= conf::HEALTHLOSS_AGING;
-	HEALTHLOSS_EXHAUSTION= conf::HEALTHLOSS_EXHAUSTION;
-    HEALTHLOSS_BRAINUSE= conf::HEALTHLOSS_BRAINUSE;
-    HEALTHLOSS_SPIKE_EXT= conf::HEALTHLOSS_SPIKE_EXT;
-    HEALTHLOSS_BADTERRAIN= conf::HEALTHLOSS_BADTERRAIN;
-    HEALTHLOSS_NOOXYGEN= conf::HEALTHLOSS_NOOXYGEN;
-    HEALTHLOSS_ASEX= conf::HEALTHLOSS_ASEX;
-
-	DAMAGE_FULLSPIKE= conf::DAMAGE_FULLSPIKE;
-	DAMAGE_COLLIDE= conf::DAMAGE_COLLIDE;
-    DAMAGE_JAWSNAP= conf::DAMAGE_JAWSNAP;
-
-	STOMACH_EFFICIENCY= conf::STOMACH_EFFICIENCY;
-
-    PLANT_INTAKE= conf::PLANT_INTAKE;
-    PLANT_DECAY= conf::PLANT_DECAY;
-    PLANT_GROWTH= conf::PLANT_GROWTH;
-    PLANT_WASTE= conf::PLANT_WASTE;
-    PLANT_ADD_FREQ= conf::PLANT_ADD_FREQ;
-    PLANT_SPREAD= conf::PLANT_SPREAD;
-    PLANT_RANGE= conf::PLANT_RANGE;
-	PLANT_TENACITY= conf::PLANT_TENACITY;
-
-    FRUIT_INTAKE= conf::FRUIT_INTAKE;
-    FRUIT_DECAY= conf::FRUIT_DECAY;
-    FRUIT_WASTE= conf::FRUIT_WASTE;
-    FRUIT_ADD_FREQ= conf::FRUIT_ADD_FREQ;
-    FRUIT_PLANT_REQUIRE= conf::FRUIT_PLANT_REQUIRE;
-
-    MEAT_INTAKE= conf::MEAT_INTAKE;
-    MEAT_DECAY= conf::MEAT_DECAY;
-    MEAT_WASTE= conf::MEAT_WASTE;
-    MEAT_DEPOSIT_VALUE= conf::MEAT_DEPOSIT_VALUE;
-	MEAT_NON_FRESHKILL_MULT = conf::MEAT_NON_FRESHKILL_MULT;
-
-    HAZARD_EVENT_FREQ= conf::HAZARD_EVENT_FREQ;
-	HAZARD_EVENT_MULT= conf::HAZARD_EVENT_MULT;
-    HAZARD_DECAY= conf::HAZARD_DECAY;
-    HAZARD_DEPOSIT= conf::HAZARD_DEPOSIT;
-    HAZARD_DAMAGE= conf::HAZARD_DAMAGE;
-	HAZARD_POWER= conf::HAZARD_POWER;
-
-	//tip popups. typically the first one is guarenteed to display the moment the sim starts, then each one after has a decreasing
-	//chance of being seen second, third, etc. The first 16 or so are very likely to be seen at least once durring epoch 0
-	#if defined(_DEBUG)
-	printf("DEBUG ENVIRONMENT DETECTED, SKIPPING TIPS, SETTING MOONLIT=false\n");
-	MOONLIT= false;
-	NO_TIPS= true;
-	#endif
-
-//	if(!NO_TIPS){
-	tips.push_back("Left-click an agent to select it");
-	tips.push_back("Press 'f' to follow selected agent");
-	tips.push_back("Zoom with middle mouse click&drag");
-	tips.push_back("Pan around with left click&drag");
-	tips.push_back("Press 'q' to recenter map & graphs");
-	tips.push_back("Press 'spacebar' to pause");
-	tips.push_back("Dead agents make 8bit death sound");
-	tips.push_back("Early agents die from exhaustion a lot");
-	tips.push_back("Press '1' to select oldest agent");
-	tips.push_back("Oldest agent has good chances");
-	tips.push_back("Demo prevents report.txt changes");
-	tips.push_back("Autosaves happen 10 sim days");
-	tips.push_back("Cycle layer views with 'k' & 'l'");
-	tips.push_back("View all layers again with 'o'");
-	tips.push_back("Green bar next to agents is Health");
-	tips.push_back("Yellow bar next to agents is Energy");
-	tips.push_back("Blue bar is Reproduction Counter");
-	tips.push_back("Agent 'whiskers' are eye orientations");
-	tips.push_back("Press number keys for auto-selections");
-	tips.push_back("These tips may now repeat");
-	//20 tips. After this, they may start repeating. I suggest not adding or taking away from above without replacement
-	tips.push_back("Night and day are simulated");
-	tips.push_back("Also zoom with '>' & '<'");
-	tips.push_back("Press 'h' for detailed interface help");
-	tips.push_back("Press 'm' to toggle Fast Mode");
-	tips.push_back("Agents display splashes for events");
-	tips.push_back("Yellow spash = agent bit another");
-	tips.push_back("Orange spash= agent stabbed other");
-	tips.push_back("Red spash = agent killed another");
-	tips.push_back("Green spash= asexually reproduced");
-	tips.push_back("Blue spash = sexually reproduced");
-	tips.push_back("Purple spash = mutation occured");
-	tips.push_back("Grey spash = agent was just born");
-	tips.push_back("Press 'm' to simulate at max speed");
-	tips.push_back("Select 'New World' to end Demo");
-	tips.push_back("Use settings.cfg to change sim rules");
-	tips.push_back("Hide dead with a UI option or 'j'");
-	tips.push_back("Agents can hear each other moving");
-	tips.push_back("Agents can hear agents with volume");
-	tips.push_back("Agents can see each other's RGB");
-	tips.push_back("Agents can smell (count nearby)");
-	tips.push_back("Agents can sense blood (1-health)");
-	tips.push_back("Agents can boost and double speed");
-	tips.push_back("Agents have clock inputs");
-	tips.push_back("Agents have a rAnDoM input");
-	tips.push_back("Agents have a self-health input");
-	tips.push_back("Press 'e' to activate a unique input");
-	tips.push_back("Agents seeking grab have cyan limbs");
-	tips.push_back("Agents grabbing shows a cyan pulse");
-	tips.push_back("Grabbed agents get pushed around");
-	tips.push_back("Grab has an angle agents can control");
-	tips.push_back("Jumping agents appear closer");
-	tips.push_back("Jumping agents can't rotate mid-jump");
-	tips.push_back("Jumping agents can't be attacked");
-	tips.push_back("Jumping agents can still be seen");
-	//start with general world tips. These can be duplicated because it's more random chance once we get more than halfway
-	tips.push_back("Overgrowth = more plants, fruit");
-	tips.push_back("Overgrowth = more plants, fruit");
-	tips.push_back("Droughts = less plant growth");
-	tips.push_back("Droughts = less plant growth");
-	tips.push_back("Moonlight lets agents see at night");
-	tips.push_back("Moonlight lets agents see at night");
-	tips.push_back("Moonlight lets agents see at night");
-	tips.push_back("Hadean Epochs are HOT!");
-	tips.push_back("Hadean Epochs are HOT!");
-	tips.push_back("Ice Age Epochs are COOL!");
-	tips.push_back("Ice Age Epochs are COOL!");
-	tips.push_back("Lots of dead on Epoch 0? It's normal");
-	tips.push_back("Early agents die a lot");
-	tips.push_back("Lots of dead on Epoch 0 is normal");
-	tips.push_back("Mutation x# Epochs= more mutations");
-	tips.push_back("Mutation x2 = double mutations");
-	tips.push_back("Mutation x3 = tripple mutations");
-	tips.push_back("'report.txt' logs useful data");
-	tips.push_back("Dizzy? Spawned agents like to spin");
-	tips.push_back("Dizzy? Spawned agents like to spin");
-	tips.push_back("Dizzy? Spawned agents like to spin");
-	tips.push_back("Dizzy? Spawned agents like to spin");
-	tips.push_back("Dizzy? Spawned agents like to spin");
-	tips.push_back("Tiny agents have radius < 5");
-	tips.push_back("Tiny agents have radius < 5");
-	tips.push_back("Tiny agents have radius < 5");
-	tips.push_back("Tiny agents have fewer eyes, ears");
-	tips.push_back("Tiny agents have only one clock");
-	tips.push_back("Tiny agents can't wield spikes");
-	tips.push_back("Tiny agents can't have spikes");
-	tips.push_back("Tiny agents can only bite attack");
-	tips.push_back("The settings.cfg is FUN, isnt it?!");
-	tips.push_back("Settings.cfg file can change constants");
-	tips.push_back("Use settings.cfg to change constants");
-	tips.push_back("Use settings.cfg to change constants");
-	tips.push_back("Use settings.cfg to change constants");
-	tips.push_back("Use settings.cfg to change constants");
-	tips.push_back("You can disable sounds in the UI");
-	tips.push_back("You can disable sounds in the UI");
-	tips.push_back("You can disable sounds in the UI");
-	tips.push_back("You can disable music in the UI");
-	tips.push_back("You can disable music in the UI");
-	tips.push_back("You can disable music in the UI");
-	tips.push_back("See more options with right-click");
-	tips.push_back("See more options with right-click");
-	tips.push_back("See more options with right-click");
-	tips.push_back("Contribute on Github!");
-	tips.push_back("Press 'h' for interface help");
-	tips.push_back("Tips will be disabled; see settings.cfg");
-//	}
-
-	for(int i=0; i<5; i++) last5songs[i]= -1;
-	
-//	#pragma omp critical
-//	tryPlayAudio(conf::SFX_PLOP1); //finished setting up! make a sound
+    // These assist the fidelity of the simulation the most, by pushing through instantaneous inputs and processing the output BEFORE we resume ticking
+    processCells(true);
+	setInputs();
+    for (int i=0; i<6; i++) {
+        brainsTick();
+	    processOutputs(true);
+    }
 }
 
 void World::readConfig()
@@ -3807,12 +3816,12 @@ void World::readConfig()
 	float f; //float buffer
 
 	//first check version number
-	printf("...looking for settings.cfg...\n");
+	std::cout << "...looking for settings.cfg..." << std::endl;
 
 	FILE* cf = fopen("settings.cfg", "r");
 	if(cf){
 		addEvent("settings.cfg detected & loaded", EventColor::WHITE);
-		printf("...tweaking the following constants: ");
+		std::cout << "...tweaking the following constants: ";
 		while(!feof(cf)){
 			fgets(line, sizeof(line), cf);
 			pos= strtok(line,"\n");
@@ -3822,9 +3831,10 @@ void World::readConfig()
 				sscanf(dataval, "%f", &f);
 				if(f!=conf::VERSION) {
 					fclose(cf);
-					printf("CONFIG FILE VERSION MISMATCH!\n EXPECTED 'V= %3.2f', found 'V= %3.2f'\n", conf::VERSION, f);
-					printf("Need to overwrite config to avoid potentially serious errors!\n");
-					printf("Exit now to keep your custom settings file; otherwise, hit enter to overwrite. . .");
+					std::cout << "CONFIG FILE VERSION MISMATCH!\n EXPECTED 'V= " << std::fixed << /*std::setprecision(2)
+                        <<*/ conf::VERSION << "', found 'V= " << f << "'" << std::endl;
+					std::cout << "Need to overwrite config to avoid potentially serious errors!" << std::endl;
+                    std::cout << "Exit now to keep your custom settings file; otherwise, hit enter to overwrite..." << std::endl;
 					cin.get();
 					writeConfig();
 					readConfig();
@@ -3832,571 +3842,571 @@ void World::readConfig()
 				}
 			}else if(strcmp(var, "CONTINENTS=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=CONTINENTS) printf("CONTINENTS, ");
+				if(i!=CONTINENTS) std::cout << "CONTINENTS, ";
 				CONTINENTS= i;
 			}else if(strcmp(var, "CONTINENT_ROUGHNESS=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=CONTINENT_ROUGHNESS) printf("CONTINENT_ROUGHNESS, ");
+				if(i!=CONTINENT_ROUGHNESS) std::cout << "CONTINENT_ROUGHNESS, ";
 				CONTINENT_ROUGHNESS= i;
 			}else if(strcmp(var, "OCEANPERCENT=")==0 && agents.size() == 0){ //ok so what am I doing here: need to ONLY load this value
 				//if this is the first load of the config. Since agents should be non-empty and we haven't sanitized yet, it doubles as a flag
 				sscanf(dataval, "%f", &f);
-				if(f!=OCEANPERCENT) printf("OCEANPERCENT, ");
+				if(f!=OCEANPERCENT) std::cout << "OCEANPERCENT, ";
 				OCEANPERCENT= f;
 			}else if(strcmp(var, "SPAWN_LAKES=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)SPAWN_LAKES) printf("SPAWN_LAKES, ");
+				if(i!=(int)SPAWN_LAKES) std::cout << "SPAWN_LAKES, ";
 				if(i==1) SPAWN_LAKES= true;
 				else SPAWN_LAKES= false;
 			}else if(strcmp(var, "ISLANDNESS=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=ISLANDNESS) printf("ISLANDNESS, ");
+				if(f!=ISLANDNESS) std::cout << "ISLANDNESS, ";
 				ISLANDNESS= f;
 			}else if(strcmp(var, "FEATURES_TO_SPAWN=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=FEATURES_TO_SPAWN) printf("FEATURES_TO_SPAWN, ");
+				if(i!=FEATURES_TO_SPAWN) std::cout << "FEATURES_TO_SPAWN, ";
 				FEATURES_TO_SPAWN= i;
 			}else if(strcmp(var, "DISABLE_LAND_SPAWN=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)DISABLE_LAND_SPAWN) printf("DISABLE_LAND_SPAWN, ");
+				if(i!=(int)DISABLE_LAND_SPAWN) std::cout << "DISABLE_LAND_SPAWN, ";
 				if(i==1) DISABLE_LAND_SPAWN= true;
 				else DISABLE_LAND_SPAWN= false;
 			}else if(strcmp(var, "NOTIPS=")==0 || strcmp(var, "NO_TIPS=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)NO_TIPS) printf("NO_TIPS, ");
+				if(i!=(int)NO_TIPS) std::cout << "NO_TIPS, ";
 				if(i==1) NO_TIPS= true;
 				else NO_TIPS= false;
 			}else if(strcmp(var, "NO_DEMO=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(1-(int)DEMO)) printf("DEMO (NO_DEMO), ");
+				if(i!=(1-(int)DEMO)) std::cout << "DEMO (NO_DEMO), ";
 				if(i==1) DEMO= false; //DEMO vs NO_DEMO: setting is reversed, and we IGNORE it if it's 0 (otherwise we would get weird unintended behavior when loading/saving)
 				//else DEMO= true;
 			}else if(strcmp(var, "AMBIENT_LIGHT_PERCENT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=AMBIENT_LIGHT_PERCENT) printf("AMBIENT_LIGHT_PERCENT, ");
+				if(f!=AMBIENT_LIGHT_PERCENT) std::cout << "AMBIENT_LIGHT_PERCENT, ";
 				AMBIENT_LIGHT_PERCENT= f;
 			}else if(strcmp(var, "AGENTS_SEE_CELLS=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)AGENTS_SEE_CELLS) printf("AGENTS_SEE_CELLS, ");
+				if(i!=(int)AGENTS_SEE_CELLS) std::cout << "AGENTS_SEE_CELLS, ";
 				if(i==1) AGENTS_SEE_CELLS= true;
 				else AGENTS_SEE_CELLS= false;
 			}else if(strcmp(var, "AGENTS_DONT_OVERDONATE=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)AGENTS_DONT_OVERDONATE) printf("AGENTS_DONT_OVERDONATE, ");
+				if(i!=(int)AGENTS_DONT_OVERDONATE) std::cout << "AGENTS_DONT_OVERDONATE, ";
 				if(i==1) AGENTS_DONT_OVERDONATE= true;
 				else AGENTS_DONT_OVERDONATE= false;
 			}else if(strcmp(var, "MOONLIT=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)MOONLIT) printf("MOONLIT, ");
+				if(i!=(int)MOONLIT) std::cout << "MOONLIT, ";
 				if(i==1) MOONLIT= true;
 				else MOONLIT= false;
 			}else if(strcmp(var, "MOONLIGHTMULT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MOONLIGHTMULT) printf("MOONLIGHTMULT, ");
+				if(f!=MOONLIGHTMULT) std::cout << "MOONLIGHTMULT, ";
 				MOONLIGHTMULT= f;
 			}else if(strcmp(var, "DROUGHTS=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)DROUGHTS) printf("DROUGHTS, ");
+				if(i!=(int)DROUGHTS) std::cout << "DROUGHTS, ";
 				if(i==1) DROUGHTS= true;
 				else DROUGHTS= false;
 			}else if(strcmp(var, "DROUGHT_MIN=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=DROUGHT_MIN) printf("DROUGHT_MIN, ");
+				if(f!=DROUGHT_MIN) std::cout << "DROUGHT_MIN, ";
 				DROUGHT_MIN= f;
 			}else if(strcmp(var, "DROUGHT_MAX=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=DROUGHT_MAX) printf("DROUGHT_MAX, ");
+				if(f!=DROUGHT_MAX) std::cout << "DROUGHT_MAX, ";
 				DROUGHT_MAX= f;
 			}else if(strcmp(var, "MUTEVENTS=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)MUTEVENTS) printf("MUTEVENTS, ");
+				if(i!=(int)MUTEVENTS) std::cout << "MUTEVENTS, ";
 				if(i==1) MUTEVENTS= true;
 				else MUTEVENTS= true;
 			}else if(strcmp(var, "MUTEVENT_MAX=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=MUTEVENT_MAX) printf("MUTEVENT_MAX, ");
+				if(i!=MUTEVENT_MAX) std::cout << "MUTEVENT_MAX, ";
 				MUTEVENT_MAX= i;
 			}else if(strcmp(var, "CLIMATE=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)CLIMATE) printf("CLIMATE, ");
+				if(i!=(int)CLIMATE) std::cout << "CLIMATE, ";
 				if(i==1) CLIMATE= true;
 				else CLIMATE= false;
 			}else if(strcmp(var, "CLIMATE_INTENSITY=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=CLIMATE_INTENSITY) printf("CLIMATE_INTENSITY, ");
+				if(f!=CLIMATE_INTENSITY) std::cout << "CLIMATE_INTENSITY, ";
 				CLIMATE_INTENSITY= f;
 			}else if(strcmp(var, "CLIMATEMULT_AVERAGE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=CLIMATEMULT_AVERAGE) printf("CLIMATEMULT_AVERAGE, ");
+				if(f!=CLIMATEMULT_AVERAGE) std::cout << "CLIMATEMULT_AVERAGE, ";
 				CLIMATEMULT_AVERAGE= f;
 			}else if(strcmp(var, "CLIMATE_AFFECT_FLORA=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)CLIMATE_AFFECT_FLORA) printf("CLIMATE_AFFECT_FLORA, ");
+				if(i!=(int)CLIMATE_AFFECT_FLORA) std::cout << "CLIMATE_AFFECT_FLORA, ";
 				if(i==1) CLIMATE_AFFECT_FLORA= true;
 				else CLIMATE_AFFECT_FLORA= false;
 			}else if(strcmp(var, "MIN_FOOD=")==0 || strcmp(var, "MINFOOD=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=MIN_PLANT) printf("MIN_FOOD, ");
+				if(i!=MIN_PLANT) std::cout << "MIN_FOOD, ";
 				MIN_PLANT= i;
 			}else if(strcmp(var, "INITPLANTDENSITY=")==0 || strcmp(var, "INITFOODDENSITY=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=INITPLANTDENSITY) printf("INITPLANTDENSITY, ");
+				if(f!=INITPLANTDENSITY) std::cout << "INITPLANTDENSITY, ";
 				INITPLANTDENSITY= f;
 			}else if(strcmp(var, "INITPLANT=")==0 || strcmp(var, "INITFOOD=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=INITPLANT) printf("INITPLANT, ");
+				if(i!=INITPLANT) std::cout << "INITPLANT, ";
 				INITPLANT= i;
 			}else if(strcmp(var, "INITFRUITDENSITY=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=INITFRUITDENSITY) printf("INITFRUITDENSITY, ");
+				if(f!=INITFRUITDENSITY) std::cout << "INITFRUITDENSITY, ";
 				INITFRUITDENSITY= f;
 			}else if(strcmp(var, "INITFRUIT=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=INITFRUIT) printf("INITFRUIT, ");
+				if(i!=INITFRUIT) std::cout << "INITFRUIT, ";
 				INITFRUIT= i;
 			}else if(strcmp(var, "INITMEATDENSITY=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=INITMEATDENSITY) printf("INITMEATDENSITY, ");
+				if(f!=INITMEATDENSITY) std::cout << "INITMEATDENSITY, ";
 				INITMEATDENSITY= f;
 			}else if(strcmp(var, "INITMEAT=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=INITMEAT) printf("INITMEAT, ");
+				if(i!=INITMEAT) std::cout << "INITMEAT, ";
 				INITMEAT= i;
 			}else if(strcmp(var, "INITHAZARDDENSITY=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=INITHAZARDDENSITY) printf("INITHAZARDDENSITY, ");
+				if(f!=INITHAZARDDENSITY) std::cout << "INITHAZARDDENSITY, ";
 				INITHAZARDDENSITY= f;
 			}else if(strcmp(var, "INITHAZARD=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=INITHAZARD) printf("INITHAZARD, ");
+				if(i!=INITHAZARD) std::cout << "INITHAZARD, ";
 				INITHAZARD= i;
 			}else if(strcmp(var, "AGENTS_MIN_NOTCLOSED=")==0 || strcmp(var, "NUMBOTS=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=AGENTS_MIN_NOTCLOSED) printf("AGENTS_MIN_NOTCLOSED, ");
+				if(i!=AGENTS_MIN_NOTCLOSED) std::cout << "AGENTS_MIN_NOTCLOSED, ";
 				AGENTS_MIN_NOTCLOSED= i;
 			}else if(strcmp(var, "AGENTS_MAX_SPAWN=")==0 || strcmp(var, "ENOUGHBOTS=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=AGENTS_MAX_SPAWN) printf("AGENTS_MAX_SPAWN, ");
+				if(i!=AGENTS_MAX_SPAWN) std::cout << "AGENTS_MAX_SPAWN, ";
 				AGENTS_MAX_SPAWN= i;
 			}else if(strcmp(var, "AGENTSPAWN_FREQ=")==0 || strcmp(var, "NOTENOUGHFREQ=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=AGENTSPAWN_FREQ) printf("AGENTSPAWN_FREQ, ");
+				if(i!=AGENTSPAWN_FREQ) std::cout << "AGENTSPAWN_FREQ, ";
 				AGENTSPAWN_FREQ= i;
 			}else if(strcmp(var, "AGENTS_MAX_NOOXYGEN=")==0 || strcmp(var, "TOOMANYBOTS=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=AGENTS_MAX_NOOXYGEN) printf("AGENTS_MAX_NOOXYGEN, ");
+				if(i!=AGENTS_MAX_NOOXYGEN) std::cout << "AGENTS_MAX_NOOXYGEN, ";
 				AGENTS_MAX_NOOXYGEN= i;
 			}else if(strcmp(var, "REPORTS_PER_EPOCH=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=REPORTS_PER_EPOCH) printf("REPORTS_PER_EPOCH, ");
+				if(i!=REPORTS_PER_EPOCH) std::cout << "REPORTS_PER_EPOCH, ";
 				REPORTS_PER_EPOCH= i;
 			}else if(strcmp(var, "FRAMES_PER_EPOCH=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=FRAMES_PER_EPOCH) printf("FRAMES_PER_EPOCH, ");
+				if(i!=FRAMES_PER_EPOCH) std::cout << "FRAMES_PER_EPOCH, ";
 				FRAMES_PER_EPOCH= i;
 			}else if(strcmp(var, "FRAMES_PER_DAY=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=FRAMES_PER_DAY) printf("FRAMES_PER_DAY, ");
+				if(i!=FRAMES_PER_DAY) std::cout << "FRAMES_PER_DAY, ";
 				FRAMES_PER_DAY= i;
 			}else if(strcmp(var, "GRAVITY_ACCELERATION=")==0 || strcmp(var, "GRAVITYACCEL=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=GRAVITY_ACCELERATION) printf("GRAVITY_ACCELERATION, ");
+				if(f!=GRAVITY_ACCELERATION) std::cout << "GRAVITY_ACCELERATION, ";
 				GRAVITY_ACCELERATION= f;
 			}else if(strcmp(var, "BUMP_PRESSURE=")==0 || strcmp(var, "REACTPOWER=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=BUMP_PRESSURE) printf("BUMP_PRESSURE, ");
+				if(f!=BUMP_PRESSURE) std::cout << "BUMP_PRESSURE, ";
 				BUMP_PRESSURE= f;
 			}else if(strcmp(var, "GRAB_PRESSURE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=GRAB_PRESSURE) printf("GRAB_PRESSURE, ");
+				if(f!=GRAB_PRESSURE) std::cout << "GRAB_PRESSURE, ";
 				GRAB_PRESSURE= f;
 			}else if(strcmp(var, "BRAINBOXES=")==0){
 				sscanf(dataval, "%i", &i);
 				if(i!=BRAINBOXES) {
-					if(modcounter!=0) printf("\nALERT: changing brain size is not allowed when the simulation is in progress!\n");
+					if(modcounter!=0) std::cout << "\nALERT: changing brain size is not allowed when the simulation is in progress!" << std::endl;
 					else {
-						printf("BRAINBOXES, ");
+						std::cout << "BRAINBOXES, ";
 						BRAINBOXES= i;
 					}
 				}
 			}else if(strcmp(var, "BRAINCONNS=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=BRAINCONNS) printf("BRAINCONNS, ");
+				if(i!=BRAINCONNS) std::cout << "BRAINCONNS, ";
 				BRAINCONNS= i;
 			}else if(strcmp(var, "WHEEL_SPEED=")==0 || strcmp(var, "BOTSPEED=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=WHEEL_SPEED) printf("WHEEL_SPEED, ");
+				if(f!=WHEEL_SPEED) std::cout << "WHEEL_SPEED, ";
 				WHEEL_SPEED= f;
 			}else if(strcmp(var, "JUMP_MOVE_BONUS_MULT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=JUMP_MOVE_BONUS_MULT) printf("JUMP_MOVE_BONUS_MULT, ");
+				if(f!=JUMP_MOVE_BONUS_MULT) std::cout << "JUMP_MOVE_BONUS_MULT, ";
 				JUMP_MOVE_BONUS_MULT= f;
 			}else if(strcmp(var, "BOOST_MOVE_MULT=")==0 || strcmp(var, "BOOSTSIZEMULT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=BOOST_MOVE_MULT) printf("BOOST_MOVE_MULT, ");
+				if(f!=BOOST_MOVE_MULT) std::cout << "BOOST_MOVE_MULT, ";
 				BOOST_MOVE_MULT= f;
 			}else if(strcmp(var, "BOOST_EXAUSTION_MULT=")==0 || strcmp(var, "BOOSTEXAUSTMULT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=BOOST_EXAUSTION_MULT) printf("BOOST_EXAUSTION_MULT, ");
+				if(f!=BOOST_EXAUSTION_MULT) std::cout << "BOOST_EXAUSTION_MULT, ";
 				BOOST_EXAUSTION_MULT= f;
 			}else if(strcmp(var, "CORPSE_FRAMES=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=CORPSE_FRAMES) printf("CORPSE_FRAMES, ");
+				if(i!=CORPSE_FRAMES) std::cout << "CORPSE_FRAMES, ";
 				CORPSE_FRAMES= i;
 			}else if(strcmp(var, "CORPSE_MEAT_MIN=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=CORPSE_MEAT_MIN) printf("CORPSE_MEAT_MIN, ");
+				if(f!=CORPSE_MEAT_MIN) std::cout << "CORPSE_MEAT_MIN, ";
 				CORPSE_MEAT_MIN= f;
 			}else if(strcmp(var, "SOUND_PITCH_RANGE=")==0 || strcmp(var, "SOUNDPITCHRANGE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=SOUND_PITCH_RANGE) printf("SOUND_PITCH_RANGE, ");
+				if(f!=SOUND_PITCH_RANGE) std::cout << "SOUND_PITCH_RANGE, ";
 				SOUND_PITCH_RANGE= f;
 			}else if(strcmp(var, "GENEROSITY_RATE=")==0 || strcmp(var, "GENEROCITY_RATE=")==0 || strcmp(var, "FOODTRANSFER=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=GENEROSITY_RATE) printf("GENEROSITY_RATE, ");
+				if(f!=GENEROSITY_RATE) std::cout << "GENEROSITY_RATE, ";
 				GENEROSITY_RATE= f;
 			}else if(strcmp(var, "BASEEXHAUSTION=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=BASEEXHAUSTION) printf("BASEEXHAUSTION, ");
+				if(f!=BASEEXHAUSTION) std::cout << "BASEEXHAUSTION, ";
 				BASEEXHAUSTION= f;
 			}else if(strcmp(var, "EXHAUSTION_MULT_PER_OUTPUT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=EXHAUSTION_MULT_PER_OUTPUT) printf("EXHAUSTION_MULT_PER_OUTPUT, ");
+				if(f!=EXHAUSTION_MULT_PER_OUTPUT) std::cout << "EXHAUSTION_MULT_PER_OUTPUT, ";
 				EXHAUSTION_MULT_PER_OUTPUT= f;
 			}else if(strcmp(var, "EXHAUSTION_MULT_PER_CONN=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=EXHAUSTION_MULT_PER_CONN) printf("EXHAUSTION_MULT_PER_CONN, ");
+				if(f!=EXHAUSTION_MULT_PER_CONN) std::cout << "EXHAUSTION_MULT_PER_CONN, ";
 				EXHAUSTION_MULT_PER_CONN= f;
 			}else if(strcmp(var, "ENCUMBERED_MOVE_MULT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=ENCUMBERED_MOVE_MULT) printf("ENCUMBERED_MOVE_MULT, ");
+				if(f!=ENCUMBERED_MOVE_MULT) std::cout << "ENCUMBERED_MOVE_MULT, ";
 				ENCUMBERED_MOVE_MULT= f;
 			}else if(strcmp(var, "MEANRADIUS=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MEANRADIUS) printf("MEANRADIUS, ");
+				if(f!=MEANRADIUS) std::cout << "MEANRADIUS, ";
 				MEANRADIUS= f;
 			}else if(strcmp(var, "SPIKE_RAISE_SPEED=")==0 || strcmp(var, "SPIKESPEED=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=SPIKE_RAISE_SPEED) printf("SPIKE_RAISE_SPEED, ");
+				if(f!=SPIKE_RAISE_SPEED) std::cout << "SPIKE_RAISE_SPEED, ";
 				SPIKE_RAISE_SPEED= f;
 			}else if(strcmp(var, "JAW_INTAKE_MAX_MULT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=JAW_INTAKE_MAX_MULT) printf("JAW_INTAKE_MAX_MULT, ");
+				if(f!=JAW_INTAKE_MAX_MULT) std::cout << "JAW_INTAKE_MAX_MULT, ";
 				JAW_INTAKE_MAX_MULT= f;
 			}else if(strcmp(var, "SPAWN_MIRROR_EYES=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)SPAWN_MIRROR_EYES) printf("SPAWN_MIRROR_EYES, ");
+				if(i!=(int)SPAWN_MIRROR_EYES) std::cout << "SPAWN_MIRROR_EYES, ";
 				if(i==1) SPAWN_MIRROR_EYES= true;
 				else SPAWN_MIRROR_EYES= false;
 			}else if(strcmp(var, "PRESERVE_MIRROR_EYES=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)PRESERVE_MIRROR_EYES) printf("PRESERVE_MIRROR_EYES, ");
+				if(i!=(int)PRESERVE_MIRROR_EYES) std::cout << "PRESERVE_MIRROR_EYES, ";
 				if(i==1) PRESERVE_MIRROR_EYES= true;
 				else PRESERVE_MIRROR_EYES= false;
 			}else if(strcmp(var, "HEALTH_CAP=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTH_CAP) printf("HEALTH_CAP, ");
+				if(f!=HEALTH_CAP) std::cout << "HEALTH_CAP, ";
 				HEALTH_CAP= f;
 			}else if(strcmp(var, "FRESHKILLTIME=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=FRESHKILLTIME) printf("FRESHKILLTIME, ");
+				if(i!=FRESHKILLTIME) std::cout << "FRESHKILLTIME, ";
 				FRESHKILLTIME= i;
 			}else if(strcmp(var, "TENDERAGE=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=TENDERAGE) printf("TENDERAGE, ");
+				if(i!=TENDERAGE) std::cout << "TENDERAGE, ";
 				TENDERAGE= i;
 			}else if(strcmp(var, "MINMOMHEALTH=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MINMOMHEALTH) printf("MINMOMHEALTH, ");
+				if(f!=MINMOMHEALTH) std::cout << "MINMOMHEALTH, ";
 				MINMOMHEALTH= f;
 			}else if(strcmp(var, "MIN_METABOLISM_HEALTH_RATIO=")==0 || strcmp(var, "MIN_INTAKE_HEALTH_RATIO=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MIN_METABOLISM_HEALTH_RATIO) printf("MIN_METABOLISM_HEALTH_RATIO, ");
+				if(f!=MIN_METABOLISM_HEALTH_RATIO) std::cout << "MIN_METABOLISM_HEALTH_RATIO, ";
 				MIN_METABOLISM_HEALTH_RATIO= f;
 			}else if(strcmp(var, "FUN=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=(int)FUN) for(int x=0; x<420; x++) printf("OHMYGODWHATHAVEYOUDONE");
+				if(i!=(int)FUN) for(int x=0; x<420; x++) std::cout << "OHMYGODWHATHAVEYOUDONE";
 				FUN= true;
 			}else if(strcmp(var, "SUN_RED=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=SUN_RED) printf("SUN_RED, ");
+				if(f!=SUN_RED) std::cout << "SUN_RED, ";
 				SUN_RED= f;
 			}else if(strcmp(var, "SUN_GRE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=SUN_GRE) printf("SUN_GRE, ");
+				if(f!=SUN_GRE) std::cout << "SUN_GRE, ";
 				SUN_GRE= f;
 			}
 			//hit a compiler limit; resetting the if blocks
 			if(strcmp(var, "SUN_BLU=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=SUN_BLU) printf("SUN_BLU, ");
+				if(f!=SUN_BLU) std::cout << "SUN_BLU, ";
 				SUN_BLU= f;
 			}else if(strcmp(var, "REP_PER_BABY=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=REP_PER_BABY) printf("REP_PER_BABY, ");
+				if(f!=REP_PER_BABY) std::cout << "REP_PER_BABY, ";
 				REP_PER_BABY= f;
 			}else if(strcmp(var, "OVERHEAL_REPFILL=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=OVERHEAL_REPFILL) printf("OVERHEAL_REPFILL, ");
+				if(f!=OVERHEAL_REPFILL) std::cout << "OVERHEAL_REPFILL, ";
 				OVERHEAL_REPFILL= f;
 //			}else if(strcmp(var, "LEARNRATE=")==0){
 //				sscanf(dataval, "%f", &f);
-//				if(f!=LEARNRATE) printf("LEARNRATE, ");
+//				if(f!=LEARNRATE) std::cout << "LEARNRATE, ";
 //				LEARNRATE= f;
 			}else if(strcmp(var, "OVERRIDE_KINRANGE=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=OVERRIDE_KINRANGE) printf("OVERRIDE_KINRANGE, ");
+				if(i!=OVERRIDE_KINRANGE) std::cout << "OVERRIDE_KINRANGE, ";
 				OVERRIDE_KINRANGE= i;
 			}else if(strcmp(var, "MAXDEVIATION=")==0){ //MAXDEVIATION is an old config value for OVERRIDE_KINRANGE that was saved in float form
 				sscanf(dataval, "%f", &f);
-				if((int)f!=OVERRIDE_KINRANGE) printf("OVERRIDE_KINRANGE (MAXDEVIATION), ");
+				if((int)f!=OVERRIDE_KINRANGE) std::cout << "OVERRIDE_KINRANGE (MAXDEVIATION), ";
 				OVERRIDE_KINRANGE= (int)f;
 			}else if(strcmp(var, "DEFAULT_BRAIN_MUTCHANCE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=DEFAULT_BRAIN_MUTCHANCE) printf("DEFAULT_BRAIN_MUTCHANCE, ");
+				if(f!=DEFAULT_BRAIN_MUTCHANCE) std::cout << "DEFAULT_BRAIN_MUTCHANCE, ";
 				DEFAULT_BRAIN_MUTCHANCE= f;
 			}else if(strcmp(var, "DEFAULT_BRAIN_MUTSIZE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=DEFAULT_BRAIN_MUTSIZE) printf("DEFAULT_BRAIN_MUTSIZE, ");
+				if(f!=DEFAULT_BRAIN_MUTSIZE) std::cout << "DEFAULT_BRAIN_MUTSIZE, ";
 				DEFAULT_BRAIN_MUTSIZE= f;
 			}else if(strcmp(var, "DEFAULT_GENE_MUTCHANCE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=DEFAULT_GENE_MUTCHANCE) printf("DEFAULT_GENE_MUTCHANCE, ");
+				if(f!=DEFAULT_GENE_MUTCHANCE) std::cout << "DEFAULT_GENE_MUTCHANCE, ";
 				DEFAULT_GENE_MUTCHANCE= f;
 			}else if(strcmp(var, "DEFAULT_GENE_MUTSIZE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=DEFAULT_GENE_MUTSIZE) printf("DEFAULT_GENE_MUTSIZE, ");
+				if(f!=DEFAULT_GENE_MUTSIZE) std::cout << "DEFAULT_GENE_MUTSIZE, ";
 				DEFAULT_GENE_MUTSIZE= f;
 			}else if(strcmp(var, "MUTCHANCE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=DEFAULT_BRAIN_MUTCHANCE) printf("DEFAULT_BRAIN_MUTCHANCE, ");
-				if(f!=DEFAULT_GENE_MUTCHANCE) printf("DEFAULT_GENE_MUTCHANCE, ");
+				if(f!=DEFAULT_BRAIN_MUTCHANCE) std::cout << "DEFAULT_BRAIN_MUTCHANCE, ";
+				if(f!=DEFAULT_GENE_MUTCHANCE) std::cout << "DEFAULT_GENE_MUTCHANCE, ";
 				DEFAULT_BRAIN_MUTCHANCE= f;
 				DEFAULT_GENE_MUTCHANCE= f;
 			}else if(strcmp(var, "MUTSIZE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=DEFAULT_BRAIN_MUTSIZE) printf("DEFAULT_BRAIN_MUTSIZE, ");
-				if(f!=DEFAULT_GENE_MUTSIZE) printf("DEFAULT_GENE_MUTSIZE, ");
+				if(f!=DEFAULT_BRAIN_MUTSIZE) std::cout << "DEFAULT_BRAIN_MUTSIZE, ";
+				if(f!=DEFAULT_GENE_MUTSIZE) std::cout << "DEFAULT_GENE_MUTSIZE, ";
 				DEFAULT_BRAIN_MUTSIZE= f;
 				DEFAULT_GENE_MUTSIZE= f;
 			}else if(strcmp(var, "LIVE_MUTATE_CHANCE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=LIVE_MUTATE_CHANCE) printf("LIVE_MUTATE_CHANCE, ");
+				if(f!=LIVE_MUTATE_CHANCE) std::cout << "LIVE_MUTATE_CHANCE, ";
 				LIVE_MUTATE_CHANCE= f;
 			}else if(strcmp(var, "MAXAGE=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=MAXAGE) printf("MAXAGE, ");
+				if(i!=MAXAGE) std::cout << "MAXAGE, ";
 				MAXAGE= i;
 			}else if(strcmp(var, "MAX_WASTE_FREQ=")==0 || strcmp(var, "MAXWASTEFREQ=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=MAX_WASTE_FREQ) printf("MAX_WASTE_FREQ, ");
+				if(i!=MAX_WASTE_FREQ) std::cout << "MAX_WASTE_FREQ, ";
 				MAX_WASTE_FREQ= i;
 			}else if(strcmp(var, "MAX_SENSORY_DISTANCE=")==0 || strcmp(var, "DIST=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MAX_SENSORY_DISTANCE) printf("MAX_SENSORY_DISTANCE, ");
+				if(f!=MAX_SENSORY_DISTANCE) std::cout << "MAX_SENSORY_DISTANCE, ";
 				MAX_SENSORY_DISTANCE= f;
 			}else if(strcmp(var, "MAX_SPIKE_LENGTH=")==0 || strcmp(var, "SPIKELENGTH=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MAX_SPIKE_LENGTH) printf("MAX_SPIKE_LENGTH, ");
+				if(f!=MAX_SPIKE_LENGTH) std::cout << "MAX_SPIKE_LENGTH, ";
 				MAX_SPIKE_LENGTH= f;
 			}else if(strcmp(var, "BITE_DISTANCE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=BITE_DISTANCE) printf("BITE_DISTANCE, ");
+				if(f!=BITE_DISTANCE) std::cout << "BITE_DISTANCE, ";
 				BITE_DISTANCE= f;
 			}else if(strcmp(var, "BUMP_DAMAGE_OVERLAP=")==0 || strcmp(var, "TOOCLOSE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=BUMP_DAMAGE_OVERLAP) printf("BUMP_DAMAGE_OVERLAP, ");
+				if(f!=BUMP_DAMAGE_OVERLAP) std::cout << "BUMP_DAMAGE_OVERLAP, ";
 				BUMP_DAMAGE_OVERLAP= f;
 			}else if(strcmp(var, "FOOD_SHARING_DISTANCE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=FOOD_SHARING_DISTANCE) printf("FOOD_SHARING_DISTANCE, ");
+				if(f!=FOOD_SHARING_DISTANCE) std::cout << "FOOD_SHARING_DISTANCE, ";
 				FOOD_SHARING_DISTANCE= f;
 			}else if(strcmp(var, "SEXTING_DISTANCE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=SEXTING_DISTANCE) printf("SEXTING_DISTANCE, ");
+				if(f!=SEXTING_DISTANCE) std::cout << "SEXTING_DISTANCE, ";
 				SEXTING_DISTANCE= f;
 			}else if(strcmp(var, "GRABBING_DISTANCE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=GRABBING_DISTANCE) printf("GRABBING_DISTANCE, ");
+				if(f!=GRABBING_DISTANCE) std::cout << "GRABBING_DISTANCE, ";
 				GRABBING_DISTANCE= f;
 			}else if(strcmp(var, "BLOOD_SENSE_DISTANCE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=BLOOD_SENSE_DISTANCE) printf("BLOOD_SENSE_DISTANCE, ");
+				if(f!=BLOOD_SENSE_DISTANCE) std::cout << "BLOOD_SENSE_DISTANCE, ";
 				BLOOD_SENSE_DISTANCE= f;
 			}else if(strcmp(var, "EYE_SENSE_MAX_FOV=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=EYE_SENSE_MAX_FOV) printf("EYE_SENSE_MAX_FOV, ");
+				if(f!=EYE_SENSE_MAX_FOV) std::cout << "EYE_SENSE_MAX_FOV, ";
 				EYE_SENSE_MAX_FOV= f;
 			}else if(strcmp(var, "BLOOD_SENSE_MAX_FOV=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=BLOOD_SENSE_MAX_FOV) printf("BLOOD_SENSE_MAX_FOV, ");
+				if(f!=BLOOD_SENSE_MAX_FOV) std::cout << "BLOOD_SENSE_MAX_FOV, ";
 				BLOOD_SENSE_MAX_FOV= f;
 			}else if(strcmp(var, "GRAB_MAX_FOV=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=GRAB_MAX_FOV) printf("GRAB_MAX_FOV, ");
+				if(f!=GRAB_MAX_FOV) std::cout << "GRAB_MAX_FOV, ";
 				GRAB_MAX_FOV= f;
 			}else if(strcmp(var, "HEALTHLOSS_WHEELS=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTHLOSS_WHEELS) printf("HEALTHLOSS_WHEELS, ");
+				if(f!=HEALTHLOSS_WHEELS) std::cout << "HEALTHLOSS_WHEELS, ";
 				HEALTHLOSS_WHEELS= f;
 			}else if(strcmp(var, "HEALTHLOSS_BOOSTMULT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTHLOSS_BOOSTMULT) printf("HEALTHLOSS_BOOSTMULT, ");
+				if(f!=HEALTHLOSS_BOOSTMULT) std::cout << "HEALTHLOSS_BOOSTMULT, ";
 				HEALTHLOSS_BOOSTMULT= f;
 			}else if(strcmp(var, "HEALTHLOSS_BADTEMP=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTHLOSS_BADTEMP) printf("HEALTHLOSS_BADTEMP, ");
+				if(f!=HEALTHLOSS_BADTEMP) std::cout << "HEALTHLOSS_BADTEMP, ";
 				HEALTHLOSS_BADTEMP= f;
 			}else if(strcmp(var, "HEALTHLOSS_AGING=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTHLOSS_AGING) printf("HEALTHLOSS_AGING, ");
+				if(f!=HEALTHLOSS_AGING) std::cout << "HEALTHLOSS_AGING, ";
 				HEALTHLOSS_AGING= f;
 			}else if(strcmp(var, "HEALTHLOSS_EXHAUSTION=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTHLOSS_EXHAUSTION) printf("HEALTHLOSS_EXHAUSTION, ");
+				if(f!=HEALTHLOSS_EXHAUSTION) std::cout << "HEALTHLOSS_EXHAUSTION, ";
 				HEALTHLOSS_EXHAUSTION= f;
 			}else if(strcmp(var, "HEALTHLOSS_BRAINUSE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTHLOSS_BRAINUSE) printf("HEALTHLOSS_BRAINUSE, ");
+				if(f!=HEALTHLOSS_BRAINUSE) std::cout << "HEALTHLOSS_BRAINUSE, ";
 				HEALTHLOSS_BRAINUSE= f;
 			}else if(strcmp(var, "HEALTHLOSS_SPIKE_EXT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTHLOSS_SPIKE_EXT) printf("HEALTHLOSS_SPIKE_EXT, ");
+				if(f!=HEALTHLOSS_SPIKE_EXT) std::cout << "HEALTHLOSS_SPIKE_EXT, ";
 				HEALTHLOSS_SPIKE_EXT= f;
 			}else if(strcmp(var, "HEALTHLOSS_BADTERRAIN=")==0 || strcmp(var, "HEALTHLOSS_BADAIR=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTHLOSS_BADTERRAIN) printf("HEALTHLOSS_BADTERRAIN, ");
+				if(f!=HEALTHLOSS_BADTERRAIN) std::cout << "HEALTHLOSS_BADTERRAIN, ";
 				HEALTHLOSS_BADTERRAIN= f;
 			}else if(strcmp(var, "HEALTHLOSS_NOOXYGEN=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTHLOSS_NOOXYGEN) printf("HEALTHLOSS_NOOXYGEN, ");
+				if(f!=HEALTHLOSS_NOOXYGEN) std::cout << "HEALTHLOSS_NOOXYGEN, ";
 				HEALTHLOSS_NOOXYGEN= f;
 			}else if(strcmp(var, "HEALTHLOSS_ASEX=")==0 || strcmp(var, "HEALTHLOSS_ASSEX=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HEALTHLOSS_ASEX) printf("HEALTHLOSS_ASEX, ");
+				if(f!=HEALTHLOSS_ASEX) std::cout << "HEALTHLOSS_ASEX, ";
 				HEALTHLOSS_ASEX= f;
 			}else if(strcmp(var, "DAMAGE_FULLSPIKE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=DAMAGE_FULLSPIKE) printf("DAMAGE_FULLSPIKE, ");
+				if(f!=DAMAGE_FULLSPIKE) std::cout << "DAMAGE_FULLSPIKE, ";
 				DAMAGE_FULLSPIKE= f;
 			}else if(strcmp(var, "DAMAGE_COLLIDE=")==0 || strcmp(var, "HEALTHLOSS_BUMP=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=DAMAGE_COLLIDE) printf("DAMAGE_COLLIDE, ");
+				if(f!=DAMAGE_COLLIDE) std::cout << "DAMAGE_COLLIDE, ";
 				DAMAGE_COLLIDE= f;
 			}else if(strcmp(var, "DAMAGE_JAWSNAP=")==0 || strcmp(var, "HEALTHLOSS_JAWSNAP=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=DAMAGE_JAWSNAP) printf("DAMAGE_JAWSNAP, ");
+				if(f!=DAMAGE_JAWSNAP) std::cout << "DAMAGE_JAWSNAP, ";
 				DAMAGE_JAWSNAP= f;
 			}else if(strcmp(var, "STOMACH_EFFICIENCY=")==0 || strcmp(var, "STOMACH_EFF=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=STOMACH_EFFICIENCY) printf("STOMACH_EFFICIENCY, ");
+				if(f!=STOMACH_EFFICIENCY) std::cout << "STOMACH_EFFICIENCY, ";
 				STOMACH_EFFICIENCY= f;
 			}else if(strcmp(var, "PLANT_INTAKE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=PLANT_INTAKE) printf("PLANT_INTAKE, ");
+				if(f!=PLANT_INTAKE) std::cout << "PLANT_INTAKE, ";
 				PLANT_INTAKE= f;
 			}else if(strcmp(var, "PLANT_DECAY=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=PLANT_DECAY) printf("PLANT_DECAY, ");
+				if(f!=PLANT_DECAY) std::cout << "PLANT_DECAY, ";
 				PLANT_DECAY= f;
 			}else if(strcmp(var, "PLANT_GROWTH=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=PLANT_GROWTH) printf("PLANT_GROWTH, ");
+				if(f!=PLANT_GROWTH) std::cout << "PLANT_GROWTH, ";
 				PLANT_GROWTH= f;
 			}else if(strcmp(var, "PLANT_WASTE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=PLANT_WASTE) printf("PLANT_WASTE, ");
+				if(f!=PLANT_WASTE) std::cout << "PLANT_WASTE, ";
 				PLANT_WASTE= f;
 			}else if(strcmp(var, "PLANT_ADD_FREQ=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=PLANT_ADD_FREQ) printf("PLANT_ADD_FREQ, ");
+				if(i!=PLANT_ADD_FREQ) std::cout << "PLANT_ADD_FREQ, ";
 				PLANT_ADD_FREQ= i;
 			}else if(strcmp(var, "PLANT_SPREAD=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=PLANT_SPREAD) printf("PLANT_SPREAD, ");
+				if(f!=PLANT_SPREAD) std::cout << "PLANT_SPREAD, ";
 				PLANT_SPREAD= f;
 			}else if(strcmp(var, "PLANT_RANGE=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=PLANT_RANGE) printf("PLANT_RANGE, ");
+				if(i!=PLANT_RANGE) std::cout << "PLANT_RANGE, ";
 				PLANT_RANGE= i;
 			}else if(strcmp(var, "PLANT_TENACITY=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=PLANT_TENACITY) printf("PLANT_TENACITY, ");
+				if(f!=PLANT_TENACITY) std::cout << "PLANT_TENACITY, ";
 				PLANT_TENACITY= f;
 			}else if(strcmp(var, "FRUIT_INTAKE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=FRUIT_INTAKE) printf("FRUIT_INTAKE, ");
+				if(f!=FRUIT_INTAKE) std::cout << "FRUIT_INTAKE, ";
 				FRUIT_INTAKE= f;
 			}else if(strcmp(var, "FRUIT_DECAY=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=FRUIT_DECAY) printf("FRUIT_DECAY, ");
+				if(f!=FRUIT_DECAY) std::cout << "FRUIT_DECAY, ";
 				FRUIT_DECAY= f;
 			}else if(strcmp(var, "FRUIT_WASTE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=FRUIT_WASTE) printf("FRUIT_WASTE, ");
+				if(f!=FRUIT_WASTE) std::cout << "FRUIT_WASTE, ";
 				FRUIT_WASTE= f;
 			}else if(strcmp(var, "FRUIT_ADD_FREQ=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=FRUIT_ADD_FREQ) printf("FRUIT_ADD_FREQ, ");
+				if(i!=FRUIT_ADD_FREQ) std::cout << "FRUIT_ADD_FREQ, ";
 				FRUIT_ADD_FREQ= i;
 			}else if(strcmp(var, "FRUIT_PLANT_REQUIRE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=FRUIT_PLANT_REQUIRE) printf("FRUIT_PLANT_REQUIRE, ");
+				if(f!=FRUIT_PLANT_REQUIRE) std::cout << "FRUIT_PLANT_REQUIRE, ";
 				FRUIT_PLANT_REQUIRE= f;
 			}else if(strcmp(var, "MEAT_INTAKE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MEAT_INTAKE) printf("MEAT_INTAKE, ");
+				if(f!=MEAT_INTAKE) std::cout << "MEAT_INTAKE, ";
 				MEAT_INTAKE= f;
 			}else if(strcmp(var, "MEAT_DECAY=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MEAT_DECAY) printf("MEAT_DECAY, ");
+				if(f!=MEAT_DECAY) std::cout << "MEAT_DECAY, ";
 				MEAT_DECAY= f;
 			}else if(strcmp(var, "MEAT_WASTE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MEAT_WASTE) printf("MEAT_WASTE, ");
+				if(f!=MEAT_WASTE) std::cout << "MEAT_WASTE, ";
 				MEAT_WASTE= f;
 			}else if(strcmp(var, "MEAT_DEPOSIT_VALUE=")==0 || strcmp(var, "MEAT_VALUE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MEAT_DEPOSIT_VALUE) printf("MEAT_DEPOSIT_VALUE, ");
+				if(f!=MEAT_DEPOSIT_VALUE) std::cout << "MEAT_DEPOSIT_VALUE, ";
 				MEAT_DEPOSIT_VALUE= f;
 			}else if(strcmp(var, "MEAT_NON_FRESHKILL_MULT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=MEAT_NON_FRESHKILL_MULT) printf("MEAT_NON_FRESHKILL_MULT, ");
+				if(f!=MEAT_NON_FRESHKILL_MULT) std::cout << "MEAT_NON_FRESHKILL_MULT, ";
 				MEAT_NON_FRESHKILL_MULT= f;
 			}else if(strcmp(var, "HAZARD_EVENT_FREQ=")==0){
 				sscanf(dataval, "%i", &i);
-				if(i!=HAZARD_EVENT_FREQ) printf("HAZARD_EVENT_FREQ, ");
+				if(i!=HAZARD_EVENT_FREQ) std::cout << "HAZARD_EVENT_FREQ, ";
 				HAZARD_EVENT_FREQ= i;
 			}else if(strcmp(var, "HAZARD_EVENT_MULT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HAZARD_EVENT_MULT) printf("HAZARD_EVENT_MULT, ");
+				if(f!=HAZARD_EVENT_MULT) std::cout << "HAZARD_EVENT_MULT, ";
 				HAZARD_EVENT_MULT= f;
 			}else if(strcmp(var, "HAZARD_DECAY=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HAZARD_DECAY) printf("HAZARD_DECAY, ");
+				if(f!=HAZARD_DECAY) std::cout << "HAZARD_DECAY, ";
 				HAZARD_DECAY= f;
 			}else if(strcmp(var, "HAZARD_DEPOSIT=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HAZARD_DEPOSIT) printf("HAZARD_DEPOSIT, ");
+				if(f!=HAZARD_DEPOSIT) std::cout << "HAZARD_DEPOSIT, ";
 				HAZARD_DEPOSIT= f;
 			}else if(strcmp(var, "HAZARD_DAMAGE=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HAZARD_DAMAGE) printf("HAZARD_DAMAGE, ");
+				if(f!=HAZARD_DAMAGE) std::cout << "HAZARD_DAMAGE, ";
 				HAZARD_DAMAGE= f;
 			}else if(strcmp(var, "HAZARD_POWER=")==0){
 				sscanf(dataval, "%f", &f);
-				if(f!=HAZARD_POWER) printf("HAZARD_POWER, ");
+				if(f!=HAZARD_POWER) std::cout << "HAZARD_POWER, ";
 				HAZARD_POWER= f;
 			}
 		}
 		if(cf){
-			printf("and done!...\n");
+			std::cout << "and done!..." << std::endl;
 			fclose(cf);
 		}
 
 	} else {
 		#if defined(_DEBUG)
-		printf("_DEBUG: settings.cfg did not exist and suppressing creation in debug.\n");
+		std::cout << "_DEBUG: settings.cfg did not exist and suppressing creation in debug." << std::endl;
 		#else
 		writeConfig();
 		#endif
@@ -4417,14 +4427,14 @@ void World::readConfig()
 	if (INITHAZARD > CS) INITHAZARD = CS;
 
 	if (isDebug()){
-		printf("INITPLANT: %i\n", INITPLANT);
-		printf("INITFRUIT: %i\n", INITFRUIT);
-		printf("INITMEAT: %i\n", INITMEAT);
-		printf("INITHAZARD: %i\n", INITHAZARD);
+		std::cout << "INITPLANT: " << INITPLANT << std::endl;
+		std::cout << "INITFRUIT: " << INITFRUIT << std::endl;
+		std::cout << "INITMEAT: " << INITMEAT << std::endl;
+		std::cout << "INITHAZARD: " << INITHAZARD << std::endl;
 	}
 
 	if (BRAINBOXES < Output::OUTPUT_SIZE) {
-		printf("BRAINBOXES config value was too small. It has been reset to min allowed (number of Outputs)\n");
+		std::cout << "BRAINBOXES config value was too small. It has been reset to min allowed (number of Outputs)" << std::endl;
 		BRAINBOXES = Output::OUTPUT_SIZE;
 	}
 
@@ -4439,7 +4449,7 @@ void World::writeConfig()
 {
 	//called if settings.cfg is missing or version number of program is greater
 	//happens after initializing and skips loading of config
-	printf("...regenerating settings.cfg...\n");
+	std::cout << "...regenerating settings.cfg..." << std::endl;
 
 	FILE* cf= fopen("settings.cfg", "w");
 

@@ -220,7 +220,7 @@ void Agent::expressGenes()
 	for (int i = 0; i < Trait::TRAIT_TYPES; i++) {
 		float value;
 		if (counts[i] == 0) {
-			printf("DEBUG: count of a trait (%i) was == 0!", i);
+			std::cout << "!!! DEBUG: count of a trait (" << i << ") was == 0 !!!" << std::endl;
 			//value = DEFAULT_TRAITS[i]; //load up a default value for a given trait, see Gene.cpp for details
 		} else { 
 			value = traits[i] / counts[i];
@@ -504,199 +504,211 @@ void Agent::tick()
 
 void Agent::printSelf()
 {
-	printf("\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+	std::cout << "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
 	//print all Variables
 	//bot basics
-	printf("SELECTED AGENT SNAPSHOT REPORT, ID: %i\n", this->id);
-	printf("pos & angle: (%f, %f, %f), %f\n", this->pos.x, this->pos.y, this->pos.z, this->angle);
-	printf("health, age, & gencount: %f, %.1f days, %i\n", this->health, (float)this->age/10, this->gencount);
-	printf("repcounter: %f\n", this->repcounter);
-	printf("exhaustion: %f\n", this->exhaustion);
+	std::cout << "SELECTED AGENT SNAPSHOT REPORT, ID: " << this->id << std::endl;
+	std::cout << "pos: (" << this->pos.x << ", " << this->pos.y << ", " << this->pos.z << ") " << std::endl;
+    std::cout << "angle: " << this->angle << std::endl;
+    std::cout << "health: " << this->health << std::endl;
+    std::cout << "age: " << std::fixed << /*std::setprecision(2) <<*/ (float)this->age/10 << " days" << std::endl;
+    std::cout << "gencount: " << this->gencount << std::endl;
+	std::cout << "repcounter: " << this->repcounter << std::endl;
+	std::cout << "exhaustion: " << this->exhaustion << std::endl;
 
 	//traits
-	printf("======================= traits =======================\n");
-	printf("Genes count: %i\n", genes.size());
+	std::cout << "======================= traits =======================" << std::endl;
+	std::cout << "Genes count: " << genes.size() << std::endl;
 	for (int i = 0; i < genes.size(); i++) {
-		printf(" gene #%i: type: %s, val: %f\n", i, genes[i].getTextType().c_str(), genes[i].value);
+		std::cout << "| gene #" << i << ": type: " << genes[i].getTextType() << ", val: "
+            << std::fixed << /*std::setprecision(3) <<*/ genes[i].value << std::endl;
+
 	}
-	printf("brain_mutation_chance: %f, brain_mutation_size: %f\n", this->traits[Trait::BRAIN_MUTATION_CHANCE], this->traits[Trait::BRAIN_MUTATION_SIZE]);
-	printf("gene_mutation_chance: %f, gene_mutation_size: %f\n", this->traits[Trait::GENE_MUTATION_CHANCE], this->traits[Trait::GENE_MUTATION_SIZE]);
-	printf("species id: %f, kin_range: +/-%f\n", this->traits[Trait::SPECIESID], this->traits[Trait::KINRANGE]);
-	printf("radius: %f\n", this->traits[Trait::RADIUS]);
-	printf("strength: %f\n", this->traits[Trait::STRENGTH]);
-	printf("camo: %f, ", this->traits[Trait::SKIN_CHAMOVID]);
-	printf("gene_red: %f, gene_gre: %f, gene_blu: %f\n", this->traits[Trait::SKIN_RED], this->traits[Trait::SKIN_GREEN], this->traits[Trait::SKIN_BLUE]);
-	printf("num_babies: %f\n", this->traits[Trait::NUM_BABIES]);
-	printf("max_repcounter: %f\n", this->maxrepcounter);
-	printf("sex_project_bias: %f\n", this->traits[Trait::SEX_PROJECT_BIAS]);
-	printf("temp_preference: %f\n", this->traits[Trait::THERMAL_PREF]);
-	printf("temp_discomfort: %f\n", this->discomfort);
-	printf("lungs: %f\n", this->traits[Trait::LUNGS]);
-	printf("metabolism: %f\n", this->traits[Trait::METABOLISM]);
+	std::cout << "brain_mutation_chance: " << this->traits[Trait::BRAIN_MUTATION_CHANCE] << ", brain_mutation_size: " << this->traits[Trait::BRAIN_MUTATION_SIZE] << std::endl;
+	std::cout << "gene_mutation_chance: " << this->traits[Trait::GENE_MUTATION_CHANCE] << ", gene_mutation_size: " << this->traits[Trait::GENE_MUTATION_SIZE] << std::endl;
+	std::cout << "species id: " << this->traits[Trait::SPECIESID] << ", kin_range: +/-" << this->traits[Trait::KINRANGE] << std::endl;
+	std::cout << "radius: " << this->traits[Trait::RADIUS] << std::endl;
+	std::cout << "strength: " << this->traits[Trait::STRENGTH] << std::endl;
+	std::cout << "camo: %f" << this->traits[Trait::SKIN_CHAMOVID];
+	std::cout << ", gene_red: " << this->traits[Trait::SKIN_RED];
+    std::cout << ", gene_gre: " << this->traits[Trait::SKIN_GREEN];
+    std::cout << ", gene_blu: " << this->traits[Trait::SKIN_BLUE] << std::endl;
+	std::cout << "num_babies: " << this->traits[Trait::NUM_BABIES] << std::endl;
+	std::cout << "max_repcounter: " << this->maxrepcounter << std::endl;
+	std::cout << "sex_project_bias: " << this->traits[Trait::SEX_PROJECT_BIAS] << std::endl;
+	std::cout << "temp_preference: " << this->traits[Trait::THERMAL_PREF] << std::endl;
+	std::cout << "temp_discomfort: " << this->discomfort << std::endl;
+	std::cout << "lungs: " << this->traits[Trait::LUNGS] << std::endl;
+	std::cout << "metabolism: " << this->traits[Trait::METABOLISM] << std::endl;
 	for(int i=0; i<Stomach::FOOD_TYPES; i++){
-		printf("stomach %i value: %f\n", i, this->traits[Trait::STOMACH + i]);
+		std::cout << "stomach [" << i << "] value: " << this->traits[Trait::STOMACH + i] << std::endl;
 	}
-	if (this->isHerbivore()) printf(" Herbivore\n");
-	if (this->isCarnivore()) printf(" Carnivore\n");
-	if (this->isFrugivore()) printf(" Frugivore\n");
+	if (this->isHerbivore()) std::cout << " Herbivore" << std::endl;
+	if (this->isCarnivore()) std::cout << " Carnivore" << std::endl;
+	if (this->isFrugivore()) std::cout << " Frugivore" << std::endl;
 	
 	//senses
-	printf("======================= senses ========================\n");
-	printf("eye_see_agent_mod: %f\n", this->traits[Trait::EYE_SEE_AGENTS]);
-	printf("eye_see_cell_mod: %f\n", this->traits[Trait::EYE_SEE_CELLS]);
-	printf("eye structs: [");
+	std::cout << "======================= senses ========================" << std::endl;
+	std::cout << "eye_see_agent_mod: " << this->traits[Trait::EYE_SEE_AGENTS] << std::endl;
+	std::cout << "eye_see_cell_mod: " << this->traits[Trait::EYE_SEE_CELLS] << std::endl;
+	std::cout << "eye structs: [";
 	for (int i=0; i < this->eyes.size(); i++) {
-		printf("(dir: %f, fov: %f),", this->eyes[i].dir, this->eyes[i].fov);
+		std::cout << "(dir: " << this->eyes[i].dir << ", fov: " << this->eyes[i].fov << "),";
 	}
-	printf("]");
-	printf("hear_mod: %f\n", this->traits[Trait::EAR_HEAR_AGENTS]);
+    std::cout << "]" << std::endl;
+	std::cout << "hear_mod: " << this->traits[Trait::EAR_HEAR_AGENTS] << std::endl;
 //	std::vector<float> eardir; //position of ears
 //	std::vector<float> hearlow; //low values of hearing ranges
 //	std::vector<float> hearhigh; //high values of hearing ranges
-	printf("clockf1: %f, clockf2: %f, clockf3: %f\n", this->traits[Trait::CLOCK1_FREQ], this->traits[Trait::CLOCK2_FREQ], this->clockf3);
-	printf("blood_mod: %f\n", this->traits[Trait::BLOOD_SENSE]);
-	printf("smell_mod: %f\n", this->traits[Trait::SMELL_SENSE]);
+	std::cout << "clockf1: " << this->traits[Trait::CLOCK1_FREQ];
+    std::cout << ", clockf2: " << this->traits[Trait::CLOCK2_FREQ];
+    std::cout << ", clockf3: " << this->clockf3 << std::endl;
+	std::cout << "blood_mod: " << this->traits[Trait::BLOOD_SENSE] << std::endl;
+	std::cout << "smell_mod: " << this->traits[Trait::SMELL_SENSE] << std::endl;
 
 	//the brain
-	printf("====================== the brain ======================\n");
+	std::cout << "====================== the brain ======================" << std::endl;
 	for(int i=0; i < Output::OUTPUT_SIZE; i++){
 		switch(i){
-			case Output::BLU :			printf("- blue");				break;
-			case Output::BOOST :		printf("- boost");				break;
-			case Output::CLOCKF3 :		printf("- clock3 freq.");		break;
-			case Output::GIVE :			printf("- give");				break;
-			case Output::GRAB :			printf("- grab");				break;
-			case Output::GRAB_ANGLE :	printf("- grab angle");			break;
-			case Output::GRE :			printf("- green");				break;
-			case Output::JAW :			printf("- jaw");				break;
-			case Output::JUMP :			printf("- jump");				break;
-			case Output::LEFT_WHEEL_B :	printf("- left wheel (B)");		break;
-			case Output::LEFT_WHEEL_F :	printf("- left wheel (F)");		break;
-			case Output::PROJECT :		printf("- sexual proj.");		break;
-			case Output::RED :			printf("- red");				break;
-			case Output::REVERSE :		printf("- reverse wheels");		break;
-			case Output::RIGHT_WHEEL_B : printf("- right wheel (B)");	break;
-			case Output::RIGHT_WHEEL_F : printf("- right wheel (F)");	break;
-			case Output::SPIKE :		printf("- spike");				break;
-			case Output::STIMULANT :	printf("- stimulant");			break;
-			case Output::TONE :			printf("- voice tone");			break;
-			case Output::VOLUME :		printf("- voice volume");		break;
-			case Output::WASTE_RATE :	printf("- waste");				break;
+			case Output::BLU :			std::cout << "- blue";				break;
+			case Output::BOOST :		std::cout << "- boost";				break;
+			case Output::CLOCKF3 :		std::cout << "- clock3 freq.";		break;
+			case Output::GIVE :			std::cout << "- give";				break;
+			case Output::GRAB :			std::cout << "- grab";				break;
+			case Output::GRAB_ANGLE :	std::cout << "- grab angle";			break;
+			case Output::GRE :			std::cout << "- green";				break;
+			case Output::JAW :			std::cout << "- jaw";				break;
+			case Output::JUMP :			std::cout << "- jump";				break;
+			case Output::LEFT_WHEEL_B :	std::cout << "- left wheel (B)";		break;
+			case Output::LEFT_WHEEL_F :	std::cout << "- left wheel (F)";		break;
+			case Output::PROJECT :		std::cout << "- sexual proj.";		break;
+			case Output::RED :			std::cout << "- red";				break;
+			case Output::REVERSE :		std::cout << "- reverse wheels";		break;
+			case Output::RIGHT_WHEEL_B : std::cout << "- right wheel (B)";	break;
+			case Output::RIGHT_WHEEL_F : std::cout << "- right wheel (F)";	break;
+			case Output::SPIKE :		std::cout << "- spike";				break;
+			case Output::STIMULANT :	std::cout << "- stimulant";			break;
+			case Output::TONE :			std::cout << "- voice tone";			break;
+			case Output::VOLUME :		std::cout << "- voice volume";		break;
+			case Output::WASTE_RATE :	std::cout << "- waste";				break;
 		}
-		printf(" output: %f\n", this->out[i]);
+		std::cout << " output: " << this->out[i] << std::endl;
 	}
 	
 	//outputs
-	printf("wheel 1 & 2 sums: %f, %f\n", this->w1, this->w2);
-	printf("reverse wheels? %s\n", this->out[Output::REVERSE]>0.5 ? "true" : "false");
-	printf("boost? %s\n", this->out[Output::BOOST]>0.5 ? "true" : "false");
-	printf("jump? %s\n", this->out[Output::JUMP]>0.5 ? "true" : "false");
-	printf("pos.z (jump height): %f\n", this->pos.z);
-	printf("spikeLength: %f\n", this->spikeLength);
-	printf("jawPosition: %f\n", this->jawPosition);
-	printf("jawOldOutput: %f\n", this->jawOldOutput);
-	printf("jawMaxRecent: %f\n", this->jawMaxRecent);
-	printf("volume: %f\n", this->volume);
-	printf("tone: %f\n", this->tone);
-	printf("give: %f\n", this->give);
-	printf("grabID: %i\n", this->grabID);
-	printf("grabbing: %f\n", this->grabbing);
-	printf("grabangle: %f\n", this->grabangle);
+	std::cout << "wheel 1 & 2 sums: " << this->w1 << ", " << this->w2 << std::endl;
+    std::string reverse = this->out[Output::REVERSE]>0.5 ? "true" : "false";
+    std::string boost = this->out[Output::BOOST]>0.5 ? "true" : "false";
+    std::string jump = this->out[Output::JUMP]>0.5 ? "true" : "false";
+	std::cout << "reverse wheels? " << reverse << std::endl;
+	std::cout << "boost? " << boost << std::endl;
+	std::cout << "jump? " << jump << std::endl;
+	std::cout << "pos.z (jump height): " << this->pos.z << std::endl;
+	std::cout << "spikeLength: " << this->spikeLength << std::endl;
+	std::cout << "jawPosition: " << this->jawPosition << std::endl;
+	std::cout << "jawOldOutput: " << this->jawOldOutput << std::endl;
+	std::cout << "jawMaxRecent: " << this->jawMaxRecent << std::endl;
+	std::cout << "volume: " << this->volume << std::endl;
+	std::cout << "tone: " << this->tone << std::endl;
+	std::cout << "give: " << this->give << std::endl;
+	std::cout << "grabID: " << this->grabID << std::endl;
+	std::cout << "grabbing: " << this->grabbing << std::endl;
+	std::cout << "grabangle: " << this->grabangle << std::endl;
 	//more detailed grabangle output?
-	printf("sexproject TOTAL: %f\n", this->sexproject);
+	std::cout << "sexproject TOTAL: " << this->sexproject << std::endl;
 	
 	//stats
-	printf("======================== stats ========================\n");
-	if(this->near) printf("PRESENTLY NEAR\n");
-	else printf("PRESENTLY NOT NEAR (not interaction-processed)\n");
-	printf("freshkill: %i\n", this->freshkill);
-	printf("carcasscount: %i\n", this->carcasscount);
-	if (this->encumbered > 0) printf("encumbered x%i\n", this->encumbered);
-	else printf("not encumbered\n");
-	if(this->hybrid) printf("is hybrid\n");
-	else printf("is budded\n");
-	if(this->isDead()) printf("Killed by %s\n", this->death);
-	else printf("STILL ALIVE (o)\n");
-	printf("parent ID: %i\n", this->parentid);
-	printf("children, killed, hits: %i, %i, %i\n", this->children, this->killed, this->hits);
-	printf("indicator size, rgb: %f, %f, %f, %f\n", this->indicator, this->ir, this->ig, this->ib); 
-	printf("give health gfx magnitude, pos: %f, (%f,%f)\n", this->dhealth, this->dhealthx, this->dhealthy);
-	printf("grab gfx pos: (%f,%f)\n", this->grabx, this->graby);
-	printf("jaw gfx counter: %f\n", this->jaw_render_timer);
-	printf("mutations: (%i)\n", this->mutations.size());
+	std::cout << "======================== stats ========================" << std::endl;
+	if(this->near) std::cout << "PRESENTLY NEAR" << std::endl;
+	else std::cout << "PRESENTLY NOT NEAR (not interaction-processed)" << std::endl;
+	std::cout << "freshkill: " << this->freshkill << std::endl;
+	std::cout << "carcasscount: " << this->carcasscount << std::endl;
+	if (this->encumbered > 0) std::cout << "encumbered x" << this->encumbered << std::endl;
+	else std::cout << "not encumbered" << std::endl;
+	if(this->hybrid) std::cout << "is hybrid" << std::endl;
+	else std::cout << "is budded" << std::endl;
+	if(this->isDead()) std::cout << "Killed by " << this->death << std::endl;
+	else std::cout << "STILL ALIVE (o)" << std::endl;
+	std::cout << "parent ID: " << this->parentid << std::endl;
+	std::cout << "children, killed, hits: " << this->children << ", " << this->killed << ", " << this->hits << std::endl;
+	std::cout << "indicator size, rgb: " << this->indicator << ", " << this->ir << ", " << this->ig << ", " << this->ib << std::endl;
+	std::cout << "give health gfx magnitude, pos: " << this->dhealth << ", (" << this->dhealthx << "," << this->dhealthy << ")" << std::endl;
+	std::cout << "grab gfx pos: (" << this->grabx << "," << this->graby << ")" << std::endl;
+	std::cout << "jaw gfx counter: " << this->jaw_render_timer << std::endl;
+	std::cout << "mutations: (" << this->mutations.size() << ")" << std::endl;
 	for (int i = 0; i < (int)this->mutations.size(); i++) {
 		cout << this->mutations[i] << ",";
 	}
 	cout << endl;
-	printf("damages:\n");
+	std::cout << "damages:" << std::endl;
 	for (int i=0; i < (int)this->damages.size(); i++) {
 		cout << " " << this->damages[i].first << ": " << this->damages[i].second << endl;
 	}
-	printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n");
+	std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
 }
 
 void Agent::traceBack(int outback)
 {
 	//given an output index, ask the brain to re-trace contributing inputs
-/*	printf("beginning traceback of output # %d, ", outback);
+/*	std::cout << "beginning traceback of output # " << outback << ", ";
 	switch(outback){
-		case Output::BLU :			printf("blue");				break;
-		case Output::BOOST :		printf("boost");			break;
-		case Output::CLOCKF3 :		printf("clock3 freq.");		break;
-		case Output::GIVE :			printf("give");				break;
-		case Output::GRAB :			printf("grab");				break;
-		case Output::GRAB_ANGLE :	printf("grab angle");		break;
-		case Output::GRE :			printf("green");			break;
-		case Output::JAW :			printf("jaw");				break;
-		case Output::JUMP :			printf("jump");				break;
-		case Output::LEFT_WHEEL_B :	printf("left wheel (B)");	break;
-		case Output::LEFT_WHEEL_F :	printf("left wheel (F)");	break;
-		case Output::PROJECT :		printf("sexual proj.");		break;
-		case Output::RED :			printf("red");				break;
-		case Output::RIGHT_WHEEL_B : printf("right wheel (B)"); break;
-		case Output::RIGHT_WHEEL_F : printf("right wheel (F)"); break;
-		case Output::SPIKE :		printf("spike");			break;
-		case Output::STIMULANT :	printf("stimulant");		break;
-		case Output::TONE :			printf("voice tone");		break;
-		case Output::VOLUME :		printf("voice volume");		break;
-		case Output::WASTE_RATE :	printf("waste");			break;
+		case Output::BLU :			std::cout << "blue";				break;
+		case Output::BOOST :		std::cout << "boost";			break;
+		case Output::CLOCKF3 :		std::cout << "clock3 freq.";		break;
+		case Output::GIVE :			std::cout << "give";				break;
+		case Output::GRAB :			std::cout << "grab";				break;
+		case Output::GRAB_ANGLE :	std::cout << "grab angle";		break;
+		case Output::GRE :			std::cout << "green";			break;
+		case Output::JAW :			std::cout << "jaw";				break;
+		case Output::JUMP :			std::cout << "jump";				break;
+		case Output::LEFT_WHEEL_B :	std::cout << "left wheel (B)";	break;
+		case Output::LEFT_WHEEL_F :	std::cout << "left wheel (F)";	break;
+		case Output::PROJECT :		std::cout << "sexual proj.";		break;
+		case Output::RED :			std::cout << "red";				break;
+		case Output::RIGHT_WHEEL_B : std::cout << "right wheel (B)"; break;
+		case Output::RIGHT_WHEEL_F : std::cout << "right wheel (F)"; break;
+		case Output::SPIKE :		std::cout << "spike";			break;
+		case Output::STIMULANT :	std::cout << "stimulant";		break;
+		case Output::TONE :			std::cout << "voice tone";		break;
+		case Output::VOLUME :		std::cout << "voice volume";		break;
+		case Output::WASTE_RATE :	std::cout << "waste";			break;
 	}
-	printf("\n");
+	std::cout << std::endl;
 
 	std::vector<int> inputs= brain.traceBack(outback);
 	std::sort (inputs.begin(), inputs.end());
 
-	printf("This output is strongly connected to  _%d_  inputs:\n", inputs.size());
+	std::cout << "This output is strongly connected to  _" << inputs.size() << "_  inputs:" << std::endl;
 
 	for (int i=0; i<inputs.size(); i++) {
 		switch(inputs[i]){
-			case Input::BLOOD :			printf("blood");			break;
-			case Input::BOT_SMELL :		printf("agent_smell");		break;
-			case Input::CLOCK1 :		printf("clock1");			break;
-			case Input::CLOCK2 :		printf("clock2");			break;
-			case Input::CLOCK3 :		printf("clock3");			break;
-			case Input::FRUIT_SMELL :	printf("fruit_smell");		break;
-			case Input::HAZARD_SMELL :	printf("hazard_smell");		break;
-			case Input::HEALTH :		printf("health");			break;
-			case Input::REPCOUNT :		printf("reproduction_counter");	break;
-			case Input::MEAT_SMELL :	printf("meat_smell");		break;
-			case Input::PLAYER :		printf("PLAYER_INPUT");		break;
-			case Input::RANDOM :		printf("RaNdOm");			break;
-			case Input::TEMP : 			printf("temperature");		break;
-			case Input::WATER_SMELL :	printf("water_smell");		break;
+			case Input::BLOOD :			std::cout << "blood";			break;
+			case Input::BOT_SMELL :		std::cout << "agent_smell";		break;
+			case Input::CLOCK1 :		std::cout << "clock1";			break;
+			case Input::CLOCK2 :		std::cout << "clock2";			break;
+			case Input::CLOCK3 :		std::cout << "clock3";			break;
+			case Input::FRUIT_SMELL :	std::cout << "fruit_smell";		break;
+			case Input::HAZARD_SMELL :	std::cout << "hazard_smell";		break;
+			case Input::HEALTH :		std::cout << "health";			break;
+			case Input::REPCOUNT :		std::cout << "reproduction_counter";	break;
+			case Input::MEAT_SMELL :	std::cout << "meat_smell";		break;
+			case Input::PLAYER :		std::cout << "PLAYER_INPUT";		break;
+			case Input::RANDOM :		std::cout << "RaNdOm";			break;
+			case Input::TEMP : 			std::cout << "temperature";		break;
+			case Input::WATER_SMELL :	std::cout << "water_smell";		break;
 		}
 
 		if(inputs[i]>=Input::EYES && inputs[i]<=Input::xEYES){
 			printf("eye#%d_",(int)floor((float)(inputs[i])/3.0)-Input::EYES);
-			if(inputs[i]%3==0)		printf("red"); //a->in[Input::EYES+i*3]= cap(r[i]);
-			else if(inputs[i]%3==1)	printf("green"); //a->in[Input::EYES+i*3+1]= cap(g[i]);
-			else if(inputs[i]%3==2)	printf("blue"); //a->in[Input::EYES+i*3+2]= cap(b[i]);
+			if(inputs[i]%3==0)		std::cout << "red"; //a->in[Input::EYES+i*3]= cap(r[i]);
+			else if(inputs[i]%3==1)	std::cout << "green"; //a->in[Input::EYES+i*3+1]= cap(g[i]);
+			else if(inputs[i]%3==2)	std::cout << "blue"; //a->in[Input::EYES+i*3+2]= cap(b[i]);
 		} else if(inputs[i]>=Input::EARS && inputs[i]<=Input::xEARS){
 			printf("ear#%d",inputs[i]-Input::EARS);
 		}
-		printf(" ");
+		std::cout << " ";
 	}
-	printf("\n\n");*/
+	std::cout << "\n" << std::endl;*/
 }
 
 

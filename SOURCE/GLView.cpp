@@ -215,7 +215,7 @@ void GLView::processLayerPreset()
 //Control.cpp
 {
 	//update layer bools based on current ui_layerpreset
-	if (world->isDebug()) printf("ui_layerpreset is now %d\n", ui_layerpreset);
+	if (world->isDebug()) std::cout << "ui_layerpreset is now " << ui_layerpreset << std::endl;
 
 	for (int i=0; i<DisplayLayer::DISPLAYS; i++) {
 		live_layersvis[i] = i == ui_layerpreset - 1 ? 1 : 0; 
@@ -272,8 +272,10 @@ void GLView::changeSize(int w, int h)
 void GLView::processMouse(int button, int state, int x, int y)
 //Control.cpp
 {
-	if(world->isDebug()) printf("MOUSE EVENT: button=%i state=%i x=%i y=%i, scale=%f, mousedrag=%i, uiclicked= %i\n", 
-		button, state, x, y, scalemult, mousedrag, uiclicked);
+    if (world->isDebug()) {
+        std::cout << "MOUSE EVENT: button=" << button << " state=" << state << " x=" << x << " y=" << y
+                  << ", scale=" << scalemult << ", mousedrag=" << mousedrag << ", uiclicked= " << uiclicked << std::endl;
+    }
 	
 	if(!mousedrag){ //dont let mouse click do anything if drag flag is raised
 		//check our tile list!
@@ -293,7 +295,7 @@ void GLView::processMouse(int button, int state, int x, int y)
 					world->tryPlayAudio(conf::SFX_UI_MANUALSELECT);
 				}
 			} else if (live_cursormode==MouseMode::PLACE_AGENT){
-				if (world->addLoadedAgent(wx, wy)) printf("agent placed!    yay\n");
+				if (world->addLoadedAgent(wx, wy)) std::cout << "agent placed!    yay" << std::endl;
 				else world->addEvent("No agent loaded! Load an Agent first", EventColor::BLOOD);
 			}
 		}
@@ -308,7 +310,10 @@ void GLView::processMouse(int button, int state, int x, int y)
 void GLView::processMouseActiveMotion(int x, int y)
 //Control.cpp
 {
-	if(world->isDebug()) printf("MOUSE MOTION x=%i y=%i, buttons: LEFT: %i MIDDLE: %i RIGHT: %i\n", x, y, downb[GLMouse::LEFT], downb[GLMouse::MIDDLE], downb[GLMouse::RIGHT]);
+    if (world->isDebug()) {
+        std::cout << "MOUSE MOTION x=" << x << " y=" << y << ", buttons: LEFT: " << downb[GLMouse::LEFT]
+                  << " MIDDLE: " << downb[GLMouse::MIDDLE] << " RIGHT: " << downb[GLMouse::RIGHT] << std::endl;
+    }
 	
 	if(!uiclicked){ //if ui was not clicked
 
@@ -672,17 +677,17 @@ void GLView::menu(int key)
 		glutSetMenu(m_id);*/
 	
 	//user controls:
-	} else if (key==119 && world->getSelectedID()!=-1) { //w (move faster)
+	} else if (key==119 && world->getSelectedAgentIndex()!=-1) { //w (move faster)
 		world->player_control= true;
 		float newleft= clamp(world->player_left + 0.05 + (world->player_right - world->player_left)*0.25, -1, 1);
 		world->player_right= clamp(world->player_right + 0.05 + (world->player_left - world->player_right)*0.25, -1, 1);
 		world->player_left= newleft;
-	} else if (key==115 && world->getSelectedID()!=-1) { //s (move slower/reverse)
+	} else if (key==115 && world->getSelectedAgentIndex()!=-1) { //s (move slower/reverse)
 		world->player_control= true;
 		float newleft= clamp(world->player_left - 0.05 + (world->player_right - world->player_left)*0.25, -1, 1);
 		world->player_right= clamp(world->player_right - 0.05 + (world->player_left - world->player_right)*0.25, -1, 1);
 		world->player_left= newleft;
-	} else if (key==97 && world->getSelectedID()!=-1) { //a (turn left)
+	} else if (key==97 && world->getSelectedAgentIndex()!=-1) { //a (turn left)
 		world->player_control= true;
 		if (world->player_left > world->player_right) {
 			float avg= (world->player_left + world->player_right) * 0.5;
@@ -693,7 +698,7 @@ void GLView::menu(int key)
 			world->player_right= clamp(world->player_right + 0.01 + abs(world->player_left - world->player_right)*0.25, -1, 1);
 			world->player_left= newleft;
 		}
-	} else if (key==100 && world->getSelectedID()!=-1) { //d (turn right)
+	} else if (key==100 && world->getSelectedAgentIndex()!=-1) { //d (turn right)
 		world->player_control= true;
 		if(world->player_left < world->player_right) {
 			float avg= (world->player_left + world->player_right) * 0.5;
@@ -711,8 +716,7 @@ void GLView::menu(int key)
 		else glutChangeToMenuEntry(1, "Control Selected (w,a,s,d)", 999);
 		glutSetMenu(m_id);
 
-	} else if (key=='r') { //r key is now a defacto debugging key for whatever I need at the time
-		world->cellsRoundTerrain();
+	//} else if (key=='r') { //r key is now a defacto debugging key for whatever I need at the time
 
 	} else if (key==127) { //delete
 		world->selectedKill();
@@ -740,7 +744,7 @@ void GLView::menu(int key)
 /*		glutGet(GLUT_MENU_NUM_ITEMS);
 		if (world->isDebug()){
 			glutChangeToMenuEntry(18, "Exit Debug Mode", 1005);
-			printf("Entered Debug Mode\n");
+			std::cout << "Entered Debug Mode" << std::endl;
 		} else glutChangeToMenuEntry(18, "Enter Debug Mode", 1005);
 		glutSetMenu(m_id);*/
 	}else if (key==1006) { //force-reset config
@@ -749,7 +753,7 @@ void GLView::menu(int key)
 		world->setDemo(false);
 		world->reset();
 		world->spawn();
-		printf("WORLD RESET!\n");
+		std::cout << "WORLD RESET!" << std::endl;
 		world->addEvent("World Started!", EventColor::MINT);
 	} else if (key==1008) { //save world
 		handleRW(RWOpen::BASICSAVE);
@@ -776,7 +780,7 @@ void GLView::menu(int key)
 		else live_selection= Select::NONE;
 	} else {
 		#if defined(_DEBUG)
-		printf("Unmatched key pressed: %i\n", key);
+		std::cout << "Unmatched key pressed: " << key << std::endl;
 		#endif
 	}
 }
@@ -1089,14 +1093,16 @@ void GLView::handleRW(int action) //glui callback for saving/loading worlds
 
 				if(time>1) timetype+= "s";
 
-				sprintf(buf,"This will erase the current world, last saved ~%d %s ago.", time, timetype.c_str());
-				printf("%s", buf);
+                std::ostringstream stream;
+                stream << "This will erase the current world, last saved ~" << time << " " << timetype << " ago.";
+                std::string message = stream.str();
+                std::cout << message << std::endl;
 
 				Alert = GLUI_Master.create_glui("Alert",0,50,50);
 				Alert->show();
 				new GLUI_StaticText(Alert,"");
 				new GLUI_StaticText(Alert,"Are you sure?");
-				new GLUI_StaticText(Alert,buf);
+				new GLUI_StaticText(Alert,message.c_str());
 				new GLUI_StaticText(Alert,"");
 				new GLUI_Button(Alert,"Okay",RWOpen::IGNOREOVERLOAD, glui_handleRW);
 				new GLUI_Button(Alert,"Cancel", RWClose::CANCELALERT, glui_handleCloses);
@@ -1223,8 +1229,8 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 			if(!fl) { //file doesn't exist. Alert the user
 				Alert = GLUI_Master.create_glui("Alert",0,50,50);
 
-				sprintf(buf,"No file could be found at \"%s\".\n", address.c_str());
-				printf("%s", buf);
+                std::string message = "No file could be found at \"" + address + "\".";
+                std::cout << message << std::endl;
 
 				new GLUI_StaticText(Alert,"");
 				new GLUI_StaticText(Alert, buf); 
@@ -1254,7 +1260,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 		world->reset();
 		world->spawn();
 		lastsavedtime= currentTime;
-		printf("WORLD RESET!\n");
+		std::cout << "WORLD RESET!" << std::endl;
 		world->addEvent("World Started!", EventColor::MINT);
 		//this is getting annoying - so if the world changes any values that have a GUI, the GUI will not update. We have to force update here
 		syncLiveWithWorld();
@@ -1276,7 +1282,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 
 //			FILE* ck = fopen(address, "r");
 //			if(ck){
-//				if (debug) printf("WARNING: %s already exists!\n", filename);
+//				if (debug) std::cout << "WARNING: " << filename << " already exists!" << std::endl;
 //
 //				Alert = GLUI_Master.create_glui("Alert",0,50,50);
 //				Alert->show();
@@ -1317,8 +1323,8 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 			if(!fl) { //file doesn't exist. Alert the user
 				Alert = GLUI_Master.create_glui("Alert",0,50,50);
 
-				sprintf(buf,"No file could be found with the name \"%s.AGT\".", filename);
-				printf("%s", buf);
+				std::string message = "No file could be found at \"" + address + "\".";
+                std::cout << message << std::endl;
 
 				new GLUI_StaticText(Alert,"");
 				new GLUI_StaticText(Alert, buf); 
@@ -1363,8 +1369,8 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 			if(!fl) { //file doesn't exist. Alert the user
 				Alert = GLUI_Master.create_glui("Alert",0,50,50);
 
-				sprintf(buf,"No file could be found with the name \"%s.AGT\".", filename);
-				printf("%s", buf);
+				std::string message = "No file could be found at \"" + address + "\".";
+                std::cout << message << std::endl;
 
 				new GLUI_StaticText(Alert,"");
 				new GLUI_StaticText(Alert, buf); 
@@ -1394,9 +1400,9 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 bool GLView::checkFileName(char name[32])
 //Control.cpp
 {
-	if (live_debug) printf("Filename: '%s'\n",name);
+    if (live_debug) std::cout << "Filename: '" << name << std::endl;
 	if (!name || name=="" || name==NULL || name[0]=='\0'){
-		printf("ERROR: empty filename; returning to program.\n");
+		std::cout << "ERROR: empty filename; returning to program." << std::endl;
 
 		Alert = GLUI_Master.create_glui("Alert",0,50,50);
 		Alert->show();
@@ -1414,7 +1420,7 @@ bool GLView::checkFileName(char name[32])
 
 	if (debug) printf("File: '%s'\n",name);
 	if (name.size()==0 || name==NULL || name[0]=='\0'){
-		printf("ERROR: empty filename; returning to program.\n");
+		std::cout << "ERROR: empty filename; returning to program." << std::endl;
 
 		Alert = GLUI_Master.create_glui("Alert",0,50,50);
 		Alert->show();
@@ -1442,7 +1448,7 @@ void GLView::trySaveWorld(bool force, bool autosave)
 
 		FILE* ck = fopen(address.c_str(), "r");
 		if(ck && !force){
-			if (live_debug) printf("WARNING: %s already exists!\n", filename);
+			if (live_debug) std::cout << "WARNING: " << filename << " already exists!" << std::endl;
 
 			Alert = GLUI_Master.create_glui("Alert",0,50,50);
 			Alert->show();
@@ -1812,7 +1818,7 @@ void GLView::handleIdle()
 	#if defined(_DEBUG)
 	if(world->isDebug()){
 		glEnable(GL_POLYGON_SMOOTH); // this will render thin lines on all polygons. It's a bug, but it's a feature!
-		if (conf::VERBOSE_DEBUG) printf("tick/\n"); // must occur at end of tick (for verbose debug)!
+		if (conf::VERBOSE_DEBUG) std::cout << "tick/" << std::endl; // must occur at end of tick (for verbose debug)!
 	}
 	#endif
 }
@@ -1835,7 +1841,7 @@ void GLView::renderScene()
 	//CONTROL.CPP
 	//handle world agent selection interface
 	world->setSelection(live_selection);
-	if (world->getSelectedID() == -1 && live_selection != Select::MANUAL && live_selection != Select::NONE) {
+	if (world->getSelectedAgentIndex() == -1 && live_selection != Select::MANUAL && live_selection != Select::NONE) {
 		live_selection = Select::NONE;
 		world->addEvent("No valid Autoselect targets", EventColor::BLACK);
 		world->tryPlayAudio(conf::SFX_UI_AUTOSELECT_FAIL);

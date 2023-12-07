@@ -154,7 +154,7 @@ void CPBrain::healthCheck()
 		lives[i].tid = boxRef(lives[i].tid);
 	}
 //	for (int i=0; i < (int)boxes.size(); i++){
-//		printf("%i, %i\n", i, (int)boxes[i].dead);
+//		std::cout << "" << i << ", " << (int)boxes[i].dead << "" << std::endl;
 //	}
 }
 
@@ -163,7 +163,7 @@ int CPBrain::inRef(int id)
 	if (id < 0) id = - id - 1;
 	int refval = clamp(id, 0, Input::INPUT_SIZE - 1);
 	if (refval != id) {
-		printf("BRAIN ERROR: an input ID passed to 'inRef()' was invalid. Please set a breakpoint\n");
+		std::cout << "BRAIN ERROR: an input ID passed to 'inRef()' was invalid. Please set a breakpoint" << std::endl;
 	}
 	return refval;
 }
@@ -172,7 +172,7 @@ int CPBrain::boxRef(int id)
 {
 	int refval = clamp(id, 0, boxes.size() - 1);
 	if (refval != id) {
-		printf("BRAIN ERROR: a box ID passed to 'boxRef()' was invalid. Please set a breakpoint\n");
+		std::cout << "BRAIN ERROR: a box ID passed to 'boxRef()' was invalid. Please set a breakpoint" << std::endl;
 	}
 	return refval;
 }
@@ -181,7 +181,7 @@ int CPBrain::connRef(int id)
 {
 	int refval = clamp(id, 0, conns.size() - 1);
 	if (refval != id) {
-		printf("BRAIN ERROR: a connection ID passed to 'connRef()' was invalid. Please set a breakpoint\n");
+		std::cout << "BRAIN ERROR: a connection ID passed to 'connRef()' was invalid. Please set a breakpoint" << std::endl;
 	}
 	return refval;
 }
@@ -567,7 +567,7 @@ CPBrain CPBrain::crossover(const CPBrain& other)
 
 	//if bad data, break
 	if(outback<0 || outback>=Output::OUTPUT_SIZE) {
-		printf("bad trace value passed\n");
+		std::cout << "bad trace value passed" << std::endl;
 		return inputs;
 	}
 
@@ -621,7 +621,7 @@ CPBrain CPBrain::crossover(const CPBrain& other)
 		} else break;
 	}
 
-	if(todos.size()>0) printf("we had %d nodes left to try before giving up\n", todos.size());
+	if(todos.size()>0) std::cout << "we had " << todos.size() << " nodes left to try before giving up" << std::endl;
 
 	return inputs;
 } NOT IMPLEMENTED*/
