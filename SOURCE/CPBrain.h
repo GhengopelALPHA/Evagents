@@ -52,9 +52,10 @@ public:
     CPBrain(int numboxes, int numconns);
 	virtual CPBrain& operator=(const CPBrain& other);
 
-	std::vector<CPBox> boxes;	//list of boxes
-	std::vector<CPConn> conns;	//list of all connections. No limits on target conns, source conns, or even number of conns
-	std::vector<CPConn> lives;	//list of simulated connections. genes affect conns, lives affect the brain (which affects the survival of the genes!)
+	std::vector<CPBox> boxes;	// list of boxes
+	std::vector<CPConn> conns;	// list of all connections. No limits on target conns, source conns, or even number of conns
+	std::vector<CPConn> lives;	// list of simulated connections. genes affect conns, lives affect the brain (which affects the survival of the genes!)
+    int mutations[Mutation::TYPES]; // list of integers that track the number of each mutation type (see Mutations enum for details)
 
 	void setLives();
 	void resetLives();

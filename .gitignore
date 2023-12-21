@@ -18,10 +18,10 @@ _MEDIA/
 *.dll
 *.vcproj
 settings.cfg
-report.txt
 *.xlsm
 *.xlsx
 *.docx
 *.tmp
 *.rtf
 *.lnk
+*.txt

@@ -427,6 +427,8 @@ private:
     float STATallfruit;           // exact number sum of all fruit matter
     float STATallmeat;            // exact number sum of all plant matter
     float STATallhazard;          // exact number sum of all plant matter
+    int STATgoodmutationtotals[Mutation::TYPES]; // array of mutation count totals for the healthiest agents last stat cycle
+    int STATgoodmutationcount;    // number of agents counted for the good mutation totals
 
     bool STATuserseengenerosity;  // true if the user was shown an event when an agent sent health via generosity
     bool STATuserseenjumping;     // true if the user has seen jumping

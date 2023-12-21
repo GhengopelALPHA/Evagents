@@ -110,7 +110,6 @@ public:
 	int hits; //you should see the other guy... counts attacks on other agents
 
 	// - lists & death cause - unsaved
-	std::vector<std::string> mutations;
 	std::vector<std::pair<std::string, float>> damages; //tracker for sources of injury
 	std::vector<std::pair<std::string, float>> intakes; //tracker for sources of intake
 	std::string death; //the cause of death of this agent. Do not load-save without handling spaces

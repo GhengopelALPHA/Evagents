@@ -363,6 +363,8 @@ void World::reset()
 		//open report file; null it up if it exists. ONLY if we are not in demo mode. Mind you, demo mode could get turned off by config above
 		FILE* fr = fopen("report.txt", "w");
 		fclose(fr);
+        FILE* fm = fopen("mutation_report.txt", "w");
+		fclose(fm);
 
 		STATuserseengenerosity= true;
 		STATuserseenjumping= true;
@@ -1033,38 +1035,43 @@ void World::processMutationEvent()
 void World::findStats()
 {
 	//clear old stats
-	STATherbivores= 0;
-	STATfrugivores= 0;
-	STATcarnivores= 0;
-	STATterrans= 0;
-	STATamphibians= 0;
-	STATaquatic= 0;
-	STATalive= 0;
-	STATdead= 0; 
-	STATspiky= 0;
+	STATherbivores = 0;
+	STATfrugivores = 0;
+	STATcarnivores = 0;
+	STATterrans = 0;
+	STATamphibians = 0;
+	STATaquatic = 0;
+	STATalive = 0;
+	STATdead = 0; 
+	STATspiky = 0;
 	STATbitey = 0;
-	STAThybrids= 0;
-	STAThighestgen= 0;
-	STATlowestgen= INT_MAX;
+	STAThybrids = 0;
+	STAThighestgen = 0;
+	STATlowestgen = INT_MAX;
 	STAThighestage = 0;
-	STATbestherbi= 0;
-	STATbestfrugi= 0;
-	STATbestcarni= 0;
-	STATbestterran= 0;
-	STATbestamphibious= 0;
-	STATbestaquatic= 0;
-	STATbesthybrid= 0;
-	STATplants= 0;
-	STATfruits= 0;
-	STATmeats= 0;
-	STAThazards= 0;
-	STATallplant= 0;
-	STATallfruit= 0;
-	STATallmeat= 0;
-	STATallhazard= 0;
+	STATbestherbi = 0;
+	STATbestfrugi = 0;
+	STATbestcarni = 0;
+	STATbestterran = 0;
+	STATbestamphibious = 0;
+	STATbestaquatic = 0;
+	STATbesthybrid = 0;
+	STATplants = 0;
+	STATfruits = 0;
+	STATmeats = 0;
+	STAThazards = 0;
+	STATallplant = 0;
+	STATallfruit = 0;
+	STATallmeat = 0;
+	STATallhazard = 0;
+    for (int i = 0; i < Mutation::TYPES; i++) {
+        STATgoodmutationtotals[i] = 0;
+    }
+    STATgoodmutationcount = 0;
+    
 
 	//agents
-	for (int i=0; i<(int)agents.size(); i++) {
+	for (int i = 0; i < (int)agents.size(); i++) {
 		if (!agents[i].isDead()) {
 			STATalive++;
 			
@@ -1106,6 +1113,13 @@ void World::findStats()
 				STAThybrids++;
 				if (agents[i].gencount>STATbesthybrid) STATbesthybrid= agents[i].gencount;
 			}
+
+            if (agents[i].health >= HEALTH_CAP) {
+                for (int j = 0; j < Mutation::TYPES; j++) {
+                    STATgoodmutationtotals[j] += agents[i].brain.mutations[j];
+                }
+                STATgoodmutationcount++;
+            }
 		}
 		else STATdead++;
 	}
@@ -1570,7 +1584,7 @@ void World::setInputs()
 				//---AGENT-CELL EYESIGHT---//
 				//slow, but realistic, and applies selection pressure to agents of certain colors of various reasons. can be disabled
 				if(AGENTS_SEE_CELLS && light != 0) {
-					Vector3f cellpos = Vector3f((float)(tcx*conf::CZ + conf::CZ/2), (float)(tcy*conf::CZ + conf::CZ/2), 0);
+					Vector3f cellpos = Vector3f((float)(tcx*conf::CZ) + (float)conf::CZ/2, (float)(tcy*conf::CZ) + (float)conf::CZ/2, 0);
 					Vector3f diffpos = cellpos - a->pos;
 
 					//find midpoint of the cell, then closest edge (CZ/2), relative to agent z-axis
@@ -2027,14 +2041,6 @@ void World::processOutputs(bool prefire)
 		for (int i = 0; i < (int)agents.size(); i++) {
 			Agent* a = &agents[i];
 
-			if(a->pos.z > 0) {
-				a->zvelocity -= GRAVITY_ACCELERATION;
-				a->pos.z += a->zvelocity;
-			} else {
-				a->zvelocity = 0;
-				a->pos.z = 0;
-			}
-
 			//first calculate the exact wheel scalar values
 			float basewheel = 1;
 			if (a->encumbered > 0) {
@@ -2072,6 +2078,15 @@ void World::processOutputs(bool prefire)
 			}
 			if (a->angle<-M_PI) a->angle= a->angle + 2*M_PI;
 			if (a->angle>M_PI) a->angle= a->angle - 2*M_PI;
+
+            // move in the 3rd dimension!
+            if(a->pos.z > 0) {
+				a->zvelocity -= GRAVITY_ACCELERATION;
+				a->pos.z += a->zvelocity;
+			} else {
+				a->zvelocity = 0;
+				a->pos.z = 0;
+			}
 
 			//wrap around the map
 			a->borderRectify();
@@ -3420,7 +3435,7 @@ void World::reproduce(int mother, int father)
 void World::writeReport()
 //Control.cpp???
 {
-	if(DEMO) return;
+	if (DEMO) return;
 	std::cout << "Writing Report, Epoch: " << getEpoch() << ", Day: " << getDay() << std::endl;
 	//save all kinds of nice data stuff
 	int randspawned;
@@ -3439,24 +3454,25 @@ void World::writeReport()
 	int randchildren = 0;
 	int randbrainsize = 0;
 
-	int randagent= randi(0,agents.size());
-	randspawned= agents[randagent].gencount==0 ? 1 : 0;
-	randgen= agents[randagent].gencount;
-	randspecies= agents[randagent].traits[Trait::SPECIESID];
-	randkinrange= agents[randagent].traits[Trait::KINRANGE];
-	for (int i= 0; i<(int)agents[randagent].brain.boxes.size(); i++){
-		if (agents[randagent].brain.boxes[i].seed>randseed) randseed=agents[randagent].brain.boxes[i].seed;
+	int randagent = randi(0,agents.size());
+	randspawned = agents[randagent].gencount == 0 ? 1 : 0;
+	randgen = agents[randagent].gencount;
+	randspecies = agents[randagent].traits[Trait::SPECIESID];
+	randkinrange = agents[randagent].traits[Trait::KINRANGE];
+
+	for (int i = 0; i < (int)agents[randagent].brain.boxes.size(); i++){
+		if (agents[randagent].brain.boxes[i].seed > randseed) randseed = agents[randagent].brain.boxes[i].seed;
 	}
 	randbrainsize = agents[randagent].brain.lives.size(); //using live conns
-	randradius= agents[randagent].traits[Trait::RADIUS];
-	randmetab= agents[randagent].traits[Trait::METABOLISM];
+	randradius = agents[randagent].traits[Trait::RADIUS];
+	randmetab = agents[randagent].traits[Trait::METABOLISM];
 	randsex = agents[randagent].sexproject;
-	randbrainmutchance= agents[randagent].traits[Trait::BRAIN_MUTATION_CHANCE];
-	randbrainmutsize= agents[randagent].traits[Trait::BRAIN_MUTATION_SIZE];
-	randgenemutchance= agents[randagent].traits[Trait::GENE_MUTATION_CHANCE];
-	randgenemutsize= agents[randagent].traits[Trait::GENE_MUTATION_SIZE];
-	randtemppref= agents[randagent].traits[Trait::THERMAL_PREF];
-	randchildren= agents[randagent].children;
+	randbrainmutchance = agents[randagent].traits[Trait::BRAIN_MUTATION_CHANCE];
+	randbrainmutsize = agents[randagent].traits[Trait::BRAIN_MUTATION_SIZE];
+	randgenemutchance = agents[randagent].traits[Trait::GENE_MUTATION_CHANCE];
+	randgenemutsize = agents[randagent].traits[Trait::GENE_MUTATION_SIZE];
+	randtemppref = agents[randagent].traits[Trait::THERMAL_PREF];
+	randchildren = agents[randagent].children;
 
 /*	for(int s=0;s<(int)species.size();s++){
 		if(members[s]>=3) happyspecies++; //3 agents with the same species id counts as a species
@@ -3465,9 +3481,9 @@ void World::writeReport()
 	//death cause reporting
 	std::vector<std::string> deathlog;
 	std::vector<int> deathcounts;
-	for (int d=0; d<(int)deaths.size(); d++) {
+	for (int d=0; d < (int)deaths.size(); d++) {
 		bool added= false;
-		for (int e=0; e<(int)deathlog.size(); e++) {
+		for (int e=0; e < (int)deathlog.size(); e++) {
 			if (deaths[d].compare(deathlog[e]) == 0) {
 				deathcounts[e]++;
 				added= true;
@@ -3507,6 +3523,55 @@ void World::writeReport()
 	}
 	fprintf(fr, "\n");
 	fclose(fr);
+
+    // mutation_report.txt
+    FILE* fm = fopen("mutation_report.txt", "a");
+	//print basics: Epoch and Agent counts
+	fprintf(fm, "Epoch:\t%i\tDay:\t%i\t#Agents:\t%i\t", getEpoch(), getDay(), getAlive());
+    for (int i=0; i < Mutation::TYPES; i++) {
+        if (STATgoodmutationcount > 0) {
+            std::string mutationtext;
+            switch (i) {
+                case Mutation::INIT_BOX_BUMP_BIAS :	    mutationtext = "INIT_BOX_BUMP_BIAS";                                    break;
+                case Mutation::INIT_BOX_BUMP_GW :	    mutationtext = "INIT_BOX_BUMP_GW";                                      break;
+                case Mutation::INIT_BOX_BUMP_KP :	    mutationtext = "INIT_BOX_BUMP_KP";                                      break;
+                case Mutation::INIT_BOX_COPY :	        mutationtext = "INIT_BOX_COPY";                                         break;
+                case Mutation::INIT_BOX_INV_BIAS :	    mutationtext = "INIT_BOX_INV_BIAS";                                     break;
+                case Mutation::INIT_BOX_INV_GW :	    mutationtext = "INIT_BOX_INV_GW";                                       break;
+                case Mutation::INIT_BOX_RAND_BIAS :	    mutationtext = "INIT_BOX_RAND_BIAS";                                    break;
+                case Mutation::INIT_BOX_RAND_GW :	    mutationtext = "INIT_BOX_RAND_GW";                                      break;
+
+                case Mutation::INIT_BOX_RAND_KP :	    mutationtext = "INIT_BOX_RAND_KP";                                      break;
+                case Mutation::INIT_CONN_BUMP_BIAS :    mutationtext = "INIT_CONN_BUMP_BIAS";                                   break;
+                case Mutation::INIT_CONN_BUMP_SID :	    mutationtext = "INIT_CONN_BUMP_SID";                                    break;
+                case Mutation::INIT_CONN_BUMP_TID :	    mutationtext = "INIT_CONN_BUMP_TID";                                    break;
+                case Mutation::INIT_CONN_BUMP_W :	    mutationtext = "INIT_CONN_BUMP_W";                                      break;
+                case Mutation::INIT_CONN_CREATE :	    mutationtext = "INIT_CONN_CREATE";                                      break;
+                case Mutation::INIT_CONN_INV_TYPE :	    mutationtext = "INIT_CONN_INV_TYPE";                                    break;
+                case Mutation::INIT_CONN_INV_W :	    mutationtext = "INIT_CONN_INV_W";                                       break;
+                case Mutation::INIT_CONN_RAND_BIAS :    mutationtext = "INIT_CONN_RAND_BIAS";                                   break;
+                case Mutation::INIT_CONN_RAND_SID :	    mutationtext = "INIT_CONN_RAND_SID";                                    break;
+                case Mutation::INIT_CONN_RAND_TID :	    mutationtext = "INIT_CONN_RAND_TID";                                    break;
+                case Mutation::INIT_CONN_RAND_TYPE :	mutationtext = "INIT_CONN_RAND_TYPE";                                   break;
+                case Mutation::INIT_CONN_RAND_W :	    mutationtext = "INIT_CONN_RAND_W";                                      break;
+                case Mutation::INIT_CONN_SPLIT :	    mutationtext = "INIT_CONN_SPLIT";                                       break;
+                case Mutation::INIT_CONN_WITHER_W :	    mutationtext = "INIT_CONN_WITHER_W";                                    break;
+                case Mutation::LIVE_BOX_BUMP_BIAS :	    mutationtext = "LIVE_BOX_BUMP_BIAS";                                    break;
+                case Mutation::LIVE_BOX_BUMP_GW :	    mutationtext = "LIVE_BOX_BUMP_GW";                                      break;
+                case Mutation::LIVE_BOX_BUMP_KP :	    mutationtext = "LIVE_BOX_BUMP_KP";                                      break;
+                case Mutation::LIVE_CONN_BUMP_BIAS :    mutationtext = "LIVE_CONN_BUMP_BIAS";                                   break;
+                case Mutation::LIVE_CONN_BUMP_W :	    mutationtext = "LIVE_CONN_BUMP_W";                                      break;
+                case Mutation::LIVE_CONN_STIMULATE_W :	mutationtext = "LIVE_CONN_STIMULATE_W";                                 break;
+                case Mutation::LIVE_CONN_WITHER_W :	    mutationtext = "LIVE_CONN_WITHER_W";                                    break;
+                default : mutationtext = "unrefferenced"; break;
+            }
+            float val = (float)(STATgoodmutationtotals[i]) / STATgoodmutationcount;
+            fprintf(fm, "%s:\t%f\t", mutationtext.c_str(), val);
+        }
+    }
+    fprintf(fm, "\n");
+	fclose(fm);
+
 }
 
 
@@ -3560,6 +3625,8 @@ void World::setDemo(bool state)
 	if(DEMO && !state) { //first, if DEMO is on and we're turning it off, null up report.txt
 		FILE* fr = fopen("report.txt", "w");
 		fclose(fr);
+        FILE* fm = fopen("mutation_report.txt", "w");
+		fclose(fm);
 	}
 
 	DEMO= state;

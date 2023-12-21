@@ -55,11 +55,16 @@ CPBrain::CPBrain(){
 
 CPBrain::CPBrain(int numboxes, int numconns)
 {
+    for (int i=0; i < Mutation::TYPES; i++) {
+        mutations[i] = 0;
+    }
+
 	// do not OMP!!!
 	for (int i=0; i < numboxes; i++) {
 		CPBox a = CPBox(numboxes);
 		boxes.push_back(a);
 	}
+
 	// do not OMP!!!
 	for (int i=0; i < numconns; i++) {
 		CPConn a = CPConn(boxes.size());
@@ -77,10 +82,13 @@ CPBrain::CPBrain(int numboxes, int numconns)
 
 CPBrain& CPBrain::operator=(const CPBrain& other)
 {
-	if( boxes != other.boxes || conns != other.conns || lives != other.lives ) {
+	if( boxes != other.boxes || conns != other.conns || lives != other.lives || mutations != other.mutations ) {
 		boxes = other.boxes;
 		conns = other.conns;
 		lives = other.lives;
+        for (int i=0; i < Mutation::TYPES; i++) {
+            mutations[i] = other.mutations[i];
+        }
 	}
 	return *this;
 }
@@ -251,13 +259,26 @@ void CPBrain::initMutate(float MR, float MR2)
 	//Rare (/10+): new conn, invert type, mirror conn, target ID bump, split conn, random weight, random bias
 	//Common: source ID bump, bias jiggle, weight wither, weight jiggle
 
-	for(int i= 0; i<randi(1,6); i++){ //possibly add between 0 and 5 new connections
+    // Maint: cull the occasional dead conn, sepperate chance from mutation rates
+    vector<CPConn>::iterator iter = conns.begin();
+	while (iter != conns.end()) {
+		if (iter->dead && randf(0,1) < 0.0001) {
+			iter = conns.erase(iter);
+		} else {
+			++iter;
+		}
+	}
+
+	for(int i = 0; i < randi(1,6); i++){
+        //possibly add between 0 (rand chance) and 5 new connections. Since it's rerolled every loop, it's possible to cut the loop short, so 0-1 is most likely
 		if (randf(0,1) < MR/10) {
 			//Add conn
 			CPConn a = CPConn((int)boxes.size());
-			a.w*= conf::BRAIN_CONN_WEIGHT_MUTATION_DAMPEN; //new conns in a surviving brain get reduced weight
+			a.w *= conf::BRAIN_CONN_WEIGHT_MUTATION_DAMPEN; //new conns in a surviving brain get reduced weight and bias
+            a.bias *= conf::BRAIN_CONN_BIAS_MUTATION_DAMPEN;
 			conns.push_back(a);
 			boxes[boxRef(a.tid)].seed = 0;
+            mutations[Mutation::INIT_CONN_CREATE]++;
 		}
 	}
 
@@ -268,27 +289,31 @@ void CPBrain::initMutate(float MR, float MR2)
 			int oldtype = conns[i].type;
 			conns[i].type = randi(0, ConnType::CONN_TYPES); //remember randi is [a,b)
 			if (oldtype != conns[i].type) {
+                // capture success event
 				conns[i].seed = 0;
+                mutations[Mutation::INIT_CONN_RAND_TYPE]++;
 			}
 		}
 
 		if (randf(0,1) < MR/100) {
 			//randomize source ID
 			int oldid = conns[i].sid;
-			int newid = clamp(randi(0,(int)boxes.size()), -Input::INPUT_SIZE, boxes.size()-1);
+			int newid = clamp(randi(-Input::INPUT_SIZE,boxes.size()), -Input::INPUT_SIZE, boxes.size()-1);
 			if (oldid != newid) {
 				conns[i].sid = newid;
 				conns[i].seed = 0;
+                mutations[Mutation::INIT_CONN_RAND_SID]++;
 			}
 		}
 
 		if (randf(0,1) < MR/100) {
 			//randomize target ID
 			int oldid = conns[i].tid;
-			int newid = clamp(randi(0,(int)boxes.size()), 0, (int)boxes.size()-1);
+			int newid = clamp(randi(0,boxes.size()), 0, boxes.size()-1);
 			if (oldid != newid) {
 				conns[i].tid = newid;
 				conns[i].seed = 0;
+                mutations[Mutation::INIT_CONN_RAND_TID]++;
 			}
 		}
 
@@ -297,16 +322,20 @@ void CPBrain::initMutate(float MR, float MR2)
 			//invert type: if type==normal or type==inverted, swap it
 			if (conns[i].type == ConnType::NORMAL) {
 				conns[i].type = ConnType::INVERTED;
+                conns[i].seed = 0;
+                mutations[Mutation::INIT_CONN_INV_TYPE]++;
 			} else if (conns[i].type == ConnType::INVERTED) {
 				conns[i].type = ConnType::NORMAL;
+                conns[i].seed = 0;
+                mutations[Mutation::INIT_CONN_INV_TYPE]++;
 			}
-			conns[i].seed = 0;
 		}
 
 		if (randf(0,1) < MR/25) {
 			//mirror conn: conn gets -w
 			conns[i].w = -conns[i].w;
 			conns[i].seed = 0;
+            mutations[Mutation::INIT_CONN_INV_W]++;
 		}
 
 		if (randf(0,1) < MR/20) {
@@ -318,6 +347,7 @@ void CPBrain::initMutate(float MR, float MR2)
 			if (oldid != newid) {
 				conns[i].tid = newid;
 				conns[i].seed = 0;
+                mutations[Mutation::INIT_CONN_BUMP_TID]++;
 			}
 		}
 
@@ -327,6 +357,7 @@ void CPBrain::initMutate(float MR, float MR2)
 			CPConn copy = conns[i];
 			conns.push_back(copy);
 			//don't reset seed for this
+            mutations[Mutation::INIT_CONN_SPLIT]++;
 		}
 
 		if (randf(0,1) < MR/15) {
@@ -334,6 +365,7 @@ void CPBrain::initMutate(float MR, float MR2)
 			CPConn dummy = CPConn(conf::BRAINBOXES);
 			conns[i].w = dummy.w*conf::BRAIN_CONN_WEIGHT_MUTATION_DAMPEN; //reduced weight on existing brain conns
 			conns[i].seed = 0;
+            mutations[Mutation::INIT_CONN_RAND_W]++;
 		}
 
 		if (randf(0,1) < MR/12) {
@@ -341,6 +373,7 @@ void CPBrain::initMutate(float MR, float MR2)
 			CPConn dummy = CPConn(conf::BRAINBOXES);
 			conns[i].bias = dummy.bias;
 			conns[i].seed = 0;
+            mutations[Mutation::INIT_CONN_RAND_BIAS]++;
 		}
 
 		//Common:
@@ -353,6 +386,7 @@ void CPBrain::initMutate(float MR, float MR2)
 			if (oldid != newid) {
 				conns[i].sid = newid;
 				conns[i].seed = 0;
+                mutations[Mutation::INIT_CONN_BUMP_SID]++;
 			}
 		}
 
@@ -362,6 +396,7 @@ void CPBrain::initMutate(float MR, float MR2)
 				//the closer to 0 it already is, the higher the chance it gets set to 0.
 				conns[i].w = 0;
 				conns[i].seed = 0;
+                mutations[Mutation::INIT_CONN_WITHER_W]++;
 			}
 		}
 
@@ -369,12 +404,14 @@ void CPBrain::initMutate(float MR, float MR2)
 			//bias jiggle
 			conns[i].bias += randn(0, MR2);
 			//don't reset seed for this
+            mutations[Mutation::INIT_CONN_BUMP_BIAS]++;
 		}
 
 		if (randf(0,1) < MR) {
 			//weight jiggle
 			conns[i].w += randn(0, MR2);
 			//don't reset seed for this
+            mutations[Mutation::INIT_CONN_BUMP_W]++;
 		}
 	}
 
@@ -386,7 +423,7 @@ void CPBrain::initMutate(float MR, float MR2)
 		CPBox* box= &boxes[i];
 
 		//Extraordinary:
-		if (randf(0,1)<MR/150) {
+		if (randf(0,1) < MR/150) {
 			//copy another box
 			int j = randi(0,boxes.size());
 			if(j != i) {
@@ -394,58 +431,67 @@ void CPBrain::initMutate(float MR, float MR2)
 				box->kp = boxes[j].kp;
 				box->gw = boxes[j].gw;
 				box->seed = 0;
+                mutations[Mutation::INIT_BOX_COPY]++;
 			}
 		}
 
-		if (randf(0,1)<MR/100) {
+		if (randf(0,1) < MR/100) {
 			//random bias
 			CPBox dummy = CPBox(1);
 			box->bias = dummy.bias;
 			box->seed = 0;
+            mutations[Mutation::INIT_BOX_RAND_BIAS]++;
 		}
 
-		if (randf(0,1)<MR/100) {
+		if (randf(0,1) < MR/100) {
 			//random global weight
 			CPBox dummy = CPBox(1);
 			box->gw = dummy.gw;
 			box->seed = 0;
+            mutations[Mutation::INIT_BOX_RAND_GW]++;
 		}
 
 		//Rare:
-		if (randf(0,1)<MR/50) {
+		if (randf(0,1) < MR/50) {
 			//mirror global weight
 			CPBox dummy = CPBox(1);
 			box->gw = -box->gw;
 			box->seed = 0;
+            mutations[Mutation::INIT_BOX_INV_GW]++;
 		}
 
-		if (randf(0,1)<MR/20) {
+		if (randf(0,1) < MR/20) {
 			//mirror bias
 			box->bias = -box->bias;
 			box->seed = 0;
+            mutations[Mutation::INIT_BOX_INV_BIAS]++;
 		}
 
 		//Common:
-		if (randf(0,1)<MR/10) {
+		if (randf(0,1) < MR/10) {
 			//random kp (dampening)
 			CPBox dummy = CPBox(1);
 			box->kp = dummy.kp;
 			box->seed = 0;
+            mutations[Mutation::INIT_BOX_RAND_KP]++;
 		}
 
-		if (randf(0,1)<MR/5) {
+		if (randf(0,1) < MR/5) {
 			//global weight jiggle
 			box->gw += randn(0, MR2/4);
+            mutations[Mutation::INIT_BOX_BUMP_GW]++;
 		}
 
-		if (randf(0,1)<MR/2) {
+		if (randf(0,1) < MR/2) {
 			//jiggle kp (dampening)
 			box->kp = cap(randn(box->kp, 2*MR2));
+            mutations[Mutation::INIT_BOX_BUMP_KP]++;
 		}
 
-		if (randf(0,1)<MR) {
+		if (randf(0,1) < MR) {
 			//jiggle bias
 			box->bias += randn(0, MR2);
+            mutations[Mutation::INIT_BOX_BUMP_BIAS]++;
 		}
 	}
 
@@ -459,7 +505,7 @@ void CPBrain::liveMutate(float MR, float MR2, vector<float>& out)
 	//live mutations are applied to the boxes and conns as normal, but only jiggle changes are allowed
 	int randconn = randi(0, conns.size());
 
-	if (conf::LEARN_RATE>0 && conns[randconn].sid >= 0 && randf(0,1)<MR/8) {
+	if (conf::LEARN_RATE > 0 && conns[randconn].sid >= 0 && randf(0,1) < MR/8) {
 		//stimulate box weight: boxes that fire together, strengthen
 		float stim = out[Output::STIMULANT];
 		if (stim > 0.5) {
@@ -467,6 +513,7 @@ void CPBrain::liveMutate(float MR, float MR2, vector<float>& out)
 			float sourceoldout = boxes[boxRef(conns[randconn].sid)].oldout;
 			float targetoldout = boxes[boxRef(conns[randconn].tid)].oldout;
 			conns[randconn].w += conf::LEARN_RATE * (2*stim - 1) * (1 - abs(targetoldout - sourceoldout));
+            mutations[Mutation::LIVE_CONN_STIMULATE_W]++;
 		}
 	}
 
@@ -476,37 +523,42 @@ void CPBrain::liveMutate(float MR, float MR2, vector<float>& out)
 			//the closer to 0 it already is, the higher the chance it gets set to 0. *2 makes it rarer for live mutations
 			conns[randconn].w = 0;
 			conns[randconn].seed = 0;
+            mutations[Mutation::LIVE_CONN_WITHER_W]++;
 		}
 	}
 
 	if (randf(0,1) < MR/2) {
 		//bias jiggle
 		conns[randconn].bias += randn(0, MR2/8);
+        mutations[Mutation::LIVE_CONN_BUMP_BIAS]++;
 	}
 
 	if (randf(0,1) < MR) {
 		//weight jiggle
 		conns[randconn].w += randn(0, MR2/8);
-		//don't bother with seed = 0, this is too common and too low impact
+        mutations[Mutation::LIVE_CONN_BUMP_W]++;
 	}
 	
-	//box mutation
-	CPBox* box= &boxes[randi(0, boxes.size())];
 
-	if (randf(0,1)<MR/5) {
+	//box mutation
+	CPBox* box = &boxes[randi(0, boxes.size())];
+
+	if (randf(0,1) < MR/5) {
 		//global weight jiggle
 		box->gw += randn(0, MR2/5);
+        mutations[Mutation::LIVE_BOX_BUMP_GW]++;
 	}
 
-	if (randf(0,1)<MR/2) {
+	if (randf(0,1) < MR/2) {
 		//jiggle kp (dampening)
 		box->kp = cap(randn(box->kp, MR2/10));
+        mutations[Mutation::LIVE_BOX_BUMP_KP]++;
 	}
 
-	if (randf(0,1)<MR) {
+	if (randf(0,1) < MR) {
 		//jiggle bias
 		box->bias += randn(0, MR2/4);
-		//no need to reset seed for simple bias jiggle
+        mutations[Mutation::LIVE_BOX_BUMP_BIAS]++;
 	}
 
 	//NOTE: we do not need to resetBrain here because we should NOT be changing any connections in a hard manner;

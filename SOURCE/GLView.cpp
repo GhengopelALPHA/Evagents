@@ -295,7 +295,7 @@ void GLView::processMouse(int button, int state, int x, int y)
 					world->tryPlayAudio(conf::SFX_UI_MANUALSELECT);
 				}
 			} else if (live_cursormode==MouseMode::PLACE_AGENT){
-				if (world->addLoadedAgent(wx, wy)) std::cout << "agent placed!    yay" << std::endl;
+				if (world->addLoadedAgent(wx, wy)) std::cout << "agent placed!" << std::endl;
 				else world->addEvent("No agent loaded! Load an Agent first", EventColor::BLOOD);
 			}
 		}
@@ -1339,6 +1339,7 @@ void GLView::handleCloses(int action) //GLUI callback for handling window closin
 				savehelper->loadAgentFile(world, address.c_str());
 
 				live_cursormode = MouseMode::PLACE_AGENT; //activate agent placement mode
+                live_demomode = false; //Turn off Demo mode, we probably care about reporting on our new loaded little guy
 				LoadAgentButton->set_name("UNLOAD Agent");
 			}
 		}

@@ -53,7 +53,6 @@ Agent::Agent(
 	brain = CPBrain(NUMBOXES, NUMINITCONNS);
 	in.resize(Input::INPUT_SIZE, 0);
 	out.resize(Output::OUTPUT_SIZE, 0);
-	mutations.clear();
 	damages.clear();
 
 
@@ -447,7 +446,6 @@ void Agent::liveMutate(int MUTMULT, int OVERRIDE_KINRANGE)
 
 	//mutate some Genes according to limited rules of the live mutation
 	this->mutateGenesLive(GMR, GMR2, OVERRIDE_KINRANGE);
-	this->mutations.push_back("");
 
 	this->expressGenes();
 
@@ -635,9 +633,9 @@ void Agent::printSelf()
 	std::cout << "give health gfx magnitude, pos: " << this->dhealth << ", (" << this->dhealthx << "," << this->dhealthy << ")" << std::endl;
 	std::cout << "grab gfx pos: (" << this->grabx << "," << this->graby << ")" << std::endl;
 	std::cout << "jaw gfx counter: " << this->jaw_render_timer << std::endl;
-	std::cout << "mutations: (" << this->mutations.size() << ")" << std::endl;
-	for (int i = 0; i < (int)this->mutations.size(); i++) {
-		cout << this->mutations[i] << ",";
+	std::cout << "mutations:" << std::endl;
+	for (int i = 0; i < Mutation::TYPES; i++) {
+		cout << this->brain.mutations[i] << ", ";
 	}
 	cout << endl;
 	std::cout << "damages:" << std::endl;

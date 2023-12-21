@@ -605,6 +605,53 @@ const enum {
 	TYPES
 };};
 
+// defines for mutation event types. For logging. Order changes nothing.
+namespace Mutation {
+const enum {
+    INIT_CONN_RAND_TYPE,
+    INIT_CONN_RAND_SID,
+    INIT_CONN_RAND_TID,
+    INIT_CONN_RAND_W,
+    INIT_CONN_RAND_BIAS,
+    INIT_CONN_INV_TYPE,
+    INIT_CONN_INV_W,
+    //INIT_CONN_INV_BIAS, //Connection Bias doesn't make sense to be inverted, it's an activation offset
+    INIT_CONN_BUMP_SID,
+    INIT_CONN_BUMP_TID,
+    INIT_CONN_BUMP_W,
+    INIT_CONN_BUMP_BIAS,
+    INIT_CONN_WITHER_W,
+    //INIT_CONN_WITHER_BIAS, //Connection Bias doesn't make sense to be withered, it's an activation offset
+    INIT_CONN_SPLIT,
+    INIT_CONN_CREATE,
+
+    INIT_BOX_RAND_GW,
+    INIT_BOX_RAND_BIAS,
+    INIT_BOX_RAND_KP,
+    INIT_BOX_INV_GW,
+    INIT_BOX_INV_BIAS, // Box bias DOES make sense to be inverted, we could be offsetting from a conn input
+    //INIT_BOX_INV_KP, //KP cannot be inverted
+    INIT_BOX_BUMP_GW,
+    INIT_BOX_BUMP_BIAS,
+    INIT_BOX_BUMP_KP,
+    INIT_BOX_COPY,
+
+    // No rand, invert, or split on live mutations
+    LIVE_CONN_BUMP_W,
+    LIVE_CONN_BUMP_BIAS,
+    LIVE_CONN_STIMULATE_W, // Special feature of the STIMULANT feature
+    LIVE_CONN_WITHER_W,
+    //LIVE_CONN_WITHER_BIAS, //Bias doesn't make sense to be withered, it's an offset
+
+    // No rand or copy on live mutations
+    LIVE_BOX_BUMP_GW,
+    LIVE_BOX_BUMP_BIAS,
+    LIVE_BOX_BUMP_KP,
+
+    //Don't add beyond this entry!
+    TYPES
+};};
+
 //defines for brain input code. Changing order here changes input-to-brain order and visualization order
 namespace Input {
 const enum {
@@ -866,7 +913,8 @@ namespace conf {
 	const int BRAINBOXES = 100 + Output::OUTPUT_SIZE; //(.cfg)
 	const int BRAINCONNS = 300; //(.cfg)
 	const float BRAIN_CONN_WEIGHT_STD = 5; //std of the randn centered on 0 that new connection weights generate with. 
-	const float BRAIN_CONN_WEIGHT_MUTATION_DAMPEN = 0.1; //multiplier applied to new connection weights that are randomized and new conn mutations.
+	const float BRAIN_CONN_WEIGHT_MUTATION_DAMPEN = 0.01; //0.1; //multiplier applied to new connection weights that are randomized and new conn mutations.
+    const float BRAIN_CONN_BIAS_MUTATION_DAMPEN = 0.01; //multiplier applied to new connection biases in new conn mutations.
 	const float BRAIN_CONN_BIAS_STD = 2; //std of the randn centered on 0 that new connection biases generate with.
 	const float BRAIN_BOX_BIAS_STD = 0.5;  //std of the randn centered on 0 that new box biases generate with.
 	const float BRAIN_BOX_GW_RANGE = 2; // +/- range of values new box global weights generate within.
@@ -1025,10 +1073,10 @@ namespace conf {
 	const float FRUIT_PLANT_REQUIRE= 0.1; //(.cfg)
 	//Fruit is a quick and easy alternative to plants. Also partially randomly populated, harkening back to ScriptBots origins
 
-	const char MEAT_TEXT[]= "Meat Food";
-	const float MEAT_INTAKE= 0.05; //(.cfg)
+    const char MEAT_TEXT[]= "Meat Food";
+	const float MEAT_INTAKE= 0.055; //(.cfg)
 	const float MEAT_DECAY= 0.00001; //(.cfg)
-	const float MEAT_WASTE= 0.0017; //(.cfg)
+	const float MEAT_WASTE= 0.0016; //(.cfg)
 	const float MEAT_DEPOSIT_VALUE= 1.0; //(.cfg)
 	const float MEAT_NON_FRESHKILL_MULT = 0.5; //(.cfg)
 	//Meat comes from dead bots, and is the fastest form of nutrition, IF bots can learn to find it before it decays (or make it themselves...)
